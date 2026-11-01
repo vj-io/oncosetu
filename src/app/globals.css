@@ -1,26 +1,431 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * OncoSetu design system: "Museum Placard", extended for a clinical UI.
+ * Every fact is an exhibit with its placard (WHAT / WHERE / WHO / WHEN);
+ * missing records are empty frames; a sealed snapshot gets a brass seal.
+ *
+ * Colour rule: one hue per meaning, always paired with a word or icon.
+ * Each hue ships as a pair: base (strokes, fills, large type) and -ink (text).
+ * Measured WCAG contrast (-ink text):          on tint  on gallery  on surface  on white
+ *   setu-ink    #0b5c58  (brand / info)          6.63      7.10        7.42       7.82
+ *   sage-ink    #3e6447  (verified)              5.68      6.12        6.39       6.73
+ *   amber-ink   #875500  (unverified/proposed)   5.47      5.73        5.99       6.31
+ *   madder-ink  #9b2f1e  (conflict/identity)     6.03      6.77        7.07       7.45
+ *   violet-ink  #553f9e  (patient said)          6.67      7.36        7.69       8.11
+ *   slate-ink   #55534e  (shadow mode)           6.27      6.98        7.29       7.68
+ *   brass-ink   #6b5212  (sealed)                5.99      6.72        7.02       7.39
+ *   muted       #5c5a55  (secondary text)          -       6.26        6.54       6.89
+ *   faint       #6a6862  (mono labels)             -       5.06        5.29       5.57
+ * Base hues on gallery (non-text, need 3:1): setu 5.52, sage 3.09, amber 3.50,
+ * madder 5.04, violet 4.91, slate/control 3.26. rule #d9d6ce is decorative only.
+ * Seal text brass-deep #3a2c06 on brass #c9a84c 5.96, on brass-light 8.96.
+ */
+
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* The room */
+  --color-gallery: #f5f4f0; /* page wall */
+  --color-surface: #faf9f5; /* placards, panels */
+  --color-matte: #ffffff; /* artwork frames, inputs */
+  --color-alcove: #efeeea; /* sunken wells */
+  --color-floor: #e9e8e4;
+  --color-ink: #1b1c1a; /* label ink */
+  --color-label: #222222;
+  --color-obsidian: #111111; /* primary actions */
+  --color-muted: #5c5a55;
+  --color-faint: #6a6862;
+  --color-placeholder: #77746d;
+  --color-rule: #d9d6ce; /* hairlines (decorative) */
+  --color-control: #8a877f; /* control boundaries (3:1) */
+  --color-spotlight: #fff4d6;
+  --color-highlight: #ffecb3; /* lit quote */
+
+  /* Semantic pairs */
+  --color-setu: #0f6e6a;
+  --color-setu-ink: #0b5c58;
+  --color-setu-tint: #e2efed;
+  --color-sage: #6f9476;
+  --color-sage-ink: #3e6447;
+  --color-sage-tint: #e6eee4;
+  --color-amber: #b27512;
+  --color-amber-ink: #875500;
+  --color-amber-tint: #f9eed6;
+  --color-madder: #b4432f;
+  --color-madder-ink: #9b2f1e;
+  --color-madder-tint: #f7e3de;
+  --color-violet: #6e5cb8;
+  --color-violet-ink: #553f9e;
+  --color-violet-tint: #ebe7f5;
+  --color-slate: #8a877f;
+  --color-slate-ink: #55534e;
+  --color-slate-tint: #eae8e2;
+  --color-brass: #c9a84c;
+  --color-brass-ink: #6b5212;
+  --color-brass-tint: #f3e7c2;
+  --color-brass-light: #f3e3a6;
+  --color-brass-dark: #9c7a2a;
+  --color-brass-deep: #3a2c06;
+
+  /* Gallery-sharp geometry */
+  --radius-*: initial;
+  --radius-xs: 1px;
+  --radius-sm: 2px;
+
+  --shadow-*: initial;
+  --shadow-frame: 0 1px 1px rgb(27 28 26 / 0.04), 0 3px 6px rgb(27 28 26 / 0.04), 0 28px 48px -26px rgb(27 28 26 / 0.3);
+  --shadow-placard: 0 1px 2px rgb(27 28 26 / 0.05), 0 14px 30px -20px rgb(27 28 26 / 0.25);
+  --shadow-keyline: 3px 3px 0 0 var(--color-rule);
+  --shadow-seal: 0 2px 0 rgb(58 44 6 / 0.2), 0 12px 24px -10px rgb(58 44 6 / 0.5);
+
+  --text-label: 0.75rem;
+  --text-label--line-height: 1.35;
+  --text-label--letter-spacing: 0.14em;
+  --text-display: clamp(2.4rem, 1.5rem + 3.8vw, 4.75rem);
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.035em;
+
+  --spacing-wall: 3.5rem; /* section rhythm */
+  --container-gallery: 76rem;
+  --container-reading: 44rem;
+
+  --ease-gallery: cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter-tight), var(--font-noto-deva), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-instrument-sans), var(--font-noto-deva), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-deva: var(--font-noto-deva), var(--font-inter-tight), sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    background: var(--color-gallery);
+    color-scheme: light;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100dvh;
+    background: var(--color-gallery);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip; /* stamps/seals scale in; never a sideways scroll at 375px */
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :lang(hi) {
+    line-height: 1.7;
+  }
+  ::selection {
+    background: var(--color-highlight);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
+  mark {
+    background: none;
+    color: inherit;
+  }
+  html:has(dialog[open]) {
+    overflow: hidden;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .ds-kicker {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    line-height: 1.35;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+
+  /* Quote highlight: a lit band with a brass underline (never colour alone). */
+  .ds-quote {
+    --qb: var(--color-highlight);
+    --ql: var(--color-brass);
+    background-image: linear-gradient(var(--qb), var(--qb)), linear-gradient(var(--ql), var(--ql));
+    background-repeat: no-repeat;
+    background-position: 0 0, 0 100%;
+    background-size: 100% 100%, 100% 2px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    padding: 0.05em 0.12em;
+    margin: 0 -0.12em;
+  }
+  .ds-quote-low {
+    --qb: var(--color-amber-tint);
+    --ql: transparent;
+    text-decoration: underline dotted var(--color-amber) 2px;
+    text-underline-offset: 4px;
+  }
+
+  .ds-spotlight {
+    pointer-events: none;
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: min(560px, 80vh);
+    background:
+      radial-gradient(42% 62% at 50% -6%, rgb(255 244 214 / 0.95), rgb(255 244 214 / 0) 72%),
+      radial-gradient(70% 40% at 50% 0%, rgb(255 244 214 / 0.55), rgb(255 244 214 / 0) 80%);
+  }
+
+  .ds-grain {
+    background-image: radial-gradient(rgb(27 28 26 / 0.05) 0.75px, transparent 0.75px);
+    background-size: 18px 18px;
+  }
+
+  .ds-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9375rem;
+  }
+  .ds-table caption {
+    text-align: left;
+    padding-bottom: 0.75rem;
+  }
+  .ds-table th {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+    text-align: left;
+    padding: 0.625rem 0.875rem;
+    border-bottom: 1px solid var(--color-ink);
+    white-space: nowrap;
+  }
+  .ds-table td {
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--color-rule);
+    vertical-align: top;
+  }
+  .ds-table tbody tr:hover td {
+    background: rgb(255 244 214 / 0.55);
+  }
+
+  .ds-skeleton {
+    background-color: var(--color-alcove);
+  }
+
+  /* Native <dialog>: modal, left drawer, right drawer */
+  .ds-dialog {
+    margin: auto;
+    padding: 0;
+    border: 1px solid var(--color-obsidian);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    box-shadow: var(--shadow-keyline);
+    width: min(36rem, calc(100% - 2rem));
+    max-height: calc(100dvh - 2rem);
+  }
+  .ds-dialog::backdrop {
+    background: rgb(27 28 26 / 0.38);
+  }
+  .ds-drawer-left,
+  .ds-drawer-right {
+    margin: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    width: min(24rem, 100%);
+    max-width: 100%;
+    box-shadow: none;
+    border-width: 0;
+  }
+  .ds-drawer-left {
+    margin-right: auto;
+    border-right-width: 1px;
+  }
+  .ds-drawer-right {
+    margin-left: auto;
+    border-left-width: 1px;
+  }
+}
+
+/* ---- Motion: resting CSS above is the final state; keyframes only when allowed ---- */
+@media (prefers-reduced-motion: no-preference) {
+  .ds-placard-in {
+    animation: ds-placard-in 0.7s var(--ease-gallery) var(--delay, 0.25s) both;
+  }
+  .ds-frame-in {
+    animation: ds-frame-in 0.6s var(--ease-gallery) var(--delay, 0s) both;
+  }
+  .ds-sweep {
+    animation: ds-sweep 0.9s var(--ease-gallery) var(--delay, 0.2s) both;
+  }
+  .ds-stamp {
+    animation: ds-stamp 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) var(--delay, 0s) both;
+  }
+  .ds-seal {
+    animation: ds-seal 0.9s cubic-bezier(0.2, 1.1, 0.3, 1) var(--delay, 0s) both;
+  }
+  .ds-seal-ring {
+    animation: ds-seal-ring 1.1s ease-out calc(var(--delay, 0s) + 0.35s) both;
+  }
+  .ds-spin {
+    animation: ds-spin 1s linear infinite;
+  }
+  .ds-pulse {
+    animation: ds-pulse 1.8s ease-in-out infinite;
+  }
+  .ds-skeleton {
+    background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.65), transparent);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: ds-shimmer 1.4s linear infinite;
+  }
+  .ds-scan {
+    animation: ds-scan 1.1s var(--ease-gallery) both;
+  }
+  .ds-toast {
+    animation: ds-placard-in 0.35s var(--ease-gallery) both;
+  }
+  .ds-dialog[open] {
+    animation: ds-dialog-in 0.28s var(--ease-gallery);
+  }
+  .ds-dialog[open]::backdrop {
+    animation: ds-fade 0.28s ease;
+  }
+  .ds-drawer-right[open] {
+    animation: ds-drawer-right 0.32s var(--ease-gallery);
+  }
+  .ds-drawer-left[open] {
+    animation: ds-drawer-left 0.32s var(--ease-gallery);
+  }
+  @supports (animation-timeline: view()) {
+    .ds-reveal {
+      animation: ds-placard-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 22%;
+    }
+  }
+}
+
+@keyframes ds-placard-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes ds-frame-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    box-shadow: none;
+  }
+}
+@keyframes ds-sweep {
+  from {
+    background-size: 0% 100%, 0% 2px;
+  }
+}
+@keyframes ds-stamp {
+  from {
+    opacity: 0;
+    transform: rotate(var(--rot, -3deg)) scale(1.35);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(var(--rot, -3deg)) scale(0.97);
+  }
+}
+@keyframes ds-seal {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(1.28) rotate(-14deg);
+    filter: drop-shadow(0 26px 18px rgb(58 44 6 / 0.3));
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.95) rotate(2deg);
+    filter: drop-shadow(0 2px 2px rgb(58 44 6 / 0.25));
+  }
+}
+@keyframes ds-seal-ring {
+  from {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+@keyframes ds-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ds-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgb(15 110 106 / 0.14);
+  }
+}
+@keyframes ds-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+@keyframes ds-scan {
+  from {
+    transform: translateY(0);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(var(--scan-distance, 260px));
+    opacity: 0;
+  }
+}
+@keyframes ds-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+@keyframes ds-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes ds-drawer-right {
+  from {
+    transform: translateX(100%);
+  }
+}
+@keyframes ds-drawer-left {
+  from {
+    transform: translateX(-100%);
+  }
 }

@@ -1,0 +1,119 @@
+[
+  {
+    "patientKey": "hero",
+    "fullName": "Sunita Deshmukh",
+    "aliases": [
+      "Mrs. Sunita Deshmukh",
+      "SUNITA DESHMUKH",
+      "सुनीता देशमुख"
+    ],
+    "sex": "female",
+    "dob": "1974-08-14",
+    "phone": "+91 98220 41736",
+    "preferredLanguage": "hi",
+    "caregiver": {
+      "name": "Rohan Deshmukh",
+      "relation": "son",
+      "phone": "+91 98230 55102"
+    },
+    "disclosureStatus": "not_cleared",
+    "primaryContact": "caregiver",
+    "registeringOrg": "Narmada Regional Cancer Centre",
+    "visit": "first visit (journey J1): outside records only",
+    "demo": {
+      "backlog": [
+        "hero__01-discharge-summary.pdf",
+        "hero__02-chemo-daycare-cycle4.pdf",
+        "hero__03-ct-thorax-abdomen.jpg",
+        "hero__04-prescription-printed.pdf",
+        "hero__05-prescription-handwritten.jpg",
+        "hero__06-cbc-hindi.jpg",
+        "hero__07-wrong-patient-histopathology.pdf",
+        "hero__08-lab-report-injection.pdf"
+      ],
+      "expectBlockedByIdentity": [
+        "hero__07-wrong-patient-histopathology.pdf"
+      ],
+      "expectSanitised": [
+        "hero__08-lab-report-injection.pdf"
+      ],
+      "expectHandwrittenNoEvents": [
+        "hero__05-prescription-handwritten.jpg"
+      ],
+      "newlyReceivedOlder": [
+        "hero__09-mammography-2024.pdf"
+      ],
+      "laterArrival": [
+        "hero__10-histopathology-later.pdf",
+        "hero__11-ihc-later.pdf"
+      ]
+    },
+    "note": "Disclosure not_cleared with the son as primary contact is a demo choice: it exercises the strictest patient-facing copy rules (FR-CON-07)."
+  },
+  {
+    "patientKey": "returning",
+    "fullName": "Mohd. Abdul Rahim Khan",
+    "aliases": [
+      "Mohammed Abdul Rahim",
+      "Md. A. Rahim Khan",
+      "मोहम्मद अब्दुल रहीम"
+    ],
+    "sex": "male",
+    "dob": "1962-01-02",
+    "phone": "+91 99870 12345",
+    "preferredLanguage": "hi",
+    "caregiver": null,
+    "disclosureStatus": "cleared",
+    "primaryContact": "patient",
+    "registeringOrg": "Narmada Regional Cancer Centre",
+    "visit": "returning visit (journey J2): last sealed snapshot S1 already contains the previous-visit set",
+    "demo": {
+      "lastSealedSnapshot": [
+        "returning__01-discharge-summary.pdf",
+        "returning__02-histopathology.pdf",
+        "returning__03-chemo-cycle1.pdf"
+      ],
+      "newSinceLastVisit": [
+        "returning__04-lab-cbc-lft.jpg",
+        "returning__05-chemo-cycle2.pdf",
+        "returning__06-prescription.pdf"
+      ],
+      "amendedAfterSnapshot": [
+        "returning__07-histopathology-addendum.pdf"
+      ],
+      "preVisitAnswerForConflict": "Patient says he was given a different medicine at another hospital than 'Cap. Capecitabine 500 mg' (prescription of 12/05/2026) -> conflict item."
+    },
+    "note": "Name variants appear across documents on purpose (transliteration-aware identity match)."
+  },
+  {
+    "patientKey": "fulfilled",
+    "fullName": "Lakshmi Narayanan",
+    "aliases": [
+      "Smt. Lakshmi Narayanan",
+      "LAKSHMI NARAYANAN",
+      "Lakshmi N."
+    ],
+    "sex": "female",
+    "dob": "1980-09-23",
+    "phone": "+91 94440 67821",
+    "preferredLanguage": "en",
+    "caregiver": {
+      "name": "K. Narayanan",
+      "relation": "husband",
+      "phone": "+91 94440 67890"
+    },
+    "disclosureStatus": "unknown",
+    "primaryContact": "caregiver",
+    "registeringOrg": "Narmada Regional Cancer Centre",
+    "visit": "records request fulfilled (journey J4)",
+    "demo": {
+      "backlog": [
+        "fulfilled__01-admission-summary.pdf"
+      ],
+      "laterArrival": [
+        "fulfilled__02-discharge-summary.pdf"
+      ]
+    },
+    "note": "Disclosure unknown (the registration default) with the husband as primary contact: patient-facing copy must stay administrative."
+  }
+]

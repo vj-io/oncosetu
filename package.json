@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "typecheck": "tsc --noEmit",
+    "test:integration": "vitest run --project integration"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.94",

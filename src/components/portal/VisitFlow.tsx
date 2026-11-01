@@ -119,6 +119,12 @@ export function VisitFlow({
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ answers: submittable(answers), lang, confirmation }),
       });
+      if (res.status === 401) {
+        // The session ended while the questions were open: sign in again, then come back here.
+        const chosen = new URLSearchParams(window.location.search).get("lang");
+        window.location.assign(`/p/login?next=/p/visit${chosen === "hi" || chosen === "en" ? `&lang=${chosen}` : ""}`);
+        return;
+      }
       if (!res.ok) throw new Error(String(res.status));
       setConfirmedSave(confirmation !== "unconfirmed");
       setPhase("saved");

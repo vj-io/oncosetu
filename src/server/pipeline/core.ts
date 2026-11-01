@@ -9,7 +9,8 @@ import { decideIdentity, type IdentityDecision, type PatientIdentity } from '@/c
 import type { DocType, EventFlag, EventType, ExtractionMethod } from '@/core/types'
 import { detectLanguage, type PageRead } from './text'
 
-export const LATE_RECEIVED_DAYS = 180
+// E-DOC-15: a document dated more than a year before it reached OncoSetu ("years ago, received now").
+export const LATE_RECEIVED_DAYS = 365
 
 /** What an LLM call returns to the core (see src/server/ai/extract.ts). null → rule-based path. */
 export type LlmExtractor = (pages: { pageNo: number; text: string }[], docType: DocType) => Promise<Extraction | null>

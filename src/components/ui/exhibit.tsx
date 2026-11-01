@@ -96,6 +96,8 @@ export function EmptyFrame({
   title,
   detail,
   status = "expected",
+  kicker,
+  statusLabel,
   action,
   accession,
   animate,
@@ -105,6 +107,10 @@ export function EmptyFrame({
   title: ReactNode;
   detail?: ReactNode;
   status?: Status;
+  /** Overrides the English kicker (e.g. a localised string). */
+  kicker?: ReactNode;
+  /** Overrides the English status badge text. */
+  statusLabel?: ReactNode;
   action?: ReactNode;
   accession?: string;
   animate?: boolean;
@@ -120,11 +126,11 @@ export function EmptyFrame({
         </div>
       </div>
       <div className="grid min-w-0 flex-1 content-start gap-1.5">
-        <p className="ds-kicker">{status === "received" ? "Match proposed · not yet confirmed" : "Not in file"}</p>
+        <p className="ds-kicker">{kicker ?? (status === "received" ? "Match proposed · not yet confirmed" : "Not in file")}</p>
         <h3 className="text-lg leading-snug tracking-[-0.015em]">{title}</h3>
         {detail && <p className="text-sm text-muted">{detail}</p>}
         <div className="flex flex-wrap items-center gap-2 pt-1">
-          <StatusBadge status={status} />
+          <StatusBadge status={status} label={statusLabel} />
           {accession && <span className="font-mono text-xs tracking-[0.1em] text-faint">ACC. {accession}</span>}
           {action}
         </div>

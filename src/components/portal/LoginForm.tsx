@@ -8,7 +8,8 @@ import { ErrorNote, PButton, PField, PInput } from "./ui";
 
 const MAX_TRIES = 5; // the server locks the phone for 15 minutes after 5 wrong codes; its answers stay uniform
 
-export function LoginForm({ lang, langChosen, demo }: { lang: "en" | "hi"; langChosen: boolean; demo: boolean }) {
+/** `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for. */
+export function LoginForm({ lang, demo, after }: { lang: "en" | "hi"; demo: boolean; after: string }) {
   const router = useRouter();
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [phone, setPhone] = useState("");
@@ -49,7 +50,7 @@ export function LoginForm({ lang, langChosen, demo }: { lang: "en" | "hi"; langC
     const res = await post("/api/auth/patient/otp/verify", { phone, code });
     if (!res) return setBusy(false);
     if (res.ok) {
-      router.replace(langChosen ? `/p?lang=${lang}` : "/p"); // no ?lang= unless chosen: the patient's own language applies after sign-in
+      router.replace(after); // no ?lang= unless chosen: the patient's own language applies after sign-in
       router.refresh();
       return;
     }

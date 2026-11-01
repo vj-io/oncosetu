@@ -9,15 +9,15 @@ export const PERMISSIONS = {
   // identity, registration, consent
   'patient.read_own': PATIENT_SIDE,
   'patient.lookup': ['desk', 'records', 'clinician'],
-  'patient.register': ['desk', 'records'],
+  'patient.register': ['desk', 'records', 'clinician'],
   'patient.token_revoke': [...PATIENT_SIDE, 'desk', 'records'],
-  'patient.merge_request': ['records'],
+  'patient.merge_request': ['records', 'org_admin'],
   'patient.merge_approve': ['records', 'org_admin'],
   'patient.set_deceased': ['records', 'clinician'],
   'disclosure.set': ['clinician'],
   'consent.manage_own': PATIENT_SIDE,
-  'consent.record_assisted': ['desk', 'records'],
-  'caregiver.manage': ['patient', 'desk', 'records'], // a caregiver cannot grant itself scope
+  'consent.record_assisted': ['desk', 'records', 'clinician'],
+  'caregiver.manage': ['patient', 'desk', 'records', 'clinician'], // a caregiver cannot grant itself scope
   'access_log.read_own': PATIENT_SIDE,
   'break_glass.request': ['clinician', 'org_admin'],
   // capture and documents
@@ -42,8 +42,8 @@ export const PERMISSIONS = {
   // radar, requests, sharing
   'radar.read': [...PATIENT_SIDE, 'records', 'clinician'],
   'radar.update': ['records', 'clinician'],
-  'request.manage': [...PATIENT_SIDE, 'records'],
-  'share.manage': PATIENT_SIDE,
+  'request.manage': [...PATIENT_SIDE, 'records', 'clinician'],
+  'share.manage': [...PATIENT_SIDE, 'desk', 'records', 'clinician'], // staff create shares at the desk on the patient's behalf
   // admin, audit, metrics
   'staff.manage': ['org_admin'],
   'device.manage': ['org_admin'],

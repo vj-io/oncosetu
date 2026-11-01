@@ -4,12 +4,14 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ban, CalendarCheck, FileText, Info, Undo2 } from 'lucide-react'
+import clsx from 'clsx'
 import { Button, ButtonLink, Dialog, EmptyState, Field, Frame, Input, Skeleton, StatusBadge, Textarea, useToast } from '@/components/ui'
 import { formatDateIN, istDate } from '@/core/copy'
 import type { Lang, RequestState } from '@/core/types'
 import { tr, type RequestKey } from '@/i18n/requests'
 import type { RequestView } from '@/server/requests/requests'
 import { api, ApiError } from './api'
+import { sideStyle } from './side'
 
 const ACTIVE: RequestState[] = ['sent', 'reminder_due', 'open_21d']
 const OPEN: RequestState[] = ['drafted', ...ACTIVE]
@@ -20,6 +22,7 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
   const { toast } = useToast()
   const url = actor === 'staff' ? `/api/requests?patientId=${patientId}` : '/api/p/requests'
   const t = (k: RequestKey, v?: Record<string, string | number>) => tr(lang, k, v)
+  const ui = sideStyle(actor, lang)
   const [rows, setRows] = useState<RequestView[] | null>(null)
   const [loadError, setLoadError] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -75,15 +78,15 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
               <Frame className="grid gap-4 px-5 py-5 sm:px-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="grid min-w-0 gap-1">
-                    <p className="ds-kicker">{t('builderTitle')}</p>
+                    <p className={clsx('ds-kicker', ui.kicker)}>{t('builderTitle')}</p>
                     <h3 className="text-xl leading-snug tracking-[-0.02em] break-words">{r.institution}</h3>
                   </div>
-                  <StatusBadge status={r.state} label={actor === 'staff' ? undefined : t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' })} />
+                  <StatusBadge status={r.state} label={actor === 'staff' ? undefined : ui.plain(t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' }))} />
                 </div>
                 <div className="grid gap-1 text-[15px]">
                   <p>{t('recordsList', { list: r.documents.map((x) => x.label[lang]).join(', ') })}</p>
                   {period && <p className="text-muted">{period}</p>}
-                  {r.institutionPatientId && <p className="font-mono text-[13px] text-muted">UHID / MRN {r.institutionPatientId}</p>}
+                  {r.institutionPatientId && <p className="font-mono text-[13px] text-muted">{t('letterUhid')} {r.institutionPatientId}</p>}
                   {actor === 'staff' && <p className="text-muted">{t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' })}{r.daysOpen != null ? ` · ${t('daysOpen', { n: r.daysOpen })}` : ''}</p>}
                   {(r.reminder7SentAt || r.reminder21SentAt) && (
                     <p className="font-mono text-[12px] text-faint">{[r.reminder7SentAt, r.reminder21SentAt].filter(Boolean).map((x) => t('reminderSent', { date: formatDateIN(istDate(x!), lang) })).join(' · ')}</p>
@@ -96,13 +99,13 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
                   <p><a className={linkCls} href={`/print/escalation?lang=${lang}`} target="_blank" rel="noopener">{t('escalation')}</a></p>
                 )}
                 <div className="flex flex-wrap items-center gap-2 border-t border-rule pt-4">
-                  <ButtonLink size="sm" variant="secondary" icon={<FileText />} href={`/print/request/${r.id}?lang=en`} target="_blank">{t('letterEn')}</ButtonLink>
-                  <ButtonLink size="sm" variant="secondary" icon={<FileText />} href={`/print/request/${r.id}?lang=hi`} target="_blank">{t('letterHi')}</ButtonLink>
+                  <ButtonLink size={ui.size} className={ui.btn} variant="secondary" icon={<FileText />} href={`/print/request/${r.id}?lang=en`} target="_blank">{t('letterEn')}</ButtonLink>
+                  <ButtonLink size={ui.size} className={ui.btn} variant="secondary" icon={<FileText />} href={`/print/request/${r.id}?lang=hi`} target="_blank">{t('letterHi')}</ButtonLink>
                   {r.state === 'drafted' && sentFor !== r.id && (
-                    <Button size="sm" icon={<CalendarCheck />} onClick={() => { setSentFor(r.id); setSentOn(today); setFormError(null) }}>{t('markSent')}</Button>
+                    <Button size={ui.size} className={ui.btn} icon={<CalendarCheck />} onClick={() => { setSentFor(r.id); setSentOn(today); setFormError(null) }}>{t('markSent')}</Button>
                   )}
-                  {OPEN.includes(r.state) && <Button size="sm" variant="ghost" icon={<Ban />} onClick={() => { setReason(''); setFormError(null); setAsk({ kind: 'unobtainable', id: r.id }) }}>{t('unobtainable')}</Button>}
-                  {OPEN.includes(r.state) && <Button size="sm" variant="ghost" icon={<Undo2 />} onClick={() => setAsk({ kind: 'withdraw', id: r.id })}>{t('withdraw')}</Button>}
+                  {OPEN.includes(r.state) && <Button size={ui.size} className={ui.btn} variant="ghost" icon={<Ban />} onClick={() => { setReason(''); setFormError(null); setAsk({ kind: 'unobtainable', id: r.id }) }}>{t('unobtainable')}</Button>}
+                  {OPEN.includes(r.state) && <Button size={ui.size} className={ui.btn} variant="ghost" icon={<Undo2 />} onClick={() => setAsk({ kind: 'withdraw', id: r.id })}>{t('withdraw')}</Button>}
                 </div>
                 {sentFor === r.id && (
                   <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => {
@@ -110,11 +113,11 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
                     if (sentOn > today) return setFormError(t('dateFuture'))
                     void act(`sent-${r.id}`, `/api/requests/${r.id}/sent`, { sentOn })
                   }}>
-                    <Field label={t('sentOnLabel')} error={formError ?? undefined} className="min-w-56">
+                    <Field label={ui.plain(t('sentOnLabel'))} error={formError ?? undefined} className="min-w-56">
                       <Input type="date" value={sentOn} max={today} onChange={(e) => setSentOn(e.target.value)} required />
                     </Field>
-                    <Button type="submit" size="md" loading={busy === `sent-${r.id}`}>{t('saveDate')}</Button>
-                    <Button variant="ghost" size="md" onClick={() => setSentFor(null)}>{t('cancel')}</Button>
+                    <Button type="submit" size="md" className={ui.btn} loading={busy === `sent-${r.id}`}>{t('saveDate')}</Button>
+                    <Button variant="ghost" size="md" className={ui.btn} onClick={() => setSentFor(null)}>{t('cancel')}</Button>
                   </form>
                 )}
               </Frame>

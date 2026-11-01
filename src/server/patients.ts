@@ -1,7 +1,7 @@
 // Patient view + access policy (consent checked on use, never cached — FR-CON-04).
-import { and, desc, eq, gt } from 'drizzle-orm'
+import { and, desc, eq, gt, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { breakGlass, caregivers, consents, patients, type ConsentPurposes } from '@/db/schema'
+import { breakGlass, caregivers, consents, encounters, patients, type ConsentPurposes } from '@/db/schema'
 import { decryptField, maskPhone } from './crypto'
 import { HttpError } from './http'
 import type { Session } from './session'
@@ -84,5 +84,12 @@ export async function assertPatientAccess(ctx: { db: Tx; session: Session }, pat
   if (s.role === 'org_admin') throw new HttpError(403, 'break_glass_required', 'Break-glass access required')
   if (!(await activeConsent(ctx.db, patientId))?.purposes.store) {
     throw new HttpError(403, 'consent_required', 'No active consent for this patient')
+  }
+  // FR-ID-02: the desk opens a record only through an identity-verified encounter (OTP or witnessed) from the last 12 h.
+  if (s.role === 'desk') {
+    const [enc] = await ctx.db.select({ id: encounters.id }).from(encounters).where(and(
+      eq(encounters.patientId, patientId), isNull(encounters.closedAt), gt(encounters.startedAt, new Date(Date.now() - 12 * 3600_000)),
+    )).limit(1)
+    if (!enc) throw new HttpError(403, 'verification_required', 'Verify the patient at the desk first')
   }
 }

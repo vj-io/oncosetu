@@ -26,7 +26,9 @@ export function proxy(request: NextRequest) {
   requestHeaders.set('x-nonce', nonce)
   requestHeaders.set('Content-Security-Policy', csp)
   const res = NextResponse.next({ request: { headers: requestHeaders } })
-  res.headers.set('Content-Security-Policy', csp)
+  // Decrypted originals: sandboxed, nothing executes even if opened directly (PDF JavaScript, SVG, HTML smuggling).
+  const fileRoute = /^\/api\/documents\/[^/]+\/file$/.test(request.nextUrl.pathname)
+  res.headers.set('Content-Security-Policy', fileRoute ? `sandbox; default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; frame-ancestors 'none'` : csp)
   res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload')
   res.headers.set('X-Content-Type-Options', 'nosniff')
   res.headers.set('Referrer-Policy', 'no-referrer') // share links carry the key in the URL fragment

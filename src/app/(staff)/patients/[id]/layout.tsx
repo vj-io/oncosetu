@@ -35,12 +35,17 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
 
   if (!data) notFound()
   if ('denied' in data) {
+    const verify = data.denied === 'verification_required'
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
         <EmptyState
-          title={data.denied === 'consent_required' ? 'No active consent for this patient' : 'Access restricted'}
-          description="This record opens only with the patient's active consent. Clinicians can request time-limited break-glass access; the reason is logged and the patient and administrator are notified."
-          action={<Link className="underline" href={`/break-glass/${id}`}>Request break-glass access</Link>}
+          title={verify ? 'Verify the patient first' : data.denied === 'consent_required' ? 'No active consent for this patient' : 'Access restricted'}
+          description={verify
+            ? 'At the desk a record opens only after the patient or primary contact confirms a code, or after in-person witnessed verification.'
+            : "This record opens only with the patient's active consent. Consent can be recorded again at the desk after verification. Clinicians can request time-limited break-glass access; the reason is logged and the patient and administrator are notified."}
+          action={verify
+            ? <Link className="underline" href="/desk">Go to the desk</Link>
+            : <span className="flex flex-wrap gap-4"><Link className="underline" href="/desk">Record consent at the desk</Link><Link className="underline" href={`/break-glass/${id}`}>Request break-glass access</Link></span>}
         />
       </div>
     )

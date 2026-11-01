@@ -28,6 +28,8 @@ export function ShareViewer({ id }: { id: string }) {
   const [passcode, setPasscode] = useState('')
   const [busy, setBusy] = useState(false)
   const t = (k: ShareKey, v?: Record<string, string | number>) => ts(lang, k, v)
+  /** Devanagari: no uppercase or letter-spacing tracking (it breaks conjuncts). */
+  const hi = (text: string) => (lang === 'hi' ? <span className="font-deva tracking-normal normal-case">{text}</span> : text)
 
   /** Asks the server for the ciphertext and decrypts it here with the key from the #fragment. */
   async function resolve(code?: string): Promise<Phase> {
@@ -145,7 +147,14 @@ export function ShareViewer({ id }: { id: string }) {
                 <SectionHeader title={<span id="absent-h">{t('absentTitle')}</span>} description={t('absentIntro')} />
                 {p.absent.length ? (
                   <div className="grid gap-6">
-                    {p.absent.map((a, i) => <EmptyFrame key={i} animate delay={Math.min(i * 60, 400)} title={a.text[lang]} status={a.state === 'received' ? 'received' : a.state === 'requested' ? 'requested' : 'expected'} />)}
+                    {p.absent.map((a, i) => {
+                      const status = a.state === 'received' ? 'received' : a.state === 'requested' ? 'requested' : 'expected'
+                      const k = status === 'received' ? 'absentReceived' : status === 'requested' ? 'absentRequested' : 'absentExpected'
+                      return (
+                        <EmptyFrame key={i} animate delay={Math.min(i * 60, 400)} title={a.text[lang]} status={status}
+                          kicker={hi(t(status === 'received' ? 'absentKickerReceived' : 'absentKicker'))} statusLabel={hi(t(k))} />
+                      )
+                    })}
                   </div>
                 ) : <p className="text-muted">{t('absentNone')}</p>}
               </section>

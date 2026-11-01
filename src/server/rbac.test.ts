@@ -36,8 +36,10 @@ describe('RBAC matrix (PRD §6.1)', () => {
     expect(can('caregiver', 'caregiver.manage')).toBe(false)
     expect(can('patient', 'caregiver.manage')).toBe(true)
   })
-  it('share links are patient-initiated only', () => {
-    expect(holders('share.manage')).toEqual(['patient', 'caregiver'])
+  it('share links and requests are managed by the patient side and the staff who act on their behalf', () => {
+    expect(holders('share.manage')).toEqual(['patient', 'caregiver', 'desk', 'records', 'clinician'])
+    expect(holders('request.manage')).toEqual(['patient', 'caregiver', 'records', 'clinician'])
+    expect(can('desk', 'request.manage')).toBe(false)
   })
   it('every permission has at least one holder', () => {
     for (const p of Object.keys(PERMISSIONS) as Permission[]) expect(holders(p).length).toBeGreaterThan(0)

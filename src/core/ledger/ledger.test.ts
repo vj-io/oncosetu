@@ -258,6 +258,7 @@ describe('bulkVerifyEligible (FR-LED-05)', () => {
     [{ flags: ['binding_uncertain'] }, false, ['binding_uncertain']],
     [{ flags: [], category: 'newly_received_older' }, false, ['newly_received_older']],
     [{ flags: ['late_received'] }, false, ['newly_received_older']],
+    [{ flags: ['late_received'], category: 'initial_record' }, true, []],
     [{ flags: [], verificationStatus: 'disputed' }, false, ['disputed']],
     [{ flags: ['conflict', 'identity_warning'], category: 'newly_received_older' }, false, ['conflict', 'identity_warning', 'newly_received_older']],
   ] as const)('%o → %s', (item, eligible, reasons) => {

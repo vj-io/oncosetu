@@ -364,7 +364,7 @@ export function Table({
       role="region"
       aria-label={typeof caption === "string" ? caption : "Table"}
       tabIndex={0}
-      className="overflow-x-auto"
+      className="relative overflow-x-auto"
     >
       <table className={clsx("ds-table", className)} {...rest}>
         {caption && <caption className="ds-kicker">{caption}</caption>}

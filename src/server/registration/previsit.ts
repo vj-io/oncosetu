@@ -16,7 +16,7 @@ export async function sendPreVisitLink(ctx: StaffCtx<unknown>, patientId: string
   const target = await primaryContactTarget(ctx.db, patientId)
   if (!target) return fail(409, 'no_phone', 'No phone number is on file for the primary contact')
   const origin = ctx.req.headers.get('origin') // already matched to the host by the route wrapper
-  const url = `${origin}/p/login`
+  const url = `${origin}/p/login?next=/p/visit` // after the code, straight to the pre-visit questions
   await sendMessage(ctx.db, {
     orgId: ctx.session.orgId, patientId, toPhone: target.phone, channel: 'sms', templateKey: 'previsit.link',
     body: registrationCopy.preVisitSms[target.lang](url), lang: target.lang,

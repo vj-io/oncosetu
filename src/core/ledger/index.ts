@@ -367,7 +367,8 @@ export function bulkVerifyEligible(item: BulkCheckItem): { eligible: boolean; re
   if (f.has('low_confidence') || (item.spanConfidence !== null && item.spanConfidence !== undefined && item.spanConfidence < 0.8)) reasons.push('low_confidence')
   if (f.has('identity_warning')) reasons.push('identity_warning')
   if (f.has('binding_uncertain')) reasons.push('binding_uncertain')
-  if (item.category === 'newly_received_older' || f.has('late_received')) reasons.push('newly_received_older')
+  // In initial-record mode (no prior snapshot) every backlog item is old by definition; the FR-LED-05 guard is for records that arrive after a seal.
+  if (item.category === 'newly_received_older' || (f.has('late_received') && item.category !== 'initial_record')) reasons.push('newly_received_older')
   if (item.verificationStatus === 'disputed') reasons.push('disputed')
   return { eligible: reasons.length === 0, reasons }
 }

@@ -1,0 +1,65 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`request letter (FR-REQ-01/02) > matches the reviewed text (snapshot) 1`] = `
+"Setu Records
+Request for copies of medical records
+Date: 2 Nov 2026
+To,
+The Medical Records Department
+City Hospital, Jaipur
+Subject: Request for copies of medical records
+Dear Sir or Madam,
+I request copies of the following records of the patient named below, from your hospital:
+Hospital discharge summary
+Indoor (in-patient) case records
+Laboratory report (tissue)
+Scan report
+Patient name
+Sunita Devi
+Date of birth
+14 May 1972
+Hospital ID (UHID / MRN)
+UHID 44812
+Period of care: 1 Mar 2026 to 30 Apr 2026
+For reference: the regulations provide for indoor records to be issued within 72 hours of a request (IMC Regulation 1.3.2).
+The copies may be handed to me or to the person signing below. I will add them to my records using the code printed here.
+Return channel: scan to add the copies to the patient’s records
+Thank you for your help.
+Signature of patient or caregiver
+Name
+Relation to patient (write “self” if you are the patient)
+Date
+Request reference 0000ABCD · prepared with Setu Records"
+`;
+
+exports[`request letter (FR-REQ-01/02) > matches the reviewed text (snapshot) 2`] = `
+"Setu Records
+मेडिकल रिकॉर्ड की प्रतियों के लिए अनुरोध
+तारीख़: 2 नवंबर 2026
+सेवा में,
+मेडिकल रिकॉर्ड विभाग
+City Hospital, Jaipur
+विषय: मेडिकल रिकॉर्ड की प्रतियों के लिए अनुरोध
+महोदय/महोदया,
+कृपया नीचे लिखे मरीज़ के, आपके अस्पताल में रखे इन रिकॉर्ड की प्रतियाँ दें:
+अस्पताल डिस्चार्ज सारांश
+इनडोर (भर्ती) केस रिकॉर्ड
+प्रयोगशाला रिपोर्ट (ऊतक)
+स्कैन रिपोर्ट
+मरीज़ का नाम
+Sunita Devi
+जन्म तिथि
+14 मई 1972
+अस्पताल आईडी (UHID / MRN)
+UHID 44812
+देखभाल की अवधि: 1 मार्च 2026 से 30 अप्रैल 2026
+संदर्भ के लिए: नियमों में अनुरोध के 72 घंटे के भीतर इनडोर रिकॉर्ड देने का प्रावधान है (IMC विनियम 1.3.2)।
+प्रतियाँ मुझे या नीचे हस्ताक्षर करने वाले व्यक्ति को दी जा सकती हैं। मैं यहाँ छपे कोड से इन्हें अपने रिकॉर्ड में जोड़ूँगा/जोड़ूँगी।
+वापसी का रास्ता: प्रतियाँ मरीज़ के रिकॉर्ड में जोड़ने के लिए स्कैन करें
+आपकी सहायता के लिए धन्यवाद।
+मरीज़ या देखभाल करने वाले के हस्ताक्षर
+नाम
+मरीज़ से संबंध (अगर आप ही मरीज़ हैं तो “स्वयं” लिखें)
+तारीख़
+अनुरोध संदर्भ 0000ABCD · Setu Records से तैयार"
+`;

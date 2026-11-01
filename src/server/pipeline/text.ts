@@ -1,0 +1,279 @@
+// Page text for the pipeline (FR-DOC-01/02/05/06/07, E-DOC-04/08/09/16). Pure over bytes: no DB, no network
+// except tesseract's one-time traineddata download (cached under the OS temp dir, which is /tmp on Vercel).
+//   PDF  → unpdf text layer per page; invisible text (white fill, render mode 3/7, < 2 pt) is removed from the
+//          extraction text and returned separately; pages without a text layer are OCR'd from their embedded image.
+//   image → sharp re-encode (EXIF rotate, metadata stripped, ≤ 2400 px JPEG) → tesseract eng+hin.
+import { mkdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import sharp from 'sharp'
+import { createWorker, type Worker } from 'tesseract.js'
+import { extractImages, getDocumentProxy, getResolvedPDFJS } from 'unpdf'
+import type { OcrWord } from '@/db/schema'
+import type { SniffedMime } from './safety'
+
+export const OCR_LOW_CONFIDENCE = 0.8
+export const TEXT_PROCESSOR = { name: 'unpdf', version: '2.1' } as const
+export const OCR_PROCESSOR = { name: 'tesseract.js', version: '7.0 eng+hin' } as const
+const MAX_SIDE = 2400
+
+export type Handwriting = {
+  handwritten: boolean
+  /** Lines (≥ 2 words) whose mean word confidence is < 0.75, as a share of all such lines. */
+  lowLineShare: number
+  lines: number
+  /** Share of dark pixels that are ballpoint-blue (handwritten prescriptions in India are mostly blue ink). */
+  blueInkShare: number
+}
+
+export type PageRead = {
+  pageNo: number
+  /** Text used for extraction (hidden text removed). */
+  text: string
+  /** OCR words with char offsets into `text` (null for text-layer pages). */
+  words: OcrWord[] | null
+  /** Mean OCR word confidence 0..1 (null for text-layer pages). */
+  ocrConfidence: number | null
+  lowConfidence: boolean
+  source: 'text_layer' | 'ocr'
+  handwriting: Handwriting | null
+  /** Invisible text removed from this page (kept for staff review; never extracted). */
+  hidden: string | null
+  /** Re-encoded page image (JPEG) for images and scanned PDF pages. */
+  image: Buffer | null
+  processor: string
+  processorVersion: string
+}
+
+export type ReadResult =
+  | { kind: 'pages'; pages: PageRead[] }
+  | { kind: 'needs_password'; incorrect: boolean }
+  | { kind: 'unreadable'; reason: string }
+
+// ---------- OCR ----------
+
+const g = globalThis as unknown as { __oncosetuOcr?: Promise<Worker> }
+
+function ocrWorker(): Promise<Worker> {
+  if (!g.__oncosetuOcr) {
+    const cachePath = join(tmpdir(), 'oncosetu-tessdata')
+    mkdirSync(cachePath, { recursive: true })
+    g.__oncosetuOcr = createWorker(['eng', 'hin'], 1, { cachePath }).catch((e) => {
+      g.__oncosetuOcr = undefined
+      throw e
+    })
+  }
+  return g.__oncosetuOcr
+}
+
+/** Terminates the shared OCR worker (scripts/tests; the server keeps it warm). */
+export async function closeOcr(): Promise<void> {
+  const w = g.__oncosetuOcr
+  g.__oncosetuOcr = undefined
+  if (w) await (await w).terminate()
+}
+
+type OcrLine = { text: string; conf: number[] }
+
+/** OCR one JPEG/PNG → text built line by line, with exact char offsets for every word. */
+export async function ocrImage(image: Buffer): Promise<{ text: string; words: OcrWord[]; lines: OcrLine[]; mean: number | null }> {
+  const worker = await ocrWorker()
+  const { data } = await worker.recognize(image, {}, { blocks: true, text: false })
+  let text = ''
+  const words: OcrWord[] = []
+  const lines: OcrLine[] = []
+  for (const block of data.blocks ?? []) {
+    for (const para of block.paragraphs) {
+      for (const line of para.lines) {
+        const ws = line.words.filter((w) => w.text.trim())
+        if (!ws.length) continue
+        if (text) text += '\n'
+        // A wide horizontal gap is a column break (form layouts): keep it as a tab so labels do not run together.
+        const h = [...ws].map((w) => w.bbox.y1 - w.bbox.y0).sort((a, b) => a - b)[ws.length >> 1]
+        ws.forEach((w, i) => {
+          const gap = i > 0 && w.bbox.x0 - ws[i - 1].bbox.x1 > 1.5 * h
+          // Hindi OCR reads a label colon before a column gap as visarga ("नामः"): same length, so offsets hold.
+          if (gap && text.endsWith('ः')) {
+            text = text.slice(0, -1) + ':'
+            words[words.length - 1].t = words[words.length - 1].t.slice(0, -1) + ':'
+          }
+          if (i) text += gap ? '\t' : ' '
+          const s = text.length
+          text += w.text
+          words.push({ t: w.text, c: Math.round(w.confidence) / 100, s, e: text.length, b: [w.bbox.x0, w.bbox.y0, w.bbox.x1, w.bbox.y1] })
+        })
+        lines.push({ text: ws.map((w) => w.text).join(' '), conf: ws.map((w) => w.confidence / 100) })
+      }
+    }
+  }
+  const mean = words.length ? words.reduce((a, w) => a + w.c, 0) / words.length : null
+  return { text, words, lines, mean }
+}
+
+const DEVANAGARI = /\p{Script=Devanagari}/u
+
+/**
+ * Handwriting classifier (FR-DOC-07), calibrated on the demo set (re-encoded ≤ 2400 px): the handwritten prescription
+ * has ~0.4 of its lines below 0.75 mean word confidence plus blue ink; printed English and Hindi reports stay ≤ 0.25.
+ */
+// ponytail: heuristic on OCR confidence + ink colour; swap for a trained page classifier (or the LLM) when one exists.
+export function classifyHandwriting(lines: OcrLine[], blueInkShare: number): Handwriting {
+  const multi = lines.filter((l) => l.conf.length >= 2)
+  const low = multi.filter((l) => l.conf.reduce((a, b) => a + b, 0) / l.conf.length < 0.75).length
+  const lowLineShare = multi.length ? low / multi.length : 0
+  const handwritten = multi.length >= 8 && (lowLineShare >= 0.35 || (lowLineShare >= 0.25 && blueInkShare >= 0.01))
+  return { handwritten, lowLineShare: round3(lowLineShare), lines: multi.length, blueInkShare: round3(blueInkShare) }
+}
+
+const round3 = (n: number) => Math.round(n * 1000) / 1000
+
+async function blueInk(jpeg: Buffer): Promise<number> {
+  const { data, info } = await sharp(jpeg).resize({ width: 600 }).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  let ink = 0, blue = 0
+  for (let i = 0; i < data.length; i += info.channels) {
+    const r = data[i], gr = data[i + 1], b = data[i + 2]
+    if (0.299 * r + 0.587 * gr + 0.114 * b < 140) {
+      ink++
+      if (b > r + 50 && b > gr + 30) blue++
+    }
+  }
+  return ink ? blue / ink : 0
+}
+
+/** EXIF-rotate, strip metadata, cap the long side at 2400 px, JPEG. */
+export async function normaliseImage(bytes: Uint8Array): Promise<Buffer> {
+  return sharp(bytes).rotate().resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 }).toBuffer()
+}
+
+async function ocrPage(pageNo: number, image: Buffer): Promise<PageRead> {
+  const [ocr, ink] = await Promise.all([ocrImage(image), blueInk(image)])
+  const handwriting = classifyHandwriting(ocr.lines, ink)
+  return {
+    pageNo, text: ocr.text, words: ocr.words, ocrConfidence: ocr.mean === null ? null : round3(ocr.mean),
+    lowConfidence: ocr.mean !== null && ocr.mean < OCR_LOW_CONFIDENCE, source: 'ocr', handwriting, hidden: null, image,
+    processor: OCR_PROCESSOR.name, processorVersion: OCR_PROCESSOR.version,
+  }
+}
+
+// ---------- PDF ----------
+
+type TextItem = { str?: string; transform?: number[]; width?: number; hasEOL?: boolean }
+type Glyph = number | { unicode?: string } | null
+
+/** Strings drawn invisibly on a page: text render mode 3/7, or near-white fill (white-on-white). */
+async function invisibleStrings(page: { getOperatorList(): Promise<{ fnArray: number[]; argsArray: unknown[][] }> }): Promise<string[]> {
+  const { OPS } = (await getResolvedPDFJS()) as unknown as { OPS: Record<string, number> }
+  const ops = await page.getOperatorList()
+  const out: string[] = []
+  let state = { fill: '#000000', mode: 0 }
+  const stack: (typeof state)[] = []
+  for (let i = 0; i < ops.fnArray.length; i++) {
+    const fn = ops.fnArray[i]
+    const args = ops.argsArray[i]
+    if (fn === OPS.save) stack.push({ ...state })
+    else if (fn === OPS.restore) state = stack.pop() ?? { fill: '#000000', mode: 0 }
+    else if (fn === OPS.setFillRGBColor && typeof args?.[0] === 'string') state.fill = args[0]
+    else if (fn === OPS.setTextRenderingMode) state.mode = Number(args?.[0] ?? 0)
+    else if (fn === OPS.showText || fn === OPS.showSpacedText) {
+      const white = /^#(?:f[0-9a-f]){3}$/i.test(state.fill)
+      if (white || state.mode === 3 || state.mode === 7) {
+        const s = ((args?.[0] as Glyph[]) ?? []).map((x) => (x && typeof x === 'object' ? x.unicode ?? '' : '')).join('').trim()
+        if (s) out.push(s)
+      }
+    }
+  }
+  return out
+}
+
+function isPasswordError(e: unknown): e is { name: string; code?: number } {
+  return !!e && typeof e === 'object' && (e as { name?: string }).name === 'PasswordException'
+}
+
+async function readPdf(bytes: Uint8Array, password?: string): Promise<ReadResult> {
+  let pdf: Awaited<ReturnType<typeof getDocumentProxy>>
+  try {
+    pdf = await getDocumentProxy(bytes.slice(), password ? { password } : {})
+  } catch (e) {
+    if (isPasswordError(e)) return { kind: 'needs_password', incorrect: e.code === 2 }
+    return { kind: 'unreadable', reason: 'pdf_parse_failed' }
+  }
+  try {
+    const pages: PageRead[] = []
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const page = await pdf.getPage(n)
+      const [content, hiddenStrs] = await Promise.all([page.getTextContent(), invisibleStrings(page as never)])
+      let text = ''
+      let hidden = ''
+      let lastEnd: { x: number; y: number } | null = null
+      for (const it of content.items as TextItem[]) {
+        if (it.str == null) continue
+        const t = it.transform ?? [1, 0, 0, 1, 0, 0]
+        const size = Math.hypot(t[2], t[3])
+        const s = it.str.trim()
+        const invisible = !!s && ((size > 0 && size < 2) || hiddenStrs.some((h) => h === s || (s.length >= 12 && h.includes(s))))
+        if (invisible) {
+          hidden += it.str + (it.hasEOL ? '\n' : ' ')
+          continue
+        }
+        // Same baseline, wide gap → column break: a tab keeps "Name: X   UHID: Y" as two fields (like pdftotext -layout).
+        if (s && lastEnd && !text.endsWith('\n') && Math.abs(t[5] - lastEnd.y) < 1 && t[4] - lastEnd.x > 1.5 * size) text += '\t'
+        text += it.str + (it.hasEOL ? '\n' : '')
+        if (s) lastEnd = { x: t[4] + (it.width ?? 0), y: t[5] }
+        if (it.hasEOL) lastEnd = null
+      }
+      if (text.replace(/\s/g, '').length >= 20) {
+        pages.push({
+          pageNo: n, text, words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
+          hidden: hidden.trim() || null, image: null, processor: TEXT_PROCESSOR.name, processorVersion: TEXT_PROCESSOR.version,
+        })
+        continue
+      }
+      // No usable text layer: OCR the largest embedded image (scanned page).
+      const imgs = await extractImages(pdf, n).catch(() => [])
+      const big = imgs.sort((a, b) => b.width * b.height - a.width * a.height)[0]
+      if (!big) {
+        pages.push({
+          pageNo: n, text: '', words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
+          hidden: hidden.trim() || null, image: null, processor: TEXT_PROCESSOR.name, processorVersion: TEXT_PROCESSOR.version,
+        })
+        continue
+      }
+      const jpeg = await sharp(Buffer.from(big.data), { raw: { width: big.width, height: big.height, channels: 4 } })
+        .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer()
+      pages.push({ ...(await ocrPage(n, jpeg)), hidden: hidden.trim() || null })
+    }
+    return { kind: 'pages', pages }
+  } finally {
+    await pdf.cleanup().catch(() => {})
+  }
+}
+
+/** Reads every page of a sniffed file. `password` is used once and never stored (FR-ING-07). */
+export async function readPages(bytes: Uint8Array, mime: SniffedMime, password?: string): Promise<ReadResult> {
+  if (mime === 'application/pdf') return readPdf(bytes, password)
+  let image: Buffer
+  try {
+    image = await normaliseImage(bytes)
+  } catch {
+    return { kind: 'unreadable', reason: mime === 'image/heic' ? 'heic_decode_unsupported' : 'image_decode_failed' }
+  }
+  return { kind: 'pages', pages: [await ocrPage(1, image)] }
+}
+
+/** Share of letters that are Devanagari, and whether an unsupported script dominates (FR-DOC-05). */
+export function detectLanguage(text: string): { language: 'en' | 'hi' | 'mixed' | 'unknown'; devanagariShare: number; unsupported: boolean } {
+  let latin = 0, deva = 0, other = 0
+  for (const ch of text) {
+    if (!/\p{L}/u.test(ch)) continue
+    if (/\p{Script=Latin}/u.test(ch)) latin++
+    else if (DEVANAGARI.test(ch)) deva++
+    else other++
+  }
+  const total = latin + deva + other
+  if (!total) return { language: 'unknown', devanagariShare: 0, unsupported: false }
+  const share = deva / total
+  const unsupported = other / total > 0.3
+  const language = share >= 0.6 ? 'hi' : share >= 0.1 ? 'mixed' : 'en'
+  return { language, devanagariShare: round3(share), unsupported }
+}

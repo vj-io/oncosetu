@@ -176,7 +176,7 @@ describe('extractFallback: every pattern candidate passes the evidence gate', ()
 
 const events = (k: keyof typeof DOCS) => {
   const ex = extractFallback(pagesOf(DOCS[k]))
-  return ex.items.map((i) => ({ type: i.event_type, ...i.fields }))
+  return ex.items.map((i) => ({ type: i.event_type, ...i.fields }) as { type: string } & Record<string, unknown>)
 }
 
 describe('extractPatterns: what is found', () => {

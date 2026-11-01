@@ -26,6 +26,7 @@ describe('copy lint: patient-facing catalogues', () => {
       const mod = await import(pathToFileURL(join(I18N_DIR, f)).href)
       collectStrings(mod, f, strings)
     }
+    if (files.length) expect(strings.length).toBeGreaterThan(0) // catalogues were actually read
     const failures = strings.flatMap(({ path, text }) =>
       lintText(text, ['diagnosis', 'radar']).map((h) => `${path}: "${h.match}" (${h.ruleset}:${h.term})`),
     )

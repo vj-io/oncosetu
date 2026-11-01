@@ -2,7 +2,7 @@
 // closing an encounter. Every read is scoped to the Ganga org. Actions under test still go through the app.
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { adminDb } from '../../../src/db'
-import { consents, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, staff } from '../../../src/db/schema'
+import { consents, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, patientStatements, snapshots, staff } from '../../../src/db/schema'
 import { phoneHmac } from '../../../src/server/crypto'
 import { ORG } from './env'
 
@@ -46,3 +46,9 @@ export const smsAbout = (patientId: string) =>
 
 export const consentsOf = (patientId: string) =>
   adminDb.select().from(consents).where(eq(consents.patientId, patientId)).orderBy(consents.recordedAt)
+
+export const statementsOf = (patientId: string) =>
+  adminDb.select().from(patientStatements).where(eq(patientStatements.patientId, patientId)).orderBy(patientStatements.createdAt)
+
+export const snapshotsOf = (patientId: string) =>
+  adminDb.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(snapshots.seq)

@@ -236,7 +236,10 @@ export async function transitionItem(ctx: Ctx, id: string, input: TransitionInpu
     state: res.state, stateChangedAt: at, stateChangedBy: ctx.session.kind === 'staff' ? ctx.session.staffId : null,
     ...(input.action === 'unobtainable' || input.action === 'dismiss' ? { reason: reason.slice(0, 500) } : {}),
     ...(input.action === 'receive' ? { proposedDocumentId: docId } : {}),
-    ...(input.action === 'reject_match' ? { proposedDocumentId: null } : {}),
+    ...(input.action === 'reject_match' ? {
+      proposedDocumentId: null,
+      matchWindow: { ...(row.matchWindow ?? {}), rejectedDocumentIds: [...new Set([...((row.matchWindow?.rejectedDocumentIds as string[] | undefined) ?? []), ...(row.proposedDocumentId ? [row.proposedDocumentId] : [])])] },
+    } : {}),
     ...(input.action === 'confirm' ? { matchedDocumentId: docId } : {}),
     ...(input.action === 'reopen' ? { reason: null } : {}),
   }).where(eq(missingRecords.id, id))

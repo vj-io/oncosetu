@@ -50,7 +50,9 @@ export async function loadRecord(tx: Tx, patientId: string): Promise<{ events: C
   }
 }
 
-type MissingRow = Pick<typeof missingRecords.$inferSelect, 'id' | 'dedupeKey' | 'state' | 'proposedDocumentId'>
+type MissingRow = Pick<typeof missingRecords.$inferSelect, 'id' | 'dedupeKey' | 'state' | 'proposedDocumentId'> & { matchWindow?: Record<string, unknown> | null }
+/** Documents a person said are "not a match" for this item; the engine never proposes them again. */
+const rejectedOf = (row?: MissingRow): string[] => (Array.isArray(row?.matchWindow?.rejectedDocumentIds) ? (row!.matchWindow!.rejectedDocumentIds as string[]) : [])
 type RowValues = Pick<typeof missingRecords.$inferInsert, 'ruleId' | 'ruleVersion' | 'mode' | 'expectedTypes' | 'matchWindow' | 'triggerEventId' | 'grouped'>
 export type MergeOp =
   | { op: 'insert'; dedupeKey: string; values: RowValues }
@@ -78,9 +80,10 @@ export function planRadarMerge(
     const key = rowKey(patientId, it.dedupeKey)
     seen.add(key)
     const row = byKey.get(key)
+    const rejected = rejectedOf(row)
     const values: RowValues = {
       ruleId: it.ruleId, ruleVersion: String(it.ruleVersion), mode: it.mode, expectedTypes: it.expectedTypes,
-      matchWindow: { from: it.window.from, to: it.window.to, wording: it.wording, neutralWording: it.neutralWording, sourceLabel: it.sourceLabel, triggerKind: it.triggerKind, triggerId: it.triggerEventId },
+      matchWindow: { from: it.window.from, to: it.window.to, wording: it.wording, neutralWording: it.neutralWording, sourceLabel: it.sourceLabel, triggerKind: it.triggerKind, triggerId: it.triggerEventId, ...(rejected.length ? { rejectedDocumentIds: rejected } : {}) },
       triggerEventId: it.triggerKind === 'event' && eventIds.has(it.triggerEventId) ? it.triggerEventId : null, grouped: it.grouped?.cycles ?? [],
     }
     if (!row) ops.push({ op: 'insert', dedupeKey: key, values })
@@ -92,6 +95,7 @@ export function planRadarMerge(
     seen.add(key)
     const row = byKey.get(key)
     if (!row) continue // satisfied from the start: nothing was ever missing
+    if (rejectedOf(row).includes(p.documentId)) continue // a person already said this document is not a match
     if (row.state === 'received') {
       if (row.proposedDocumentId !== p.documentId) ops.push({ op: 'update', id: row.id, set: { proposedDocumentId: p.documentId, notes: p.note ?? null } })
       continue
@@ -114,7 +118,7 @@ export async function recomputeRadar(tx: Tx, orgId: string, patientId: string): 
   const modes = await tx.select({ ruleId: ruleStates.ruleId, mode: ruleStates.mode }).from(ruleStates).where(eq(ruleStates.orgId, orgId))
   const ruleModes: Record<string, RuleMode> = Object.fromEntries(modes.map((m) => [m.ruleId, m.mode]))
   const out = runRadar({ ...record, ruleModes, now: (await now(orgId)).toISOString() })
-  const rows = await tx.select({ id: missingRecords.id, dedupeKey: missingRecords.dedupeKey, state: missingRecords.state, proposedDocumentId: missingRecords.proposedDocumentId })
+  const rows = await tx.select({ id: missingRecords.id, dedupeKey: missingRecords.dedupeKey, state: missingRecords.state, proposedDocumentId: missingRecords.proposedDocumentId, matchWindow: missingRecords.matchWindow })
     .from(missingRecords).where(eq(missingRecords.patientId, patientId))
   const reqs = rows.length ? await tx.select({ id: recordRequests.missingRecordId, state: recordRequests.state }).from(recordRequests)
     .where(inArray(recordRequests.missingRecordId, rows.map((r) => r.id))) : []

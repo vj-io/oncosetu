@@ -169,3 +169,13 @@ export async function uploadAndWait(api: Api, patientId: string, file: string) {
 
 // ── small conveniences ───────────────────────────────────────────────────────
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Polls until `fn` returns something truthy (rows written after a response, e.g. by `after()`). */
+export async function until<T>(fn: () => Promise<T | undefined | null | false>, timeoutMs = 30_000): Promise<T> {
+  const end = Date.now() + timeoutMs
+  for (;;) {
+    const v = await fn()
+    if (v) return v
+    if (Date.now() > end) throw new Error(`condition not met within ${timeoutMs} ms`)
+    await sleep(500)
+  }
+}

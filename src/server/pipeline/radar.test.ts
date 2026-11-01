@@ -69,4 +69,11 @@ describe('processing state machine helpers', () => {
     expect(st('done', 'completeness')).toEqual(Array(7).fill('done'))
     expect(st('unreadable', 'text')).toEqual(['done', 'failed', 'pending', 'pending', 'pending', 'pending', 'pending'])
   })
+
+  it('never re-proposes a document a person rejected as not a match', () => {
+    const r = { ...row('k1', 'expected'), matchWindow: { rejectedDocumentIds: ['doc-9'] } }
+    expect(planRadarMerge(P, [r], out([], [{ dedupeKey: 'k1', documentId: 'doc-9' }]), evs, none)).toEqual([])
+    const [op] = planRadarMerge(P, [r], out([item('k1')]), evs, none)
+    expect(op.op === 'update' && (op.set.matchWindow as Record<string, unknown>).rejectedDocumentIds).toEqual(['doc-9'])
+  })
 })

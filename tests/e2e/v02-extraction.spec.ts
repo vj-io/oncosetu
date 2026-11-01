@@ -174,11 +174,15 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
     await page.goto(`/patients/${p.id}/documents/${d.id}`)
     await expect(page.getByText(/OCR mean confidence 0\.\d\d/).first()).toBeVisible()
   }
-  // "Verify all" skips what is uncertain and says why; the plain OCR item goes through.
+  // "Verify all" skips what is uncertain and says why. Imaging belongs to the clinician tier; the uncertain OCR lab item is never bulk-verified.
   const evs = await eventsOf(p.id)
   const ctEv = evs.find((e) => e.documentId === ct.id)!, cbcEv = evs.find((e) => e.documentId === cbc.id)!
   expect(cbcEv.flags).toMatchObject({ ocr: true, binding_uncertain: true })
-  const r = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
-  expect(r.body.verified).toEqual([ctEv.id])
-  expect(r.body.skipped).toEqual([{ id: cbcEv.id, reasons: expect.arrayContaining(['binding_uncertain']) }])
+  const byRecords = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
+  expect(byRecords.body.verified).toEqual([])
+  expect(byRecords.body.skipped).toEqual(expect.arrayContaining([{ id: ctEv.id, reasons: ['clinician_tier'] }, { id: cbcEv.id, reasons: ['binding_uncertain'] }]))
+  const clinician = await staff('clinician')
+  const byClinician = await clinician.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
+  expect(byClinician.body.verified).toEqual([ctEv.id])
+  expect(byClinician.body.skipped).toEqual([{ id: cbcEv.id, reasons: ['binding_uncertain'] }])
 })

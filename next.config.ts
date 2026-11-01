@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
+// Cache Components off: every page here is per-request PHI behind auth; nothing should be cached.
 const nextConfig: NextConfig = {
-  /* config options here */
-  cacheComponents: true,
-  partialPrefetching: true,
   turbopack: {
     rules: {
       "*.css": {

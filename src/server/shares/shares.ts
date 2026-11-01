@@ -1,6 +1,8 @@
 // Share links (FR-PAS-01..04, J5): payload from the latest sealed snapshot, create, open (public), revoke, staff list.
 // The server stores and returns only ciphertext + iv: the AES key lives in the URL fragment and never reaches it.
 import { and, asc, desc, eq, inArray, isNull, lte, sql } from 'drizzle-orm'
+import { SHARE_SIG_CONTEXT, type ShareSig } from '@/components/shares/crypto'
+import { canonicalJson } from '@/core/canonical'
 import type { Snapshot } from '@/core/ledger'
 import { brandFor } from '@/core/copy'
 import { db, withOrg, type Tx } from '@/db'
@@ -8,7 +10,7 @@ import { evidence, missingRecords, patients, shareLinks, shareViews, snapshots, 
 import { ts } from '@/i18n/shares'
 import { writeAudit, type AuditDetails } from '../audit'
 import { now } from '../clock'
-import { hashPassword, hmac, verifyPassword } from '../crypto'
+import { hashPassword, hmac, sha256Hex, signEd25519, verifyEd25519, verifyPassword } from '../crypto'
 import { HttpError } from '../http'
 import { sendMessage } from '../outbox'
 import { activeConsent, assertConsent, assertPatientAccess } from '../patients'
@@ -35,8 +37,21 @@ async function latestSnapshot(tx: Tx, patientId: string) {
   return s ?? null
 }
 
-/** Payload for the latest SEALED snapshot. 409 no_snapshot; 403 quotes_not_allowed unless disclosure is cleared. */
-export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareScope): Promise<SharePayload & { snapshotId: string }> {
+/** Source quotes are clinical content: among staff only records officers and clinicians may share them (PRD §6.1). */
+function assertScopeAllowed(session: Session, scope: ShareScope) {
+  if (scope === 'index_with_quotes' && session.kind === 'staff' && session.role !== 'records' && session.role !== 'clinician') {
+    throw new HttpError(403, 'quotes_not_allowed', 'Only records officers and clinicians can share source quotes')
+  }
+}
+
+export type SignedSharePayload = SharePayload & { snapshotId: string; issuedAt: string; sig: ShareSig }
+
+/**
+ * Payload for the latest SEALED snapshot, signed with the sealing key (S2c: the viewer trusts nothing a creator could
+ * have edited). 409 no_snapshot; 403 quotes_not_allowed unless disclosure is cleared (and, for staff, records/clinician).
+ */
+export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareScope, session: Session): Promise<SignedSharePayload> {
+  assertScopeAllowed(session, scope)
   const [p] = await tx.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, patientId))
   if (!p) throw new HttpError(404, 'not_found', 'Not found')
   const snap = await latestSnapshot(tx, patientId)
@@ -67,12 +82,20 @@ export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareSco
   }
   try {
     const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral })
-    return { ...payload, snapshotId: snap.id }
+    return signSharePayload({ ...payload, snapshotId: snap.id, issuedAt: (await now(session.orgId)).toISOString() })
   } catch (e) {
     if (e instanceof QuotesNotAllowed) throw new HttpError(403, 'quotes_not_allowed', 'Source quotes can be shared only when disclosure is cleared')
     throw e
   }
 }
+
+/** Signs everything but `sig`: SHARE_SIG_CONTEXT + sha256hex(canonical JSON), checked by verifySharePayload in the viewer. */
+export const signSharePayload = <T extends object>(body: T): T & { sig: ShareSig } =>
+  ({ ...body, sig: signEd25519(Buffer.from(SHARE_SIG_CONTEXT + sha256Hex(canonicalJson(body)), 'utf8')) })
+
+/** Fallback for browsers without WebCrypto Ed25519: checks a signature over a payload DIGEST (the record never comes here). */
+export const shareDigestValid = (digest: string, sig: ShareSig) =>
+  verifyEd25519(Buffer.from(SHARE_SIG_CONTEXT + digest, 'utf8'), sig.signature, sig.keyId)
 
 export type CreateShareInput = {
   patientId?: string; snapshotId: string; ciphertext: string; iv: string; scope: ShareScope; expiresInDays: number; passcode: string | null
@@ -81,6 +104,7 @@ export type CreateShareInput = {
 export async function createShare(ctx: Ctx, input: CreateShareInput): Promise<{ id: string; expiresAt: string }> {
   const patientId = ctx.session.kind === 'staff' ? input.patientId : ctx.session.patientId
   if (!patientId) throw new HttpError(400, 'patient_required', 'Choose a patient')
+  assertScopeAllowed(ctx.session, input.scope)
   await assertPatientAccess(ctx, patientId)
   await assertConsent(ctx.db, patientId, 'share') // checked on use (FR-CON-04)
   const [p] = await ctx.db.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, patientId))

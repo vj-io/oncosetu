@@ -20,6 +20,14 @@ const STAFF = [
   { orgId: ORG_GANGA_ID, role: 'clinician', email: 'clinician@ganga.demo', name: 'Dr. Arjun Mehta' },
 ] as const
 
+/** Isolated E2E staff (Ganga only, is_demo=false so the public demo-accounts list stays clean). Password: env E2E_PASSWORD. */
+const E2E_STAFF = [
+  { orgId: ORG_GANGA_ID, role: 'desk', email: 'desk@ganga.test', name: 'E2E Desk' },
+  { orgId: ORG_GANGA_ID, role: 'records', email: 'records@ganga.test', name: 'E2E Records' },
+  { orgId: ORG_GANGA_ID, role: 'clinician', email: 'clinician@ganga.test', name: 'Dr. E2E Clinician' },
+  { orgId: ORG_GANGA_ID, role: 'org_admin', email: 'admin@ganga.test', name: 'E2E Admin' },
+] as const
+
 /** Known demo TOTP secret: base32(first 20 bytes of sha256("oncosetu-demo-totp:" + email)). */
 export const demoTotpSecret = (email: string) =>
   base32Encode(Buffer.from(sha256Hex(`oncosetu-demo-totp:${email}`), 'hex').subarray(0, 20))
@@ -39,7 +47,16 @@ async function main() {
         set: { orgId: s.orgId, role: s.role, name: s.name, passwordHash, totpSecretEnc, isDemo: true, active: true, failedLogins: 0, lockedUntil: null },
       })
   }
-  console.log(`seeded ${ORGS.length} orgs, ${STAFF.length} demo staff`)
+  const e2ePasswordHash = await hashPassword(process.env.E2E_PASSWORD ?? DEMO_PASSWORD)
+  for (const s of E2E_STAFF) {
+    const totpSecretEnc = encryptField(demoTotpSecret(s.email))
+    await adminDb.insert(staff).values({ ...s, passwordHash: e2ePasswordHash, totpSecretEnc, isDemo: false, active: true })
+      .onConflictDoUpdate({
+        target: staff.email,
+        set: { orgId: s.orgId, role: s.role, name: s.name, passwordHash: e2ePasswordHash, totpSecretEnc, isDemo: false, active: true, failedLogins: 0, lockedUntil: null },
+      })
+  }
+  console.log(`seeded ${ORGS.length} orgs, ${STAFF.length} demo staff, ${E2E_STAFF.length} e2e staff`)
 }
 
 main().then(closeDb).catch(async (e) => { console.error(e); await closeDb(); process.exit(1) })

@@ -3,6 +3,7 @@ import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { caregivers, patients } from '@/db/schema'
 import { decryptField } from '../crypto'
+import { sendMessage } from '../outbox'
 
 export type ContactTarget = { phone: string; lang: 'en' | 'hi'; caregiverId: string | null }
 
@@ -46,4 +47,16 @@ export async function patientOwnTarget(tx: Tx, patientId: string): Promise<Conta
 export async function patientPhoneTarget(tx: Tx, patientId: string): Promise<ContactTarget | null> {
   const [p] = await tx.select().from(patients).where(eq(patients.id, patientId))
   return p?.phoneEnc ? { phone: decryptField(p.phoneEnc), lang: p.preferredLanguage, caregiverId: null } : null
+}
+
+/**
+ * Neutral SMS to the patient's OWN phone (not the caregiver's) when who can act for them changes, so a change they
+ * did not make is noticed. Skipped with no phone on file or a deceased patient. Returns whether it was sent.
+ */
+export async function tellPatient(tx: Tx, p: { orgId: string; patientId: string; templateKey: string; body: { en: string; hi: string } }): Promise<boolean> {
+  const [r] = await tx.select({ phoneEnc: patients.phoneEnc, deceased: patients.deceased, lang: patients.preferredLanguage })
+    .from(patients).where(eq(patients.id, p.patientId))
+  if (!r?.phoneEnc || r.deceased) return false
+  await sendMessage(tx, { orgId: p.orgId, patientId: p.patientId, toPhone: decryptField(r.phoneEnc), channel: 'sms', templateKey: p.templateKey, body: p.body[r.lang], lang: r.lang })
+  return true
 }

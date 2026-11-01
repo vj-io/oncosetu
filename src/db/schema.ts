@@ -604,10 +604,45 @@ export const patientMerges = pgTable('patient_merges', {
   executedAt: tsz('executed_at'),
 })
 
-/** Tables under ENABLE + FORCE RLS (org_id = app.org_id). Kept in sync with drizzle/0001_rls_roles.sql. */
+/** FR-VER-04: one second review per sampled `verifications` row (drizzle/0002). Append-only: no UPDATE/DELETE grant. */
+export const verificationQaReviews = pgTable('verification_qa_reviews', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  verificationId: uuid('verification_id').notNull().unique().references(() => verifications.id),
+  eventId: uuid('event_id').notNull().references(() => events.id),
+  reviewerId: uuid('reviewer_id').notNull().references(() => staff.id),
+  outcome: text('outcome').$type<'agree' | 'disagree'>().notNull(),
+  reviewedAt: tsz('reviewed_at').notNull().defaultNow(),
+})
+
+/** §16.4 "which document types were referenced but absent" for a measurement form (drizzle/0002). */
+export const measurementFormDocTypes = pgTable('measurement_form_doc_types', {
+  id: pk(),
+  orgId: orgId(),
+  formId: uuid('form_id').notNull().references(() => measurementForms.id),
+  docType: text('doc_type').notNull(),
+})
+
+/** J8 / PRD §10.5 (drizzle/0003). The app role may only insert and move `state` / `completed_at`; nothing here deletes data. */
+export const erasureRequests = pgTable('erasure_requests', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  requestedByKind: text('requested_by_kind').$type<'patient' | 'caregiver' | 'staff'>().notNull(),
+  requestedById: uuid('requested_by_id').notNull(),
+  requestedAt: tsz('requested_at').notNull().defaultNow(),
+  state: text('state').$type<'queued' | 'scheduled' | 'completed' | 'cancelled'>().notNull().default('queued'),
+  eligibleAfter: tsz('eligible_after').notNull(),
+  completedAt: tsz('completed_at'),
+})
+
+/** Tables under ENABLE + FORCE RLS (org_id = app.org_id). Kept in sync with drizzle/0001_rls_roles.sql and later migrations. */
 export const RLS_TABLES = [
   'patients', 'patient_aliases', 'caregivers', 'consents', 'encounters', 'documents', 'document_files',
   'document_pages', 'events', 'evidence', 'patient_statements', 'verifications', 'snapshots', 'missing_records',
   'record_requests', 'share_links', 'share_views', 'ai_runs', 'audit_log', 'devices', 'outbox', 'break_glass',
   'measurement_forms', 'rule_states', 'patient_merges',
+  'verification_qa_reviews', 'measurement_form_doc_types', // 0002
+  'erasure_requests', // 0003
 ] as const

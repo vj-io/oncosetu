@@ -29,10 +29,12 @@ export const POST = route({
   const pwOk = await verifyPassword(body.password, s.passwordHash)
   const totpOk = !s.totpEnabled || (!!s.totpSecretEnc && verifyTotp(decryptField(s.totpSecretEnc), body.totp.trim()))
   if (!pwOk || !totpOk) {
-    // Atomic counter; 5 failures → 15 min lock (FR-ID-02 / FR-ID-09).
+    // Atomic counter; 5 failures → 15 min lock (FR-ID-02 / FR-ID-09). A lock that has run out restarts the count, so one
+    // more typo after the lock is not an instant re-lock.
+    const expired = sql`(${staff.lockedUntil} is not null and ${staff.lockedUntil} <= now())`
     const [u] = await db.update(staff).set({
-      failedLogins: sql`${staff.failedLogins} + 1`,
-      lockedUntil: sql`case when ${staff.failedLogins} + 1 >= ${MAX_FAILURES} then now() + interval '15 minutes' else ${staff.lockedUntil} end`,
+      failedLogins: sql`case when ${expired} then 1 else ${staff.failedLogins} + 1 end`,
+      lockedUntil: sql`case when ${expired} then null when ${staff.failedLogins} + 1 >= ${MAX_FAILURES} then now() + interval '15 minutes' else ${staff.lockedUntil} end`,
     }).where(eq(staff.id, s.id)).returning({ failed: staff.failedLogins })
     await withOrg(s.orgId, (tx) => writeAudit(tx, {
       orgId: s.orgId, actorId: s.id, actorRole: s.role, action: 'auth.login_failed', targetType: 'staff', targetId: s.id,

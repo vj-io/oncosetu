@@ -21,4 +21,13 @@ export const registrationCopy = {
     en: 'Setu Records: a member of your care team opened your file under the hospital emergency access rule. If you have questions, please ask at the hospital desk.',
     hi: 'Setu Records: आपकी देखभाल टीम के एक सदस्य ने अस्पताल के आपातकालीन पहुँच नियम के तहत आपकी फ़ाइल खोली। कोई सवाल हो तो कृपया अस्पताल के डेस्क पर पूछिए।',
   },
+  // Sent to the patient's OWN phone when someone gains access or the contact changes, so a change they did not make is noticed.
+  caregiverAddedSms: {
+    en: 'A family member was added to your Setu Records account. If this was not you, tell the clinic.',
+    hi: 'आपके Setu Records खाते में परिवार का एक सदस्य जोड़ा गया। अगर यह आपने नहीं किया, तो क्लिनिक को बताइए।',
+  },
+  primaryContactSms: {
+    en: 'The main contact for your Setu Records account was changed. If this was not you, tell the clinic.',
+    hi: 'आपके Setu Records खाते का मुख्य संपर्क बदला गया। अगर यह आपने नहीं किया, तो क्लिनिक को बताइए।',
+  },
 } as const

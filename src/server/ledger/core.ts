@@ -1,6 +1,6 @@
 // Ledger read model + verification rules (FR-LED-02..07, FR-VER-01..03, FR-TML-01..04, FR-ONB-01).
 // Pure and server-only (imports core/ledger → node:crypto): DB rows in, serialisable view models out.
-import { formatDateIN, staffDocLabel } from '@/core/copy'
+import { formatDateIN, patientDocLabel, staffDocLabel } from '@/core/copy'
 import { parseDate } from '@/core/dates'
 import {
   buildSnapshot, bulkVerifyEligible, diffLedger, ONBOARDING_PRIORITY,
@@ -369,14 +369,16 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
   }
 
   const stmtById = new Map(record.statements.map((s) => [s.id, s]))
+  // The compared value is clinical (medicine names, procedure dates): the desk sees that a conflict exists, not its content.
+  const sideValue = (x: LedgerConflict['a']) => (headlinesOnly ? '—' : x.value)
   const side = (x: LedgerConflict['a']): SideView => {
     if (x.kind === 'statement') {
       const s = stmtById.get(x.id)
-      return { kind: 'statement', id: x.id, value: x.value, title: 'Patient said', sources: [], transcript: headlinesOnly ? undefined : s?.transcript }
+      return { kind: 'statement', id: x.id, value: sideValue(x), title: 'Patient said', sources: [], transcript: headlinesOnly ? undefined : s?.transcript }
     }
     const e = coreById.get(x.id)!
     return {
-      kind: 'event', id: x.id, value: x.value, title: e ? `${docLabel(e.documentId)}${e.evidence[0]?.pageNo ? ` · p.${e.evidence[0].pageNo}` : ''}` : 'Event',
+      kind: 'event', id: x.id, value: sideValue(x), title: e ? `${docLabel(e.documentId)}${e.evidence[0]?.pageNo ? ` · p.${e.evidence[0].pageNo}` : ''}` : 'Event',
       sources: headlinesOnly || !e ? [] : sourcesOf(rows.patientId, e, docLabel), status: e?.verificationStatus, rowVersion: rowById.get(x.id)?.rowVersion,
     }
   }
@@ -402,7 +404,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       amended: ledger.amended.map(view),
     },
     conflicts: conflicts.map((c) => ({
-      key: `${c.a.id}:${c.b.id}`, kind: c.kind, label: CONFLICT_LABEL[c.kind], sides: [side(c.a), side(c.b)],
+      key: `${c.a.id}:${c.b.id}`, kind: c.kind, label: headlinesOnly ? 'Two sources disagree' : CONFLICT_LABEL[c.kind], sides: [side(c.a), side(c.b)],
       resolve: role === 'clinician' ? true : 'A clinician resolves conflicts.',
     })),
     patientSaid: ledger.patient_said.map((s) => ({
@@ -410,7 +412,10 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       confirmed: s.confirmation === 'patient_confirmed', captured: day(s.capturedAt), medicines: headlinesOnly ? [] : s.medicationNames ?? [],
       scans: headlinesOnly ? [] : s.scanNames ?? [], institution: headlinesOnly ? null : s.institutionName ?? null,
     })),
-    missing: ledger.missing.map((m) => ({ dedupeKey: m.dedupeKey, title: m.wording.en, state: m.state ?? 'expected', ruleId: m.ruleId })),
+    // Rule wording names tests, scans and dates: the desk gets the neutral document label only (as on its completeness screen).
+    missing: ledger.missing.map((m) => headlinesOnly
+      ? { dedupeKey: m.dedupeKey, title: `${patientDocLabel(m.expectedTypes[0] ?? 'other', 'not_cleared')} not in file`, state: m.state ?? 'expected', ruleId: '' }
+      : { dedupeKey: m.dedupeKey, title: m.wording.en, state: m.state ?? 'expected', ruleId: m.ruleId }),
     duplicates: {
       count: ledger.duplicates_suppressed.count,
       items: record.events.filter((e) => dupIds.has(e.id)).map((e) => ({

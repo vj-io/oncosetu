@@ -8,7 +8,7 @@ export type DB = PostgresJsDatabase<typeof schema> & { $client: Sql }
 /** A drizzle transaction. `ctx.db` in route handlers is one of these, with RLS `app.org_id` set. */
 export type Tx = Parameters<Parameters<DB['transaction']>[0]>[0]
 
-type Clients = { app?: DB; admin?: DB }
+type Clients = { app?: DB; admin?: DB; side?: DB }
 const g = globalThis as unknown as { __oncosetuDb?: Clients }
 const clients: Clients = (g.__oncosetuDb ??= {}) // survives dev HMR
 
@@ -31,6 +31,14 @@ function lazy(key: keyof Clients, build: () => DB): DB {
 /** App runtime: non-owner role `oncosetu_app` (RLS enforced), pooled. */
 export const db: DB = lazy('app', () => make(process.env.DATABASE_URL_APP, 'DATABASE_URL_APP', 5))
 
+/**
+ * Own small pool for single-statement reads made while a transaction already holds a pooled connection (the org clock).
+ * Borrowing a second connection from `db` there deadlocks the app pool once every connection is a transaction waiting
+ * for another one (6 parallel uploads froze the server until Postgres' 5 min idle-in-transaction timeout). Only for
+ * tables without RLS (org_settings): this client sets no `app.org_id`.
+ */
+export const sideDb: DB = lazy('side', () => make(process.env.DATABASE_URL_APP, 'DATABASE_URL_APP', 2))
+
 /** Owner role (BYPASSRLS). Only migrations, seed, and system tasks that genuinely cannot run under RLS. */
 export const adminDb: DB = lazy('admin', () =>
   make(process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL, 'DATABASE_URL_UNPOOLED', 2))
@@ -48,4 +56,5 @@ export async function closeDb() {
   await Promise.all(Object.values(clients).map((c) => c?.$client.end({ timeout: 5 })))
   delete clients.app
   delete clients.admin
+  delete clients.side
 }

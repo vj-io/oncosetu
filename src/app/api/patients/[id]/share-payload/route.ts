@@ -12,7 +12,7 @@ export const GET = route({
   const id = patientIdParam(ctx)
   await assertPatientAccess(ctx, id)
   await assertConsent(ctx.db, id, 'share')
-  const payload = await sharePayloadFor(ctx.db, id, ctx.query.scope)
+  const payload = await sharePayloadFor(ctx.db, id, ctx.query.scope, ctx.session) // desk: index only (no quotes)
   await ctx.audit('share.payload', 'patient', id, { scope: ctx.query.scope, snapshotId: payload.snapshotId })
   return payload
 })

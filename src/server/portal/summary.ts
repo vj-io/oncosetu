@@ -5,7 +5,7 @@ import type { DatePrecision, Disclosure, DocType, Lang } from '@/core/types'
 import { tp } from '@/i18n/patient'
 
 export type HomeData = {
-  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string }[]
+  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean }[]
   /** Production completeness items: a document type linked to a date, never a reason. */
   looking: {
     id: string; expectedTypes: DocType[]; state: 'expected' | 'requested' | 'received'
@@ -17,7 +17,7 @@ export type HomeData = {
 }
 
 export type HomeSummary = {
-  documents: { id: string; label: string; dated: string | null; received: string }[]
+  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean }[]
   looking: { id: string; text: string }[]
   requests: string
   visit: string
@@ -46,6 +46,7 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
     label: x.docType ? patientDocLabel(x.docType, disclosure, lang) : tp(lang, 'docPending'),
     dated: x.documentDate ? tp(lang, 'docDatedOn', { date: formatDateIN(x.documentDate, lang) }) : null,
     received: tp(lang, 'docReceivedOn', { date: formatDateIN(istDate(x.receivedAt), lang) }),
+    disputed: !!x.disputed,
   }))
 
   const looking = d.looking.map((x) => {

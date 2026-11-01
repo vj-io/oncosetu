@@ -5,7 +5,10 @@ import { and, count, eq, inArray, isNull } from 'drizzle-orm'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
+import { RecordErasure } from '@/components/erasure/RecordErasure'
 import { documents, events, missingRecords } from '@/db/schema'
+import { istDate } from '@/server/admin/format'
+import { erasureContext } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
@@ -17,7 +20,10 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     try {
       await assertPatientAccess({ db: tx, session }, id)
     } catch (e) {
-      if (e instanceof HttpError && e.status === 403) return { denied: e.code }
+      if (e instanceof HttpError && e.status === 403) {
+        const er = e.code === 'consent_required' ? await erasureContext(tx, id) : null // J8: the denial screen carries the erasure action
+        return { denied: e.code, erasure: er }
+      }
       throw e
     }
     const patient = await loadPatient(tx, id)
@@ -47,6 +53,11 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
             ? <Link className="underline" href="/desk">Go to the desk</Link>
             : <span className="flex flex-wrap gap-4"><Link className="underline" href="/desk">Record consent at the desk</Link><Link className="underline" href={`/break-glass/${id}`}>Request break-glass access</Link></span>}
         />
+        {data.erasure && (data.erasure.withdrawn || data.erasure.erasure) && (session.role === 'records' || session.role === 'clinician') && (
+          <div className="mt-6">
+            <RecordErasure patientId={id} status={data.erasure.erasure ? `Erasure request ${data.erasure.erasure.state}. Eligible for removal after ${istDate(data.erasure.erasure.eligibleAfter)}.` : null} />
+          </div>
+        )}
       </div>
     )
   }

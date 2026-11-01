@@ -3,7 +3,7 @@
 Deterministic, no DB / network / filesystem at runtime, no `Date.now()` (pass `now`). Tested with Vitest
 (`npm test`). Import from the module folder, e.g. `import { runGate } from '@/core/gate'`.
 
-**Client-safe:** `types`, `copy`, `dates`, `identity`, `extract`.
+**Client-safe:** `types`, `copy`, `dates`, `identity`, `extract`, `canonical` (canonical JSON; also re-exported by `ledger`).
 **Server-only** (use `node:crypto` via `hash.ts`): `gate`, `radar`, `ledger`.
 
 Dates are `YYYY-MM-DD` calendar strings; a month/year-precision date is stored as its first day plus a

@@ -9,6 +9,7 @@ export const SECTIONS = {
   metrics: { href: '/admin/metrics', label: 'Metrics', roles: ['org_admin', 'auditor', 'clinician'] },
   measurement: { href: '/admin/measurement', label: 'Measurement study', roles: ['org_admin', 'auditor', 'clinician'] },
   devices: { href: '/admin/devices', label: 'Devices', roles: ['org_admin'] },
+  erasure: { href: '/admin/erasure', label: 'Erasure requests', roles: ['org_admin'] },
   duplicates: { href: '/admin/duplicates', label: 'Duplicates', roles: ['org_admin', 'records'] },
   breakGlass: { href: '/admin/break-glass', label: 'Break-glass', roles: ['org_admin', 'auditor'] },
   settings: { href: '/admin/settings', label: 'Settings', roles: ['org_admin'] },

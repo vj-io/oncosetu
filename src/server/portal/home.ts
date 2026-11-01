@@ -15,7 +15,7 @@ export const OPEN_REQUEST_STATES = ['drafted', 'sent', 'reminder_due', 'open_21d
 export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Promise<HomeData> {
   const at = await now(orgId)
   const [docs, looking, [open], [last], [shares]] = await Promise.all([
-    tx.select({ id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt })
+    tx.select({ id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt, flags: documents.flags })
       .from(documents)
       .where(and(
         eq(documents.patientId, patientId), isNull(documents.duplicateOf),
@@ -50,7 +50,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
   }))
   return {
     documents: docs.map((d) => ({
-      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(),
+      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true,
     })),
     looking: looking.map((m) => {
       const st = m.eventDate == null && typeof m.window?.triggerId === 'string' ? stmtDate.get(m.window.triggerId) : undefined

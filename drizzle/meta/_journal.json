@@ -22,6 +22,27 @@
       "when": 1793563874000,
       "tag": "0002_admin_qa_measurement",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793563934000,
+      "tag": "0003_erasure_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793563994000,
+      "tag": "0004_resolve_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793564054000,
+      "tag": "0005_resolve_snapshot_search_path",
+      "breakpoints": true
     }
   ]
 }

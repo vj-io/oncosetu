@@ -3,6 +3,7 @@ import { PortalFrame } from '@/components/portal/PortalFrame'
 import { Kicker } from '@/components/portal/ui'
 import { withOrg } from '@/db'
 import { tp } from '@/i18n/patient'
+import { loadErasure } from '@/server/erasure/erasure'
 import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadConsentView } from '@/server/portal/consent'
 import { formatDateTimeIN } from '@/server/portal/summary'
@@ -10,7 +11,9 @@ import { formatDateTimeIN } from '@/server/portal/summary'
 export default async function ConsentPage({ searchParams }: { searchParams: PortalSearch }) {
   const ctx = await loadPortal(searchParams)
   const { lang } = ctx
-  const view = await withOrg(ctx.session.orgId, (tx) => loadConsentView(tx, ctx.session.patientId))
+  const { view, erasure } = await withOrg(ctx.session.orgId, async (tx) => ({
+    view: await loadConsentView(tx, ctx.session.patientId), erasure: await loadErasure(tx, ctx.session.patientId),
+  }))
   return (
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tp(lang, 'consentKicker')}</Kicker>
@@ -21,6 +24,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
         initial={view.purposes}
         caregivers={view.caregivers}
         isPatient={ctx.session.kind === 'patient'}
+        erasure={erasure && erasure.state !== 'cancelled' ? { state: erasure.state, eligibleAfter: erasure.eligibleAfter, completedAt: erasure.completedAt } : null}
         lastUpdated={view.recordedAt ? formatDateTimeIN(view.recordedAt, lang) : null}
       />
     </PortalFrame>

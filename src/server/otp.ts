@@ -1,6 +1,6 @@
 // Phone OTP: 6 digits, hashed at rest, 5 min expiry, 5 failed attempts → phone locked 15 min. Uniform failures.
 import { randomInt } from 'node:crypto'
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 import { db, withOrg, type Tx } from '@/db'
 import { otpChallenges, patients } from '@/db/schema'
@@ -35,9 +35,20 @@ async function latest(q: Tx | typeof db, phoneHmac: string, purpose: string, loc
   return c
 }
 
-/** Issues a new code, or null while the phone is locked (caller still answers 200). */
+/** SMS flood guard per phone, across every purpose (login, desk, consent): at most 3 codes in 10 min and 10 in 24 h. */
+export const OTP_SEND_LIMITS = [{ windowMs: 10 * 60_000, max: 3 }, { windowMs: 24 * 3_600_000, max: 10 }] as const
+
+/** Pure: may another code go to a phone that was sent codes at `sentAt`? */
+export const sendAllowed = (sentAt: Date[], now: Date) =>
+  OTP_SEND_LIMITS.every((w) => sentAt.filter((t) => now.getTime() - t.getTime() < w.windowMs).length < w.max)
+
+/** Issues a new code, or null while the phone is locked or over its send budget (callers answer as for a lock). */
 export async function startOtp(phoneHmac: string, purpose = 'login'): Promise<{ code: string } | null> {
   const now = new Date()
+  // ponytail: count-then-insert, so a burst of parallel requests can overshoot by a few; an advisory lock per phone if that matters.
+  const sent = await db.select({ at: otpChallenges.createdAt }).from(otpChallenges)
+    .where(and(eq(otpChallenges.phoneHmac, phoneHmac), gt(otpChallenges.createdAt, new Date(now.getTime() - OTP_SEND_LIMITS[1].windowMs))))
+  if (!sendAllowed(sent.map((s) => s.at), now)) return null
   const prev = await latest(db, phoneHmac, purpose)
   if (isLocked(prev, now)) return null
   // Failed attempts carry over to a re-issued code for 15 min, so re-requesting never resets the counter.

@@ -10,7 +10,9 @@ import { formatDateIN, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { ts, type ShareKey } from '@/i18n/shares'
 import type { SharePayload, ShareScope } from '@/server/shares/payload'
+import clsx from 'clsx'
 import { api, ApiError } from '../requests/api'
+import { sideStyle } from '../requests/side'
 import { encryptJson } from './crypto'
 
 type Payload = SharePayload & { snapshotId: string }
@@ -19,9 +21,11 @@ type Created = { url: string; qr: string; expiresAt: string; passcode: string | 
 const DAYS = [1, 3, 7, 14, 30]
 const randomCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0')
 
-export function CreateShareForm({ patientId, actor, lang = 'en' }: { patientId: string; actor: 'staff' | 'patient'; lang?: Lang }) {
+/** `allowQuotes` false for the desk: the server refuses quoted shares from it, so the option is not offered. */
+export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = true }: { patientId: string; actor: 'staff' | 'patient'; lang?: Lang; allowQuotes?: boolean }) {
   const router = useRouter()
   const t = (k: ShareKey, v?: Record<string, string | number>) => ts(lang, k, v)
+  const ui = sideStyle(actor, lang)
   const payloadUrl = (scope: ShareScope) =>
     actor === 'staff' ? `/api/patients/${patientId}/share-payload?scope=${scope}` : `/api/p/share-payload?scope=${scope}`
 
@@ -81,15 +85,15 @@ export function CreateShareForm({ patientId, actor, lang = 'en' }: { patientId: 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={created.qr} alt={t('qrAlt')} width={200} height={200} className="border border-rule bg-white p-2" />
           <div className="grid min-w-0 gap-3">
-            <Field label={t('linkLabel')}>
+            <Field label={ui.plain(t('linkLabel'))}>
               <Input readOnly value={created.url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-[13px]" />
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={copy}>{copied ? t('copied') : t('copy')}</Button>
-              <Button size="sm" variant="ghost" onClick={() => { setCreated(null); setPasscode(randomCode()) }}>{t('another')}</Button>
+              <Button size={ui.size} className={ui.btn} variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={copy}>{copied ? t('copied') : t('copy')}</Button>
+              <Button size={ui.size} className={ui.btn} variant="ghost" onClick={() => { setCreated(null); setPasscode(randomCode()) }}>{t('another')}</Button>
             </div>
             <p className="text-[15px]">{t('worksUntil', { date: formatDateIN(istDate(created.expiresAt), lang) })}</p>
-            {created.passcode && <p className="flex items-center gap-2 font-mono text-[15px]"><KeyRound aria-hidden className="size-4" />{t('passcodeReminder', { code: created.passcode })}</p>}
+            {created.passcode && <p className={clsx('flex items-center gap-2 text-[15px]', lang === 'hi' ? 'font-deva' : 'font-mono')}><KeyRound aria-hidden className="size-4" />{t('passcodeReminder', { code: created.passcode })}</p>}
             {created.passcode && <p className="text-sm text-muted">{t('passcodeHint')}</p>}
             <p className="text-sm text-muted">{t('keyNote')}</p>
           </div>
@@ -98,31 +102,31 @@ export function CreateShareForm({ patientId, actor, lang = 'en' }: { patientId: 
     )
   }
 
-  const quotesAllowed = pre.brand === 'OncoSetu' // brand is "OncoSetu" only when disclosure is cleared
+  const quotesAllowed = allowQuotes && pre.brand === 'OncoSetu' // brand is "OncoSetu" only when disclosure is cleared
   return (
     <Frame className="px-5 py-6 sm:px-6">
       <form onSubmit={create} className="grid gap-5" noValidate>
         <div className="grid gap-1">
           <h3 className="text-xl">{t('formTitle')}</h3>
           <p className="text-[15px] text-muted">{t('formIntro')}</p>
-          <p className="font-mono text-[12px] text-faint">{t('asOf', { date: formatDateIN(istDate(pre.asOf), lang) })}</p>
+          <p className={ui.kicker ? clsx('text-faint', ui.kicker) : 'font-mono text-[12px] text-faint'}>{t('asOf', { date: formatDateIN(istDate(pre.asOf), lang) })}</p>
         </div>
         {quotesAllowed && (
-          <Field label={t('scopeLabel')}>
+          <Field label={ui.plain(t('scopeLabel'))}>
             <Select value={scope} onChange={(e) => setScope(e.target.value as ShareScope)}>
               <option value="index">{t('scopeIndex')}</option>
               <option value="index_with_quotes">{t('scopeQuotes')}</option>
             </Select>
           </Field>
         )}
-        <Field label={t('expiryLabel')}>
+        <Field label={ui.plain(t('expiryLabel'))}>
           <Select value={String(days)} onChange={(e) => setDays(Number(e.target.value))}>
             {DAYS.map((n) => <option key={n} value={n}>{n === 1 ? t('oneDay') : t('days', { n })}</option>)}
           </Select>
         </Field>
         <Switch label={t('passcodeOn')} checked={usePasscode} onChange={(e) => setUsePasscode(e.target.checked)} />
         {usePasscode ? (
-          <Field label={t('passcodeLabel')} hint={t('passcodeHint')}>
+          <Field label={ui.plain(t('passcodeLabel'))} hint={t('passcodeHint')}>
             <Input value={passcode} onChange={(e) => setPasscode(e.target.value)} minLength={6} maxLength={64} autoComplete="off" className="font-mono" />
           </Field>
         ) : (
@@ -132,7 +136,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en' }: { patientId: 
         )}
         <p className="text-sm text-muted">{t('keyNote')}</p>
         {error && <p role="alert" className="text-sm text-madder-ink">{error}</p>}
-        <div><Button type="submit" loading={busy} icon={<Link2 />}>{busy ? t('creating') : t('create')}</Button></div>
+        <div><Button type="submit" size="md" className={ui.btn} loading={busy} icon={<Link2 />}>{busy ? t('creating') : t('create')}</Button></div>
       </form>
     </Frame>
   )

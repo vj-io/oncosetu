@@ -2,9 +2,10 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Tx } from '@/db'
-import { consents, patients, shareLinks, type ConsentPurposes } from '@/db/schema'
+import { consents, shareLinks, type ConsentPurposes } from '@/db/schema'
+import { cancelOpenErasure } from '../erasure/erasure'
 import { HttpError } from '../http'
-import { activeConsent } from '../patients'
+import { activeConsent, assertPatientAccess } from '../patients'
 import { confirmAction, confirmPurpose } from './confirm'
 import { primaryContactTarget } from './contact'
 import { checkGrantPurposes, NO_PURPOSES } from './logic'
@@ -49,9 +50,9 @@ export const recordConsentSchema = consentInput.extend({ confirm: confirmSchema 
  * Confirmed by a code to the primary contact or in person with a witness (FR-CON-06).
  */
 export async function recordConsent(ctx: StaffCtx<z.infer<typeof recordConsentSchema>>, patientId: string) {
+  // No consent may exist yet (or it was withdrawn): a verified visit in the last 12 h stands in; the desk always needs one.
+  await assertPatientAccess(ctx, patientId, { consentOptional: true })
   const { session: s, body, db: tx } = ctx
-  const [p] = await tx.select({ id: patients.id }).from(patients).where(eq(patients.id, patientId))
-  if (!p) throw new HttpError(404, 'not_found', 'Not found')
   const g = checkGrantPurposes(body.purposes)
   if (!g.ok) throw new HttpError(400, g.code, 'Keeping and organising the record is required. To stop, withdraw consent instead.')
   const target = await primaryContactTarget(tx, patientId)
@@ -69,12 +70,14 @@ export async function recordConsent(ctx: StaffCtx<z.infer<typeof recordConsentSc
     consentId, action: current ? 'update' : 'grant', noticeVersion: body.noticeVersion, language: body.language, method: c.method,
     ai: body.purposes.ai, share: body.purposes.share, abdm: body.purposes.abdm, metrics: body.purposes.metrics,
   })
+  if (body.purposes.store) { // J8: consent restored, so an erasure request that was waiting is cancelled
+    for (const id of await cancelOpenErasure(tx, patientId)) await ctx.audit('erasure.cancel', 'erasure_request', id, { patientId, reason: 'consent_restored' })
+  }
   return { ok: true, consentId }
 }
 
 export async function withdrawConsentRoute(ctx: StaffCtx<unknown>, patientId: string) {
-  const [p] = await ctx.db.select({ id: patients.id }).from(patients).where(eq(patients.id, patientId))
-  if (!p) throw new HttpError(404, 'not_found', 'Not found')
+  await assertPatientAccess(ctx, patientId, { consentOptional: true }) // no consent left → the 409 below, not a 403
   const r = await withdrawConsent(ctx.db, ctx.audit, { orgId: ctx.session.orgId, patientId, staffId: ctx.session.staffId })
   return r ? { ok: true, ...r } : fail(409, 'no_active_consent', 'There is no active consent to withdraw')
 }

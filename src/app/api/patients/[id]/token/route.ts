@@ -1,7 +1,6 @@
-import { eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { patients } from '@/db/schema'
-import { HttpError, route } from '@/server/http'
+import { route } from '@/server/http'
+import { assertPatientAccess } from '@/server/patients'
 import { accession, patientIdParam } from '@/server/registration/http'
 import { groupToken } from '@/server/registration/logic'
 import { reissueToken, revokeToken } from '@/server/registration/token'
@@ -12,8 +11,7 @@ export const POST = route({
   auth: 'staff', roles: ['desk', 'records'], body: z.object({ action: z.enum(['reissue', 'revoke']).default('reissue') }),
 }, async (ctx) => {
   const id = patientIdParam(ctx)
-  const [p] = await ctx.db.select({ id: patients.id }).from(patients).where(eq(patients.id, id))
-  if (!p) throw new HttpError(404, 'not_found', 'Not found')
+  await assertPatientAccess(ctx, id) // a new card is a way into the record: desk only after verifying the patient
   if (ctx.body.action === 'revoke') {
     await revokeToken(ctx.db, ctx.audit, id)
     return { ok: true, revoked: true }

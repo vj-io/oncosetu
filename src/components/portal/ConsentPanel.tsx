@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { CircleCheck } from "lucide-react";
+import { formatDateIN, istDate } from "@/core/copy";
 import { CONSENT_PURPOSES } from "@/core/types";
 import type { ConsentPurposes } from "@/db/schema";
 import { tp, type PatientKey } from "@/i18n/patient";
@@ -12,13 +13,14 @@ import { ErrorNote, PButton } from "./ui";
 
 type Purposes = ConsentPurposes;
 type Caregiver = { id: string; name: string; relation: string; active: boolean };
+export type ErasureStatus = { state: "queued" | "scheduled" | "completed"; eligibleAfter: string; completedAt: string | null };
 const PURPOSES = CONSENT_PURPOSES;
 
 /** Purpose toggles, one-tap withdrawal (FR-CON-04) and the caregiver list. Each change is one request; the server re-reads it on every use. */
 export function ConsentPanel({
-  lang, initial, caregivers, isPatient, lastUpdated,
+  lang, initial, caregivers, isPatient, lastUpdated, erasure: initialErasure,
 }: {
-  lang: "en" | "hi"; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; lastUpdated: string | null;
+  lang: "en" | "hi"; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; lastUpdated: string | null; erasure: ErasureStatus | null;
 }) {
   const router = useRouter();
   const [purposes, setPurposes] = useState<Purposes>(initial);
@@ -27,6 +29,7 @@ export function ConsentPanel({
   const [note, setNote] = useState<{ kind: "ok" | "withdrawn" | "removed"; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [updated, setUpdated] = useState(lastUpdated);
+  const [erasure, setErasure] = useState(initialErasure);
 
   async function post(url: string, body?: unknown): Promise<boolean> {
     setError(null);
@@ -64,6 +67,22 @@ export function ConsentPanel({
       setPurposes({ store: false, ai: false, share: false, abdm: false, metrics: false });
       setNote({ kind: "withdrawn", text: tp(lang, "withdrawDone") });
       setUpdated(formatDateTimeIN(new Date(), lang));
+    }
+    setBusy(null);
+  }
+
+  /** J8: only offered once permission is withdrawn. The server answers with the date the records become eligible for removal. */
+  async function requestErasure() {
+    setBusy("erasure");
+    setError(null);
+    try {
+      const res = await fetch("/api/p/erasure", { method: "POST" });
+      if (res.status === 401) { router.replace(`/p/login?next=/p/consent&lang=${lang}`); return; }
+      if (!res.ok) throw new Error(String(res.status));
+      setErasure((await res.json()) as ErasureStatus);
+      setNote({ kind: "ok", text: tp(lang, "erasureDone") });
+    } catch {
+      setError(tp(lang, "genericError"));
     }
     setBusy(null);
   }
@@ -127,6 +146,27 @@ export function ConsentPanel({
           {tp(lang, "withdrawButton")}
         </PButton>
       </section>
+
+      {none && (
+        <section aria-labelledby="er" className="grid gap-3 border border-rule bg-surface px-5 py-5">
+          <h2 id="er" className="text-xl">{tp(lang, "erasureTitle")}</h2>
+          {erasure ? (
+            <>
+              <p role="status" className="text-[17px]">
+                {tp(lang, `erasure_${erasure.state}` as PatientKey, { date: formatDateIN(istDate(erasure.completedAt ?? erasure.eligibleAfter), lang) })}
+              </p>
+              {erasure.state !== "completed" && <p className="text-[15px] text-muted">{tp(lang, "erasureUndo")}</p>}
+            </>
+          ) : (
+            <>
+              <p className="text-[17px] text-muted">{tp(lang, "erasureText")}</p>
+              <PButton variant="secondary" big loading={busy === "erasure"} disabled={busy !== null} onClick={requestErasure} className="w-full sm:w-auto">
+                {tp(lang, "erasureButton")}
+              </PButton>
+            </>
+          )}
+        </section>
+      )}
 
       <section aria-labelledby="cg" className="grid gap-3">
         <h2 id="cg" className="text-xl">{tp(lang, "cgTitle")}</h2>

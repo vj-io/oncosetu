@@ -16,6 +16,6 @@ export const POST = route({
     purpose: CONSENT_PURPOSE, templateKey: 'consent.otp',
   })
   await ctx.audit('consent.otp_requested', null, null, { outcome: sent })
-  if (sent === 'locked') return fail(429, 'locked', 'Too many wrong codes. Try again in 15 minutes, or use in-person witnessed consent.')
+  if (sent === 'locked') return fail(429, 'locked', 'Too many codes for this phone (or wrong codes). Try again later, or use in-person witnessed consent.')
   return { ok: true }
 })

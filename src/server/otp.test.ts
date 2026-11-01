@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { evaluateOtpAttempt, OTP_LOCK_MS, OTP_MAX_ATTEMPTS, otpCodeHash } from './otp'
+import { evaluateOtpAttempt, OTP_LOCK_MS, OTP_MAX_ATTEMPTS, otpCodeHash, sendAllowed } from './otp'
 
 beforeAll(() => { process.env.HMAC_KEY = randomBytes(32).toString('base64') })
 
@@ -34,5 +34,21 @@ describe('OTP attempts', () => {
   })
   it('a code for another challenge does not verify', () => {
     expect(evaluateOtpAttempt(challenge({ id: 'c2' }), '123456', t0).ok).toBe(false)
+  })
+})
+
+describe('OTP send budget per phone (S3b)', () => {
+  const ago = (min: number) => new Date(t0.getTime() - min * 60_000)
+  it('allows 3 codes in 10 minutes, then refuses until the oldest ages out', () => {
+    expect(sendAllowed([], t0)).toBe(true)
+    expect(sendAllowed([ago(1), ago(2)], t0)).toBe(true)
+    expect(sendAllowed([ago(1), ago(2), ago(9)], t0)).toBe(false)
+    expect(sendAllowed([ago(1), ago(2), ago(10)], t0)).toBe(true)
+  })
+  it('allows 10 codes in 24 hours', () => {
+    const spread = (n: number) => Array.from({ length: n }, (_, i) => ago(15 + i * 60))
+    expect(sendAllowed(spread(9), t0)).toBe(true)
+    expect(sendAllowed(spread(10), t0)).toBe(false)
+    expect(sendAllowed([...spread(9), ago(24 * 60 + 1)], t0)).toBe(true)
   })
 })

@@ -2,17 +2,21 @@
 // Public share viewer (J5, FR-PAS-02/03): no account. The key is read from location.hash (never sent anywhere);
 // the server returns only ciphertext after expiry/revocation/consent/passcode checks; decryption happens here.
 import { useEffect, useState } from 'react'
-import { ArrowUpRight, FileText, Lock, Printer } from 'lucide-react'
+import { ArrowUpRight, FileText, Lock, Printer, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { BrassSeal, Button, Chip, EmptyFrame, Field, Frame, Input, KeyValue, LanguageToggle, SectionHeader, Spotlight, Wordmark, type Tone } from '@/components/ui'
 import { formatDateIN, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { ts, type ShareKey } from '@/i18n/shares'
-import type { SharePayload, Verification } from '@/server/shares/payload'
-import { decryptJson } from './crypto'
+import type { Verification } from '@/server/shares/payload'
+import type { SignedSharePayload } from '@/server/shares/shares'
+import { decryptJson, verifySharePayload } from './crypto'
 
+// `verified`: the payload carries a valid OncoSetu signature. Anything else is creator-controlled and is shown as such.
 type Phase =
-  | { k: 'loading' } | { k: 'passcode'; left?: number } | { k: 'open'; p: SharePayload }
+  | { k: 'loading' } | { k: 'passcode'; left?: number } | { k: 'open'; p: SignedSharePayload; verified: boolean }
   | { k: 'error'; msg: ShareKey }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const VERIFY: Record<Verification, { key: ShareKey; tone: Tone }> = {
   records: { key: 'verifiedRecords', tone: 'verified' },
@@ -42,7 +46,8 @@ export function ShareViewer({ id }: { id: string }) {
       const body = await res.json().catch(() => null)
       if (res.ok) {
         try {
-          return { k: 'open', p: await decryptJson<SharePayload>(key, body.ciphertext, body.iv) }
+          const p = await decryptJson<SignedSharePayload>(key, body.ciphertext, body.iv)
+          return { k: 'open', p, verified: await verifySharePayload(p) }
         } catch {
           return { k: 'error', msg: 'decryptFailed' }
         }
@@ -68,11 +73,14 @@ export function ShareViewer({ id }: { id: string }) {
   }, [id])
 
   const p = phase.k === 'open' ? phase.p : null
+  const signed = phase.k === 'open' && phase.verified
+  // Built here, never taken from the payload: a forged `verifyPath` could point anywhere (javascript:, another site).
+  const verifyHref = p && typeof p.seal?.snapshotId === 'string' && UUID.test(p.seal.snapshotId) ? `/verify/${p.seal.snapshotId}` : null
   return (
     <div lang={lang} className={`relative flex min-h-dvh flex-col ${lang === 'hi' ? 'font-deva' : ''}`}>
       <header className="relative z-10 border-b border-rule bg-gallery print:border-b-2">
         <div className="mx-auto flex min-h-16 max-w-reading flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
-          <Wordmark brand={p?.brand ?? 'Setu Records'} />
+          <Wordmark brand={signed ? p!.brand : 'Setu Records'} />
           <div className="ml-auto flex items-center gap-2 print:hidden">
             {p && <Button size="sm" variant="ghost" icon={<Printer />} onClick={() => window.print()}>{t('printIndex')}</Button>}
             <LanguageToggle value={lang} onChange={setLang} />
@@ -108,6 +116,15 @@ export function ShareViewer({ id }: { id: string }) {
                 <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{p.heading[lang]}</h1>
                 <p className="text-[17px]">{p.notice[lang]}</p>
                 <p className="font-mono text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
+                {signed ? (
+                  <p role="status" className="flex items-start gap-2 border-l-[3px] border-l-sage bg-sage-tint px-3 py-2 text-[15px] text-sage-ink">
+                    <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />{t('sigVerified', { brand: p.brand, date: formatDateIN(istDate(p.issuedAt), lang) })}
+                  </p>
+                ) : (
+                  <p role="alert" className="flex items-start gap-2 border-l-[3px] border-l-madder bg-madder-tint px-3 py-2 text-[15px] text-madder-ink">
+                    <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />{t('sigNotVerified')}
+                  </p>
+                )}
               </div>
 
               <section aria-labelledby="items-h" className="grid gap-5">
@@ -115,7 +132,7 @@ export function ShareViewer({ id }: { id: string }) {
                 {p.items.length ? (
                   <ol className="grid gap-4">
                     {p.items.map((it, i) => {
-                      const v = VERIFY[it.verification]
+                      const v = signed ? VERIFY[it.verification] : undefined // chips only when the server vouches for them
                       const source = it.source.label ? `${it.source.label[lang]}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : '—'
                       return (
                         <li key={i}>
@@ -127,7 +144,7 @@ export function ShareViewer({ id }: { id: string }) {
                             <KeyValue items={[
                               { label: t('source'), value: source },
                               ...(it.institution ? [{ label: t('placeLabel'), value: it.institution }] : []),
-                              { label: t('verificationLabel'), value: <Chip tone={v.tone}>{t(v.key)}</Chip> },
+                              ...(v ? [{ label: t('verificationLabel'), value: <Chip tone={v.tone}>{t(v.key)}</Chip> }] : []),
                             ]} />
                             {it.quote && (
                               <figure className="grid gap-1 border-l-[3px] border-l-brass pl-3">
@@ -181,7 +198,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <div className="grid min-w-0 gap-1">
                   <h2 id="seal-h" className="ds-kicker">{t('sealTitle')}</h2>
                   <p className="font-mono text-[12px] break-all text-muted">{t('sealText', { id: p.seal.snapshotId.slice(0, 8), hash: p.seal.sha256.slice(0, 16) + '…' })}</p>
-                  <a href={p.seal.verifyPath} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4 print:hidden">{t('verifySeal')}<ArrowUpRight aria-hidden className="size-3.5" /></a>
+                  {verifyHref && <a href={verifyHref} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4 print:hidden">{t('verifySeal')}<ArrowUpRight aria-hidden className="size-3.5" /></a>}
                 </div>
               </section>
             </article>

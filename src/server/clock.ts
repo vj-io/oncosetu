@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { db } from '@/db'
+import { sideDb } from '@/db'
 import { orgSettings } from '@/db/schema'
 import { isDemo } from './demo'
 
@@ -11,6 +11,6 @@ import { isDemo } from './demo'
 export async function now(orgId?: string): Promise<Date> {
   const real = Date.now()
   if (!orgId || !isDemo()) return new Date(real)
-  const [row] = await db.select({ s: orgSettings.demoClockOffsetS }).from(orgSettings).where(eq(orgSettings.orgId, orgId))
+  const [row] = await sideDb.select({ s: orgSettings.demoClockOffsetS }).from(orgSettings).where(eq(orgSettings.orgId, orgId))
   return new Date(real + (row?.s ?? 0) * 1000)
 }

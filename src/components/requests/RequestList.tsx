@@ -129,18 +129,18 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
 
       <Dialog open={ask?.kind === 'withdraw'} onClose={() => setAsk(null)} title={t('withdraw')} description={t('withdrawConfirm')}
         footer={<>
-          <Button variant="ghost" onClick={() => setAsk(null)}>{t('cancel')}</Button>
-          <Button variant="danger" loading={busy === 'withdraw'} onClick={() => act('withdraw', `/api/requests/${ask!.id}/withdraw`)}>{t('withdraw')}</Button>
+          <Button variant="ghost" className={ui.btn} onClick={() => setAsk(null)}>{t('cancel')}</Button>
+          <Button variant="danger" className={ui.btn} loading={busy === 'withdraw'} onClick={() => act('withdraw', `/api/requests/${ask!.id}/withdraw`)}>{t('withdraw')}</Button>
         </>} />
       <Dialog open={ask?.kind === 'unobtainable'} onClose={() => setAsk(null)} title={t('unobtainable')}
         footer={<>
-          <Button variant="ghost" onClick={() => setAsk(null)}>{t('cancel')}</Button>
-          <Button loading={busy === 'unobtainable'} onClick={() => {
+          <Button variant="ghost" className={ui.btn} onClick={() => setAsk(null)}>{t('cancel')}</Button>
+          <Button className={ui.btn} loading={busy === 'unobtainable'} onClick={() => {
             if (!reason.trim()) return setFormError(t('reasonRequired'))
             void act('unobtainable', `/api/requests/${ask!.id}/unobtainable`, { reason: reason.trim() })
           }}>{t('confirm')}</Button>
         </>}>
-        <Field label={t('unobtainableReason')} error={ask?.kind === 'unobtainable' ? formError ?? undefined : undefined}>
+        <Field label={ui.plain(t('unobtainableReason'))} error={ask?.kind === 'unobtainable' ? formError ?? undefined : undefined}>
           <Textarea value={reason} onChange={(e) => setReason(e.target.value)} maxLength={500} rows={3} />
         </Field>
       </Dialog>

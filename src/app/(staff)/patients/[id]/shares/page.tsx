@@ -20,7 +20,7 @@ const OUTCOME: Record<string, string> = {
 export default async function SharesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  await requireStaff(['desk', 'records', 'clinician'])
+  const session = await requireStaff(['desk', 'records', 'clinician'])
   const rows = await withPatientAccess(id, (tx, s) => listSharesForStaff(tx, s.orgId, id))
   if (!rows) return null // the workspace layout explains the denial
   return (
@@ -31,7 +31,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
         description="A passcode-protected, expiring link to the document index of the latest sealed snapshot — headed “Document index, not a clinical summary”, with the list of documents not in file. Encrypted in this browser; the key is only in the link."
       />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">
-        <CreateShareForm patientId={id} actor="staff" />
+        <CreateShareForm patientId={id} actor="staff" allowQuotes={session.role !== 'desk'} />
         <section aria-labelledby="links-h" className="grid min-w-0 gap-4">
           <h2 id="links-h" className="ds-kicker">Links and opens · visible to the patient</h2>
           {rows.length ? (

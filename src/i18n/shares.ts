@@ -32,6 +32,8 @@ export const en = {
   sealText: 'Record {id} · SHA-256 {hash}',
   verifySeal: 'Verify seal',
   received: 'Received {date}',
+  sigVerified: 'Signature verified — issued by {brand} on {date}',
+  sigNotVerified: 'Not verified — content may have been altered',
 
   // ── viewer ──
   viewerKicker: 'Shared records',
@@ -116,6 +118,8 @@ export const hi: Record<ShareKey, string> = {
   sealText: 'रिकॉर्ड {id} · SHA-256 {hash}',
   verifySeal: 'सील जाँचें',
   received: '{date} को मिला',
+  sigVerified: 'हस्ताक्षर सत्यापित — {brand} द्वारा {date} को जारी',
+  sigNotVerified: 'सत्यापित नहीं — सामग्री बदली गई हो सकती है',
 
   viewerKicker: 'साझा किए गए रिकॉर्ड',
   passcodeTitle: 'पासकोड डालें',

@@ -23,6 +23,14 @@ type Doc = typeof documents.$inferSelect
 const notFound = () => new HttpError(404, 'not_found', 'Not found')
 const ATTACHED = ['auto', 'attached'] as const
 
+/**
+ * S3a: a patient/caregiver session opens the files it uploaded itself; staff-uploaded originals only once disclosure is
+ * cleared (they can name the diagnosis), and never one that is not, or no longer, attached to this patient.
+ */
+export const patientMayOpen = (d: Pick<Doc, 'uploadedByKind' | 'attachState'>, disclosure: string) =>
+  d.uploadedByKind === 'patient' || d.uploadedByKind === 'caregiver'
+  || (disclosure === 'cleared' && (ATTACHED as readonly string[]).includes(d.attachState))
+
 /** Loads a document visible under RLS and applies the patient access policy (uniform 404 for unknown ids). */
 export async function loadDocument(ctx: Ctx, documentId: string): Promise<Doc> {
   const [d] = await ctx.db.select().from(documents).where(eq(documents.id, documentId))

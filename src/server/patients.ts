@@ -66,8 +66,10 @@ export async function assertConsent(tx: Tx, patientId: string, purpose: keyof Co
  *   desk/records/clinician: consent or break-glass; org_admin: break-glass only; auditor: never.
  * Patient/caregiver: own patient only.
  * Unknown / other-org ids → 404 (uniform with not-found).
+ * `consentOptional` (recording consent, its confirmation code): with no consent yet / after a withdrawal, an
+ * identity-verified visit from the last 12 h stands in for consent. The desk always needs that visit.
  */
-export async function assertPatientAccess(ctx: { db: Tx; session: Session }, patientId: string): Promise<void> {
+export async function assertPatientAccess(ctx: { db: Tx; session: Session }, patientId: string, opts: { consentOptional?: boolean } = {}): Promise<void> {
   const s = ctx.session
   const notFound = new HttpError(404, 'not_found', 'Not found')
   if (s.kind !== 'staff') {
@@ -82,14 +84,12 @@ export async function assertPatientAccess(ctx: { db: Tx; session: Session }, pat
   )).limit(1)
   if (bg) return
   if (s.role === 'org_admin') throw new HttpError(403, 'break_glass_required', 'Break-glass access required')
-  if (!(await activeConsent(ctx.db, patientId))?.purposes.store) {
-    throw new HttpError(403, 'consent_required', 'No active consent for this patient')
-  }
+  const consented = !!(await activeConsent(ctx.db, patientId))?.purposes.store
   // FR-ID-02: the desk opens a record only through an identity-verified encounter (OTP or witnessed) from the last 12 h.
-  if (s.role === 'desk') {
-    const [enc] = await ctx.db.select({ id: encounters.id }).from(encounters).where(and(
-      eq(encounters.patientId, patientId), isNull(encounters.closedAt), gt(encounters.startedAt, new Date(Date.now() - 12 * 3600_000)),
-    )).limit(1)
-    if (!enc) throw new HttpError(403, 'verification_required', 'Verify the patient at the desk first')
-  }
+  const verifiedVisit = async () => !!(await ctx.db.select({ id: encounters.id }).from(encounters).where(and(
+    eq(encounters.patientId, patientId), isNull(encounters.closedAt), gt(encounters.startedAt, new Date(Date.now() - 12 * 3600_000)),
+  )).limit(1))[0]
+  const visit = s.role === 'desk' || (opts.consentOptional && !consented) ? await verifiedVisit() : false
+  if (!consented && !(opts.consentOptional && visit)) throw new HttpError(403, 'consent_required', 'No active consent for this patient')
+  if (s.role === 'desk' && !visit) throw new HttpError(403, 'verification_required', 'Verify the patient at the desk first')
 }

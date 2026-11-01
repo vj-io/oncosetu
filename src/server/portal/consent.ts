@@ -5,6 +5,7 @@ import type { Tx } from '@/db'
 import { caregivers, consents, sessions, type ConsentPurposes } from '@/db/schema'
 import { now } from '../clock'
 import { decryptField } from '../crypto'
+import { cancelOpenErasure } from '../erasure/erasure'
 import { activeConsent } from '../patients'
 import { revokeAllShares } from './shares'
 
@@ -38,7 +39,7 @@ type Who = { orgId: string; patientId: string; actor: { kind: 'patient' | 'careg
  * Appends a consent row (the table is append-only; the latest row is the current state). `withdraw` turns every
  * purpose off. Active share links are switched off on withdrawal and when the share purpose is turned off.
  */
-export async function recordConsent(tx: Tx, w: Who, purposes: ConsentPurposes, withdraw: boolean): Promise<{ sharesRevoked: number }> {
+export async function recordConsent(tx: Tx, w: Who, purposes: ConsentPurposes, withdraw: boolean): Promise<{ sharesRevoked: number; erasureCancelled: string[] }> {
   const prev = await activeConsent(tx, w.patientId)
   const [last] = await tx.select({ notice: consents.noticeVersion }).from(consents)
     .where(eq(consents.patientId, w.patientId)).orderBy(desc(consents.recordedAt), desc(consents.id)).limit(1)
@@ -46,10 +47,11 @@ export async function recordConsent(tx: Tx, w: Who, purposes: ConsentPurposes, w
   await tx.insert(consents).values({
     orgId: w.orgId, patientId: w.patientId, action: withdraw ? 'withdraw' : last ? 'update' : 'grant', purposes: next,
     actorType: w.actor.kind, actorId: w.actor.id, method: 'self', noticeVersion: prev?.noticeVersion ?? last?.notice ?? 'v1',
-    language: w.lang, recordedAt: await now(w.orgId),
+    language: w.lang, // recorded_at is the database clock, like every staff-written row: activeConsent orders by it, so a demo-clock value here could outrank a later withdrawal
   })
   const sharesRevoked = withdraw || (prev?.purposes.share && !next.share) ? await revokeAllShares(tx, w.orgId, w.patientId) : 0
-  return { sharesRevoked }
+  const erasureCancelled = next.store ? await cancelOpenErasure(tx, w.patientId) : [] // J8: turning permission back on cancels a waiting erasure request
+  return { sharesRevoked, erasureCancelled }
 }
 
 /** Patient only. The caregiver's sessions end at once; unknown or foreign ids give false (uniform 404). */

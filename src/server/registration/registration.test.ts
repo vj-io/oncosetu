@@ -142,6 +142,8 @@ describe('printed card copy (FR-CON-07)', () => {
       ...Object.values(registrationCopy.card).flatMap((v) => [v.en, v.hi]),
       registrationCopy.preVisitSms.en('https://x.test/p/login'), registrationCopy.preVisitSms.hi('https://x.test/p/login'),
       registrationCopy.breakGlassSms.en, registrationCopy.breakGlassSms.hi,
+      registrationCopy.caregiverAddedSms.en, registrationCopy.caregiverAddedSms.hi,
+      registrationCopy.primaryContactSms.en, registrationCopy.primaryContactSms.hi,
       consentCopy.intro.en, consentCopy.intro.hi, consentCopy.ai.detail.en, consentCopy.ai.detail.hi,
     ]
     for (const s of strings) expect(lintText(s, ['diagnosis', 'radar'])).toEqual([])

@@ -10,7 +10,8 @@
     "test": "vitest run --project unit",
     "test:watch": "vitest --project unit",
     "typecheck": "tsc --noEmit",
-    "test:integration": "vitest run --project integration"
+    "test:integration": "vitest run --project integration",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.94",

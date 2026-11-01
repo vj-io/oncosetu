@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Camera, ClipboardList, FileText, History, Mail, Send, ShieldCheck, Share2 } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
+import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { PortalFrame } from '@/components/portal/PortalFrame'
 import { Kicker } from '@/components/portal/ui'
 import { LookingItem } from '@/components/portal/LookingItem'
@@ -42,9 +43,10 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
               <li key={d.id}>
                 <Frame className="flex items-start gap-3 px-4 py-3">
                   <FileText aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
-                  <div className="grid min-w-0 gap-0.5">
+                  <div className="grid min-w-0 flex-1 gap-0.5">
                     <span className="text-[17px]">{d.label}</span>
                     <span className="text-[15px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
+                    <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
                   </div>
                 </Frame>
               </li>

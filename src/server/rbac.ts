@@ -16,6 +16,8 @@ export const PERMISSIONS = {
   'patient.set_deceased': ['records', 'clinician'],
   'disclosure.set': ['clinician'],
   'consent.manage_own': PATIENT_SIDE,
+  'erasure.request': [...PATIENT_SIDE, 'records', 'clinician'], // after withdrawal; staff record it on the patient's request
+  'erasure.read': ['org_admin'],
   'consent.record_assisted': ['desk', 'records', 'clinician'],
   'caregiver.manage': ['patient', 'desk', 'records', 'clinician'], // a caregiver cannot grant itself scope
   'access_log.read_own': PATIENT_SIDE,

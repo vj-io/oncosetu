@@ -41,7 +41,7 @@ export async function deskSendCode(ctx: StaffCtx<{ patientId: string }>) {
   })
   await ctx.audit('desk.otp_requested', 'patient', body.patientId, { outcome: sent })
   if (sent === 'no_phone') return fail(409, 'no_phone', 'No phone number is on file. Use in-person witnessed consent.')
-  if (sent === 'locked') return fail(429, 'locked', 'Too many wrong codes. Try again in 15 minutes, or use in-person witnessed consent.')
+  if (sent === 'locked') return fail(429, 'locked', 'Too many codes for this phone (or wrong codes). Try again later, or use in-person witnessed consent.')
   return { ok: true }
 }
 

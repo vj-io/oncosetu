@@ -1,16 +1,20 @@
 // Patient-scoped audit rows and the access log (FR-CON-05), read-only. Rows hold ids and enums only.
 import { and, desc, eq, inArray, or, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { auditLog, shareViews, staff } from '@/db/schema'
+import { auditLog, documents, events, shareViews, staff } from '@/db/schema'
 
 export type AuditRowView = {
   seq: number; at: Date; actorRole: string; actorId: string | null; actorName: string | null
   action: string; targetType: string | null; targetId: string | null
 }
 
+// Document and event rows (upload, duplicate, quarantine, view, verify...) target the document/event id and carry no patientId
+// in details, so they belong to the patient through the document/event itself (same rule as the portal's access log).
 const forPatient = (patientId: string) => or(
   and(eq(auditLog.targetType, 'patient'), eq(auditLog.targetId, patientId)),
   sql`${auditLog.details}->>'patientId' = ${patientId}`,
+  and(eq(auditLog.targetType, 'document'), sql`${auditLog.targetId} in (select ${documents.id}::text from ${documents} where ${documents.patientId} = ${patientId})`),
+  and(eq(auditLog.targetType, 'event'), sql`${auditLog.targetId} in (select ${events.id}::text from ${events} where ${events.patientId} = ${patientId})`),
 )!
 
 async function withNames(tx: Tx, rows: (typeof auditLog.$inferSelect)[]): Promise<AuditRowView[]> {

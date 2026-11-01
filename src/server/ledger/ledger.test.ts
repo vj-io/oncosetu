@@ -166,6 +166,21 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
     expect(JSON.stringify(v)).not.toContain('CBC done on')
   })
 
+  it('desk conflicts and missing items carry no clinical content (S2a)', () => {
+    const wording = { en: 'Imaging report not in file for the PET-CT documented on 2 Feb 2026', hi: 'h' }
+    const missing = [{ ruleId: 'RAD-IMG-PT-01', ruleVersion: '1', mode: 'production' as const, triggerEventId: a.id, expectedTypes: ['imaging_report'], state: 'expected' as const, dedupeKey: 'k1', matchWindow: { wording } }]
+    const desk = buildLedgerView({ rows: { ...base, missing }, prev, role: 'desk', now: NOW })
+    expect(desk.conflicts).toHaveLength(1)
+    expect(desk.conflicts[0].sides.map((s) => s.value)).toEqual(['—', '—'])
+    expect(desk.conflicts[0].label).toBe('Two sources disagree')
+    expect(desk.missing).toEqual([{ dedupeKey: 'k1', title: expect.stringMatching(/ not in file$/), state: 'expected', ruleId: '' }])
+    const json = JSON.stringify([desk.conflicts.map((c) => ({ ...c, kind: undefined })), desk.missing])
+    for (const s of ['PET-CT', 'RAD-IMG', 'procedure', '2026-10-2', 'Oct 2026']) expect(json).not.toContain(s)
+    const rec = buildLedgerView({ rows: { ...base, missing }, prev, role: 'records', now: NOW })
+    expect(rec.missing[0].title).toBe(wording.en)
+    expect(rec.conflicts[0].sides[0].value).not.toBe('—')
+  })
+
   it('initial record mode with no snapshot (FR-LED-06)', () => {
     const v = buildLedgerView({ rows: base, prev: null, role: 'clinician', now: NOW })
     expect(v.mode).toBe('initial')

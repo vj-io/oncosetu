@@ -1,7 +1,7 @@
 // Sealing snapshots and verifying them publicly (FR-LED-01, FR-ONB-03, V03-E2E-07).
 import { and, desc, eq, isNull, max, sql } from 'drizzle-orm'
 import { db, withOrg } from '@/db'
-import { encounters, organisations, snapshots } from '@/db/schema'
+import { encounters, snapshots } from '@/db/schema'
 import { buildSnapshot, canonicalJson, type Snapshot } from '@/core/ledger'
 import { now } from '../clock'
 import { sha256Hex, signEd25519, verifyEd25519 } from '../crypto'
@@ -64,14 +64,12 @@ export function checkSnapshot(row: Pick<typeof snapshots.$inferSelect, 'id' | 's
 }
 
 /**
- * Public lookup by snapshot id. The org is unknown to an anonymous caller, so try each org under RLS (no owner role).
+ * Public lookup by snapshot id. The org is unknown to an anonymous caller: resolve_snapshot (SECURITY DEFINER, drizzle/0004)
+ * returns the org id only, then the snapshot is read under RLS like every other query.
  */
-// ponytail: one query per org; add a SECURITY DEFINER resolve_snapshot(id) → org_id when there are more than a few orgs.
 export async function verifySnapshotPublic(snapshotId: string): Promise<SnapshotVerdict | null> {
-  const orgs = await db.select({ id: organisations.id }).from(organisations)
-  for (const o of orgs) {
-    const [row] = await withOrg(o.id, (tx) => tx.select().from(snapshots).where(eq(snapshots.id, snapshotId)))
-    if (row) return checkSnapshot(row)
-  }
-  return null
+  const [found] = await db.execute<{ org_id: string }>(sql`select org_id from resolve_snapshot(${snapshotId}::uuid)`)
+  if (!found) return null
+  const [row] = await withOrg(found.org_id, (tx) => tx.select().from(snapshots).where(eq(snapshots.id, snapshotId)))
+  return row ? checkSnapshot(row) : null
 }

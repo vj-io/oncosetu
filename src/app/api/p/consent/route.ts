@@ -13,10 +13,11 @@ export const POST = route({
   // Without "store" there is no record to keep: turning it off is a withdrawal (same rule as the desk's consent tab).
   const withdraw = !!body.withdraw || !body.purposes?.store
   const next = withdraw ? NO_PURPOSES : body.purposes!
-  const { sharesRevoked } = await recordConsent(db, {
+  const { sharesRevoked, erasureCancelled } = await recordConsent(db, {
     orgId: session.orgId, patientId: session.patientId, lang: body.lang,
     actor: { kind: session.kind, id: session.caregiverId ?? session.patientId },
   }, next, withdraw)
   await audit(withdraw ? 'consent.withdraw' : 'consent.update', 'patient', session.patientId, { sharesRevoked, ...next })
+  for (const id of erasureCancelled) await audit('erasure.cancel', 'erasure_request', id, { patientId: session.patientId, reason: 'consent_restored' })
   return { ok: true, purposes: next, withdrawn: withdraw, sharesRevoked }
 })

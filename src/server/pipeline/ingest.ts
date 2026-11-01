@@ -3,7 +3,7 @@
 import { after } from 'next/server'
 import { and, eq, isNotNull, ne } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { documents } from '@/db/schema'
+import { documents, encounters } from '@/db/schema'
 import { writeAudit, type AuditDetails } from '@/server/audit'
 import { now } from '@/server/clock'
 import { encryptField, sha256Hex } from '@/server/crypto'
@@ -49,6 +49,10 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   const audit = input.audit ?? ((action, targetType, targetId, details) =>
     writeAudit(tx, { orgId, actorId: input.uploadedBy.id, actorRole: input.uploadedBy.kind, action, targetType, targetId, details }).then(() => {}))
   await assertConsent(tx, patientId, 'store')
+  if (input.encounterId) { // a visit of another patient (or org, via RLS) must not be linked to this upload
+    const [enc] = await tx.select({ patientId: encounters.patientId }).from(encounters).where(eq(encounters.id, input.encounterId))
+    if (enc?.patientId !== patientId) throw new HttpError(400, 'invalid_encounter', 'That visit does not belong to this patient')
+  }
 
   // E-DOC-18: idempotent completion for retries / offline sync.
   if (input.clientFileId) {

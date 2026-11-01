@@ -1,17 +1,21 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { documentFiles } from '@/db/schema'
+import { documentFiles, patients } from '@/db/schema'
 import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
-import { loadDocument } from '@/server/pipeline/actions'
+import { loadDocument, patientMayOpen } from '@/server/pipeline/actions'
 import { patientIdParam } from '@/server/registration/http'
 
 const q = z.object({ kind: z.enum(['original', 'page']).default('original'), page: z.coerce.number().int().min(1).default(1) })
 
-/** Streams decrypted bytes (original or re-encoded page image). Records/clinician or the patient; audited; never cached. */
+/** Streams decrypted bytes (original or re-encoded page image). Records/clinician or the patient (see patientMayOpen); audited; never cached. */
 export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   if (ctx.session.kind === 'staff' && !['records', 'clinician'].includes(ctx.session.role)) throw new HttpError(403, 'forbidden', 'Not allowed')
   const d = await loadDocument(ctx, patientIdParam(ctx))
+  if (ctx.session.kind !== 'staff') {
+    const [p] = await ctx.db.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, d.patientId))
+    if (!patientMayOpen(d, p?.disclosure ?? 'unknown')) throw new HttpError(404, 'not_found', 'Not found')
+  }
   if (d.status === 'quarantined') throw new HttpError(403, 'quarantined', 'This file is quarantined and cannot be opened')
   const kind = ctx.query.kind === 'page' ? 'page_image' : 'original'
   const where = kind === 'original'

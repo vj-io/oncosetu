@@ -2,7 +2,7 @@
 import { randomInt } from 'node:crypto'
 import { and, desc, eq, gt, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
-import { db, withOrg, type Tx } from '@/db'
+import { db, sideDb, withOrg, type Tx } from '@/db'
 import { otpChallenges, patients } from '@/db/schema'
 import { hmac, timingSafeEqualStr } from './crypto'
 
@@ -42,29 +42,37 @@ export const OTP_SEND_LIMITS = [{ windowMs: 10 * 60_000, max: 3 }, { windowMs: 2
 export const sendAllowed = (sentAt: Date[], now: Date) =>
   OTP_SEND_LIMITS.every((w) => sentAt.filter((t) => now.getTime() - t.getTime() < w.windowMs).length < w.max)
 
-/** Issues a new code, or null while the phone is locked or over its send budget (callers answer as for a lock). */
+/**
+ * Issues a new code, or null while the phone is locked or over its send budget (callers answer as for a lock).
+ * `sideDb`, not `db`: registration/confirm.ts calls this inside a request transaction (a second `db` connection would
+ * deadlock the pool), and the issued code must count toward the send budget even if that request later rolls back.
+ */
 export async function startOtp(phoneHmac: string, purpose = 'login'): Promise<{ code: string } | null> {
   const now = new Date()
   // ponytail: count-then-insert, so a burst of parallel requests can overshoot by a few; an advisory lock per phone if that matters.
-  const sent = await db.select({ at: otpChallenges.createdAt }).from(otpChallenges)
+  const sent = await sideDb.select({ at: otpChallenges.createdAt }).from(otpChallenges)
     .where(and(eq(otpChallenges.phoneHmac, phoneHmac), gt(otpChallenges.createdAt, new Date(now.getTime() - OTP_SEND_LIMITS[1].windowMs))))
   if (!sendAllowed(sent.map((s) => s.at), now)) return null
-  const prev = await latest(db, phoneHmac, purpose)
+  const prev = await latest(sideDb, phoneHmac, purpose)
   if (isLocked(prev, now)) return null
   // Failed attempts carry over to a re-issued code for 15 min, so re-requesting never resets the counter.
   const carried = prev && !prev.consumedAt && now.getTime() - prev.createdAt.getTime() < OTP_LOCK_MS ? prev.attempts : 0
   const id = uuidv7()
   const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
-  await db.insert(otpChallenges).values({
+  await sideDb.insert(otpChallenges).values({
     id, phoneHmac, purpose, codeHash: otpCodeHash(id, code), attempts: carried,
     expiresAt: new Date(now.getTime() + OTP_TTL_MS),
   })
   return { code }
 }
 
-/** Checks the latest challenge for the phone. Lock state carries over to new challenges via startOtp. */
+/**
+ * Checks the latest challenge for the phone. Lock state carries over to new challenges via startOtp.
+ * `sideDb` (own transaction) on purpose: callers run inside a request transaction, and a wrong-code attempt must stay
+ * counted even if that request later rolls back, otherwise an error after the guess would reset the 5-attempt lock.
+ */
 export async function verifyOtp(phoneHmac: string, code: string, purpose = 'login'): Promise<boolean> {
-  return db.transaction(async (tx) => {
+  return sideDb.transaction(async (tx) => {
     const c = await latest(tx, phoneHmac, purpose, true) // row lock: parallel guesses are counted one by one
     const res = evaluateOtpAttempt(c, code, new Date())
     if (c && res.update) await tx.update(otpChallenges).set(res.update).where(eq(otpChallenges.id, c.id))
@@ -75,7 +83,8 @@ export async function verifyOtp(phoneHmac: string, code: string, purpose = 'logi
 export type PhoneLogin = { patientId: string; orgId: string; caregiverId: string | null; preferredLanguage: 'en' | 'hi' }
 
 /**
- * Which patient records this phone may open. A patient's own phone is excluded when the caregiver is the
+ * Which patient records this phone may open. Public routes only: it opens one transaction per match on `db`, so never
+ * call it while a `withOrg` transaction is open. A patient's own phone is excluded when the caregiver is the
  * primary contact (FR-CON-07) or the patient is a minor (FR-CON-03); deceased patients are closed (E-ID-11).
  */
 export async function phoneLogins(phoneHmac: string): Promise<PhoneLogin[]> {

@@ -46,7 +46,7 @@ test('V04-E2E-02 request letter EN + HI, mark sent, reminder at +7 days (one SMS
   const p = await registerPatient(records, { base: 'hero' }) // caregiver-primary: reminders go to the caregiver
   await uploadAndWait(records, p.id, 'hero__01-discharge-summary.pdf')
   const item = (await itemOf(p.id, HPE))!
-  const made = await records.post('/api/requests', { patientId: p.id, missingIds: [item.id], institution: 'Nirnay Pathology and Onco-Diagnostics', institutionPatientId: 'NP-7731', lang: 'en' })
+  const made = await records.post('/api/requests', { patientId: p.id, missingIds: [item.id], institution: 'Triveni Multispeciality Hospital', institutionPatientId: 'TMH-0048213', lang: 'en' })
   expect(made.ok).toBe(true)
   const rid: string = made.body.id
 
@@ -56,15 +56,27 @@ test('V04-E2E-02 request letter EN + HI, mark sent, reminder at +7 days (one SMS
     await page.goto(`/print/request/${rid}?lang=${lang}`)
     const text = await page.locator('body').innerText()
     expect(text, lang).toContain('Sunita Deshmukh')
-    expect(text, lang).toContain('Nirnay Pathology and Onco-Diagnostics')
-    expect(text, lang).toContain('NP-7731')
+    expect(text, lang).toContain('Triveni Multispeciality Hospital')
+    expect(text, lang).toContain('TMH-0048213')
+    if (lang === 'en') expect(text).toContain('14 Aug 1974') // date of birth, as registered
     expect(text, lang).toContain('Setu Records')
     expect([lang, legalHits(text)]).toEqual([lang, []])
     expect([lang, radarHits(text)]).toEqual([lang, []])
-    expect(text, lang).not.toMatch(/deadline|within \d+ (hours|days)|कानूनी/i)
+    // The only reference to the regulation is the neutral one the PRD asks for (FR-REQ-01): no deadline, duty or legal claim of ours.
+    expect(text, lang).not.toMatch(/deadline|\bmust\b|\blegally\b|\bobliged\b|required to|कानूनी|बाध्य/i)
   }
+  await page.goto(`/print/request/${rid}?lang=en`)
+  await expect(page.locator('body')).toContainText('the regulations provide for indoor records to be issued within 72 hours of a request')
   await page.goto(`/print/request/${rid}?lang=hi`)
   await expect(page.locator('html[lang="hi"], [lang="hi"]').first()).toBeAttached()
+
+  // A hospital name that is itself a diagnosis word is left blank on a letter the patient carries (disclosure not cleared).
+  const guarded = (await records.post('/api/requests', { patientId: p.id, missingIds: [], institution: 'Nirnay Pathology and Onco-Diagnostics', lang: 'en' })).body.id
+  await page.goto(`/print/request/${guarded}?lang=en`)
+  const blank = await page.locator('body').innerText()
+  expect(blank).not.toMatch(/onco/i)
+  expect(blank).toContain('(name of hospital)')
+  expect((await records.post(`/api/requests/${guarded}/withdraw`, {})).ok).toBe(true)
 
   // Mark as given to the hospital: the item moves to "requested".
   expect((await records.post(`/api/requests/${rid}/sent`, {})).body.state).toBe('sent')
@@ -191,7 +203,7 @@ test('V04-E2E-05 caregiver shares the document index (7 days, passcode): the vie
   await expect(row).toContainText(/Opened/)
   const pctx = await caregiver.browserContext(browser)
   const pp = await pctx.newPage()
-  await pp.goto('/p/access')
+  await pp.goto('/p/access?lang=en')
   await expect(pp.locator('main')).toContainText('A shared link was opened')
   await pctx.close()
 })

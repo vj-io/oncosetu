@@ -76,12 +76,14 @@ export function verifyChainRows(rows: AuditRow[], prev: { seq: number; hash: str
   return { ok: true as const, last: prev }
 }
 
-export async function verifyAuditChain(orgId: string): Promise<{ ok: boolean; brokenAt?: number; checked: number }> {
+/** Pass the open `tx` when called from a route handler (a nested `withOrg` there deadlocks the pool); pages pass none. */
+export async function verifyAuditChain(orgId: string, tx?: Tx): Promise<{ ok: boolean; brokenAt?: number; checked: number }> {
   let prev = { seq: 0, hash: GENESIS_HASH }
   let checked = 0
   for (;;) {
-    const rows = await withOrg(orgId, (tx) => tx.select().from(auditLog)
-      .where(and(eq(auditLog.orgId, orgId), gt(auditLog.seq, prev.seq))).orderBy(asc(auditLog.seq)).limit(1000))
+    const page = (t: Tx) => t.select().from(auditLog)
+      .where(and(eq(auditLog.orgId, orgId), gt(auditLog.seq, prev.seq))).orderBy(asc(auditLog.seq)).limit(1000)
+    const rows = await (tx ? page(tx) : withOrg(orgId, page))
     if (!rows.length) return { ok: true, checked }
     const res = verifyChainRows(rows as AuditRow[], prev)
     if (!res.ok) return { ok: false, brokenAt: res.brokenAt, checked: checked + rows.length }

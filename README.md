@@ -3,7 +3,7 @@
 Records continuity for cancer care in India: every displayed fact traces to a verbatim source quote, and referenced documents that are missing from the file are listed.
 
 **Live demo:** https://oncosetu-zeta.vercel.app
-Demo mode: sign in with the one-click demo accounts on /login (synthetic data only).
+Demo mode: sign in with the one-click demo accounts on /login (synthetic data only). A 6-minute judge walkthrough is in [docs/DEMO.md](docs/DEMO.md).
 
 OncoSetu was named OncoBridge in PRD v1.0. "Setu" means bridge. This is an academic and hackathon prototype. A clinician-led pilot requires ethics (IEC) approval before any real patient data is used.
 
@@ -219,21 +219,22 @@ Scripts and commands (from `package.json` and `scripts/`):
 | `npm run test:integration` | RLS integration tests; needs a live database |
 | `npx tsx --env-file=.env.local scripts/migrate.ts` | Applies `drizzle/` migrations as the owner. First run sets the app role's password and appends `DATABASE_URL_APP` to `.env.local` |
 | `npx tsx --env-file=.env.local scripts/seed-base.ts` | Idempotent base seed: two fictional organisations, demo staff and organisation settings. No patients |
+| `npx tsx --env-file=.env.local scripts/seed-demo.ts --base http://localhost:3000` | Demo reset: wipes the demo organisation's patient data and rebuilds the three synthetic patients (plus a minor) by driving the running app's own API — uploads, OCR, gate, verification, seals, requests, a share link. Prints the share URL. About 9 minutes |
+| `npm run test:e2e` | Playwright E2E suite against `BASE_URL` (default http://localhost:3000) |
 | `npx tsx scripts/demo-docs/generate.ts` | Regenerates the synthetic documents and their manifest in `public/demo-docs/` (deterministic) |
 | `npx tsx --env-file=.env.local scripts/eval.ts` | Runs the offline evaluation and rewrites `data/eval/report.json`. Add `--llm` for the LLM path |
 
 ## Tests
 
-- **Unit (Vitest):** `npm test`. 38 test files under `src/` contain 388 `it` or `test` blocks (static count; `npm test` prints the runner's own total, which also counts `.each` rows). They cover the evidence gate, the date parser, the identity matcher, Radar, the ledger, the copy lint and the pipeline's safety checks.
-- **Integration (RLS):** `npm run test:integration`, which needs a live database. `tests/integration/rls.test.ts` has 6 tests. They check that the app role has no BYPASSRLS; that no rows are visible without `app.org_id`; that cross-organisation reads, updates and deletes are denied; that cross-organisation writes are rejected by WITH CHECK; that `SECURITY DEFINER` lookups return ids without exposing rows; and that the audit-log trigger blocks UPDATE and DELETE even for the owner.
-- **End-to-end (Playwright):** The PRD §13 scenario IDs (V01–V06) define the intended E2E coverage. The repository has one spec, `tests/e2e/offline-capture.e2e.ts`, which covers V05-E2E-01 to 05 (offline capture). It needs a production build and a demo database, and it cannot run on `next dev`:
+- **Unit (Vitest):** `npm test` — 41 files, 871 tests. They cover the evidence gate (including property tests that no accepted quote is anything but an exact slice of its page), the India-first date parser, the transliteration-aware identity matcher (360 labelled pairs: mismatch recall 100%, false-match 0%), the Radar engine and merge rules, the ledger diff, seal hash/signature tamper detection, request reminders, share crypto and signatures, copy lint over every patient-facing string, and the pipeline's upload safety checks.
+- **Integration (RLS):** `npm run test:integration` (needs a live database) — 10 tests proving, as the app role, that nothing is visible without `app.org_id`, cross-organisation reads/updates/deletes/inserts are denied, `SECURITY DEFINER` lookups return ids only, and append-only tables (audit log, verifications, consents, snapshots) refuse UPDATE/DELETE.
+- **End-to-end (Playwright):** `npm run test:e2e` — 35 tests mapped to PRD §13: V01-E2E-01..09, V02-E2E-01/03/04/05/06/08, V03-E2E-01..07 (including the first-visit hero journey), V04-E2E-01..08, V06-E2E-01/04/05, plus a 375px responsive/console sweep. All run in the isolated second organisation so the demo data stays untouched; the two clock-moving tests run alone in their own project. Last full run: 35 passed in 23 minutes.
+- **Offline capture (V05):** a standalone script that needs a production server (the dev client cannot hydrate from the service-worker cache):
 
   ```bash
   npx next build && npx next start -p 3100
   BASE_URL=http://localhost:3100 npx tsx --env-file=.env.local tests/e2e/offline-capture.e2e.ts
   ```
-
-  The repository has no Playwright config and no npm script for E2E yet.
 
 ## Project layout
 
@@ -259,7 +260,9 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Malware check is a signature check.** It detects the EICAR test signature only.
 - **Not built.** ABDM integration (`abdm` exists only as a consent purpose) and email or WhatsApp intake. The PRD places both after v1.0.
 - **Hindi is the only regional language.** Patient-facing strings are in English and Hindi.
-- **Radar rules are unreviewed.** They run in shadow mode until a clinician reviews them.
+- **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for nine rules; `RAD-IMG-PT-01` stays in shadow to show the mechanism. The wording still needs review by the team's clinician advisor before any pilot.
+- **Erasure is recorded, not executed.** Requests are queued with their eligibility date (retention period); no job deletes data yet.
+- **Voice input uses the browser's Web Speech API** behind an organisation flag; no audio is retained and drug-name WER is unmeasured.
 - **Evaluation set is small and not held out.** See the caveats in the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.

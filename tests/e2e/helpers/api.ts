@@ -2,7 +2,7 @@
 // register a synthetic patient, upload a demo document, wait for the pipeline, read the simulated SMS.
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { request, type APIRequestContext, type Browser, type BrowserContext } from '@playwright/test'
+import { request, type APIRequestContext, type Browser, type BrowserContext, type BrowserContextOptions } from '@playwright/test'
 import { CONSENT_NOTICE_VERSION } from '../../../src/i18n/consent'
 import { smsTo } from './db'
 import { BASE, EMAIL, PASSWORD, type RoleKey } from './env'
@@ -42,8 +42,8 @@ export class Api {
     reply<T>(await this.ctx.post(path, { multipart: { ...fields, file: { name: file.name, mimeType: file.mimeType ?? 'application/octet-stream', buffer: file.buffer } } }))
 
   /** A browser context carrying this session's cookie, for UI assertions. */
-  browserContext(browser: Browser): Promise<BrowserContext> {
-    return this.ctx.storageState().then((storageState) => browser.newContext({ storageState, baseURL: BASE }))
+  browserContext(browser: Browser, options: BrowserContextOptions = {}): Promise<BrowserContext> {
+    return this.ctx.storageState().then((storageState) => browser.newContext({ storageState, baseURL: BASE, ...options }))
   }
   dispose = () => this.ctx.dispose()
 }

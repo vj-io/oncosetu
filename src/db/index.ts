@@ -1,3 +1,11 @@
+// POOL RULE: `route()` and pages run inside a `withOrg()` transaction that holds one `db` connection. While one is open,
+// never touch the global `db`, call `withOrg()`/`db.transaction()` again, or call a helper that does: that needs a SECOND
+// `db` connection, and once every connection (max 5) is a transaction waiting for another, the whole server hangs until
+// Postgres' idle-in-transaction timeout. Inside a transaction use the open `tx` (same transaction, and more correct);
+// for a read or write on a table WITHOUT RLS that is independent of the request (sessions, otp_challenges, staff,
+// organisations, org_settings), use `sideDb`. A write that must survive a rollback of the request (OTP attempt
+// counters) must use `sideDb`, never `tx`. Public routes and the start of a request (session lookup, login, the
+// document pipeline's own short transactions) hold no transaction, so `db`/`withOrg` are fine there. Never use `adminDb`.
 import { sql } from 'drizzle-orm'
 import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js'
 import postgres, { type Sql } from 'postgres'
@@ -32,10 +40,11 @@ function lazy(key: keyof Clients, build: () => DB): DB {
 export const db: DB = lazy('app', () => make(process.env.DATABASE_URL_APP, 'DATABASE_URL_APP', 5))
 
 /**
- * Own small pool for single-statement reads made while a transaction already holds a pooled connection (the org clock).
+ * Own small pool for work done while a transaction already holds a pooled connection: the org clock, and OTP issue/verify.
  * Borrowing a second connection from `db` there deadlocks the app pool once every connection is a transaction waiting
  * for another one (6 parallel uploads froze the server until Postgres' 5 min idle-in-transaction timeout). Only for
- * tables without RLS (org_settings): this client sets no `app.org_id`.
+ * tables without RLS (org_settings, otp_challenges): this client sets no `app.org_id`. Code on it must never wait for a
+ * `db` connection itself (no `db`/`withOrg` inside a `sideDb` callback).
  */
 export const sideDb: DB = lazy('side', () => make(process.env.DATABASE_URL_APP, 'DATABASE_URL_APP', 2))
 

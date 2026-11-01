@@ -2,7 +2,7 @@
 // OTP codes reuse src/server/otp.ts: 6 digits, 5 min, 5 failed attempts lock the phone for 15 minutes.
 import { and, desc, eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { db } from '@/db'
+import { sideDb } from '@/db'
 import { otpChallenges } from '@/db/schema'
 import { authCopy } from '@/i18n/auth'
 import { phoneHmac } from '../crypto'
@@ -14,8 +14,9 @@ import type { Confirm } from './schemas'
 
 export type OtpCheck = 'ok' | 'invalid' | 'locked' | 'no_phone'
 
+// sideDb: runs inside request transactions (see src/db/index.ts); reads what verifyOtp committed on its own connection.
 async function lockedUntil(h: string, purpose: string): Promise<Date | null> {
-  const [c] = await db.select({ l: otpChallenges.lockedUntil }).from(otpChallenges)
+  const [c] = await sideDb.select({ l: otpChallenges.lockedUntil }).from(otpChallenges)
     .where(and(eq(otpChallenges.phoneHmac, h), eq(otpChallenges.purpose, purpose))).orderBy(desc(otpChallenges.createdAt)).limit(1)
   return c?.l && c.l > new Date() ? c.l : null
 }

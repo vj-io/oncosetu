@@ -2,7 +2,7 @@
 // closing an encounter. Every read is scoped to the Ganga org. Actions under test still go through the app.
 import { and, desc, eq, sql } from 'drizzle-orm'
 import { adminDb } from '../../../src/db'
-import { consents, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, patientStatements, snapshots, staff } from '../../../src/db/schema'
+import { breakGlass, consents, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, patientStatements, patients, snapshots, staff } from '../../../src/db/schema'
 import { phoneHmac } from '../../../src/server/crypto'
 import { ORG } from './env'
 
@@ -52,3 +52,11 @@ export const statementsOf = (patientId: string) =>
 
 export const snapshotsOf = (patientId: string) =>
   adminDb.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(snapshots.seq)
+
+export const breakGlassOf = (patientId: string) => adminDb.select().from(breakGlass).where(eq(breakGlass.patientId, patientId)).orderBy(breakGlass.createdAt)
+/** Lets a grant run out without waiting four hours. */
+export const expireBreakGlass = (patientId: string) =>
+  adminDb.update(breakGlass).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(breakGlass.patientId, patientId))
+
+export const encountersOf = (patientId: string) => adminDb.select().from(encounters).where(eq(encounters.patientId, patientId))
+export const patientRow = async (patientId: string) => (await adminDb.select().from(patients).where(eq(patients.id, patientId)))[0]

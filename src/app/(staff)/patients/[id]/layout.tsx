@@ -7,8 +7,8 @@ import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import { RecordErasure } from '@/components/erasure/RecordErasure'
 import { documents, events, missingRecords } from '@/db/schema'
-import { istDate } from '@/server/admin/format'
-import { erasureContext } from '@/server/erasure/erasure'
+import { accession, istDate } from '@/server/admin/format'
+import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
@@ -20,6 +20,7 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     try {
       await assertPatientAccess({ db: tx, session }, id)
     } catch (e) {
+      if (e instanceof HttpError && e.status === 410) return { erasedAt: (await loadErasure(tx, id))?.completedAt ?? null } // J8 tombstone
       if (e instanceof HttpError && e.status === 403) {
         const er = e.code === 'consent_required' ? await erasureContext(tx, id) : null // J8: the denial screen carries the erasure action
         return { denied: e.code, erasure: er }
@@ -40,6 +41,14 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
   })
 
   if (!data) notFound()
+  if ('erasedAt' in data) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16">
+        <EmptyState title="Records erased"
+          description={`Records erased on ${istDate(data.erasedAt)} at the patient's request; audit trail retained. Record ${accession(id)}.`} />
+      </div>
+    )
+  }
   if ('denied' in data) {
     const verify = data.denied === 'verification_required'
     return (

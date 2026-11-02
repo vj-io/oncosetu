@@ -17,6 +17,8 @@ deployable unit — see ADR at the bottom.
   model string `anthropic/claude-sonnet-5.5`; else **no LLM** → deterministic fallbacks (rule-based classifier +
   pattern extractor + regex header parser). The gateway currently returns 403 (no card on the Vercel team), so
   **the app must be fully functional with no LLM**. Every path goes through the same evidence gate.
+  The LLM path is exercised without a key by `src/server/pipeline/llm-path.test.ts` (AI SDK test model; tests pin the
+  provider with `setLlmProviderForTests`, which production never calls and which refuses to run when `NODE_ENV=production`).
 - OCR: `tesseract.js` 7 (eng+hin) server-side for images/scans → per-word confidence + bbox. Text-layer PDFs via `unpdf`.
 - Images re-encoded with `sharp` (strips metadata/payloads). QR via `qrcode`. YAML via `yaml`. UUIDv7 via `uuid`.
 - Tests: Vitest (unit, `src/**/*.test.ts`), Playwright (E2E, `tests/e2e/**`).
@@ -74,7 +76,7 @@ equality lookups use HMAC blind indexes (`phone_hmac`, `token_hash`). Original f
 Tables (PRD §7.1 + additions): organisations, staff, sessions, otp_challenges, patients, patient_aliases,
 caregivers, consents, encounters, documents, document_files, document_pages, events, evidence,
 patient_statements, verifications, snapshots, missing_records, record_requests, share_links, share_views,
-ai_runs, audit_log (hash-chained), devices, outbox (simulated SMS/WhatsApp), break_glass,
+ai_runs, audit_log (hash-chained), devices, outbox (SMS/WhatsApp record, simulated unless a provider is configured), break_glass,
 measurement_forms, org_settings (feature flags, demo clock offset, retention), rule_states (per-org rule
 production/shadow), patient_merges.
 
@@ -101,6 +103,25 @@ All "now" reads go through `now(orgId)` in `src/server/clock.ts` so demo mode ca
 
 `src/server/log.ts` — JSON lines with request id; never names, phones, quotes or file contents. Audit log rows
 carry ids only.
+
+## SMS provider
+
+`sendMessage(tx, …)` in `src/server/outbox.ts` always writes the `outbox` row first, inside the caller's transaction
+(masked number + HMAC + body; the plaintext number is never stored). `src/server/sms/provider.ts` decides what happens
+next: `smsProvider(channel)` returns a Twilio REST adapter when the Twilio env vars are set (SMS: account SID + auth token +
+`TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID`; WhatsApp: account SID + auth token + `TWILIO_WHATSAPP_FROM`), otherwise
+`null`. With `null` the row's `delivery` is `simulated` and nothing leaves the server (demo and local dev; the demo phone
+panel reads the outbox either way and shows each row's `delivery`).
+
+With a provider the row is inserted as `queued` and delivery runs **after the request transaction commits**: Next's
+`after()` inside a request, a direct call outside one (scripts, tests). A slow provider therefore never holds a pooled
+connection (POOL RULE, `src/db/index.ts`). The plaintext number travels only in that in-memory closure. The delivery step
+first confirms the row exists and is still `queued` (`after()` also runs when the request rolled back, and then nothing
+must be sent), calls Twilio, retries once after 1 s on a 5xx (never on a 4xx or a network error, where a second send
+could duplicate), and records the outcome with a short `withOrg()`: `sent` + `provider_message_id`, or `failed` +
+`delivery_error` (`twilio_<code>`, `http_<status>`, `timeout`, `network`; never the provider's message text, which can
+quote the number). `sent` means accepted by Twilio: delivery receipts (status callbacks) are not tracked. Columns:
+migration `drizzle/0007_outbox_delivery.sql`. Only ids, channel and codes are logged.
 
 ## Design system — "Museum Placard" (brag-styles set, extended for a clinical UI)
 

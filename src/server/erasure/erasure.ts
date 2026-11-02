@@ -1,9 +1,10 @@
 // J8 (PRD §6.3, §10.5): after consent is withdrawn, the patient, a caregiver, or records/clinician staff on the patient's
 // request can record an erasure request. Access has already stopped (consent is checked on use); the request waits in the
-// queue until `eligible_after`. Nothing is deleted here.
-import { and, desc, eq, inArray, max } from 'drizzle-orm'
+// queue until `eligible_after`, then executeErasure() runs the DB function erase_patient (drizzle/0006), which re-checks
+// every precondition itself and deletes in the caller's transaction.
+import { and, desc, eq, inArray, lte, max, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { consents, encounters, erasureRequests, orgSettings, patients } from '@/db/schema'
+import { auditLog, consents, encounters, erasureRequests, orgSettings, patients } from '@/db/schema'
 import type { AuditDetails } from '../audit'
 import { now } from '../clock'
 import { HttpError } from '../http'
@@ -61,12 +62,74 @@ export async function requestErasure(ctx: Ctx, patientId: string): Promise<Erasu
   return { ...view(row), created: true }
 }
 
-export type ErasureRow = ErasureView & { patientId: string; requestedByKind: 'patient' | 'caregiver' | 'staff' }
+export type ErasureCounts = Record<string, number>
+export type ErasureRow = ErasureView & {
+  patientId: string; requestedByKind: 'patient' | 'caregiver' | 'staff'
+  /** open and eligible_after has passed (real time, like the DB function) */
+  due: boolean
+  /** rows removed per table, from the erasure.executed audit row; null until completed */
+  counts: ErasureCounts | null
+}
 
 /** Admin list, newest first. Ids only (org_admin never reads patient content). */
 export async function listErasureRequests(tx: Tx, orgId: string, limit = 200): Promise<ErasureRow[]> {
-  const rows = await tx.select().from(erasureRequests).where(eq(erasureRequests.orgId, orgId)).orderBy(desc(erasureRequests.requestedAt)).limit(limit)
-  return rows.map((r) => ({ ...view(r), patientId: r.patientId, requestedByKind: r.requestedByKind }))
+  const rows = await tx.select({ r: erasureRequests, due: sql<boolean>`${erasureRequests.eligibleAfter} <= now()` }).from(erasureRequests)
+    .where(eq(erasureRequests.orgId, orgId)).orderBy(desc(erasureRequests.requestedAt)).limit(limit)
+  const done = rows.filter(({ r }) => r.state === 'completed').map(({ r }) => r.id)
+  const audits = done.length ? await tx.select({ id: auditLog.targetId, details: auditLog.details }).from(auditLog)
+    .where(and(eq(auditLog.action, 'erasure.executed'), inArray(auditLog.targetId, done))) : []
+  // the audit row holds { patientId, <table>: <rows> }: the numbers are the counts
+  const counts = new Map(audits.map((a) => [a.id, Object.fromEntries(Object.entries(a.details).filter(([, v]) => typeof v === 'number')) as ErasureCounts]))
+  return rows.map(({ r, due }) => ({
+    ...view(r), patientId: r.patientId, requestedByKind: r.requestedByKind,
+    due: OPEN.includes(r.state) && due, counts: counts.get(r.id) ?? null,
+  }))
+}
+
+type ExecCtx = Pick<Ctx, 'db' | 'audit'>
+const REFUSED: Record<string, [number, string]> = {
+  erasure_not_found: [404, 'Not found'],
+  erasure_not_open: [409, 'This request is not open'],
+  erasure_not_eligible: [409, 'Not yet eligible: the retention period has not run'],
+  erasure_consent_active: [409, 'Consent is active again; nothing was erased'],
+}
+
+/**
+ * Deletes the patient's originals and derived data and leaves the tombstone (drizzle/0006 lists what is kept and why).
+ * The DB function enforces org, state, eligibility and withdrawn consent; a refusal becomes a 404/409 and, because the
+ * call runs in a savepoint, leaves the caller's transaction usable (run-due carries on with the next request).
+ */
+export async function executeErasure(ctx: ExecCtx, requestId: string): Promise<{ id: string; patientId: string; counts: ErasureCounts }> {
+  let counts: ErasureCounts
+  try {
+    counts = await ctx.db.transaction(async (sp) =>
+      (await sp.execute<{ counts: ErasureCounts }>(sql`select erase_patient(${requestId}) as counts`))[0].counts)
+  } catch (e) {
+    const msg = (e as { cause?: { message?: string } }).cause?.message ?? (e as Error).message
+    const known = REFUSED[msg]
+    if (known) throw new HttpError(known[0], msg.replace('erasure_', ''), known[1])
+    throw e
+  }
+  const [r] = await ctx.db.select({ patientId: erasureRequests.patientId }).from(erasureRequests).where(eq(erasureRequests.id, requestId))
+  await ctx.audit('erasure.executed', 'erasure_request', requestId, { patientId: r.patientId, ...counts })
+  return { id: requestId, patientId: r.patientId, counts }
+}
+
+/** The retention job: executes every request in the current org (RLS) whose eligible_after has passed. */
+export async function runDueErasures(ctx: ExecCtx) {
+  const due = await ctx.db.select({ id: erasureRequests.id }).from(erasureRequests)
+    .where(and(inArray(erasureRequests.state, OPEN), lte(erasureRequests.eligibleAfter, sql`now()`))).orderBy(erasureRequests.eligibleAfter)
+  const executed: Awaited<ReturnType<typeof executeErasure>>[] = []
+  const refused: { id: string; code: string }[] = []
+  for (const { id } of due) {
+    try {
+      executed.push(await executeErasure(ctx, id))
+    } catch (e) {
+      if (!(e instanceof HttpError)) throw e
+      refused.push({ id, code: e.code })
+    }
+  }
+  return { executed, refused }
 }
 
 /** Consent turned back on: a request still waiting is cancelled, so nothing queued can outlive the patient's change of mind. Returns the ids. */

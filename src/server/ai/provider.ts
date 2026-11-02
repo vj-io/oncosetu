@@ -12,7 +12,17 @@ import { activeConsent } from '@/server/patients'
 
 export type LlmProvider = { provider: 'anthropic' | 'gateway'; modelId: string; model: LanguageModel }
 
+// Test seam: `undefined` (the only value production ever sees) means "select from the environment".
+let override: LlmProvider | null | undefined
+
+/** Tests only: pins llmProvider() to `p` (null = no provider) until called with undefined. Refuses to run in production. */
+export function setLlmProviderForTests(p: LlmProvider | null | undefined): void {
+  if (process.env.NODE_ENV === 'production') throw new Error('setLlmProviderForTests is not available in production')
+  override = p
+}
+
 export function llmProvider(): LlmProvider | null {
+  if (override !== undefined) return override
   if (process.env.ANTHROPIC_API_KEY) {
     const modelId = 'claude-sonnet-5-5'
     return { provider: 'anthropic', modelId, model: createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })(modelId) }

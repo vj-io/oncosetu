@@ -12,7 +12,7 @@ export async function withPatientAccess<T>(patientId: string, fn: (tx: Tx, sessi
     try {
       await assertPatientAccess({ db: tx, session }, patientId)
     } catch (e) {
-      if (e instanceof HttpError && (e.status === 403 || e.status === 404)) return null
+      if (e instanceof HttpError && (e.status === 403 || e.status === 404 || e.status === 410)) return null
       throw e
     }
     return fn(tx, session)

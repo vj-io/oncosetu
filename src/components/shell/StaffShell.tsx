@@ -58,7 +58,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
         <div className="relative z-40 bg-obsidian text-gallery">
           <div className="mx-auto flex min-h-11 max-w-gallery items-center justify-between gap-3 pl-4 sm:pl-8">
             <p className="font-mono text-[11px] tracking-[0.14em] uppercase">
-              Demo · synthetic data<span className="hidden sm:inline"> · messages are simulated, never sent</span>
+              Demo · synthetic data<span className="hidden sm:inline"> · messages are simulated unless an SMS provider is configured</span>
             </p>
             <button
               type="button"
@@ -159,7 +159,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
       </Dialog>
 
       {demo && (
-        <Dialog open={phoneOpen} onClose={() => setPhoneOpen(false)} placement="right" title="Demo phone" description="Simulated SMS and WhatsApp messages. Nothing leaves this server.">
+        <Dialog open={phoneOpen} onClose={() => setPhoneOpen(false)} placement="right" title="Demo phone" description="SMS and WhatsApp messages this server recorded. The badge on each one says whether it was simulated or handed to a provider.">
           <DemoOutbox />
         </Dialog>
       )}
@@ -167,7 +167,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
   );
 }
 
-type OutboxMessage = { id: string; channel: string; toMasked: string; body: string; createdAt: string };
+type OutboxMessage = { id: string; channel: string; toMasked: string; body: string; createdAt: string; delivery: "simulated" | "queued" | "sent" | "failed"; deliveryError: string | null };
 
 /** Mounted only while the drawer is open, so polling stops when it closes. */
 function DemoOutbox() {
@@ -202,7 +202,7 @@ function DemoOutbox() {
   return (
     <div className="mx-auto max-w-[22rem] rounded-[2rem] border-[10px] border-obsidian bg-gallery shadow-frame">
       <div className="flex items-center justify-between border-b border-rule px-4 py-2.5">
-        <span className="font-mono text-[11px] tracking-[0.14em] text-faint uppercase">Inbox · simulated</span>
+        <span className="font-mono text-[11px] tracking-[0.14em] text-faint uppercase">Inbox</span>
         <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.14em] text-setu-ink uppercase">
           <span aria-hidden className="ds-pulse size-1.5 rounded-full bg-setu" />
           Live · 3 s
@@ -220,6 +220,9 @@ function DemoOutbox() {
               <header className="flex flex-wrap items-center gap-2">
                 <Badge tone={/whats/i.test(m.channel) ? "setu" : "neutral"}>{/whats/i.test(m.channel) ? "WhatsApp" : "SMS"}</Badge>
                 <span className="font-mono text-xs text-muted">{m.toMasked}</span>
+                <Badge tone={m.delivery === "failed" ? "conflict" : m.delivery === "sent" ? "verified" : "neutral"}>
+                  {m.delivery === "failed" && m.deliveryError ? `failed · ${m.deliveryError}` : m.delivery}
+                </Badge>
                 <time dateTime={m.createdAt} className="ml-auto font-mono text-[11px] text-faint">
                   {new Date(m.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </time>

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
 import { DeskLookup, type DeskHit } from '@/components/registration/DeskLookup'
 import { Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { withOrg } from '@/db'
@@ -19,7 +19,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
   const { today, preselected } = await withOrg(s.orgId, async (tx) => {
     let hit: DeskHit | null = null
     if (wanted && UUID.test(wanted)) {
-      const [p] = await tx.select({ nameEnc: patients.nameEnc }).from(patients).where(eq(patients.id, wanted))
+      const [p] = await tx.select({ nameEnc: patients.nameEnc }).from(patients).where(and(eq(patients.id, wanted), ne(patients.status, 'erased')))
       if (p) hit = { id: wanted, initials: initials(decryptField(p.nameEnc)), accession: accession(wanted) }
     }
     return { today: await todaysEncounters(tx, s.orgId), preselected: hit }

@@ -7,9 +7,15 @@ export const EXTRACTION_SCHEMA_VERSION = 'extraction.v1'
 
 const FieldValue = z.union([z.string().max(300), z.number().int().min(0), z.array(z.string().max(300)).max(30)])
 
+// Every allowed field name is listed explicitly. Anthropic's constrained decoding closes any object that has no
+// `properties` (additionalProperties:false), so a bare z.record() reached the model as `fields: {}` and no field could
+// ever be emitted. catchall() still lets an off-list key through zod, so the gate (not the schema) rejects it.
+const FIELD_NAMES = [...new Set(EXTRACTABLE_EVENT_TYPES.flatMap((t) => EVENT_FIELDS[t]))].filter((f) => f !== 'event_date')
+const ItemFields = z.object(Object.fromEntries(FIELD_NAMES.map((k) => [k, FieldValue.optional()]))).catchall(FieldValue)
+
 export const ExtractionItemSchema = z.object({
   event_type: z.enum(EXTRACTABLE_EVENT_TYPES as [string, ...string[]]),
-  fields: z.record(z.string(), FieldValue),
+  fields: ItemFields,
   quote: z.string().min(1).max(300),
   page_no: z.number().int().min(1),
 })

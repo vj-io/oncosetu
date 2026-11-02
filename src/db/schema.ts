@@ -24,7 +24,7 @@ export const sex = pgEnum('sex', ['female', 'male', 'other', 'unknown'])
 export const disclosureStatus = pgEnum('disclosure_status', ['cleared', 'not_cleared', 'unknown'])
 export const primaryContact = pgEnum('primary_contact', ['patient', 'caregiver'])
 export const lang = pgEnum('lang', ['en', 'hi'])
-export const patientStatus = pgEnum('patient_status', ['active', 'merged', 'erasure_requested', 'inactive'])
+export const patientStatus = pgEnum('patient_status', ['active', 'merged', 'erasure_requested', 'inactive', 'erased'])
 export const consentAction = pgEnum('consent_action', ['grant', 'update', 'withdraw'])
 export const encounterType = pgEnum('encounter_type', ['onboarding', 'returning', 'between'])
 export const docStatus = pgEnum('doc_status', [
@@ -62,6 +62,8 @@ export const requestState = pgEnum('request_state', [
 ])
 export const shareScope = pgEnum('share_scope', ['summary', 'summary_with_documents'])
 export const outboxChannel = pgEnum('outbox_channel', ['sms', 'whatsapp'])
+// simulated = no provider configured (demo); queued = handed to the provider step; sent = accepted by the provider; failed = refused.
+export const outboxDelivery = pgEnum('outbox_delivery', ['simulated', 'queued', 'sent', 'failed'])
 export const studyPhase = pgEnum('study_phase', ['baseline', 'shadow', 'live'])
 export const impactRating = pgEnum('impact_rating', ['none', 'delayed_decision', 'repeat_test_ordered', 'visit_rescheduled'])
 export const repeatTestReason = pgEnum('repeat_test_reason', ['unavailable', 'quality', 'clinical_need'])
@@ -533,7 +535,7 @@ export const devices = pgTable('devices', {
   wipedAt: tsz('wiped_at'),
 })
 
-/** Simulated SMS/WhatsApp gateway: nothing leaves the server. */
+/** SMS/WhatsApp record: always written (masked number + HMAC, never the number); delivered by src/server/outbox.ts when a provider is configured. */
 export const outbox = pgTable('outbox', {
   id: pk(),
   orgId: orgId(),
@@ -544,6 +546,11 @@ export const outbox = pgTable('outbox', {
   templateKey: text('template_key').notNull(),
   body: text('body').notNull(),
   lang: lang('lang').notNull().default('en'),
+  delivery: outboxDelivery('delivery').notNull().default('simulated'),
+  providerMessageId: text('provider_message_id'),
+  /** Short code only (`twilio_21211`, `http_503`, `timeout`): the provider's message text can quote the number. */
+  deliveryError: text('delivery_error'),
+  deliveryUpdatedAt: tsz('delivery_updated_at'),
   createdAt: createdAt(),
 }, (t) => [index('outbox_to_idx').on(t.toHmac, t.createdAt)])
 

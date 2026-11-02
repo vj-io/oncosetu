@@ -1,6 +1,6 @@
 // V06-E2E-01, -04, -05 (PRD §13, v0.6 Hardening and measurement-study instrumentation).
-// -02 (restore from backup into a fresh database) and -03 (500-event ledger render time) need infrastructure and data volumes that a shared
-// dev server does not offer; they are not part of this suite.
+// -02 (restore from backup into a fresh database) is scripts/restore-drill.ts (needs Neon and a production build; see docs/RUNBOOK.md);
+// -03 (500-event ledger render time) is tests/e2e/v06-perf.spec.ts. Neither is in this file.
 import { MEASURE_CSV_HEADER } from '../../src/server/admin/measurement-core'
 import { registerPatient } from './helpers/api'
 import { breakGlassOf, encountersOf, expireBreakGlass, patientRow, smsTo } from './helpers/db'

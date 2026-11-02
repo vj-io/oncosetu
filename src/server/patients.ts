@@ -65,7 +65,7 @@ export async function assertConsent(tx: Tx, patientId: string, purpose: keyof Co
  * Staff: patient in the session's org (RLS) AND (consent 'store' OR an active break-glass for this staff member).
  *   desk/records/clinician: consent or break-glass; org_admin: break-glass only; auditor: never.
  * Patient/caregiver: own patient only.
- * Unknown / other-org ids → 404 (uniform with not-found).
+ * Unknown / other-org ids → 404 (uniform with not-found). Erased records → 410 erased.
  * `consentOptional` (recording consent, its confirmation code): with no consent yet / after a withdrawal, an
  * identity-verified visit from the last 12 h stands in for consent. The desk always needs that visit.
  */
@@ -76,8 +76,10 @@ export async function assertPatientAccess(ctx: { db: Tx; session: Session }, pat
     if (s.patientId !== patientId) throw notFound
     return
   }
-  const [p] = await ctx.db.select({ id: patients.id, orgId: patients.orgId }).from(patients).where(eq(patients.id, patientId))
+  const [p] = await ctx.db.select({ id: patients.id, orgId: patients.orgId, status: patients.status }).from(patients).where(eq(patients.id, patientId))
   if (!p || p.orgId !== s.orgId) throw notFound
+  // J8: only a tombstone is left (drizzle/0006); nothing opens it, break-glass included.
+  if (p.status === 'erased') throw new HttpError(410, 'erased', "Records erased at the patient's request")
   if (s.role === 'auditor') throw new HttpError(403, 'forbidden', 'Not allowed')
   const [bg] = await ctx.db.select({ id: breakGlass.id }).from(breakGlass).where(and(
     eq(breakGlass.patientId, patientId), eq(breakGlass.staffId, s.staffId), gt(breakGlass.expiresAt, new Date()),

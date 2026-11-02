@@ -1,5 +1,5 @@
 // Patient lookup for staff: by phone, MRN, accession code or name. Names are encrypted, so name search decrypts in the app.
-import { desc, eq, ilike, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, ilike, inArray, ne, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { patientAliases, patients } from '@/db/schema'
 import { normaliseName } from '@/core/identity'
@@ -80,6 +80,6 @@ export async function searchPatients(tx: Tx, rawQuery: string, limit = 50, mode:
     for (const p of all) if (nameMatchesQuery(q, decryptField(p.nameEnc), ...(aliasBy.get(p.id) ?? []))) ids.add(p.id)
   }
   if (!ids.size) return []
-  const rows = await tx.select().from(patients).where(inArray(patients.id, [...ids].slice(0, limit))).orderBy(desc(patients.createdAt))
+  const rows = await tx.select().from(patients).where(and(inArray(patients.id, [...ids].slice(0, limit)), ne(patients.status, 'erased'))).orderBy(desc(patients.createdAt))
   return rows.map((p) => toRow(p, consent))
 }

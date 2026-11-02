@@ -30,7 +30,7 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
     try {
       await assertPatientAccess({ db: tx, session }, id)
     } catch (e) {
-      if (e instanceof HttpError && e.status === 403) return 'forbidden' as const
+      if (e instanceof HttpError && (e.status === 403 || e.status === 410)) return 'forbidden' as const
       if (e instanceof HttpError && e.status === 404) return null
       throw e
     }

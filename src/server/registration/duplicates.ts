@@ -1,5 +1,5 @@
 // Duplicate-patient detection before saving (E-ID-06). Merging is the Admin agent's; this only warns.
-import { ne } from 'drizzle-orm'
+import { notInArray } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { patientAliases, patients } from '@/db/schema'
 import { decryptField, hmac, maskPhone } from '../crypto'
@@ -24,7 +24,7 @@ export type DuplicateCandidate = {
 export async function findDuplicates(tx: Tx, input: DupProfile): Promise<DuplicateCandidate[]> {
   // ponytail: decrypt-in-app, O(n) in the org's active patients per registration. Fine to a few thousand records;
   // beyond that pre-filter by blind indexes (phone/ABHA/identity_hmac) and only fuzzy-match the DOB-equal rows.
-  const rows = await tx.select().from(patients).where(ne(patients.status, 'merged'))
+  const rows = await tx.select().from(patients).where(notInArray(patients.status, ['merged', 'erased'])) // an erased tombstone has no name left
   const aliasRows = await tx.select({ patientId: patientAliases.patientId, nameEnc: patientAliases.nameEnc }).from(patientAliases)
   const aliasBy = new Map<string, string[]>()
   for (const a of aliasRows) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), decryptField(a.nameEnc)])

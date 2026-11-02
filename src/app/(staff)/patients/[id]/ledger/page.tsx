@@ -64,7 +64,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   const { id } = await params
   if (!UUID.test(id)) notFound()
   const session = await requireStaff(['desk', 'records', 'clinician'])
-  const v = await withPatientAccess(id, async (tx, s) => loadLedger(tx, id, s, await now(s.orgId)))
+  const v = await withPatientAccess(id, async (tx, s) => loadLedger(tx, id, s, now(s.orgId)))
   if (!v) return null // the workspace layout explains the denial
 
   const items = Object.values(v.events).flat()

@@ -1,0 +1,99 @@
+# OncoSetu — build report
+
+How the prototype was built from PRD v1.1 (`docs/PRD.md`): the design-system decision, how the work was split across
+models, and what was verified. Date: 2 Nov 2026. Live: https://oncosetu-zeta.vercel.app
+
+## 1. Design system — evaluated from the brag-styles kit
+
+The brag-styles kit has 34 art-directed sets. The product's audience is hospital desk staff, records officers and
+oncologists (who must trust what they read), and patients or caregivers in India, many of whom have not been told the
+diagnosis. The look had to be calm, exact and non-alarming, and the signature move had to act out the core action:
+*every fact shown with where it came from*.
+
+| Set | Fit | Verdict |
+|---|---|---|
+| **Museum Placard** | An exhibit plus its wall label = a fact plus its provenance (WHAT · WHERE · WHO · WHEN). A missing document = an empty frame on the wall. Gallery white, a warm spotlight, mono accession codes. | **Chosen** |
+| Swiss Grid | Exact and enterprise-safe; no metaphor for provenance or absence | Runner-up (safer) |
+| Transit Map | Fits the pipeline (capture → gate → ledger), not the record itself | Rejected |
+| Jaipur Block Print / Shahi Darbar / Maharaja Deco | Indian identity, but festive or royal — wrong register for a cancer clinic | Rejected |
+| Ops Desk / Patent Office | Good for dashboards and architecture, cold for patients | Rejected |
+| Doodle | Friendly explainer look; would read as unserious for clinical evidence | Rejected (explicitly not the default) |
+
+Translation from video kit to a clinical UI (see `src/app/globals.css`, `src/components/ui/**`, `/styleguide`):
+- **Kept:** palette, type (Instrument Sans, Inter Tight, JetBrains Mono; Noto Sans Devanagari added for Hindi),
+  frame and placard ornament, spotlight. **Dropped:** the set's deadpan humour and all video-frame rules.
+- **Semantic extension** (one hue per meaning, always with a word): brand teal "Setu" (bridge); sage = verified;
+  amber = unverified / low confidence; madder = conflict / identity warning; violet = patient said; slate = shadow
+  mode; brass gradient only for the sealed-snapshot seal. Each hue ships a `-ink` text variant measured at ≥ 4.5:1 on
+  its tint, the page and white (the style guide recomputes the ratios live).
+- **Signature move as micro-interactions:** placards fade in after their item; quote highlights sweep in like a
+  spotlight; verification presses an ink stamp; sealing presses a brass seal; missing records are dashed empty frames.
+  All motion is inside `prefers-reduced-motion: no-preference`; resting CSS is the final state.
+- **Safety in the brand:** on patient-facing surfaces the product shows as "Setu Records" until disclosure is cleared,
+  because the name "OncoSetu" itself contains "Onco" (FR-CON-07).
+
+## 2. Delegation — 25 subagents, by complexity
+
+Opus orchestrated (plans, contracts in `docs/ARCHITECTURE.md` and `docs/AGENT-RULES.md`, merges, reviews, deploys).
+
+| Phase | Agent (model) | Scope |
+|---|---|---|
+| Foundation | Foundation (**Opus**) | Schema, migrations, RLS + app role, SECURITY DEFINER lookups, crypto, TOTP/OTP, sessions, route wrapper, hash-chained audit, CSP proxy |
+| | Design system (**Opus**) | Museum Placard tokens, 30+ components, shells, landing page, login, style guide |
+| | Core logic (**Opus**) | Evidence gate, India date parser, identity matcher, Radar engine + rules, ledger diff, copy lint — 583 tests |
+| | Demo documents (**Sonnet**) | 20 synthetic Indian hospital documents (PDF + photographed JPEG, Hindi, handwritten, injected, wrong-patient) |
+| Features (parallel) | Pipeline (**Opus**) | Upload safety, OCR (tesseract eng+hin), classification, identity, extraction, gate, Radar recompute, source viewer, eval |
+| | Ledger (**Opus**) | Timeline, two-tier verification, Change Ledger, seal + Ed25519, public verify, records queue |
+| | Completeness / requests / shares (**Opus**) | Radar UI, Records Request Kit (EN/HI letters, reminders), encrypted share links + viewer |
+| | Registration (**Sonnet**) | Wizard, consent per purpose, QR card, desk OTP lookup, caregivers, disclosure, break-glass |
+| | Patient portal (**Sonnet**) | OTP login, uploads, pre-visit questions with read-back, consent, access log |
+| | Admin (**Sonnet**) | Staff, rule review, audit chain, metrics, measurement study, duplicates merge, settings |
+| | Offline capture (**Sonnet**) | PWA, encrypted IndexedDB queue, idempotent sync, device revoke |
+| Hardening | README (**Haiku**) | First README from verified facts |
+| | Security review (**Opus**, read-only) | Found 1 S1 + 3 S2 issues |
+| | Security fixes (**Opus**) | Access guards, desk redaction, signed share payloads, OTP flood limit, lockout reset |
+| | Integration fixes (**Sonnet**) | Erasure requests, patient dispute, i18n, RBAC, `resolve_snapshot` |
+| | E2E suite (**Sonnet**) | Playwright suite in an isolated org; found and fixed a pool-nesting deadlock |
+| | Pool-nesting audit (**Sonnet**) | Every nested connection site fixed and proven under 12× concurrency |
+| | Demo seed (**Opus**) | Demo reset that drives the real API; `docs/DEMO.md` |
+| Gap closing | Erasure executor (**Opus**) | Retention-gated `erase_patient()` + cron |
+| | LLM path + SMS (**Sonnet**) | LLM pipeline tests (found the closed-schema bug), Twilio adapter + outbox delivery |
+| | Restore drill + perf (**Sonnet**) | Neon PITR restore drill, 500-event perf gate, loader pipelining |
+| | Inbound channels (**Opus**) | Email drop (Postmark) + WhatsApp intake (Twilio) with code-confirmed holds |
+| | ABDM HIU (**Opus**) | Transport interface, X25519/HKDF/AES-GCM, consent-gated decrypt, FHIR mapping |
+| | Backups (**Opus**) | Encrypted daily backups to private Blob (Mumbai) + verified restore |
+| | Perf probe (**Sonnet**) | Co-located FR-LED-07 measurement on Vercel sin1 |
+
+Totals: 13 Opus (correctness- or security-critical), 11 Sonnet (well-specified features and tests), 1 Haiku
+(documentation). Agents ran up to seven at once with explicit file ownership; the orchestrator committed between phases.
+
+## 3. Verification evidence (2 Nov 2026)
+
+| Check | Result |
+|---|---|
+| Unit tests (`npm test`) | 1,019 passed (51 files) |
+| Integration tests (`npm run test:integration`, live DB) | 23 passed — RLS isolation, erasure, inbound, ABDM, backup type round trips |
+| End-to-end (`npm run test:e2e`, production build) | 42 / 42 passed — PRD V01–V06 plus inbound, erasure, ABDM, perf |
+| Offline capture (`tests/e2e/offline-capture.e2e.ts`) | Passed against a production build |
+| Extraction eval (`scripts/eval.ts`) | 0 unsupported facts in the record; precision 0.95, recall 0.96 (20 synthetic docs, rule path) |
+| FR-LED-07, co-located (`vercel crons run /api/cron/perf-probe`) | PASS — 508-item ledger 1.14 s and 1.21 s in sin1 (budget 2 s) |
+| Restore drill (Neon PITR, `scripts/restore-drill.ts`) | PASS — 14 checks |
+| Restore from the Vercel-made encrypted backup | PASS — 9 checks, 40 tables, 27,566 rows, 60 signatures, 358 files |
+| Migrations (`scripts/check-migrations.mts`) | 11 / 11 match the applied hashes |
+| Security review | 1 S1 + 3 S2 + 6 S3 found; all fixed with regression tests |
+
+## 4. Integrations that need the owner's accounts
+
+These are built, and tested at the wire level with stubbed responses. Running them against the real services needs
+accounts or payment details that only the owner can provide:
+
+| Integration | What exists | What the owner provides |
+|---|---|---|
+| LLM extraction | Provider selection, structured output, retries, consent gate, ai_runs audit; wire request to Anthropic checked | `ANTHROPIC_API_KEY`, or a card on Vercel AI Gateway + `AI_ENABLED=true` |
+| SMS / WhatsApp out | Twilio REST adapter, delivery status, retry, sweeper cron | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, sender; India DLT registration |
+| WhatsApp in | Signed webhook, code-confirmed holds | Twilio WhatsApp sender + webhook URL |
+| Email drop | Postmark inbound webhook, alias + verified sender | Postmark inbound server + an MX domain |
+| ABDM | `AbdmTransport` with the PRD-specified in-process gateway (real crypto) and a sandbox HTTP client | Legal entity + HIU registration and sandbox credentials (`ABDM_*`) |
+
+Without them the app runs fully: rule-based extraction behind the same evidence gate, messages recorded in the outbox
+and shown on the demo phone, and ABDM through the in-process gateway.

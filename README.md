@@ -3,7 +3,7 @@
 Records continuity for cancer care in India: every displayed fact traces to a verbatim source quote, and referenced documents that are missing from the file are listed.
 
 **Live demo:** https://oncosetu-zeta.vercel.app
-Demo mode: sign in with the one-click demo accounts on /login (synthetic data only). A 6-minute judge walkthrough is in [docs/DEMO.md](docs/DEMO.md).
+Demo mode: sign in with the one-click demo accounts on /login (synthetic data only). A 6-minute judge walkthrough is in [docs/DEMO.md](docs/DEMO.md); design choice, model delegation and verification evidence are in [docs/BUILD-REPORT.md](docs/BUILD-REPORT.md).
 
 OncoSetu was named OncoBridge in PRD v1.0. "Setu" means bridge. This is an academic and hackathon prototype. A clinician-led pilot requires ethics (IEC) approval before any real patient data is used.
 

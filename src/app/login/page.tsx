@@ -78,7 +78,7 @@ export default function StaffLoginPage() {
           <Link href="/" aria-label="OncoSetu home">
             <Wordmark />
           </Link>
-          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase sm:inline">Staff entrance</span>
+          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase sm:inline">Staff sign-in</span>
           <Link href="/p/login" className="ml-auto inline-flex h-11 items-center font-mono text-[12px] tracking-[0.12em] text-muted uppercase hover:text-ink">
             Patient portal
           </Link>
@@ -87,7 +87,7 @@ export default function StaffLoginPage() {
 
       <main id="main" className="relative mx-auto grid w-full max-w-gallery flex-1 items-start gap-12 px-4 py-12 sm:px-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-20 lg:py-20">
         <div>
-          <p className="ds-kicker">Wing · Staff entrance</p>
+          <p className="ds-kicker">Staff sign-in</p>
           <h1 className="mt-4 text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Sign in to the records desk.</h1>
           <p className="mt-4 text-muted">Email, password and the 6-digit code from your authenticator app.</p>
 
@@ -161,8 +161,8 @@ export default function StaffLoginPage() {
             <Placard
               animate
               titleAs="h2"
-              kicker="Staff wing"
-              title={<span id="demo-accounts">Five roles, one record</span>}
+              kicker="Staff roles"
+              title={<span id="demo-accounts">Five roles, one audit trail</span>}
               what="Desk · Records · Clinician · Admin · Audit"
               who="Each action stores actor, role and time in a hash-chained audit log"
               when="Sessions end after 12 hours, or 30 minutes idle on shared desk devices"

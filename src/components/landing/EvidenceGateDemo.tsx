@@ -158,7 +158,7 @@ export function EvidenceGateDemo() {
               key={runId}
               animate
               delay={350}
-              kicker="Document index · new exhibit"
+              kicker="Document index · new item"
               title={proposal.id === "custom" ? "Quoted text found" : proposal.what}
               status={<StatusBadge status="unverified" label="Unverified · awaiting records" />}
               what={proposal.fact}

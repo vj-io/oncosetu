@@ -1,4 +1,5 @@
 // V01-E2E-01..09 (PRD §13, v0.1 Foundation). Everything runs in the Ganga org with synthetic patients.
+import { CONSENT_NOTICE_VERSION } from '../../src/i18n/consent'
 import { createHash } from 'node:crypto'
 import { Api, anonymous, demoDoc, demoPatient, freshPhone, portalLogin, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc, waitForSms } from './helpers/api'
 import { closeEncounters, consentsOf, documentsOf, smsAbout, smsTo } from './helpers/db'
@@ -43,7 +44,7 @@ test('V01-E2E-02 register a synthetic patient with consent per purpose; QR card 
   const purposes = { store: true, ai: false, share: true, abdm: false, metrics: false }
   const p = await registerPatient(desk, { base: 'returning', purposes })
   const [consent] = await consentsOf(p.id)
-  expect(consent).toMatchObject({ action: 'grant', method: 'desk_assisted', noticeVersion: 'consent-notice.v1' })
+  expect(consent).toMatchObject({ action: 'grant', method: 'desk_assisted', noticeVersion: CONSENT_NOTICE_VERSION })
   expect(consent.purposes).toEqual(purposes)
 
   // The card code is opaque: 128 random bits, no patient data in it.

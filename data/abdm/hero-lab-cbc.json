@@ -1,0 +1,269 @@
+{
+  "resourceType": "Bundle",
+  "id": "3a928533-f1b8-4709-83c2-f94e0fbda366",
+  "meta": {
+    "lastUpdated": "2026-02-10T14:45:00+05:30",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ],
+    "security": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+        "code": "V",
+        "display": "very restricted"
+      }
+    ],
+    "tag": [
+      {
+        "system": "https://oncosetu.example/fhir/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC test data: not a real patient, facility or clinician"
+      }
+    ]
+  },
+  "identifier": {
+    "system": "http://hip.in",
+    "value": "7a34ae2f-26fb-4d49-88ff-3301addedc71"
+  },
+  "type": "document",
+  "timestamp": "2026-02-10T14:45:00+05:30",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:a86edac2-22bd-4631-80db-3780ad2c83ea",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "a86edac2-22bd-4631-80db-3780ad2c83ea",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DiagnosticReportRecord"
+          ]
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://godavari.example/documents",
+          "value": "6cbf94b5-70e9-409e-845e-6742c6c53cdc"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "721981007",
+              "display": "Diagnostic studies report"
+            }
+          ],
+          "text": "Diagnostic studies report"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+          "display": "Sunita Deshmukh"
+        },
+        "date": "2026-02-10T14:45:00+05:30",
+        "author": [
+          {
+            "reference": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+            "display": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ],
+        "title": "Diagnostic Report — Complete Blood Count",
+        "custodian": {
+          "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+          "display": "Godavari Multispeciality Hospital (synthetic)"
+        },
+        "section": [
+          {
+            "title": "Hematology report",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "4321000179101",
+                  "display": "Hematology report"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:6b6fb6f8-8ff6-45bc-8545-faa5fd3d47cc"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ]
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "00-1111-2222-0001"
+          }
+        ],
+        "name": [
+          {
+            "text": "Sunita Deshmukh"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1974-08-14"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "483da7ea-669f-4a36-8199-4e8f8dda70fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ]
+            },
+            "system": "https://doctor.ndhm.gov.in",
+            "value": "SYN-MH-10457"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "name": "Godavari Multispeciality Hospital (synthetic)"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:61e9f097-08ed-47dd-8398-92b4df084bb5",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "61e9f097-08ed-47dd-8398-92b4df084bb5",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "name": "Godavari Diagnostics Laboratory (synthetic)"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:6b6fb6f8-8ff6-45bc-8545-faa5fd3d47cc",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "6b6fb6f8-8ff6-45bc-8545-faa5fd3d47cc",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DiagnosticReportLab"
+          ]
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                "code": "HM",
+                "display": "Hematology"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "58410-2",
+              "display": "CBC panel - Blood by Automated count"
+            }
+          ],
+          "text": "Complete Blood Count (CBC)"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "effectiveDateTime": "2026-02-10T09:15:00+05:30",
+        "issued": "2026-02-10T14:40:00+05:30",
+        "performer": [
+          {
+            "reference": "urn:uuid:61e9f097-08ed-47dd-8398-92b4df084bb5"
+          }
+        ],
+        "result": [
+          {
+            "reference": "urn:uuid:48b48a9b-d566-4bd3-83a4-e8dd6fa14d0e"
+          }
+        ],
+        "conclusion": "Mild anaemia. Correlate clinically."
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:48b48a9b-d566-4bd3-83a4-e8dd6fa14d0e",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "48b48a9b-d566-4bd3-83a4-e8dd6fa14d0e",
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "718-7",
+              "display": "Hemoglobin [Mass/volume] in Blood"
+            }
+          ],
+          "text": "Haemoglobin"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "valueQuantity": {
+          "value": 10.9,
+          "unit": "g/dL",
+          "system": "http://unitsofmeasure.org",
+          "code": "g/dL"
+        },
+        "interpretation": [
+          {
+            "text": "Low"
+          }
+        ]
+      }
+    }
+  ]
+}

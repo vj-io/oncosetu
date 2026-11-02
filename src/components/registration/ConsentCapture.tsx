@@ -69,7 +69,6 @@ export function ConsentCapture({
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <span className="font-mono text-xs text-faint">({LETTERS[i]})</span>
                 {k === "store" && <Badge tone="setu">{consentCopy.tagRequired[lang]}</Badge>}
-                {k === "abdm" && <Badge tone="shadow">{consentCopy.tagNotYet[lang]}</Badge>}
               </div>
               <Switch
                 label={consentCopy[k].label[lang]}
@@ -197,7 +196,7 @@ function PrintableNotice() {
             {PURPOSES.map((k, i) => (
               <li key={k}>
                 <p className="font-semibold">
-                  ({LETTERS[i]}) {consentCopy[k].label[lang]} {k === "store" ? `— ${consentCopy.tagRequired[lang]}` : k === "abdm" ? `— ${consentCopy.tagNotYet[lang]}` : ""}
+                  ({LETTERS[i]}) {consentCopy[k].label[lang]} {k === "store" ? `— ${consentCopy.tagRequired[lang]}` : ""}
                 </p>
                 <p>{consentCopy[k].detail[lang]}</p>
                 <p className="mt-1">

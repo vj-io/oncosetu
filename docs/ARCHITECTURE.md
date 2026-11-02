@@ -155,6 +155,45 @@ the patient or caregiver) + `scheduleProcessing`. Nothing from a message body is
 - **Erasure**: a trigger on `patients.status → 'erased'` deletes the patient's `contact_emails`, `inbound_aliases` and
   holds; `contact_emails.caregiver_id` cascades when `erase_patient()` deletes caregivers.
 
+## ABDM HIU (FR-ING-ABDM-01/02, journey J6)
+
+Code in `src/server/abdm/**`, pure FHIR mapping in `src/core/fhir/**`, tables in `drizzle/0009_abdm.sql`
+(`abdm_consent_requests`, `abdm_transfers`; RLS forced; the app role may SELECT/INSERT/UPDATE, never DELETE).
+
+- **Transport.** `AbdmTransport` mirrors the HIU gateway calls: `initConsentRequest` → `consentStatus` / hiu-notify →
+  `fetchArtefact` → `requestHealthInformation` (HIU ephemeral X25519 key material + nonce, date range, consent id) → data
+  push (entries + HIP key material) → `notifyTransfer`. `abdmTransport()` returns `InProcessGateway` when no `ABDM_*` env is
+  set (in-process consent manager + HIP over the synthetic bundles in `data/abdm/`; it encrypts for real and returns the push
+  to the caller; `decide`/`revoke` stand in for the patient's ABHA app) and `SandboxGateway` when `ABDM_CLIENT_ID`,
+  `ABDM_CLIENT_SECRET` and `ABDM_BASE_URL` are all set (v3 gateway HTTP client; answers arrive on callbacks, which are not
+  built — no sandbox account). A partial `ABDM_*` set is a 503.
+- **Crypto** (`crypto.ts`): shared = X25519; xor = nonce_HIU XOR nonce_HIP; key = HKDF-SHA256(shared, salt = xor[0..20),
+  info = ∅, 32); AES-256-GCM, IV = xor[20..32), content = base64(ct ‖ tag). Keys are X.509 SPKI base64 in
+  `dhPublicKey.keyValue`. Known-answer vectors in `crypto.test.ts`.
+- **Consent gate** (`gate.ts`): before any entry is decrypted, OncoSetu's own purposes (`store` + `abdm`, checked on use)
+  and the stored artefact (GRANTED, before `dataEraseAt`, `patientHmac` = the patient's `abha_hmac`, requested HI types and
+  date range inside the artefact) are re-checked. Decryption is all or nothing (tag, key, nonce, MD5 checksum); a refusal
+  records the transfer FAILED with a code and writes nothing else. After decryption each bundle's record type and
+  Composition date must fall inside the artefact.
+- **Flow** (`flow.ts`, all on the caller's transaction — POOL RULE): staff `POST /api/patients/[id]/abdm/consent-requests`
+  (records/clinician; `abdm` purpose + ABHA required; neutral SMS `abdm.consent_request` to the primary contact) → patient
+  `POST /api/p/abdm/[requestId]` `{ decision: approve|deny|revoke }` → artefact stored with the ABHA replaced by its HMAC →
+  transfer → `mapBundle` → one `documents` row per bundle (`intake_route 'abdm'`, `application/fhir+json`, status `done`,
+  attach `auto`, identity `match` via the artefact, original encrypted with `storeFile`) + events
+  (`external_structured` / `structured_map`) + evidence (`fhir_resource_ref`, `quote_sha256` = SHA-256 of the canonical
+  resource JSON, no quote) → `recomputeRadar`. `GET /api/patients/[id]/abdm` feeds the Documents-tab panel
+  (`src/components/abdm/AbdmPanel.tsx`); the source viewer renders `AbdmDocument` for `intake_route 'abdm'` (fact beside its
+  FHIR resource; opening one logs `event.source_viewed`).
+- **Erase** (PRD §10.5): `abdm_erase(request)` (SECURITY DEFINER) deletes the request's documents, files, pages, events (all
+  versions), evidence, verifications + QA reviews and AI-run rows, unlinks Radar rows and record requests, marks transfers
+  ERASED; it refuses unless the request is REVOKED or `erase_at` passed (real time) and across orgs. Callers re-run the
+  Radar. Triggered by revoke, `GET /api/cron/abdm-erase` (daily, Bearer `CRON_SECRET`) and on read (panel, portal page,
+  ABDM source view). Sealed snapshots keep what they sealed. Patient erasure deletes the ABDM rows by trigger.
+- **Mapping** (`src/core/fhir`): DiagnosticReport → imaging / pathology / lab report events (category or LOINC);
+  DischargeSummary → admission + discharge (Encounter) + procedures; OPConsult → consultation; Prescription → medicine
+  names only. Every event passes `checkStructuredFields` (the evidence gate's field rules). Nothing is read from Condition,
+  Observation values, conclusions or dosage.
+
 ## Design system — "Museum Placard" (brag-styles set, extended for a clinical UI)
 
 Each fact is exhibited like an artwork with its **placard**: WHAT · WHERE (document, page, quote) · WHO verified ·

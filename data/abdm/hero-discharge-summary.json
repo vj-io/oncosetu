@@ -1,0 +1,309 @@
+{
+  "resourceType": "Bundle",
+  "id": "624b21f8-e8f6-4c74-88df-53586806ca08",
+  "meta": {
+    "lastUpdated": "2026-03-14T13:00:00+05:30",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ],
+    "security": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+        "code": "V",
+        "display": "very restricted"
+      }
+    ],
+    "tag": [
+      {
+        "system": "https://oncosetu.example/fhir/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC test data: not a real patient, facility or clinician"
+      }
+    ]
+  },
+  "identifier": {
+    "system": "http://hip.in",
+    "value": "9655f765-b4b9-4dfb-858d-daec404b68e5"
+  },
+  "type": "document",
+  "timestamp": "2026-03-14T13:00:00+05:30",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:e3a50f24-872b-40cc-8e58-807f145a0085",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "e3a50f24-872b-40cc-8e58-807f145a0085",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DischargeSummaryRecord"
+          ]
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://godavari.example/documents",
+          "value": "f8e6dc4f-e873-4bc3-8c8e-b050dc5192c4"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "373942005",
+              "display": "Discharge summary"
+            }
+          ],
+          "text": "Discharge summary"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+          "display": "Sunita Deshmukh"
+        },
+        "encounter": {
+          "reference": "urn:uuid:c0317713-46c1-463e-8d62-7848cdc868af"
+        },
+        "date": "2026-03-14T13:00:00+05:30",
+        "author": [
+          {
+            "reference": "urn:uuid:602e04c5-44ca-4645-8f90-c58042f431a7",
+            "display": "Dr. Meera Kulkarni (synthetic)"
+          }
+        ],
+        "title": "Discharge Summary",
+        "custodian": {
+          "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+          "display": "Godavari Multispeciality Hospital (synthetic)"
+        },
+        "section": [
+          {
+            "title": "Chief complaints",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "422843007",
+                  "display": "Chief complaint section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:5d348648-56d3-4425-857d-381553b1e0aa"
+              }
+            ]
+          },
+          {
+            "title": "Procedure",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "1003640003",
+                  "display": "History of past procedure section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:175c1a4b-7cf4-4073-8b50-9b1a52a2fb00"
+              }
+            ]
+          },
+          {
+            "title": "Medications",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "1003606003",
+                  "display": "Medication history section"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:98c1c89b-edd4-4dc0-8b90-e0be4b2d1081"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "8cb7256f-3213-48a9-8f32-fef4fd1b3f26",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ]
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "00-1111-2222-0001"
+          }
+        ],
+        "name": [
+          {
+            "text": "Sunita Deshmukh"
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1974-08-14"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:602e04c5-44ca-4645-8f90-c58042f431a7",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "602e04c5-44ca-4645-8f90-c58042f431a7",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ]
+            },
+            "system": "https://doctor.ndhm.gov.in",
+            "value": "SYN-MH-10021"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr. Meera Kulkarni (synthetic)"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "name": "Godavari Multispeciality Hospital (synthetic)"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:c0317713-46c1-463e-8d62-7848cdc868af",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "c0317713-46c1-463e-8d62-7848cdc868af",
+        "status": "finished",
+        "class": {
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+          "code": "IMP",
+          "display": "inpatient encounter"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "period": {
+          "start": "2026-03-09T10:00:00+05:30",
+          "end": "2026-03-14T12:30:00+05:30"
+        },
+        "serviceProvider": {
+          "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa"
+        }
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:175c1a4b-7cf4-4073-8b50-9b1a52a2fb00",
+      "resource": {
+        "resourceType": "Procedure",
+        "id": "175c1a4b-7cf4-4073-8b50-9b1a52a2fb00",
+        "status": "completed",
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "392021009",
+              "display": "Lumpectomy of breast"
+            }
+          ],
+          "text": "Wide local excision, left breast"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "performedDateTime": "2026-03-10T08:30:00+05:30",
+        "performer": [
+          {
+            "actor": {
+              "reference": "urn:uuid:602e04c5-44ca-4645-8f90-c58042f431a7"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:5d348648-56d3-4425-857d-381553b1e0aa",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "5d348648-56d3-4425-857d-381553b1e0aa",
+        "code": {
+          "text": "Left breast lump"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "stage": [
+          {
+            "summary": {
+              "text": "Stage IIA (cT2 N0 M0)"
+            }
+          }
+        ],
+        "note": [
+          {
+            "text": "Grade 2 on core sample"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:98c1c89b-edd4-4dc0-8b90-e0be4b2d1081",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "98c1c89b-edd4-4dc0-8b90-e0be4b2d1081",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Paracetamol 650 mg tablet"
+        },
+        "subject": {
+          "reference": "urn:uuid:8cb7256f-3213-48a9-8f32-fef4fd1b3f26"
+        },
+        "authoredOn": "2026-03-14",
+        "dosageInstruction": [
+          {
+            "text": "1 tablet three times a day for 5 days"
+          }
+        ]
+      }
+    }
+  ]
+}

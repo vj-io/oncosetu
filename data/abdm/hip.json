@@ -1,0 +1,59 @@
+{
+  "_synthetic": "SYNTHETIC TEST DATA for the in-process ABDM HIP in src/server/abdm/transport.ts. Not real people, ABHA numbers, facilities or clinicians. ABHA numbers starting 00- are deliberately invalid.",
+  "hipId": "SYNTH-HIP-GODAVARI-01",
+  "hipName": "Godavari Multispeciality Hospital (synthetic)",
+  "patients": {
+    "00111122220001": {
+      "identity": "Ganga test patient \"hero\" (demo identity Sunita Deshmukh, public/demo-docs/patients.json)",
+      "careContexts": [
+        {
+          "reference": "GMH-OP-2026-0122",
+          "display": "Ultrasound, 22 Jan 2026",
+          "hiType": "DiagnosticReport",
+          "bundle": "hero-imaging-usg.json"
+        },
+        {
+          "reference": "GMH-LAB-2026-0210",
+          "display": "Blood count, 10 Feb 2026",
+          "hiType": "DiagnosticReport",
+          "bundle": "hero-lab-cbc.json"
+        },
+        {
+          "reference": "GMH-IP-2026-0309",
+          "display": "Admission 9-14 Mar 2026",
+          "hiType": "DischargeSummary",
+          "bundle": "hero-discharge-summary.json"
+        },
+        {
+          "reference": "GMH-OP-2026-0402",
+          "display": "OP visit, 2 Apr 2026",
+          "hiType": "OPConsultation",
+          "bundle": "hero-op-consult.json"
+        },
+        {
+          "reference": "GMH-RX-2026-0402",
+          "display": "Prescription, 2 Apr 2026",
+          "hiType": "Prescription",
+          "bundle": "hero-prescription.json"
+        }
+      ]
+    },
+    "00111122220002": {
+      "identity": "Ganga test patient \"returning\" (demo identity Mohd. Abdul Rahim Khan)",
+      "careContexts": [
+        {
+          "reference": "GMH-OP-2026-0518",
+          "display": "CT, 18 May 2026",
+          "hiType": "DiagnosticReport",
+          "bundle": "returning-imaging-ct.json"
+        },
+        {
+          "reference": "GMH-RX-2026-0520",
+          "display": "Prescription, 20 May 2026",
+          "hiType": "Prescription",
+          "bundle": "returning-prescription.json"
+        }
+      ]
+    }
+  }
+}

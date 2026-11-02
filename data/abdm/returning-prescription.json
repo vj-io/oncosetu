@@ -1,0 +1,198 @@
+{
+  "resourceType": "Bundle",
+  "id": "5cf3825f-b857-4b8f-8762-3353583fbf4a",
+  "meta": {
+    "lastUpdated": "2026-05-20T11:00:00+05:30",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ],
+    "security": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+        "code": "V",
+        "display": "very restricted"
+      }
+    ],
+    "tag": [
+      {
+        "system": "https://oncosetu.example/fhir/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC test data: not a real patient, facility or clinician"
+      }
+    ]
+  },
+  "identifier": {
+    "system": "http://hip.in",
+    "value": "cbbbf1a6-85c4-4f36-8492-60a9f033f15d"
+  },
+  "type": "document",
+  "timestamp": "2026-05-20T11:00:00+05:30",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:3419f57a-15b5-4285-8a36-cdbc676f3e58",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "3419f57a-15b5-4285-8a36-cdbc676f3e58",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/PrescriptionRecord"
+          ]
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://godavari.example/documents",
+          "value": "b8ded5f7-c4f6-47e0-8387-99f3e787bca7"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "440545006",
+              "display": "Prescription record"
+            }
+          ],
+          "text": "Prescription record"
+        },
+        "subject": {
+          "reference": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a",
+          "display": "Mohd. Abdul Rahim Khan"
+        },
+        "date": "2026-05-20T11:00:00+05:30",
+        "author": [
+          {
+            "reference": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+            "display": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ],
+        "title": "Prescription",
+        "custodian": {
+          "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+          "display": "Godavari Multispeciality Hospital (synthetic)"
+        },
+        "section": [
+          {
+            "title": "Prescription",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "440545006",
+                  "display": "Prescription record"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:8615d46c-a574-470f-8f44-9fa59e1e2217"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "a1cb48ac-df22-4115-8523-5dfe3083754a",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ]
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "00-1111-2222-0002"
+          }
+        ],
+        "name": [
+          {
+            "text": "Mohd. Abdul Rahim Khan"
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1962-01-02"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "483da7ea-669f-4a36-8199-4e8f8dda70fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ]
+            },
+            "system": "https://doctor.ndhm.gov.in",
+            "value": "SYN-MH-10457"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "name": "Godavari Multispeciality Hospital (synthetic)"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:8615d46c-a574-470f-8f44-9fa59e1e2217",
+      "resource": {
+        "resourceType": "MedicationRequest",
+        "id": "8615d46c-a574-470f-8f44-9fa59e1e2217",
+        "status": "active",
+        "intent": "order",
+        "medicationCodeableConcept": {
+          "text": "Pantoprazole 40 mg tablet"
+        },
+        "subject": {
+          "reference": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a"
+        },
+        "authoredOn": "2026-05-20",
+        "requester": {
+          "reference": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa"
+        },
+        "dosageInstruction": [
+          {
+            "text": "once daily before breakfast"
+          }
+        ]
+      }
+    }
+  ]
+}

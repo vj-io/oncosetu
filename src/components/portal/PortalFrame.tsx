@@ -10,6 +10,7 @@ const PAGES = [
   ["/p/visit", "navVisit"],
   ["/p/requests", "navRequests"],
   ["/p/share", "navShare"],
+  ["/p/abdm", "navAbdm"],
   ["/p/consent", "navConsent"],
   ["/p/access", "navAccess"],
 ] as const;

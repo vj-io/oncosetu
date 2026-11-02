@@ -157,3 +157,8 @@ without a date in their quote use `documentDate` downstream (radar/ledger fall b
 - `bulkVerifyEligible({ flags, category?, spanConfidence?, verificationStatus? }) → { eligible, reasons }`.
 - `requestState(sentAt|null, now, fulfilledAt?, terminal?) → RequestState` (`reminder_due` at +7 d,
   `open_21d` at +21 d). `REMINDER_DAYS`, `OPEN_DAYS`.
+
+## `fhir/` (FR-ING-ABDM-02) — pure
+- `mapBundle(bundle, { now? }) → { recordType, events, rejected }` maps ABDM FHIR R4 document bundles (DiagnosticReportRecord, DischargeSummaryRecord, OPConsultRecord, PrescriptionRecord) to events with `source_type = external_structured`, `extraction_method = structured_map` and a `fhirRef` per event (`Procedure/<id>`, `Composition/<id>#<section>`). Dates come from the resources; never stage, grade, conclusions, values or dosage.
+- `checkStructuredFields(eventType, fields)` — the structured-path equivalent of the gate's forbidden-field rule.
+- `reportKind(report)` → `imaging | pathology | lab` (category / LOINC), `resolveRef(bundle, ref)`, `fhirDate(v)`, `HI_TYPES`, `RECORD_TYPES`.

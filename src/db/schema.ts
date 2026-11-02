@@ -698,6 +698,56 @@ export const inboundHoldFiles = pgTable('inbound_hold_files', {
   createdAt: createdAt(),
 })
 
+// ── ABDM HIU (drizzle/0009, src/server/abdm/**) ──────────────────────────────
+export type AbdmRequestState = 'REQUESTED' | 'GRANTED' | 'DENIED' | 'EXPIRED' | 'REVOKED'
+/** The consent artefact as stored: the CM's artefact with the patient's ABHA replaced by its blind index. */
+export type AbdmArtefact = {
+  consentId: string; status: 'GRANTED' | 'DENIED' | 'EXPIRED' | 'REVOKED'; patientHmac: string; hipId: string | null
+  hiTypes: ('DiagnosticReport' | 'DischargeSummary' | 'OPConsultation' | 'Prescription')[]; dateRange: { from: string; to: string }
+  dataEraseAt: string; grantedAt: string
+}
+/** One HIU consent request (FR-ING-ABDM-01). Deleted only through abdm_erase() / patient erasure. */
+export const abdmConsentRequests = pgTable('abdm_consent_requests', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  requestedBy: uuid('requested_by').notNull().references(() => staff.id),
+  hiTypes: text('hi_types').array().notNull(),
+  dateFrom: date('date_from').notNull(),
+  dateTo: date('date_to').notNull(),
+  purpose: text('purpose').notNull().default('CAREMGT'),
+  state: text('state').$type<AbdmRequestState>().notNull().default('REQUESTED'),
+  gatewayRequestId: text('gateway_request_id'),
+  consentRequestId: text('consent_request_id'),
+  artefactId: text('artefact_id'),
+  artefact: jsonb('artefact').$type<AbdmArtefact>(),
+  eraseAt: tsz('erase_at').notNull(),
+  decidedAt: tsz('decided_at'),
+  erasedAt: tsz('erased_at'),
+  createdAt: createdAt(),
+  updatedAt: tsz('updated_at').notNull().defaultNow(),
+})
+
+/** One health-information request + data push. Key material: SHA-256 hashes only. */
+export const abdmTransfers = pgTable('abdm_transfers', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  consentRequestId: uuid('consent_request_id').notNull().references(() => abdmConsentRequests.id),
+  transactionId: text('transaction_id'),
+  hiuKeySha256: text('hiu_key_sha256').notNull(),
+  hiuNonceSha256: text('hiu_nonce_sha256').notNull(),
+  hipKeySha256: text('hip_key_sha256'),
+  hipNonceSha256: text('hip_nonce_sha256'),
+  state: text('state').$type<'REQUESTED' | 'TRANSFERRED' | 'FAILED' | 'ERASED'>().notNull().default('REQUESTED'),
+  /** Short code only (consent gate refusal, decrypt_failed, checksum_mismatch, gateway error). */
+  failure: text('failure'),
+  entriesCount: integer('entries_count').notNull().default(0),
+  documentIds: uuid('document_ids').array().notNull().default([]),
+  requestedAt: tsz('requested_at').notNull().defaultNow(),
+  receivedAt: tsz('received_at'),
+})
+
 /** Tables under ENABLE + FORCE RLS (org_id = app.org_id). Kept in sync with drizzle/0001_rls_roles.sql and later migrations. */
 export const RLS_TABLES = [
   'patients', 'patient_aliases', 'caregivers', 'consents', 'encounters', 'documents', 'document_files',
@@ -707,4 +757,5 @@ export const RLS_TABLES = [
   'verification_qa_reviews', 'measurement_form_doc_types', // 0002
   'erasure_requests', // 0003
   'contact_emails', 'inbound_aliases', 'inbound_holds', 'inbound_hold_files', // 0008
+  'abdm_consent_requests', 'abdm_transfers', // 0009
 ] as const

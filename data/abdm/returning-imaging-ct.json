@@ -1,0 +1,212 @@
+{
+  "resourceType": "Bundle",
+  "id": "6bc9af69-bc54-4c4e-86ab-e89d837eb599",
+  "meta": {
+    "lastUpdated": "2026-05-18T18:00:00+05:30",
+    "profile": [
+      "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DocumentBundle"
+    ],
+    "security": [
+      {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality",
+        "code": "V",
+        "display": "very restricted"
+      }
+    ],
+    "tag": [
+      {
+        "system": "https://oncosetu.example/fhir/tags",
+        "code": "synthetic",
+        "display": "SYNTHETIC test data: not a real patient, facility or clinician"
+      }
+    ]
+  },
+  "identifier": {
+    "system": "http://hip.in",
+    "value": "511865c1-bc04-4ddf-8947-5f91e5814802"
+  },
+  "type": "document",
+  "timestamp": "2026-05-18T18:00:00+05:30",
+  "entry": [
+    {
+      "fullUrl": "urn:uuid:9eccc285-19b7-439a-8029-2f5a9f9679b9",
+      "resource": {
+        "resourceType": "Composition",
+        "id": "9eccc285-19b7-439a-8029-2f5a9f9679b9",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/DiagnosticReportRecord"
+          ]
+        },
+        "language": "en-IN",
+        "identifier": {
+          "system": "https://godavari.example/documents",
+          "value": "5ef605a5-a8c3-4813-8e92-66eaef9065b0"
+        },
+        "status": "final",
+        "type": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "721981007",
+              "display": "Diagnostic studies report"
+            }
+          ],
+          "text": "Diagnostic studies report"
+        },
+        "subject": {
+          "reference": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a",
+          "display": "Mohd. Abdul Rahim Khan"
+        },
+        "date": "2026-05-18T18:00:00+05:30",
+        "author": [
+          {
+            "reference": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+            "display": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ],
+        "title": "Diagnostic Report — CT",
+        "custodian": {
+          "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+          "display": "Godavari Multispeciality Hospital (synthetic)"
+        },
+        "section": [
+          {
+            "title": "Imaging report",
+            "code": {
+              "coding": [
+                {
+                  "system": "http://snomed.info/sct",
+                  "code": "4261000179100",
+                  "display": "Imaging report"
+                }
+              ]
+            },
+            "entry": [
+              {
+                "reference": "urn:uuid:4090b429-9f5b-4876-8c80-695d6e619888"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "a1cb48ac-df22-4115-8523-5dfe3083754a",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MR",
+                  "display": "Medical record number"
+                }
+              ]
+            },
+            "system": "https://healthid.ndhm.gov.in",
+            "value": "00-1111-2222-0002"
+          }
+        ],
+        "name": [
+          {
+            "text": "Mohd. Abdul Rahim Khan"
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1962-01-02"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:483da7ea-669f-4a36-8199-4e8f8dda70fa",
+      "resource": {
+        "resourceType": "Practitioner",
+        "id": "483da7ea-669f-4a36-8199-4e8f8dda70fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Practitioner"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "MD",
+                  "display": "Medical License number"
+                }
+              ]
+            },
+            "system": "https://doctor.ndhm.gov.in",
+            "value": "SYN-MH-10457"
+          }
+        ],
+        "name": [
+          {
+            "text": "Dr. Arun Patwardhan (synthetic)"
+          }
+        ]
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+      "resource": {
+        "resourceType": "Organization",
+        "id": "2158b9ff-9dfd-4b43-88e8-4c06dadac8fa",
+        "meta": {
+          "profile": [
+            "https://nrces.in/ndhm/fhir/r4/StructureDefinition/Organization"
+          ]
+        },
+        "name": "Godavari Multispeciality Hospital (synthetic)"
+      }
+    },
+    {
+      "fullUrl": "urn:uuid:4090b429-9f5b-4876-8c80-695d6e619888",
+      "resource": {
+        "resourceType": "DiagnosticReport",
+        "id": "4090b429-9f5b-4876-8c80-695d6e619888",
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/v2-0074",
+                "code": "RAD",
+                "display": "Radiology"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "36643-5",
+              "display": "CT Chest and Abdomen"
+            }
+          ],
+          "text": "CT thorax and abdomen (contrast)"
+        },
+        "subject": {
+          "reference": "urn:uuid:a1cb48ac-df22-4115-8523-5dfe3083754a"
+        },
+        "effectiveDateTime": "2026-05-18T16:00:00+05:30",
+        "performer": [
+          {
+            "reference": "urn:uuid:2158b9ff-9dfd-4b43-88e8-4c06dadac8fa"
+          }
+        ]
+      }
+    }
+  ]
+}

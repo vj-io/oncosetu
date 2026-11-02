@@ -1,3 +1,4 @@
+import { AbdmPanel } from '@/components/abdm/AbdmPanel'
 import { DocumentsBoard } from '@/components/documents/DocumentsBoard'
 import { SectionHeader } from '@/components/ui'
 import { isDemo } from '@/server/demo'
@@ -29,6 +30,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
         llm={{ on: llm.on, label: llm.label }}
         canDecide={data.role === 'records' || data.role === 'clinician'}
       />
+      {(data.role === 'records' || data.role === 'clinician') && <AbdmPanel patientId={id} />}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 // Consent notice (FR-CON-01, FR-CON-06, E-CON-01). Patient-facing, versioned: a consent row stores the version it was given under.
 // Neutral wording only (FR-CON-07): shown to patients and caregivers whatever the disclosure status.
 // When the text changes, add consent-notice.v2 and keep v1 readable: old consent rows point at it.
-export const CONSENT_NOTICE_VERSION = 'consent-notice.v1'
+export const CONSENT_NOTICE_VERSION = 'consent-notice.v2' // v2: ABDM pull is live (asks for approval each time)
 
 export const consentCopy = {
   title: { en: 'Your records and your choices', hi: 'आपके रिकॉर्ड और आपकी पसंद' },
@@ -38,8 +38,8 @@ export const consentCopy = {
   abdm: {
     label: { en: 'Fetch records through ABDM', hi: 'ABDM के ज़रिए रिकॉर्ड मँगवाना' },
     detail: {
-      en: 'In future, with your approval each time, we may fetch records linked to your ABHA number from the Ayushman Bharat Digital Mission network. This is not switched on yet. Your choice here is only saved for later.',
-      hi: 'आगे चलकर, हर बार आपकी मंज़ूरी से, हम आपके ABHA नंबर से जुड़े रिकॉर्ड आयुष्मान भारत डिजिटल मिशन के नेटवर्क से मँगवा सकते हैं। यह अभी चालू नहीं है। यहाँ आपकी पसंद केवल आगे के लिए दर्ज होगी।',
+      en: 'With your approval each time, the clinic may fetch records linked to your ABHA number from the Ayushman Bharat Digital Mission network. You see every request on your phone and can approve, refuse or later revoke it; revoking removes what was fetched.',
+      hi: 'हर बार आपकी मंज़ूरी से, क्लिनिक आपके ABHA नंबर से जुड़े रिकॉर्ड आयुष्मान भारत डिजिटल मिशन के नेटवर्क से मँगवा सकता है। हर अनुरोध आपके फ़ोन पर दिखेगा; आप उसे मंज़ूर, अस्वीकार या बाद में वापस ले सकते हैं। वापस लेने पर मँगवाए गए रिकॉर्ड हटा दिए जाते हैं।',
     },
   },
   metrics: {

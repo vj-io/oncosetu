@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { ArrowLeft, CopyCheck, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
+import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
@@ -38,6 +39,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   if (!data) notFound()
   const { detail: d, patient } = data
   const doc = d.doc
+  if (doc.intakeRoute === 'abdm') return <AbdmDocument patientId={id} documentId={doc.id} focusEventId={event ?? null} /> // FHIR source, not pages
   const title = doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
   const b = statusBadge(d.status)
   const header = ((doc.identityDetails as { header?: Header } | null)?.header ?? {}) as Header

@@ -1,16 +1,26 @@
 // Runtime LLM provider selection (docs/ARCHITECTURE.md "Stack"). The app is fully functional with no LLM:
 // every path falls back to the deterministic extractor and goes through the same evidence gate.
 //   ANTHROPIC_API_KEY                                   → @ai-sdk/anthropic, model claude-sonnet-5-5
+//   GOOGLE_GENERATIVE_AI_API_KEY                        → @ai-sdk/google, GEMINI_MODEL (default gemini-3.5-flash-lite),
+//                                                          free tier: every call goes through the shared quota (quota.ts)
 //   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN → Vercel AI Gateway, anthropic/claude-sonnet-5.5
 //   otherwise                                           → null (rule-based extraction)
 import { createAnthropic } from '@ai-sdk/anthropic'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { gateway, type LanguageModel } from 'ai'
 import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { orgSettings } from '@/db/schema'
 import { activeConsent } from '@/server/patients'
 
-export type LlmProvider = { provider: 'anthropic' | 'gateway'; modelId: string; model: LanguageModel }
+export type LlmProvider = {
+  provider: 'anthropic' | 'google' | 'gateway'; modelId: string; model: LanguageModel
+  /** Tried in order when the primary model is overloaded (503); each attempt still takes a quota slot. */
+  fallbacks?: { modelId: string; model: LanguageModel }[]
+}
+
+export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite'
+export const GEMINI_DEFAULT_FALLBACKS = 'gemini-flash-lite-latest'
 
 // Test seam: `undefined` (the only value production ever sees) means "select from the environment".
 let override: LlmProvider | null | undefined
@@ -27,6 +37,13 @@ export function llmProvider(): LlmProvider | null {
     const modelId = 'claude-sonnet-5-5'
     return { provider: 'anthropic', modelId, model: createAnthropic({ apiKey: process.env.ANTHROPIC_API_KEY })(modelId) }
   }
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+    const google = createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY })
+    const modelId = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL
+    const fallbacks = (process.env.GEMINI_FALLBACK_MODELS ?? GEMINI_DEFAULT_FALLBACKS).split(',').map((m) => m.trim())
+      .filter((m) => m && m !== modelId).map((m) => ({ modelId: m, model: google(m) }))
+    return { provider: 'google', modelId, model: google(modelId), fallbacks }
+  }
   if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) {
     const modelId = 'anthropic/claude-sonnet-5.5'
     return { provider: 'gateway', modelId, model: gateway(modelId) }
@@ -41,7 +58,7 @@ export function llmStatus(orgFlagOn = true): LlmStatus {
   const p = llmProvider()
   if (!p) return { on: false, provider: null, model: null, label: 'LLM: off — rule-based extraction' }
   if (!orgFlagOn) return { on: false, provider: p.provider, model: p.modelId, label: 'LLM: off for this organisation — rule-based extraction' }
-  return { on: true, provider: p.provider, model: p.modelId, label: `LLM: on — ${p.modelId} via ${p.provider === 'anthropic' ? 'Anthropic' : 'AI Gateway'}` }
+  return { on: true, provider: p.provider, model: p.modelId, label: `LLM: on — ${p.modelId} via ${p.provider === 'anthropic' ? 'Anthropic' : p.provider === 'google' ? 'Gemini API (free tier, rate-limited)' : 'AI Gateway'}` }
 }
 
 export async function orgAiFlag(tx: Tx, orgId: string): Promise<boolean> {

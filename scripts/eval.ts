@@ -13,6 +13,7 @@ import { dirname, join, resolve } from 'node:path'
 import { normalise } from '../src/core/gate'
 import { DOC_TYPES } from '../src/core/types'
 import { llmExtractor, type AiRunRecord } from '../src/server/ai/extract'
+import { reserveLlmCallWaiting, settleLlmCall } from '../src/server/ai/quota'
 import { llmProvider } from '../src/server/ai/provider'
 import { analyse, type DraftEvent } from '../src/server/pipeline/core'
 import { sniffMime } from '../src/server/pipeline/safety'
@@ -84,7 +85,7 @@ for (const file of files) {
     perDoc.push({ file, error: read.kind })
     continue
   }
-  const a = await analyse(read.pages, { name: p.fullName, aliases: p.aliases, dob: p.dob, sex: p.sex }, RECEIVED, provider ? llmExtractor(provider, runs) : null)
+  const a = await analyse(read.pages, { name: p.fullName, aliases: p.aliases, dob: p.dob, sex: p.sex }, RECEIVED, provider ? llmExtractor(provider, runs, provider.provider === 'google' ? { reserve: reserveLlmCallWaiting, settle: settleLlmCall } : null) : null, { augmentRules: provider?.provider === 'google' })
   const reachesRecord = a.identified.identity.result === 'match'
   const recordDrafts = reachesRecord ? a.drafts : []
   const problems = recordDrafts.map((d) => ({ d, why: unsupported(d, read.pages) })).filter((x) => x.why)
@@ -143,7 +144,7 @@ const report = {
   aiRuns: runs.map((r) => ({ outcome: r.outcome, latencyMs: r.latencyMs, tokensIn: r.tokensIn, tokensOut: r.tokensOut })),
   docs: perDoc,
 }
-writeFileSync(join(ROOT, 'data/eval/report.json'), JSON.stringify(report, null, 2) + '\n')
+writeFileSync(join(ROOT, provider ? 'data/eval/report-llm.json' : 'data/eval/report.json'), JSON.stringify(report, null, 2) + '\n') // the source viewer's coverage note reads the rule-path report
 console.log(`\nprecision ${report.precision}  recall ${report.recall}  identity ${identityCorrect}/${files.length}  type ${typeCorrect}/${files.length}`)
 console.log(`unsupported facts reaching record: ${unsupportedInRecord}   handwritten auto-extracted: ${handwrittenAuto}`)
 console.log('recall by class:', JSON.stringify(report.recallByClass))

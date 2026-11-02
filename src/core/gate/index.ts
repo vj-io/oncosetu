@@ -26,6 +26,8 @@ export interface Candidate {
   fields: Record<string, unknown>
   quote: string
   page_no?: number | null
+  /** Who proposed it; the gate treats both the same. */
+  origin?: 'llm' | 'rules'
 }
 
 export type RejectReason =

@@ -54,7 +54,10 @@ Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulate
 | `INBOUND_EMAIL_USER`, `INBOUND_EMAIL_PASSWORD`, `INBOUND_EMAIL_DOMAIN` | Postmark inbound webhook basic auth + drop domain (currently a placeholder domain) |
 | `TWILIO_AUTH_TOKEN` (local only, test value) | Lets the E2E suite sign WhatsApp webhooks; not a real Twilio account |
 | `PERF_PROBE_ENABLED` (production only) | Enables the cron-signed perf probe |
-| Not set yet | `ANTHROPIC_API_KEY` or `AI_ENABLED` (LLM), `TWILIO_ACCOUNT_SID`/`TWILIO_FROM`/`TWILIO_WHATSAPP_FROM`, `ABDM_CLIENT_ID`/`ABDM_CLIENT_SECRET`/`ABDM_BASE_URL` |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini API key (free tier) — the LLM used by this deployment |
+| `GEMINI_MODEL`, `GEMINI_FALLBACK_MODELS` (optional) | Default `gemini-3.5-flash-lite`, fallback `gemini-flash-lite-latest` on 503 |
+| `LLM_RPM`, `LLM_RPD`, `LLM_COOLDOWN_S` (optional) | Shared LLM budget: 8/min, 200/day, 60 s cooldown after a 429 |
+| Not set (demo mode by decision) | `TWILIO_ACCOUNT_SID`/`TWILIO_FROM`/`TWILIO_WHATSAPP_FROM` (messages stay in the simulated outbox), `ABDM_CLIENT_ID`/`ABDM_CLIENT_SECRET`/`ABDM_BASE_URL` (in-process ABDM gateway), Postmark inbound (placeholder domain); `ANTHROPIC_API_KEY` / `AI_ENABLED` (optional paid LLMs) |
 
 `vercel blob create-store --yes` and `vercel link` can rewrite `.env.local` from the Development env; check
 `PUBLIC_BASE_URL` afterwards.
@@ -112,8 +115,8 @@ browser ──> route handlers (src/app/api/**, wrapped by route() in src/server
 ## 5. Testing
 
 ```bash
-npm run typecheck && npm run lint && npm test          # 1,019 unit tests
-npm run test:integration                               # 23 live-DB tests (RLS, erasure, inbound, ABDM, backups)
+npm run typecheck && npm run lint && npm test          # 1,029 unit tests
+npm run test:integration                               # 27 live-DB tests (RLS, erasure, inbound, ABDM, backups, LLM budget)
 npm run test:e2e                                       # 42 Playwright tests against BASE_URL (default :3000)
 ```
 
@@ -131,7 +134,7 @@ npm run test:e2e                                       # 42 Playwright tests aga
 - Deploy: `vercel deploy --prod` from a clean tree (or `git archive HEAD` into a temp folder if your tree has work in
   progress). Production alias: oncosetu-zeta.vercel.app.
 - Crons (`vercel.json`, daily): erasure (02:00), inbound-holds (02:15), outbox sweeper (02:30), perf-probe (02:45),
-  backup (03:00), abdm-erase (03:15). Trigger one now: `vercel crons run /api/cron/<name>`.
+  backup (03:00), abdm-erase (03:15), llm-health (03:30). Trigger one now: `vercel crons run /api/cron/<name>`.
 - Backups: `npx tsx --env-file=.env.local scripts/backup.ts [--list]`; restore into a throwaway Neon branch and verify:
   `scripts/restore-from-backup.ts --blob latest`. Point-in-time drill: `scripts/restore-drill.ts`. Details and the breach
   checklist: `docs/RUNBOOK.md`.
@@ -142,11 +145,11 @@ npm run test:e2e                                       # 42 Playwright tests aga
 
 ## 7. What is not finished — pick up here
 
-**Blocked on accounts the owner must create** (code exists and is tested with stubbed responses):
+**Kept in demo mode by decision** (code exists and is tested with stubbed responses; turn on with real accounts):
 
 | Item | To finish |
 |---|---|
-| Live LLM extraction | Set `ANTHROPIC_API_KEY` (or add a card to Vercel AI Gateway and set `AI_ENABLED=true`, gateway model `anthropic/claude-sonnet-5.5`), enable the org flag `ai_extraction` in `/admin/settings`, then run `scripts/eval.ts --llm` and compare against the rule path. Check the model id the provider accepts in `src/server/ai/provider.ts` |
+| LLM extraction | **Live on Gemini's free tier** (see README "LLM extraction"). Free-tier terms let Google use prompts, so keep synthetic data only; for a pilot switch to a paid / DPA-covered model (`ANTHROPIC_API_KEY`, or raise `LLM_RPM`/`LLM_RPD` on a paid Gemini key). Health check: `vercel crons run /api/cron/llm-health`, then `scripts/llm-health-report.ts` |
 | Twilio SMS / WhatsApp | Twilio account + sender, `TWILIO_*` env; for Indian SMS, DLT sender and template registration; point the WhatsApp webhook at `/api/inbound/whatsapp`. Add a status-callback webhook for delivery receipts (not built) |
 | Postmark email drop | Inbound server + an MX domain; set `INBOUND_EMAIL_DOMAIN` to it; webhook `https://USER:PASS@<host>/api/inbound/email` |
 | ABDM sandbox | Legal entity + HIU registration; set `ABDM_*`. Still to build for the live sandbox: the gateway callback routes, the data-push endpoint (must keep the HIU private key encrypted between request and push), a key-format adapter for the reference Curve25519 encoding, ABHA *address* support, and confirming the entry checksum convention. Today the PRD-specified in-process gateway (real X25519/HKDF/AES-GCM) runs |

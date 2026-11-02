@@ -98,6 +98,8 @@ async function portalLogin(who: string, phone: string): Promise<Client> {
 type Spec = {
   key: string; fullName: string; aliases: string[]; sex: 'female' | 'male'; dob: string; phone?: string; lang: 'en' | 'hi'
   caregiver: { name: string; relation: string; phone: string; isGuardian: boolean } | null; primary: 'patient' | 'caregiver'
+  /** Consent purpose `ai`: the returning and fulfilled patients allow LLM extraction; the hero declines it (manual/rule path). */
+  ai?: boolean
 }
 const json = JSON.parse(readFileSync(path.join(DOCS, 'patients.json'), 'utf8')) as J[]
 const fromJson = (key: string, lang: 'en' | 'hi'): Spec => {
@@ -108,8 +110,8 @@ const fromJson = (key: string, lang: 'en' | 'hi'): Spec => {
   }
 }
 const HERO = fromJson('hero', 'hi') // disclosure stays `unknown` (PRD hero), not patients.json's not_cleared
-const RETURNING = fromJson('returning', 'en')
-const FULFILLED = fromJson('fulfilled', 'en')
+const RETURNING: Spec = { ...fromJson('returning', 'en'), ai: true }
+const FULFILLED: Spec = { ...fromJson('fulfilled', 'en'), ai: true }
 const MINOR: Spec = {
   key: 'minor', fullName: 'Aarav Kulkarni', aliases: [], sex: 'male', dob: '2014-06-18', lang: 'en', primary: 'caregiver',
   caregiver: { name: 'Pooja Kulkarni', relation: 'mother', phone: '+91 98500 11223', isGuardian: true },
@@ -129,7 +131,7 @@ async function register(desk: Client, s: Spec): Promise<{ id: string; encounterI
     fullName: s.fullName, sex: s.sex, dob: s.dob, ...(s.phone ? { phone: s.phone } : {}), preferredLanguage: s.lang,
     aliases: s.aliases.map((name) => ({ name, kind: /[^\x00-\x7F]/.test(name) ? 'transliteration' : 'other' })),
     disclosureStatus: 'unknown', primaryContact: s.primary, ...(s.caregiver ? { caregiver: s.caregiver } : {}),
-    consent: { purposes: PURPOSES, language: s.lang, noticeVersion: CONSENT_NOTICE_VERSION, confirm: { method: 'otp', code } },
+    consent: { purposes: { ...PURPOSES, ai: !!s.ai }, language: s.lang, noticeVersion: CONSENT_NOTICE_VERSION, confirm: { method: 'otp', code } },
   }, [200, 409])
   if (r.error) throw new Error(`register ${s.key}: ${r.error.code} — the org was empty after the reset, so another writer registered this person in Narmada during the run: ${JSON.stringify(r.candidates)}`)
   return { id: r.id, encounterId: r.encounterId }
@@ -259,7 +261,7 @@ async function reset() {
     await tx.execute(sql`alter table audit_log enable trigger audit_log_append_only`)
     await tx.execute(sql`alter table snapshots enable trigger snapshots_append_only`)
     await tx.insert(orgSettings).values({ orgId: N }).onConflictDoUpdate({
-      target: orgSettings.orgId, set: { flags: { voice: false, tts: false, ai_extraction: false }, demoClockOffsetS: 0, retentionDays: 3650, updatedAt: new Date() },
+      target: orgSettings.orgId, set: { flags: { voice: false, tts: false, ai_extraction: true }, demoClockOffsetS: 0, retentionDays: 3650, updatedAt: new Date() },
     })
     for (const t of ORG_TABLES) {
       const [{ n }] = await tx.execute<{ n: number }>(sql`select count(*)::int n from ${sql.identifier(t)} where org_id = ${N}`)

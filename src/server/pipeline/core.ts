@@ -233,24 +233,39 @@ function rulesCandidates(pages: PageRead[], docType: DocType): Candidate[] {
 }
 
 /** Stage 6: candidate events. LLM if given (falls back on null), else the deterministic pattern extractor. */
-export async function extractCandidates(c: Classified, llm?: LlmExtractor | null): Promise<{ candidates: Candidate[]; method: 'llm' | 'rules'; llmDocType: DocType | null }> {
+export type ExtractionMethodUsed = 'llm' | 'rules' | 'hybrid'
+
+/**
+ * Stage 6. With `augmentRules` (the free-tier model, whose recall is lower than the rule library's), the LLM's
+ * candidates are added to the rule-based ones instead of replacing them: both go through the same evidence gate and
+ * drafts are de-duplicated after it, so the LLM can add facts the rules miss but can never remove one they find.
+ */
+export async function extractCandidates(c: Classified, llm?: LlmExtractor | null, opts: { augmentRules?: boolean } = {}): Promise<{ candidates: Candidate[]; method: ExtractionMethodUsed; llmDocType: DocType | null }> {
   if (c.handwritten || c.languageUnsupported || !c.usable.length) return { candidates: [], method: 'rules', llmDocType: null }
+  const rules = () => {
+    // Mixed documents: extract each page group with its own class.
+    const groups = new Map<DocType, PageRead[]>()
+    for (const p of c.usable) {
+      const t = c.pageTypes.find((x) => x.pageNo === p.pageNo)?.docType ?? c.docType
+      groups.set(t, [...(groups.get(t) ?? []), p])
+    }
+    return [...groups].flatMap(([t, ps]) => rulesCandidates(ps, t)).map((x): Candidate => ({ ...x, origin: 'rules' }))
+  }
   if (llm) {
     const out = await llm(c.usable.map((p) => ({ pageNo: p.pageNo, text: p.text })), c.docType)
-    if (out) return { candidates: out.items, method: 'llm', llmDocType: out.doc_type }
+    if (out) {
+      const fromLlm = out.items.map((x): Candidate => ({ ...x, origin: 'llm' }))
+      return opts.augmentRules
+        ? { candidates: [...fromLlm, ...rules()], method: 'hybrid', llmDocType: out.doc_type }
+        : { candidates: fromLlm, method: 'llm', llmDocType: out.doc_type }
+    }
   }
-  // Mixed documents: extract each page group with its own class.
-  const groups = new Map<DocType, PageRead[]>()
-  for (const p of c.usable) {
-    const t = c.pageTypes.find((x) => x.pageNo === p.pageNo)?.docType ?? c.docType
-    groups.set(t, [...(groups.get(t) ?? []), p])
-  }
-  return { candidates: [...groups].flatMap(([t, ps]) => rulesCandidates(ps, t)), method: 'rules', llmDocType: null }
+  return { candidates: rules(), method: 'rules', llmDocType: null }
 }
 
 // ---------- gate + dates ----------
 
-export type DraftFlag = EventFlag | 'ocr' | 'rule_based' | 'date_from_document'
+export type DraftFlag = EventFlag | 'ocr' | 'rule_based' | 'llm' | 'date_from_document'
 
 export type DraftEvent = {
   eventType: EventType
@@ -286,7 +301,7 @@ function dedupeKey(d: DraftEvent): string {
 
 /** Stage 7–8: the evidence gate, then dates (FR-EXT-03/04, E-DOC-11..15). Only accepted items become drafts. */
 export function gateAndDate(
-  candidates: Candidate[], c: Classified, ident: Pick<Identified, 'documentDate'>, receivedAt: Date, method: 'llm' | 'rules',
+  candidates: Candidate[], c: Classified, ident: Pick<Identified, 'documentDate'>, receivedAt: Date, method: ExtractionMethodUsed,
 ): { gate: GateResult; drafts: DraftEvent[] } {
   const gatePages: GatePage[] = c.usable.map((p) => ({ pageNo: p.pageNo, text: p.text, ...(p.words ? { words: p.words } : {}) }))
   const gate = runGate(candidates, gatePages)
@@ -317,7 +332,8 @@ export function gateAndDate(
     if (anchor && daysBetween(anchor, received) > LATE_RECEIVED_DAYS) out.late_received = true
     if (page.lowConfidence) out.low_confidence = true
     if (page.source === 'ocr') out.ocr = true
-    if (method === 'rules') out.rule_based = true
+    if (method === 'rules' || candidate.origin === 'rules') out.rule_based = true
+    else out.llm = true
     return {
       eventType: candidate.event_type as EventType, fields, eventDate, datePrecision: precision, dateFlags, documentDate: doc?.iso ?? null,
       extractionMethod: page.source === 'text_layer' ? 'text_layer' : 'ocr_llm', flags: out, evidence,
@@ -348,14 +364,15 @@ export function injectionReport(pages: PageRead[]): Injection {
   return { flagged: patterns.length > 0 || hiddenPages.length > 0, patterns, hiddenPages, hiddenChars: hiddenText.trim().length }
 }
 
-export type Analysis = { classified: Classified; identified: Identified; method: 'llm' | 'rules'; gate: GateResult; drafts: DraftEvent[]; injection: Injection }
+export type Analysis = { classified: Classified; identified: Identified; method: ExtractionMethodUsed; gate: GateResult; drafts: DraftEvent[]; injection: Injection }
 
 /** The whole pure path, as scripts/eval.ts runs it (process.ts runs the same steps with DB writes in between). */
-export async function analyse(pages: PageRead[], patient: PatientIdentity, receivedAt: Date, llm?: LlmExtractor | null): Promise<Analysis> {
+export async function analyse(pages: PageRead[], patient: PatientIdentity, receivedAt: Date, llm?: LlmExtractor | null, opts: { augmentRules?: boolean } = {}): Promise<Analysis> {
   let classified = classify(pages)
   const identified = identify(pages, classified, patient, receivedAt)
-  const ex = await extractCandidates(classified, identified.identity.result === 'match' ? llm : null)
-  if (ex.llmDocType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
+  const ex = await extractCandidates(classified, identified.identity.result === 'match' ? llm : null, opts)
+  // Only a model that replaces the rules may re-type the document; in hybrid mode the calibrated classifier stands.
+  if (ex.method === 'llm' && ex.llmDocType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
   const { gate, drafts } = gateAndDate(ex.candidates, classified, identified, receivedAt, ex.method)
   return { classified, identified, method: ex.method, gate, drafts, injection: injectionReport(pages) }
 }

@@ -43,7 +43,7 @@ export type Extraction = z.infer<typeof ExtractionSchema>
 export type ExtractionItem = z.infer<typeof ExtractionItemSchema>
 
 export const EXTRACTION_PROMPT_ID = 'extract.v1'
-export const EXTRACTION_PROMPT_VERSION = 1
+export const EXTRACTION_PROMPT_VERSION = 2
 
 export const EXTRACTION_SYSTEM_PROMPT = `You extract document facts for a records index. You are not a clinician and you give no medical opinion.
 
@@ -56,7 +56,9 @@ Rules:
 6. Handwritten text: do not extract medications from handwriting.
 7. If you are unsure whether something is stated, omit it. An empty "items" list is a valid answer.
 8. "header": copy name, age, sex, date of birth, hospital ID (UHID/MRN/registration number), report date, institution and referring doctor exactly as printed, or null if absent.
-9. "page_no" is the page number shown in the page marker where the quote appears.`
+9. "page_no" is the page number shown in the page marker where the quote appears.
+10. One item per fact: one medication line, one test, one procedure, one admission. Never put several medications, or values from different lines, into one item.
+11. The quote must contain every field value of its item. Use the shortest line or sentence that contains them all; a letterhead or address is never a quote.`
 
 /** User prompt: allowed types/fields, the document type, and the page texts inside explicit data markers. */
 export function buildExtractionPrompt(pages: { pageNo: number; text: string }[], docType: DocType): string {

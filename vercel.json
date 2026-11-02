@@ -1,12 +1,36 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["sin1"],
+  "regions": [
+    "sin1"
+  ],
   "crons": [
-    { "path": "/api/cron/erasure", "schedule": "0 2 * * *" },
-    { "path": "/api/cron/inbound-holds", "schedule": "15 2 * * *" },
-    { "path": "/api/cron/outbox", "schedule": "30 2 * * *" },
-    { "path": "/api/cron/perf-probe", "schedule": "45 2 * * *" },
-    { "path": "/api/cron/backup", "schedule": "0 3 * * *" },
-    { "path": "/api/cron/abdm-erase", "schedule": "15 3 * * *" }
+    {
+      "path": "/api/cron/erasure",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/inbound-holds",
+      "schedule": "15 2 * * *"
+    },
+    {
+      "path": "/api/cron/outbox",
+      "schedule": "30 2 * * *"
+    },
+    {
+      "path": "/api/cron/perf-probe",
+      "schedule": "45 2 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/abdm-erase",
+      "schedule": "15 3 * * *"
+    },
+    {
+      "path": "/api/cron/llm-health",
+      "schedule": "30 3 * * *"
+    }
   ]
 }

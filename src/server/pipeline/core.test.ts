@@ -112,3 +112,31 @@ describe('every fact from every demo PDF is an exact slice of its page (text lay
     }
   }, 30_000)
 })
+
+describe('hybrid extraction (free-tier LLM augments the rules)', () => {
+  const text = HEAD + 'Consultant: Dr. R. S. Joglekar\tCycle No.: Cycle 4 (of 6 planned)\nRegimen: TC, every 21 days\n'
+  const blob = (items: Extraction['items']): LlmExtractor => async () => ({ schema_version: 'extraction.v1', doc_type: 'chemo_daycare_record', header: { name: null, age: null, sex: null, dob: null, mrn: null, report_date: null, institution: null, referring_doctor: null }, items })
+
+  it('keeps every rule-based fact when the model returns nothing usable, and adds gated model facts', async () => {
+    const rulesOnly = await analyse([page(text)], SUNITA, RECEIVED)
+    const empty = await analyse([page(text)], SUNITA, RECEIVED, blob([]), { augmentRules: true })
+    expect(empty.method).toBe('hybrid')
+    expect(empty.drafts.map((d) => d.eventType).sort()).toEqual(rulesOnly.drafts.map((d) => d.eventType).sort())
+    expect(empty.drafts.every((d) => d.flags.rule_based)).toBe(true)
+
+    const extra = await analyse([page(text)], SUNITA, RECEIVED, blob([
+      { event_type: 'consultation_documented', fields: { doctor_name: 'Dr. R. S. Joglekar' }, quote: 'Consultant: Dr. R. S. Joglekar', page_no: 1 },
+      { event_type: 'consultation_documented', fields: { doctor_name: 'Dr. Invented Name' }, quote: 'Consultant: Dr. Invented Name', page_no: 1 }, // fabricated
+    ]), { augmentRules: true })
+    const llm = extra.drafts.filter((d) => d.flags.llm)
+    expect(llm.map((d) => d.fields.doctor_name)).toEqual(['Dr. R. S. Joglekar'])
+    expect(extra.gate.rejected.some((r) => r.reason === 'quote_not_found')).toBe(true)
+    expect(extra.drafts.length).toBeGreaterThanOrEqual(rulesOnly.drafts.length)
+  })
+
+  it('without augmentRules the model replaces the rules (paid-provider behaviour unchanged)', async () => {
+    const a = await analyse([page(text)], SUNITA, RECEIVED, blob([]))
+    expect(a.method).toBe('llm')
+    expect(a.drafts).toHaveLength(0)
+  })
+})

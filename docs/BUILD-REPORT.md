@@ -71,29 +71,22 @@ Totals: 13 Opus (correctness- or security-critical), 11 Sonnet (well-specified f
 
 | Check | Result |
 |---|---|
-| Unit tests (`npm test`) | 1,019 passed (51 files) |
-| Integration tests (`npm run test:integration`, live DB) | 23 passed — RLS isolation, erasure, inbound, ABDM, backup type round trips |
+| Unit tests (`npm test`) | 1,029 passed (52 files) |
+| Integration tests (`npm run test:integration`, live DB) | 27 passed — RLS isolation, erasure, inbound, ABDM, backup type round trips, shared LLM budget |
 | End-to-end (`npm run test:e2e`, production build) | 42 / 42 passed — PRD V01–V06 plus inbound, erasure, ABDM, perf |
 | Offline capture (`tests/e2e/offline-capture.e2e.ts`) | Passed against a production build |
-| Extraction eval (`scripts/eval.ts`) | 0 unsupported facts in the record; precision 0.95, recall 0.96 (20 synthetic docs, rule path) |
+| Extraction eval (`scripts/eval.ts`, `--llm`) | 0 unsupported facts in the record; rules 0.949 / 0.962, Gemini hybrid 0.956 / 0.981 (precision / recall, 20 synthetic docs) |
 | FR-LED-07, co-located (`vercel crons run /api/cron/perf-probe`) | PASS — 508-item ledger 1.14 s and 1.21 s in sin1 (budget 2 s) |
 | Restore drill (Neon PITR, `scripts/restore-drill.ts`) | PASS — 14 checks |
 | Restore from the Vercel-made encrypted backup | PASS — 9 checks, 40 tables, 27,566 rows, 60 signatures, 358 files |
 | Migrations (`scripts/check-migrations.mts`) | 11 / 11 match the applied hashes |
 | Security review | 1 S1 + 3 S2 + 6 S3 found; all fixed with regression tests |
 
-## 4. Integrations that need the owner's accounts
+## 4. Integrations
 
-These are built, and tested at the wire level with stubbed responses. Running them against the real services needs
-accounts or payment details that only the owner can provide:
-
-| Integration | What exists | What the owner provides |
-|---|---|---|
-| LLM extraction | Provider selection, structured output, retries, consent gate, ai_runs audit; wire request to Anthropic checked | `ANTHROPIC_API_KEY`, or a card on Vercel AI Gateway + `AI_ENABLED=true` |
-| SMS / WhatsApp out | Twilio REST adapter, delivery status, retry, sweeper cron | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, sender; India DLT registration |
-| WhatsApp in | Signed webhook, code-confirmed holds | Twilio WhatsApp sender + webhook URL |
-| Email drop | Postmark inbound webhook, alias + verified sender | Postmark inbound server + an MX domain |
-| ABDM | `AbdmTransport` with the PRD-specified in-process gateway (real crypto) and a sandbox HTTP client | Legal entity + HIU registration and sandbox credentials (`ABDM_*`) |
-
-Without them the app runs fully: rule-based extraction behind the same evidence gate, messages recorded in the outbox
-and shown on the demo phone, and ABDM through the in-process gateway.
+| Integration | Status |
+|---|---|
+| LLM extraction | **Live: Gemini free tier** (`gemini-3.5-flash-lite`, fallback `gemini-flash-lite-latest`), behind a Postgres-enforced shared budget (8/min, 200/day, 60 s cooldown after a 429) and in hybrid mode with the rule library. Eval: precision 0.956, recall 0.981, 0 unsupported facts (18 calls, all within quota). Daily health check `GET /api/cron/llm-health` |
+| SMS / WhatsApp out | Demo mode by decision: messages recorded in the outbox and shown on the demo phone. Twilio adapter built and wire-tested; enable with `TWILIO_*` |
+| WhatsApp in / email drop | Demo mode by decision: endpoints built and E2E-tested with signed payloads; enable with Twilio / Postmark accounts |
+| ABDM | Demo mode by decision: PRD-specified in-process gateway with real X25519/HKDF/AES-GCM; sandbox client built; enable with HIU registration (`ABDM_*`) |

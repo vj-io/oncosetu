@@ -173,7 +173,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                 footer={
                   <span className="flex flex-wrap items-center gap-1.5">
                     <Chip kicker="Source" tone="setu">Document</Chip>
-                    <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}{e.flags.rule_based ? ' · rule-based' : e.extractionMethod === 'ocr_llm' && !e.flags.rule_based ? ' · LLM' : ''}</Chip>
+                    <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}{e.flags.rule_based ? ' · rule-based' : e.flags.llm || (e.extractionMethod === 'ocr_llm' && !e.flags.rule_based) ? ' · LLM' : ''}</Chip>
                     {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
                     {ev && !withdrawn && (
                       <button type="button" onClick={() => pick(e.id)} className="ml-auto inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">

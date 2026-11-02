@@ -171,9 +171,12 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   await setStage(orgId, documentId, 'extracted')
   const runs: AiRunRecord[] = []
   const ai = await withOrg(orgId, (tx) => aiAllowed(tx, orgId, patientId))
-  const ex = await extractCandidates(classified, ai.provider ? llmExtractor(ai.provider, runs) : null)
-  if (ex.llmDocType && !manualType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
-  flags.extraction = { method: ex.method, ...(ai.reason ? { llm_off: ai.reason } : {}) }
+  const ex = await extractCandidates(classified, ai.provider ? llmExtractor(ai.provider, runs) : null, { augmentRules: ai.provider?.provider === 'google' })
+  if (ex.method === 'llm' && ex.llmDocType && !manualType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
+  // A free-tier quota refusal is not an error: the rule-based path ran instead, and the document says why.
+  const quotaSkip = runs.find((r) => r.outcome.startsWith('quota_'))?.outcome
+  const llmOff = ai.reason ?? quotaSkip ?? (runs.some((r) => r.outcome === 'rate_limited') ? 'rate_limited' : null)
+  flags.extraction = { method: ex.method, ...(llmOff ? { llm_off: llmOff } : {}) }
   await withOrg(orgId, async (tx) => {
     if (runs.length) {
       await tx.insert(aiRuns).values(runs.map((r) => ({ orgId, patientId, documentId, ...r })))

@@ -22,8 +22,10 @@ const clients: Clients = (g.__oncosetuDb ??= {}) // survives dev HMR
 
 function make(url: string | undefined, name: string, max: number): DB {
   if (!url) throw new Error(`${name} is not set`)
-  // Neon pooler = PgBouncer transaction mode → no named prepared statements.
-  return drizzle(postgres(url, { prepare: false, max, idle_timeout: 20, connect_timeout: 15 }), { schema })
+  // Neon's pooler (PgBouncer ≥ 1.22, transaction mode) tracks protocol-level prepared statements, so they are safe here.
+  // prepare:false costs an extra round trip per parameterised query and stops postgres.js pipelining a Promise.all
+  // (measured over 115 ms RTT: 8 queries in one transaction 1.45 s → 0.41 s). Set DB_PREPARE=false to fall back.
+  return drizzle(postgres(url, { prepare: process.env.DB_PREPARE !== 'false', max, idle_timeout: 20, connect_timeout: 15 }), { schema })
 }
 
 function lazy(key: keyof Clients, build: () => DB): DB {

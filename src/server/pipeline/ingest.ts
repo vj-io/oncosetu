@@ -13,7 +13,7 @@ import { log } from '@/server/log'
 import { assertConsent } from '@/server/patients'
 import { dHash, hamming, hasEicar, MAX_FILE_BYTES, NEAR_DUP_HAMMING, scanPdf, sniffMime } from './safety'
 
-export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync'
+export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync' | 'email' | 'whatsapp'
 export type DocStatus = (typeof documents.$inferSelect)['status']
 
 export type IngestInput = {

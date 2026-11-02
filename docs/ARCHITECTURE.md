@@ -122,6 +122,38 @@ could duplicate), and records the outcome with a short `withOrg()`: `sent` + `pr
 `delivery_error` (`twilio_<code>`, `http_<status>`, `timeout`, `network`; never the provider's message text, which can
 quote the number). `sent` means accepted by Twilio: delivery receipts (status callbacks) are not tracked. Columns:
 migration `drizzle/0007_outbox_delivery.sql`. Only ids, channel and codes are logged.
+`GET /api/cron/outbox` (daily, Bearer `CRON_SECRET`, `src/server/sms/sweep.ts`) re-delivers rows still `queued` after 5 min:
+the number is recovered from the patient/caregiver phone in the same org whose HMAC equals `to_hmac` (decrypted in memory),
+else the row becomes `failed` / `stale_no_recipient`.
+
+## Inbound channels (FR-ING-04 email drop, FR-ING-05 WhatsApp)
+
+Code in `src/server/inbound/**`, tables in `drizzle/0008_inbound_channels.sql` (RLS forced, least-privilege grants).
+Both webhooks are plain route handlers, not `route()`: provider calls carry no `Origin`, so each authenticates itself
+(503 when its env is unset). Both resolve the patient through `SECURITY DEFINER` lookups that return ids only, then do
+everything in one `withOrg()` and hand files to `ingestDocument` (`intakeRoute` `'email'` / `'whatsapp'`, uploaded by
+the patient or caregiver) + `scheduleProcessing`. Nothing from a message body is stored; audit rows carry ids only.
+
+- **Email** `POST /api/inbound/email` (Postmark inbound JSON, HTTP Basic `INBOUND_EMAIL_USER`/`PASSWORD`, timing-safe).
+  Recipient `<alias_token>@INBOUND_EMAIL_DOMAIN` → `resolve_inbound_alias(token)` (`inbound_aliases`, one active per
+  patient, 80-bit base32). Sender → `resolve_contact_email(email_hmac)` (`contact_emails`: verified in person by a staff
+  member, for the patient or an active caregiver). No match → `200 {accepted:false, reason:'unregistered_sender'}` +
+  audit `inbound.email_rejected`, nothing stored. Staff manage both on the Consent tab
+  (`src/components/inbound/EmailDropPanel.tsx`, `POST /api/patients/[id]/inbound-alias`, `.../contact-emails`,
+  `.../contact-emails/[contactId]/revoke`).
+- **WhatsApp** `POST /api/inbound/whatsapp` (Twilio form post). `X-Twilio-Signature` = HMAC-SHA1(`TWILIO_AUTH_TOKEN`,
+  `PUBLIC_BASE_URL` + path + sorted params), 403 on mismatch. `From` must resolve through `phoneLogins()` to exactly one
+  record (caregiver-primary/minor rules), else a neutral reply and nothing stored. Media are downloaded before the
+  transaction (Twilio basic auth when `TWILIO_ACCOUNT_SID` is set; `api.twilio.com` only in production; ≤ 4 MB; sniffed
+  type) and **held**: `inbound_holds` (one open hold per patient + sender, partial unique index, so parallel webhooks
+  share it) + `inbound_hold_files` (encrypted bytes, no `documents` row, so held files never reach the record, Radar or
+  the pipeline). The code goes out with `sendMessage` (channel `whatsapp`) and is issued by `startOtp`, so it counts
+  towards the per-phone budget. The right code within 10 min creates the documents (`document_ids`) and deletes the held
+  bytes; 5 wrong codes delete the hold; an expired hold is deleted by the sender's next message or
+  `GET /api/cron/inbound-holds` (daily). Replies are TwiML from `src/i18n/inbound.ts` (brand via `brandFor`).
+  Lock order in every branch: expired hold rows → the open hold → the org audit lock.
+- **Erasure**: a trigger on `patients.status → 'erased'` deletes the patient's `contact_emails`, `inbound_aliases` and
+  holds; `contact_emails.caregiver_id` cascades when `erase_patient()` deletes caregivers.
 
 ## Design system — "Museum Placard" (brag-styles set, extended for a clinical UI)
 
@@ -144,7 +176,7 @@ move to object storage before pilot.
 
 | Interface | Owner | Signature / route |
 |---|---|---|
-| Ingest a file | Pipeline | `src/server/pipeline/ingest.ts` → `ingestDocument(tx, { orgId, patientId, uploadedBy: { kind: 'staff'\|'patient'\|'caregiver', id }, intakeRoute: 'desk'\|'bulk'\|'patient_link'\|'offline_sync', clientFileId?, encounterId?, fileName, mime, bytes: Uint8Array, clientCapturedAt? }) → { documentId, status, duplicateOf?: string, nearDuplicateOf?: string }` then `scheduleProcessing(documentId, orgId)` (uses `after()`) |
+| Ingest a file | Pipeline | `src/server/pipeline/ingest.ts` → `ingestDocument(tx, { orgId, patientId, uploadedBy: { kind: 'staff'\|'patient'\|'caregiver', id }, intakeRoute: 'desk'\|'bulk'\|'patient_link'\|'offline_sync'\|'email'\|'whatsapp', clientFileId?, encounterId?, fileName, mime, bytes: Uint8Array, clientCapturedAt? }) → { documentId, status, duplicateOf?: string, nearDuplicateOf?: string }` then `scheduleProcessing(documentId, orgId)` (uses `after()`) |
 | Recompute Radar | Pipeline | `src/server/pipeline/radar.ts` → `recomputeRadar(tx, orgId, patientId)` (call after any change to events/documents) |
 | Staff upload | Pipeline | `POST /api/patients/[id]/documents` multipart `file`, `clientFileId?`, `intakeRoute?`, `encounterId?` |
 | Patient upload | Patient-portal | `POST /api/p/documents` (same multipart; calls `ingestDocument`) |

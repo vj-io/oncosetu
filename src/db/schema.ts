@@ -644,6 +644,60 @@ export const erasureRequests = pgTable('erasure_requests', {
   completedAt: tsz('completed_at'),
 })
 
+// ── inbound channels: email drop + WhatsApp (drizzle/0008, src/server/inbound/**) ─
+/** An address staff verified in person (FR-ING-04). Never deleted by the app, only revoked. */
+export const contactEmails = pgTable('contact_emails', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  caregiverId: uuid('caregiver_id').references(() => caregivers.id, { onDelete: 'cascade' }),
+  emailEnc: text('email_enc').notNull(),
+  emailHmac: text('email_hmac').notNull(),
+  verifiedBy: uuid('verified_by').notNull().references(() => staff.id),
+  verifiedAt: tsz('verified_at').notNull().defaultNow(),
+  revokedAt: tsz('revoked_at'),
+})
+
+/** The patient's drop address `<aliasToken>@INBOUND_EMAIL_DOMAIN`; one active per patient. */
+export const inboundAliases = pgTable('inbound_aliases', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  aliasToken: text('alias_token').notNull().unique(),
+  createdBy: uuid('created_by').references(() => staff.id),
+  createdAt: createdAt(),
+  revokedAt: tsz('revoked_at'),
+})
+
+/** WhatsApp files waiting for the sender's code (FR-ING-05). One open hold per (patient, channel, sender). */
+export const inboundHolds = pgTable('inbound_holds', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  channel: text('channel').$type<'whatsapp'>().notNull(),
+  senderHmac: text('sender_hmac').notNull(),
+  /** Filled by the release: the documents it created. */
+  documentIds: uuid('document_ids').array().notNull().default([]),
+  codeHash: text('code_hash'),
+  attempts: integer('attempts').notNull().default(0),
+  expiresAt: tsz('expires_at').notNull(),
+  releasedAt: tsz('released_at'),
+  createdAt: createdAt(),
+})
+
+/** Held files, encrypted like document_files; they become documents only when the hold is released. */
+export const inboundHoldFiles = pgTable('inbound_hold_files', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  holdId: uuid('hold_id').notNull().references(() => inboundHolds.id, { onDelete: 'cascade' }),
+  mime: text('mime').notNull(),
+  bytesEnc: bytea('bytes_enc').notNull(),
+  dekWrapped: text('dek_wrapped').notNull(),
+  size: integer('size').notNull(),
+  createdAt: createdAt(),
+})
+
 /** Tables under ENABLE + FORCE RLS (org_id = app.org_id). Kept in sync with drizzle/0001_rls_roles.sql and later migrations. */
 export const RLS_TABLES = [
   'patients', 'patient_aliases', 'caregivers', 'consents', 'encounters', 'documents', 'document_files',
@@ -652,4 +706,5 @@ export const RLS_TABLES = [
   'measurement_forms', 'rule_states', 'patient_merges',
   'verification_qa_reviews', 'measurement_form_doc_types', // 0002
   'erasure_requests', // 0003
+  'contact_emails', 'inbound_aliases', 'inbound_holds', 'inbound_hold_files', // 0008
 ] as const

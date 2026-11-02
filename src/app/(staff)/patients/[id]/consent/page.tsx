@@ -1,8 +1,10 @@
 import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
+import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
 import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
 import { Badge, EmptyState, Frame, Table } from '@/components/ui'
 import { consents, shareLinks, staff } from '@/db/schema'
 import { now } from '@/server/clock'
+import { inboundEmailView } from '@/server/inbound/staff'
 import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
 import { patientOwnTarget } from '@/server/registration/contact'
@@ -28,16 +30,17 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
   const d = await withPatientAccess(id, async (tx, s) => {
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [current, history, links, log, canCode] = await Promise.all([
+    const [current, history, links, log, canCode, drop] = await Promise.all([
       activeConsent(tx, id),
       tx.select().from(consents).where(eq(consents.patientId, id)).orderBy(desc(consents.recordedAt), desc(consents.id)),
       tx.select({ id: shareLinks.id }).from(shareLinks).where(and(eq(shareLinks.patientId, id), isNull(shareLinks.revokedAt), gt(shareLinks.expiresAt, await now(s.orgId)))),
       accessLog(tx, id),
       patientOwnTarget(tx, id),
+      inboundEmailView(tx, id),
     ])
     const witnesses = [...new Set(history.map((h) => h.witnessedBy).filter((x): x is string => !!x))]
     const names = witnesses.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, witnesses)) : []
-    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
+    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
   })
   if (!d) return null
   const { patient: p, current } = d
@@ -77,6 +80,14 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
           caregivers={p.caregivers.map(({ id: cid, name, relation, phoneMasked, isGuardian, active }) => ({ id: cid, name, relation, phoneMasked, isGuardian, active }))}
         />
         <PrimaryContactPanel patientId={id} current={p.primaryContact} minor={p.minor} />
+      </Section>
+
+      <Section id="email-drop-h" title="Email drop" description="A private address for this record. Only addresses verified in person may send to it.">
+        <EmailDropPanel
+          patientId={id} configured={!!d.drop.domain} address={d.drop.address} canManage={role === 'desk' || role === 'records' || role === 'clinician'}
+          contacts={d.drop.contacts.map((c) => ({ ...c, verifiedAt: c.verifiedAt.toISOString() }))}
+          caregivers={p.caregivers.map(({ id: cid, name, relation, active }) => ({ id: cid, name, relation, active }))}
+        />
       </Section>
 
       <Section id="disclosure-h" title="Disclosure status" description="Controls the wording of everything the patient and family see. Clinician only; every change is audited.">

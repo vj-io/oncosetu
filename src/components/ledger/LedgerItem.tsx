@@ -126,7 +126,11 @@ export function LedgerItem({ item, index = 0 }: { item: ItemView; index?: number
       }
       when={when}
       accession={acc}
-      footer={<ItemActions item={item} />}
+      // Pass only what the client island needs: the full ItemView (~16 KB) would be serialised into the RSC payload per card.
+      footer={<ItemActions item={{
+        id: item.id, rowVersion: item.rowVersion, status: item.status, permits: item.permits, editable: item.editable,
+        viewedSource: item.viewedSource, typeLabel: item.typeLabel, sources: item.sources.filter((s) => s.href).slice(0, 1),
+      }} />}
     >
       <FlagBadges flags={item.flags} />
     </Placard>

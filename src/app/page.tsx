@@ -92,7 +92,7 @@ export default function Home() {
 
       <main id="main">
         {/* Hero */}
-        <section className="relative">
+        <section className="relative overflow-x-clip">
           <Spotlight />
           <div className="relative mx-auto grid max-w-gallery items-center gap-14 px-4 pt-12 pb-20 sm:px-8 sm:pt-20 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-28">
             <div>

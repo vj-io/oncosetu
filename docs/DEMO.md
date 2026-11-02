@@ -129,7 +129,12 @@ Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Las
   file") — logged, not shown, because no clinician has reviewed that rule (Admin → Rules shows it).
 - **Completeness checklist:** "Prescription the patient mentioned from City Care Hospital, Nagpur is not in file" is
   shown as **received · proposed** — the engine matched the 12 May *Madhyam* prescription (any prescription within
-  ±30 days satisfies RAD-RX-OUT-01). Click **Not a match**: a person decides. (Known issue below.)
+  ±30 days satisfies RAD-RX-OUT-01). Click **Not a match**: a person decides, and the engine will not propose that document again.
+- **LLM, consent-gated:** this patient consented to AI processing, so his documents were extracted by **Gemini
+  (free tier) together with the rule library** — open any of them: facts carry a **Method · … · LLM** or
+  **· rule-based** chip, and every one still has its verbatim quote. The hero (Sunita) declined AI processing at
+  registration, so her documents show **rule-based** only (her consent tab shows the purpose off). Admin → Settings
+  shows the shared LLM budget (calls this minute / today against 8 / 200).
 
 ### 4:40 – 5:10 · A request that was fulfilled, and its share link (J4 + J5)
 
@@ -138,7 +143,7 @@ sent** (it is in the Demo phone, to her husband), **fulfilled** by the discharge
 Open the seeded share link in the private window:
 
 - Current link (from the last reset — **every reset makes a new one**; the seed prints it under "SHARE LINK"):
-  `https://oncosetu-zeta.vercel.app/s/72597862-576d-4944-af88-1bf69e92e07d#be78KC1oSmv47jScUjduawaU5GLKZkVplqaUYEy_QSI`
+  `https://oncosetu-zeta.vercel.app/s/6cba98e7-4763-47dd-924b-2a29d4c5f8d6#t-bO_iSlD3QvNV41_lCx6ZLKqFNuDnXBk-ol5TL915E`
 - Passcode **246810** · expires 7 days after the reset · the same URL works on `http://localhost:3000` (the key is in
   the `#fragment`, the ciphertext is in the shared database).
 - Shows "Document index, not a clinical summary", "Signature verified — issued by Setu Records", 4 items with who
@@ -196,17 +201,11 @@ Direct database writes (owner role) are limited to:
 ## Known issues seen while seeding
 
 - **RAD-RX-OUT-01 proposes any prescription in ±30 days.** The rule has `same_institution_preferred: false`
-  (`src/core/radar/rules.yaml`, RAD-RX-OUT-01) and the engine only scores institutions when that flag is set
-  (`src/core/radar/index.ts` `differs`), so the Madhyam prescription is proposed for the City Care medicine. A person
-  rejects it with **Not a match** — but `planRadarMerge` (`src/server/pipeline/radar.ts:90-101`) keeps no memory of a
-  rejected match, so the next Radar recompute for that patient (a new upload or pre-visit answer) proposes the same
-  document again.
-- **Other writers in the demo org.** Agents testing against `*@narmada.demo` add patients to the demo org (e.g.
-  "Test Sec Patient", extra "Sunita Deshmukh" records). Rerun the reset last, right before the demo; the seed fails a
-  check if any patient other than its four exists when it finishes.
-- **The deployed build lags the repo.** On 2 Nov 2026 (04:00 IST) the seeded share link opened and decrypted on
-  https://oncosetu-zeta.vercel.app, but its viewer showed no "Signature verified" line (the local build does; the
-  payload carries a valid `sig` that verifies against the deployed `/api/keys`). Redeploy before the demo so the
-  judges see the signature line and the other recent fixes.
-- The returning patient's register row says "Registered 2 Nov 2026" (patients.created_at is the real time); his
-  documents, encounter and S0 are dated 16 Feb 2026.
+  (`src/core/radar/rules.yaml`), so the Madhyam prescription is proposed for the City Care medicine. A person rejects
+  it with **Not a match**; the rejection is remembered (`match_window.rejectedDocumentIds`) and that document is never
+  proposed for the item again.
+- **Gemini free tier.** The shared budget is 8 calls a minute and 200 a day. If a burst of uploads exceeds it, those
+  documents are extracted by the rules and their page says "Rule-based extraction (LLM budget)"; **Reprocess** later
+  retries the LLM. A reset uses about 9 calls.
+- **Run the reset last.** Anything else writing to the demo org between the reset and the demo shows up on screen; the
+  seed fails a check if any patient other than its four exists when it finishes.

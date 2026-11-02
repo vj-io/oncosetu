@@ -223,6 +223,7 @@ async function signatureValid(origin: string, p: J): Promise<boolean> {
 // ── 1. reset ─────────────────────────────────────────────────────────────────
 /** Child → parent order (FKs are not deferrable). `sessions` and `staff` are handled separately. */
 const ORG_TABLES = [
+  'abdm_transfers', 'abdm_consent_requests', 'inbound_hold_files', 'inbound_holds', 'inbound_aliases', 'contact_emails',
   'share_views', 'share_links', 'record_requests', 'missing_records', 'verification_qa_reviews', 'measurement_form_doc_types',
   'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_pages',
   'document_files', 'documents', 'break_glass', 'erasure_requests', 'consents', 'patient_merges', 'caregivers', 'patient_aliases',

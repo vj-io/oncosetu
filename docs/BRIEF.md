@@ -107,7 +107,7 @@ Build model: Opus orchestrator plans/briefs/gates and never writes code; Sonnet 
 
 ## 11. Team
 
-Nikhil Agarwal (technical lead) · Dr Sona Pungavkar (clinician advisor; reviews Radar rules, owns the measurement forms) · Stuti Shah · Nerav · Shruti Jain · PRD owner Garv Bansal.
+Dr Sona Pungavkar (clinician advisor; reviews Radar rules, owns the measurement forms) · Vaibhav Jangid (technical lead) · Bhavya Dhoot (developer lead) · Garv Bansal (research lead) · Nerav (clinical advisor).
 
 ---
 

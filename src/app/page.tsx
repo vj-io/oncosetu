@@ -60,7 +60,7 @@ function Room({
         <div className="grid h-full min-h-60 place-items-center bg-surface px-4 py-6 sm:px-6">{visual}</div>
       </Frame>
       <div className="grid gap-1.5 px-1">
-        <p className="ds-kicker">Room {n}</p>
+        <p className="ds-kicker">Step {n}</p>
         <h3 className="text-xl tracking-[-0.02em]">{title}</h3>
         <p className="text-[15px] text-muted">{children}</p>
         <p className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{medium}</p>
@@ -78,8 +78,8 @@ export default function Home() {
       <header className="relative z-20 border-b border-rule">
         <div className="mx-auto flex h-16 max-w-gallery items-center gap-4 px-4 sm:px-8">
           <Wordmark />
-          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase md:inline">Gallery · Records continuity for cancer care</span>
-          <nav aria-label="Entrances" className="ml-auto flex items-center gap-2">
+          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase md:inline">Records continuity for cancer care</span>
+          <nav aria-label="Sign in" className="ml-auto flex items-center gap-2">
             <Link href="/p/login" className="hidden h-11 items-center px-3 font-mono text-[12px] tracking-[0.12em] text-muted uppercase hover:text-ink sm:inline-flex">
               Patient portal
             </Link>
@@ -92,26 +92,26 @@ export default function Home() {
 
       <main id="main">
         {/* Hero */}
-        <section className="relative">
+        <section className="relative overflow-x-clip">
           <Spotlight />
           <div className="relative mx-auto grid max-w-gallery items-center gap-14 px-4 pt-12 pb-20 sm:px-8 sm:pt-20 lg:grid-cols-[1.05fr_1fr] lg:gap-16 lg:pb-28">
             <div>
-              <p className="ds-kicker">Exhibit 01 · Oncology records continuity · India</p>
-              <h1 className="mt-5 text-display">Every fact, exhibited with its provenance.</h1>
+              <p className="ds-kicker">Oncology records continuity · India</p>
+              <h1 className="mt-5 text-display">Every fact on file points back to its source.</h1>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-                OncoSetu turns the paper a cancer patient carries between hospitals into a document index the next clinic can check. A fact is shown only
-                when a verbatim quote in the source supports it, and every record the file mentions but does not contain hangs as an empty frame, ready to
-                be requested.
+                OncoSetu turns the papers a cancer patient carries between hospitals into a document index the next clinic can check. A fact is shown only
+                when a verbatim quote in the source supports it. Any record the file mentions but does not contain is listed as missing, with a button to
+                request it.
               </p>
               <div className="mt-9 flex flex-wrap gap-3">
                 <ButtonLink href="/login" size="lg">
-                  Enter the staff demo <ArrowRight aria-hidden />
+                  Open the staff demo <ArrowRight aria-hidden />
                 </ButtonLink>
                 <ButtonLink href="/p/login" size="lg" variant="secondary">
                   Patient / caregiver portal
                 </ButtonLink>
               </div>
-              <p className="ds-kicker mt-7">Academic prototype · synthetic records only · never diagnoses, stages or recommends</p>
+              <p className="ds-kicker mt-7">Academic prototype · synthetic records only · does not diagnose, stage or recommend</p>
             </div>
 
             <div className="relative mx-auto w-full max-w-xl pt-6 lg:max-w-none">
@@ -148,9 +148,9 @@ export default function Home() {
         <section aria-labelledby="problem" className="border-t border-rule bg-surface/60">
           <div className="mx-auto max-w-gallery px-4 py-20 sm:px-8 sm:py-24">
             <SectionHeader
-              kicker="Wing A · The problem"
-              title={<span id="problem">The patient is the courier.</span>}
-              description="Cancer care in India crosses institutions. Reports travel as paper files, phone photos and WhatsApp PDFs, and each new centre starts from whatever the family remembered to bring."
+              kicker="The problem"
+              title={<span id="problem">The patient carries the file.</span>}
+              description="Cancer care in India crosses institutions. Reports travel as paper files, phone photos and WhatsApp PDFs. Each new centre starts from whatever the family remembered to bring."
             />
             <ul className="mt-10 grid gap-px border border-rule bg-rule sm:grid-cols-2 lg:grid-cols-4">
               {STATS.map((s, i) => (
@@ -163,26 +163,26 @@ export default function Home() {
             </ul>
             <p className="mt-4 text-sm text-faint">Figures from published studies; full citations in the PRD (§2.4 and Appendix H).</p>
             <div className="mt-12 grid max-w-3xl gap-2 border-l-2 border-ink pl-5">
-              <p className="ds-kicker">Curatorial note</p>
+              <p className="ds-kicker">What is not known</p>
               <p className="text-lg leading-relaxed">
-                What nobody has measured: how often outside records are missing at an oncology consultation in India. The pilot is built to count it,
-                and that dataset decides what happens next.
+                No one has measured how often outside records are missing at an oncology consultation in India. The pilot is built to count it. That count
+                decides what happens next.
               </p>
             </div>
           </div>
         </section>
 
-        {/* Gallery walk */}
+        {/* How it works */}
         <section aria-labelledby="walk" className="border-t border-rule">
           <div className="mx-auto max-w-gallery px-4 py-20 sm:px-8 sm:py-24">
             <SectionHeader
-              kicker="Wing B · How it works"
-              title={<span id="walk">A walk through seven rooms.</span>}
-              description="From the bag of papers at the desk to a link the next clinic can open. No step needs another hospital to integrate."
+              kicker="How it works"
+              title={<span id="walk">Seven steps, from paper to shared index.</span>}
+              description="From the bag of papers at the desk to a link the next clinic can open. No hospital has to integrate with us."
             />
             <ol className="mt-12 grid gap-x-8 gap-y-14 md:grid-cols-2 lg:grid-cols-3">
               <Room
-                n="I"
+                n="1"
                 title="Capture"
                 medium="Desk camera · patient upload link · bulk PDF"
                 visual={
@@ -207,7 +207,7 @@ export default function Home() {
                 Paper, photos and forwarded PDFs, de-duplicated by hash. Handwritten pages are kept as images and never auto-extracted.
               </Room>
               <Room
-                n="II"
+                n="2"
                 title="Evidence gate"
                 medium="Deterministic · whitespace-normalised verbatim match"
                 className="lg:col-span-2"
@@ -232,7 +232,7 @@ export default function Home() {
                 OCR are flagged for a human.
               </Room>
               <Room
-                n="III"
+                n="3"
                 title="Document index"
                 medium="What · Where · Who · When"
                 visual={
@@ -252,7 +252,7 @@ export default function Home() {
                 Every line carries its source page, its quote, who verified it and three separate dates: event, document, received.
               </Room>
               <Room
-                n="IV"
+                n="4"
                 title="Completeness checklist"
                 medium="Deterministic rules · shadow mode until clinician review"
                 className="lg:col-span-2"
@@ -262,11 +262,11 @@ export default function Home() {
                   </div>
                 }
               >
-                Documents the file refers to but does not contain hang as empty frames, in administrative words only: never “care gaps”, never “should
+                Documents the file refers to but does not contain are listed as missing. The wording is administrative only: never “care gaps”, never “should
                 have been done”.
               </Room>
               <Room
-                n="V"
+                n="5"
                 title="Records Request Kit"
                 medium="EN / HI letter · reminders at day 7 and 21"
                 visual={
@@ -279,11 +279,11 @@ export default function Home() {
                   </ol>
                 }
               >
-                Each empty frame becomes a letter the patient or caregiver sends, citing their right to records without claiming a deadline. Fulfilment
-                time is measured.
+                Each missing document becomes a letter the patient or caregiver sends. It cites their right to records and does not claim a deadline. Time to
+                fulfil is measured.
               </Room>
               <Room
-                n="VI"
+                n="6"
                 title="Change ledger"
                 medium="Diff against the last sealed snapshot"
                 visual={
@@ -309,7 +309,7 @@ export default function Home() {
                 Returning visits open on what changed: new items, older records that just arrived (clearly labelled), conflicts and patient statements.
               </Room>
               <Room
-                n="VII"
+                n="7"
                 title="Share link"
                 medium="Passcode · expiry · revocable · key in the URL fragment"
                 visual={
@@ -337,13 +337,13 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Interactive */}
+        {/* Interactive demo */}
         <section aria-labelledby="gate" className="relative border-t border-rule bg-surface/60">
           <div className="mx-auto max-w-gallery px-4 py-20 sm:px-8 sm:py-24">
             <SectionHeader
-              kicker="Wing C · Interactive"
-              title={<span id="gate">Try to slip a fact past the gate.</span>}
-              description="The extractor proposes facts with quotes. The gate does not trust it: it normalises whitespace and searches the page text. Find the quote and the fact gets a placard; change one digit and it is refused."
+              kicker="Try it"
+              title={<span id="gate">Test the evidence gate yourself.</span>}
+              description="The extractor proposes facts with quotes. The gate does not take its word: it normalises whitespace and searches the page text. If the quote is there, the fact is added to the index. Change one digit and it is refused."
             />
             <div className="mt-12">
               <EvidenceGateDemo />
@@ -358,7 +358,7 @@ export default function Home() {
         {/* Safety boundary */}
         <section aria-labelledby="safety" className="border-t border-rule">
           <div className="mx-auto max-w-gallery px-4 py-20 sm:px-8 sm:py-24">
-            <SectionHeader kicker="Wing D · Safety boundary" title={<span id="safety">What OncoSetu will not do.</span>} />
+            <SectionHeader kicker="Safety boundary" title={<span id="safety">What OncoSetu does not do.</span>} />
             <div className="mt-12 grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:gap-16">
               <Frame matte caption="Intended-use statement · draft for ethics and CDSCO review">
                 <blockquote className="px-5 py-6 sm:px-8 sm:py-8">
@@ -412,9 +412,9 @@ export default function Home() {
         <section aria-labelledby="novelty" className="relative overflow-hidden border-t border-rule bg-surface/60">
           <Spotlight className="opacity-70" />
           <div className="relative mx-auto max-w-reading px-4 py-20 sm:px-8 sm:py-28">
-            <p className="ds-kicker">Wing E · Curatorial note</p>
+            <p className="ds-kicker">What is new</p>
             <h2 id="novelty" className="mt-4 text-3xl tracking-[-0.025em] sm:text-4xl">
-              What is new here, stated honestly.
+              What is new here, and what is not.
             </h2>
             <p className="mt-8 text-lg leading-relaxed sm:text-xl">
               Longitudinal oncology views exist inside integrated health systems, and consumer apps already collect patient-carried records in India. We
@@ -431,15 +431,15 @@ export default function Home() {
         <section aria-labelledby="enter" className="border-t border-rule">
           <div className="mx-auto grid max-w-gallery gap-10 px-4 py-20 sm:px-8 sm:py-24 lg:grid-cols-[1fr_auto] lg:items-end">
             <div>
-              <p className="ds-kicker">Exit through the records desk</p>
+              <p className="ds-kicker">Try it</p>
               <h2 id="enter" className="mt-4 max-w-2xl text-3xl tracking-[-0.025em] sm:text-[2.6rem] sm:leading-tight">
-                Walk the hero journey: first visit at a new centre.
+                Follow a first visit at a new centre.
               </h2>
-              <p className="mt-4 max-w-xl text-muted">Demo accounts are listed on the sign-in page. Every code still goes through real TOTP verification.</p>
+              <p className="mt-4 max-w-xl text-muted">Demo accounts are listed on the sign-in page. Every sign-in still goes through real TOTP verification.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <ButtonLink href="/login" size="lg">
-                Enter the staff demo <ArrowRight aria-hidden />
+                Open the staff demo <ArrowRight aria-hidden />
               </ButtonLink>
               <ButtonLink href="/p/login" size="lg" variant="secondary">
                 Patient / caregiver portal

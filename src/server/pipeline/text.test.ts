@@ -90,10 +90,14 @@ describe('handwriting classifier (FR-DOC-07)', () => {
     expect(classifyHandwriting(lines, 0).handwritten).toBe(false)
   })
   it('many low-confidence lines → handwritten; blue ink lowers the bar', () => {
-    const mixed = (low: number) => [...Array.from({ length: 16 - low }, () => line(4, 0.9)), ...Array.from({ length: low }, () => line(4, 0.5))]
+    const mixed = (low: number) => [...Array.from({ length: 16 - low }, () => line(4, 0.92)), ...Array.from({ length: low }, () => line(4, 0.5))]
     expect(classifyHandwriting(mixed(6), 0).handwritten).toBe(true) // 0.375
-    expect(classifyHandwriting(mixed(4), 0).handwritten).toBe(false) // 0.25, black ink
+    expect(classifyHandwriting(mixed(4), 0).handwritten).toBe(false) // 0.25, black ink, page reads well (mean 0.82)
     expect(classifyHandwriting(mixed(4), 0.05).handwritten).toBe(true) // 0.25 + blue ballpoint
+  })
+  it('borderline share in black ink is held when the page reads poorly overall', () => {
+    const page = [...Array.from({ length: 9 }, () => line(4, 0.88)), ...Array.from({ length: 4 }, () => line(4, 0.6))] // 0.31, mean 0.79
+    expect(classifyHandwriting(page, 0.009).handwritten).toBe(true)
   })
   it('too few lines to judge → not handwritten', () => {
     expect(classifyHandwriting([line(3, 0.3), line(3, 0.3)], 0.2).handwritten).toBe(false)

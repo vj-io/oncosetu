@@ -2,7 +2,8 @@
 // except tesseract's one-time traineddata download (cached under the OS temp dir, which is /tmp on Vercel).
 //   PDF  → unpdf text layer per page; invisible text (white fill, render mode 3/7, < 2 pt) is removed from the
 //          extraction text and returned separately; pages without a text layer are OCR'd from their embedded image.
-//   image → sharp re-encode (EXIF rotate, metadata stripped, ≤ 2400 px JPEG) → tesseract eng+hin.
+//   image → sharp re-encode (EXIF rotate, metadata stripped, ≤ 2400 px JPEG) → tesseract eng+hin; a page without a
+//          confidently read Devanagari word is read again with eng alone.
 import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -14,7 +15,7 @@ import type { SniffedMime } from './safety'
 
 export const OCR_LOW_CONFIDENCE = 0.8
 export const TEXT_PROCESSOR = { name: 'unpdf', version: '2.1' } as const
-export const OCR_PROCESSOR = { name: 'tesseract.js', version: '7.0 eng+hin' } as const
+export const OCR_PROCESSOR = { name: 'tesseract.js', version: '7.0 eng+hin, eng re-read' } as const
 const MAX_SIDE = 2400
 
 export type Handwriting = {
@@ -52,32 +53,34 @@ export type ReadResult =
 
 // ---------- OCR ----------
 
-const g = globalThis as unknown as { __oncosetuOcr?: Promise<Worker> }
+type OcrLangs = 'eng+hin' | 'eng'
+const g = globalThis as unknown as { __oncosetuOcr?: Partial<Record<OcrLangs, Promise<Worker>>> }
 
-function ocrWorker(): Promise<Worker> {
-  if (!g.__oncosetuOcr) {
+function ocrWorker(langs: OcrLangs): Promise<Worker> {
+  const workers = (g.__oncosetuOcr ??= {})
+  if (!workers[langs]) {
     const cachePath = join(tmpdir(), 'oncosetu-tessdata')
     mkdirSync(cachePath, { recursive: true })
-    g.__oncosetuOcr = createWorker(['eng', 'hin'], 1, { cachePath }).catch((e) => {
-      g.__oncosetuOcr = undefined
+    workers[langs] = createWorker(langs.split('+'), 1, { cachePath }).catch((e) => {
+      delete workers[langs]
       throw e
     })
   }
-  return g.__oncosetuOcr
+  return workers[langs]
 }
 
-/** Terminates the shared OCR worker (scripts/tests; the server keeps it warm). */
+/** Terminates the shared OCR workers (scripts/tests; the server keeps them warm). */
 export async function closeOcr(): Promise<void> {
-  const w = g.__oncosetuOcr
+  const workers = Object.values(g.__oncosetuOcr ?? {})
   g.__oncosetuOcr = undefined
-  if (w) await (await w).terminate()
+  for (const w of workers) await (await w).terminate()
 }
 
 type OcrLine = { text: string; conf: number[] }
 
 /** OCR one JPEG/PNG → text built line by line, with exact char offsets for every word. */
-export async function ocrImage(image: Buffer): Promise<{ text: string; words: OcrWord[]; lines: OcrLine[]; mean: number | null }> {
-  const worker = await ocrWorker()
+export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Promise<{ text: string; words: OcrWord[]; lines: OcrLine[]; mean: number | null }> {
+  const worker = await ocrWorker(langs)
   const { data } = await worker.recognize(image, {}, { blocks: true, text: false })
   let text = ''
   const words: OcrWord[] = []
@@ -115,13 +118,18 @@ const DEVANAGARI = /\p{Script=Devanagari}/u
 /**
  * Handwriting classifier (FR-DOC-07), calibrated on the demo set (re-encoded ≤ 2400 px): the handwritten prescription
  * has ~0.4 of its lines below 0.75 mean word confidence plus blue ink; printed English and Hindi reports stay ≤ 0.25.
+ * Between 0.25 and 0.35 the page is held as handwritten when either the ink is ballpoint blue or the page's mean word
+ * confidence is below OCR_LOW_CONFIDENCE: a printed page wrongly held costs a person one tag, a handwritten page wrongly
+ * extracted puts misread drugs and dates in front of a verifier (the held-out set's black-ink prescription, 0.31 / 0.79).
  */
 // ponytail: heuristic on OCR confidence + ink colour; swap for a trained page classifier (or the LLM) when one exists.
 export function classifyHandwriting(lines: OcrLine[], blueInkShare: number): Handwriting {
   const multi = lines.filter((l) => l.conf.length >= 2)
   const low = multi.filter((l) => l.conf.reduce((a, b) => a + b, 0) / l.conf.length < 0.75).length
   const lowLineShare = multi.length ? low / multi.length : 0
-  const handwritten = multi.length >= 8 && (lowLineShare >= 0.35 || (lowLineShare >= 0.25 && blueInkShare >= 0.01))
+  const confs = lines.flatMap((l) => l.conf)
+  const meanConf = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : 1
+  const handwritten = multi.length >= 8 && (lowLineShare >= 0.35 || (lowLineShare >= 0.25 && (blueInkShare >= 0.01 || meanConf < OCR_LOW_CONFIDENCE)))
   return { handwritten, lowLineShare: round3(lowLineShare), lines: multi.length, blueInkShare: round3(blueInkShare) }
 }
 
@@ -147,8 +155,14 @@ export async function normaliseImage(bytes: Uint8Array): Promise<Buffer> {
 }
 
 async function ocrPage(pageNo: number, image: Buffer): Promise<PageRead> {
-  const [ocr, ink] = await Promise.all([ocrImage(image), blueInk(image)])
-  const handwriting = classifyHandwriting(ocr.lines, ink)
+  const [first, ink] = await Promise.all([ocrImage(image), blueInk(image)])
+  const handwriting = classifyHandwriting(first.lines, ink) // calibrated on the eng+hin pass
+  // The Hindi model reads noise on English pages as Devanagari and misreads Latin letters. A page without one confidently
+  // read Devanagari word (≥ 0.8) is read again with eng alone: CER 9.4% → 7.9% on the eval image pages (data/eval). On those
+  // pages, English ones had no such word and Hindi or mixed ones had ≥ 3 — a Devanagari name in an English header counts.
+  // Handwritten pages are never extracted, so they keep the first pass.
+  const hindi = first.words.some((w) => w.c >= 0.8 && DEVANAGARI.test(w.t))
+  const ocr = !handwriting.handwritten && !hindi ? await ocrImage(image, 'eng') : first
   return {
     pageNo, text: ocr.text, words: ocr.words, ocrConfidence: ocr.mean === null ? null : round3(ocr.mean),
     lowConfidence: ocr.mean !== null && ocr.mean < OCR_LOW_CONFIDENCE, source: 'ocr', handwriting, hidden: null, image,

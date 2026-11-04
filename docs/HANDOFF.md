@@ -115,7 +115,7 @@ browser ──> route handlers (src/app/api/**, wrapped by route() in src/server
 ## 5. Testing
 
 ```bash
-npm run typecheck && npm run lint && npm test          # 1,029 unit tests
+npm run typecheck && npm run lint && npm test          # 1,040 unit tests
 npm run test:integration                               # 27 live-DB tests (RLS, erasure, inbound, ABDM, backups, LLM budget)
 npm run test:e2e                                       # 42 Playwright tests against BASE_URL (default :3000)
 ```

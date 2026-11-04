@@ -72,11 +72,11 @@ Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified f
 
 | Check | Result |
 |---|---|
-| Unit tests (`npm test`) | 1,029 passed (52 files) |
+| Unit tests (`npm test`) | 1,040 passed (53 files) |
 | Integration tests (`npm run test:integration`, live DB) | 27 passed — RLS isolation, erasure, inbound, ABDM, backup type round trips, shared LLM budget |
 | End-to-end (`npm run test:e2e`, production build) | 42 / 42 passed — PRD V01–V06 plus inbound, erasure, ABDM, perf |
 | Offline capture (`tests/e2e/offline-capture.e2e.ts`) | Passed against a production build |
-| Extraction eval (`scripts/eval.ts`, `--llm`) | 0 unsupported facts and 0 handwritten pages extracted on 60 synthetic docs. Tuned set (20): rules 0.949 / 0.962, Gemini hybrid 0.952 / 0.981. Held-out set (40, written after the rules froze): rules 0.889 / 0.646, Gemini hybrid 0.907 / 0.734 (precision / recall; targets 0.95 / 0.85). Classification macro-F1 0.983. OCR CER on photographed printed pages 7.9% (target 5%) |
+| Extraction eval (`scripts/eval.ts`, `--llm`, 4 Nov) | 0 unsupported facts and 0 handwritten pages extracted on 60 synthetic docs. Tuned set (20): rules 0.949 / 0.962, Gemini hybrid 0.952 / 0.981. Held-out set (40, written after the rules froze): rules 0.889 / 0.646, Gemini hybrid 0.907 / 0.734 (precision / recall; targets 0.95 / 0.85). Classification macro-F1 0.983. OCR CER on photographed printed pages 7.9% (target 5%) |
 | FR-LED-07, co-located (`vercel crons run /api/cron/perf-probe`) | PASS — 508-item ledger 1.14 s and 1.21 s in sin1 (budget 2 s) |
 | Restore drill (Neon PITR, `scripts/restore-drill.ts`) | PASS — 14 checks |
 | Restore from the Vercel-made encrypted backup | PASS — 9 checks, 40 tables, 27,566 rows, 60 signatures, 358 files |

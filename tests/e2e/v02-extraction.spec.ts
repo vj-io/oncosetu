@@ -1,4 +1,5 @@
-// V02-E2E-01,03,04,05,06,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: no LLM is configured.
+// V02-E2E-01,03,04,05,06,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: either no LLM is
+// configured, or one is and the Ganga org's AI flag is off (so the suite never spends the shared free-tier quota).
 import { documentsOf, eventsOf, evidenceOf } from './helpers/db'
 import { Api, demoDoc, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
 import { parseCsv } from './helpers/flows'
@@ -131,7 +132,7 @@ test('V02-E2E-06 no LLM configured: the journey completes in manual mode, keyed 
   const p = await registerPatient(records, { base: 'hero' })
   const page = await ui('records')
   await page.goto(`/patients/${p.id}/documents`)
-  await expect(page.getByText('LLM: off — rule-based extraction')).toBeVisible()
+  await expect(page.getByText(/LLM: off( for this organisation)? — rule-based extraction/)).toBeVisible()
 
   const up = await uploadAndWait(records, p.id, 'hero__04-prescription-printed.pdf')
   expect(up.doc.status).toBe('done') // extraction ran without any model

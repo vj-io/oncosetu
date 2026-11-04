@@ -124,7 +124,8 @@ npm run test:e2e                                       # 42 Playwright tests aga
   project. For realistic timings run against a production build:
   `npx next build && PUBLIC_BASE_URL=http://localhost:3100 INBOUND_MEDIA_TEST_HOSTS=127.0.0.1 npx next start -p 3100`
   then `BASE_URL=http://localhost:3100 PUBLIC_BASE_URL=http://localhost:3100 npx playwright test`. Building in the same
-  folder as a running dev server disturbs it — build in a copy.
+  folder as a running dev server disturbs it — build in a copy (clone `node_modules` with `cp -Rc`; Turbopack refuses a
+  symlinked `node_modules` outside the project root).
 - Offline capture is a standalone script that needs a production server: `tests/e2e/offline-capture.e2e.ts`.
 - Extraction eval: `npx tsx --env-file=.env.local scripts/eval.ts` → `data/eval/report.json` (tuned + held-out sets, OCR CER); `--llm` → `report-llm.json` (about 60 free-tier calls). Results show on `/admin/metrics`.
 - OTP sends are limited to 3 per phone per 10 min — tests use fresh random phones.

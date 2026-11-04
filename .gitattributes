@@ -1,0 +1,7 @@
+# LF everywhere: tests compare checked-out files byte for byte (rules.yaml vs RULES_YAML), which fails on a CRLF checkout.
+* text=auto eol=lf
+*.pdf binary
+*.jpg binary
+*.png binary
+*.webp binary
+*.ico binary

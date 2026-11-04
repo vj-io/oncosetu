@@ -366,11 +366,15 @@ export function injectionReport(pages: PageRead[]): Injection {
 
 export type Analysis = { classified: Classified; identified: Identified; method: ExtractionMethodUsed; gate: GateResult; drafts: DraftEvent[]; injection: Injection }
 
-/** The whole pure path, as scripts/eval.ts runs it (process.ts runs the same steps with DB writes in between). */
-export async function analyse(pages: PageRead[], patient: PatientIdentity, receivedAt: Date, llm?: LlmExtractor | null, opts: { augmentRules?: boolean } = {}): Promise<Analysis> {
+/**
+ * The whole pure path, as scripts/eval.ts runs it (process.ts runs the same steps with DB writes in between).
+ * `attached`: a person has attached the document despite the header check, as process.ts re-runs it after that
+ * decision; only then may an unmatched document go to the model.
+ */
+export async function analyse(pages: PageRead[], patient: PatientIdentity, receivedAt: Date, llm?: LlmExtractor | null, opts: { augmentRules?: boolean; attached?: boolean } = {}): Promise<Analysis> {
   let classified = classify(pages)
   const identified = identify(pages, classified, patient, receivedAt)
-  const ex = await extractCandidates(classified, identified.identity.result === 'match' ? llm : null, opts)
+  const ex = await extractCandidates(classified, identified.identity.result === 'match' || opts.attached ? llm : null, opts)
   // Only a model that replaces the rules may re-type the document; in hybrid mode the calibrated classifier stands.
   if (ex.method === 'llm' && ex.llmDocType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
   const { gate, drafts } = gateAndDate(ex.candidates, classified, identified, receivedAt, ex.method)

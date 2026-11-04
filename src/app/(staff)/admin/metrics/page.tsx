@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Badge, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { QaReview } from '@/components/admin/QaReview'
 import { BarRows, Block, Stat, StackedBar } from '@/components/admin/charts'
+import { EvalReport } from '@/components/admin/EvalReport'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
@@ -51,6 +52,8 @@ export default async function MetricsPage() {
           </tbody>
         </Table>
       </Block>
+
+      <EvalReport />
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Block kicker="§16.1" title="Provenance" note="A live event is supported by at least one evidence row (document quote or patient statement) or is itself a patient statement. Withdrawn and rejected events are left out.">

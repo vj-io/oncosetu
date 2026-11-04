@@ -116,12 +116,18 @@ export async function documentStatus(tx: Tx, documentId: string) {
   return { doc: d, summary: summary(d, { events: counts.length, verified: 0 }, false) }
 }
 
-export type CoverageReport = { recallByClass?: Record<string, { recall: number | null; gold: number }> }
+type ClassRecall = Record<string, { recall: number | null; gold: number }>
+export type CoverageReport = { recallByClass?: ClassRecall; heldout?: { recallByClass?: ClassRecall } }
 
-/** FR-EXT-08: the evaluation's per-class recall, shown to verifiers as a coverage note. */
+/**
+ * FR-EXT-08: the evaluation's per-class recall, shown to verifiers as a coverage note. The held-out set (written after the
+ * rule library was frozen) predicts real performance better than the tuned one, so it wins when it has the class.
+ */
 export function coverageFor(docType: string | null): { recall: number; gold: number } | null {
-  const r = (evalReport as CoverageReport).recallByClass?.[docType ?? 'other']
-  return r && r.recall !== null ? { recall: r.recall, gold: r.gold } : null
+  const rep = evalReport as CoverageReport
+  const cls = docType ?? 'other'
+  for (const r of [rep.heldout?.recallByClass?.[cls], rep.recallByClass?.[cls]]) if (r && r.recall !== null) return { recall: r.recall, gold: r.gold }
+  return null
 }
 
 /** Everything the source viewer shows for one document. */

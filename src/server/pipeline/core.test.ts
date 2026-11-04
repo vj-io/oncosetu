@@ -89,6 +89,8 @@ describe('the LLM path is gated exactly like the rules (§9.4, E-DOC-16)', () =>
     const spy: LlmExtractor = async () => { called = true; return null }
     await analyse([page('Patient Name: Mr. SUNIL DESHPANDE\nAge / Sex: 61 Years / Male\tDate Reported: 11/05/2026\n')], SUNITA, RECEIVED, spy)
     expect(called).toBe(false)
+    await analyse([page('Patient Name: Mr. SUNIL DESHPANDE\nAge / Sex: 61 Years / Male\tDate Reported: 11/05/2026\n')], SUNITA, RECEIVED, spy, { attached: true })
+    expect(called).toBe(true) // only after a person attached it
   })
   it('provider failure (null) falls back to the rule-based extractor', async () => {
     const a = await analyse([page(text)], SUNITA, RECEIVED, async () => null)

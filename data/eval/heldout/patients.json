@@ -1,0 +1,141 @@
+[
+  {
+    "patientKey": "geeta",
+    "fullName": "Geeta Ramesh Kulkarni",
+    "aliases": [
+      "Mrs. Geeta Kulkarni",
+      "Geeta R. Kulkarni",
+      "GEETA KULKARNI"
+    ],
+    "sex": "female",
+    "dob": "1968-04-09",
+    "phone": "+91 97640 11823",
+    "preferredLanguage": "en",
+    "registeringOrg": "Nirmalya Institute of Medical Sciences"
+  },
+  {
+    "patientKey": "harpreet",
+    "fullName": "Harpreet Singh Sandhu",
+    "aliases": [
+      "Harpreet Sandhu",
+      "Mr. Harpreet Singh",
+      "H. S. Sandhu"
+    ],
+    "sex": "male",
+    "dob": "1957-11-23",
+    "phone": "+91 98150 20917",
+    "preferredLanguage": "en",
+    "registeringOrg": "Sindhu Nirman Multispeciality Hospital"
+  },
+  {
+    "patientKey": "anil",
+    "fullName": "Anil Kumar Mishra",
+    "aliases": [
+      "Anil Mishra",
+      "Mr. Anil K. Mishra",
+      "A. K. Mishra"
+    ],
+    "sex": "male",
+    "dob": "1971-02-17",
+    "phone": "+91 94150 66321",
+    "preferredLanguage": "hi",
+    "registeringOrg": "Gomti Riverside Hospital & Cancer Centre"
+  },
+  {
+    "patientKey": "parvati",
+    "fullName": "Parvati Iyer",
+    "aliases": [
+      "Parvathi Iyer",
+      "Smt. Parvati Iyer",
+      "P. Iyer"
+    ],
+    "sex": "female",
+    "dob": "1953-07-30",
+    "phone": "+91 98470 30512",
+    "preferredLanguage": "en",
+    "registeringOrg": "Panchajanya Hospital"
+  },
+  {
+    "patientKey": "salma",
+    "fullName": "Salma Begum Ansari",
+    "aliases": [
+      "Salma Ansari",
+      "Salma B. Ansari",
+      "सलमा अंसारी"
+    ],
+    "sex": "female",
+    "dob": "1985-12-05",
+    "phone": "+91 99590 44108",
+    "preferredLanguage": "hi",
+    "registeringOrg": "Akshara Clinical Laboratories"
+  },
+  {
+    "patientKey": "vijay",
+    "fullName": "Vijay Raghunath Patil",
+    "aliases": [
+      "Vijay Patil",
+      "V. R. Patil",
+      "विजय पाटिल"
+    ],
+    "sex": "male",
+    "dob": "1966-06-21",
+    "phone": "+91 98930 71264",
+    "preferredLanguage": "hi",
+    "registeringOrg": "Malhar Medical Centre"
+  },
+  {
+    "patientKey": "ritu",
+    "fullName": "Ritu Agarwal",
+    "aliases": [
+      "Mrs. Ritu Agarwal",
+      "R. Agarwal"
+    ],
+    "sex": "female",
+    "dob": "1979-10-11",
+    "phone": "+91 94140 25678",
+    "preferredLanguage": "hi",
+    "registeringOrg": "Shekhawati Medical & Cancer Hospital"
+  },
+  {
+    "patientKey": "joseph",
+    "fullName": "Joseph Thomas Kurian",
+    "aliases": [
+      "Joseph Kurian",
+      "K. T. Joseph",
+      "Mr. Joseph T. Kurian"
+    ],
+    "sex": "male",
+    "dob": "1960-03-14",
+    "phone": "+91 94470 19382",
+    "preferredLanguage": "en",
+    "registeringOrg": "Panchajanya Hospital"
+  },
+  {
+    "patientKey": "bimala",
+    "fullName": "Bimala Devi Sahu",
+    "aliases": [
+      "Bimala Sahu",
+      "Bimla Devi Sahu",
+      "बिमला देवी साहू"
+    ],
+    "sex": "female",
+    "dob": "1972-01-28",
+    "phone": "+91 97550 38821",
+    "preferredLanguage": "hi",
+    "registeringOrg": "Indravati Multispeciality Hospital"
+  },
+  {
+    "patientKey": "nandini",
+    "fullName": "Nandini Chakraborty",
+    "aliases": [
+      "Nandini Chakrabarty",
+      "Ms. Nandini Chakraborty",
+      "N. Chakraborty"
+    ],
+    "sex": "female",
+    "dob": "1990-09-02",
+    "phone": "+91 98310 52746",
+    "preferredLanguage": "en",
+    "registeringOrg": "Madhumita Multispeciality Hospital"
+  }
+]

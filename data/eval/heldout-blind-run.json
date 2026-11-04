@@ -1,0 +1,1419 @@
+{
+  "about": "First blind run of the rule-based path on the 40-document held-out set (written after the rule library was frozen), 4 Nov 2026, before any fix informed by it. Kept as the honest untuned measurement; later fixes make the held-out set no longer blind for the code they touch.",
+  "generatedAt": "2026-11-04T14:16:23.623Z",
+  "heldout": {
+    "dataset": "40 synthetic documents in data/eval/heldout (gold: data/eval/gold-heldout.json)",
+    "gates": {
+      "unsupportedFactsReachingRecord": 0,
+      "handwrittenAutoExtracted": 1,
+      "pass": false
+    },
+    "precision": 0.87,
+    "recall": 0.646,
+    "counts": {
+      "gold": 79,
+      "found": 51,
+      "pred": 46,
+      "correct": 40
+    },
+    "recallByClass": {
+      "pathology_report": {
+        "recall": 0.429,
+        "gold": 7
+      },
+      "ihc_molecular_report": {
+        "recall": 0.75,
+        "gold": 4
+      },
+      "imaging_report": {
+        "recall": 1,
+        "gold": 4
+      },
+      "lab_report": {
+        "recall": 1,
+        "gold": 5
+      },
+      "prescription_printed": {
+        "recall": 0.813,
+        "gold": 16
+      },
+      "prescription_handwritten": {
+        "recall": null,
+        "gold": 0
+      },
+      "discharge_summary": {
+        "recall": 0.7,
+        "gold": 30
+      },
+      "consult_note": {
+        "recall": 0,
+        "gold": 3
+      },
+      "chemo_daycare_record": {
+        "recall": 0.667,
+        "gold": 3
+      },
+      "radiotherapy_summary": {
+        "recall": 0,
+        "gold": 2
+      },
+      "procedure_note": {
+        "recall": 0,
+        "gold": 3
+      },
+      "bill_insurance": {
+        "recall": null,
+        "gold": 0
+      },
+      "other": {
+        "recall": 0,
+        "gold": 2
+      }
+    },
+    "precisionByClass": {
+      "pathology_report": {
+        "precision": 0.5,
+        "extracted": 6
+      },
+      "ihc_molecular_report": {
+        "precision": 1,
+        "extracted": 3
+      },
+      "imaging_report": {
+        "precision": 1,
+        "extracted": 4
+      },
+      "lab_report": {
+        "precision": 1,
+        "extracted": 5
+      },
+      "prescription_printed": {
+        "precision": 1,
+        "extracted": 4
+      },
+      "prescription_handwritten": {
+        "precision": 0,
+        "extracted": 1
+      },
+      "discharge_summary": {
+        "precision": 1,
+        "extracted": 19
+      },
+      "consult_note": {
+        "precision": 0,
+        "extracted": 2
+      },
+      "chemo_daycare_record": {
+        "precision": 1,
+        "extracted": 2
+      },
+      "radiotherapy_summary": {
+        "precision": null,
+        "extracted": 0
+      },
+      "procedure_note": {
+        "precision": null,
+        "extracted": 0
+      },
+      "bill_insurance": {
+        "precision": null,
+        "extracted": 0
+      },
+      "other": {
+        "precision": null,
+        "extracted": 0
+      }
+    },
+    "identity": {
+      "correct": 26,
+      "total": 40,
+      "accuracy": 0.65
+    },
+    "classification": {
+      "correct": 38,
+      "total": 40,
+      "accuracy": 0.95,
+      "macroF1": 0.959,
+      "perClass": {
+        "pathology_report": {
+          "precision": 1,
+          "recall": 0.8,
+          "f1": 0.889,
+          "support": 5,
+          "predicted": 4
+        },
+        "imaging_report": {
+          "precision": 0.8,
+          "recall": 1,
+          "f1": 0.889,
+          "support": 4,
+          "predicted": 5
+        },
+        "procedure_note": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 2,
+          "predicted": 2
+        },
+        "prescription_printed": {
+          "precision": 0.8,
+          "recall": 1,
+          "f1": 0.889,
+          "support": 4,
+          "predicted": 5
+        },
+        "discharge_summary": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 4,
+          "predicted": 4
+        },
+        "lab_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 5,
+          "predicted": 5
+        },
+        "other": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        },
+        "chemo_daycare_record": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 3,
+          "predicted": 3
+        },
+        "consult_note": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 3,
+          "predicted": 3
+        },
+        "radiotherapy_summary": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 2,
+          "predicted": 2
+        },
+        "ihc_molecular_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 3,
+          "predicted": 3
+        },
+        "bill_insurance": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        },
+        "prescription_handwritten": {
+          "precision": 1,
+          "recall": 0.667,
+          "f1": 0.8,
+          "support": 3,
+          "predicted": 2
+        }
+      }
+    },
+    "injection": [
+      {
+        "file": "nandini__03-discharge-summary-with-injection.pdf",
+        "expected": true,
+        "flagged": true,
+        "patterns": [
+          "ignore_instructions"
+        ],
+        "hiddenChars": 0,
+        "forbiddenInDrafts": [],
+        "forbiddenFieldRejections": 0
+      }
+    ],
+    "docs": [
+      {
+        "file": "anil__01-tonsil-biopsy-wrong-patient.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "mismatch",
+          "got": "mismatch",
+          "reasons": [
+            "age_mismatch"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 12,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "anil__02-mri-pelvis-photo.jpg",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 3647,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "anil__03-operation-notes.pdf",
+        "docType": {
+          "expected": "procedure_note",
+          "got": "procedure_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 25,
+        "reachesRecord": false,
+        "gold": 2,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-06-02",
+            "match": "anterior resection"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "HPE"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "anil__04-prescription-opd.pdf",
+        "docType": {
+          "expected": "prescription_printed",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 17,
+        "reachesRecord": true,
+        "gold": 5,
+        "found": 2,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [
+          {
+            "type": "prescription_documented",
+            "match": "Paracetamol"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Ondansetron"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "B-complex"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bimala__01-discharge-summary.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": false,
+        "gold": 7,
+        "found": 5,
+        "extracted": 4,
+        "correct": 4,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-04-03",
+            "match": "cholecystectomy"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Ursodeoxycholic"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bimala__02-port-insertion-procedure-note.pdf",
+        "docType": {
+          "expected": "procedure_note",
+          "got": "procedure_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 13,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-05-12",
+            "match": "port"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bimala__03-liver-function-test.pdf",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bimala__04-referral-letter-hindi.jpg",
+        "docType": {
+          "expected": "other",
+          "got": "other"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 3335,
+        "reachesRecord": false,
+        "gold": 2,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "referral_documented",
+            "date": "2026-05-15"
+          },
+          {
+            "type": "procedure_documented",
+            "date": "2026-04-03"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "geeta__01-ct-abdomen-pelvis.pdf",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "geeta__02-surgical-pathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 28,
+        "reachesRecord": true,
+        "gold": 3,
+        "found": 1,
+        "extracted": 2,
+        "correct": 1,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-02-18",
+            "match": "TAH"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "Immunohistochemistry"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": null,
+            "quote": "Specimen: \tUterus with both adnexa and omentum \tHistory: \tTAH with BSO and omentectomy per"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "geeta__03-discharge-card.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 23,
+        "reachesRecord": false,
+        "gold": 9,
+        "found": 5,
+        "extracted": 7,
+        "correct": 7,
+        "missed": [
+          {
+            "type": "prescription_documented",
+            "match": "Paracetamol"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Pantoprazole"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Cefixime"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Ondansetron"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "geeta__04-chemo-cycle1.pdf",
+        "docType": {
+          "expected": "chemo_daycare_record",
+          "got": "chemo_daycare_record"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "harpreet__01-prostate-biopsy-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-04-09"
+          }
+        ],
+        "extra": [
+          {
+            "type": "imaging_report_documented",
+            "date": "2026-04-04",
+            "quote": "Sample collected: 04/04/2026\nReported: 9th April 2026\nReferred by: Dr. Gurpreet Sethi (Uro"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "harpreet__02-psa-report.pdf",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "harpreet__03-uro-oncology-opd-note.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "consult_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-04-14",
+            "match": "Sethi"
+          }
+        ],
+        "extra": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-04-14",
+            "quote": "Date of visit: 14-04-2026"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "harpreet__04-radiotherapy-summary.pdf",
+        "docType": {
+          "expected": "radiotherapy_summary",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 18,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "radiotherapy_documented"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "joseph__01-pet-ct-whole-body.pdf",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "joseph__02-ihc-lymphoma-panel.pdf",
+        "docType": {
+          "expected": "ihc_molecular_report",
+          "got": "ihc_molecular_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 17,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "joseph__03-chemo-r-chop-cycle3.pdf",
+        "docType": {
+          "expected": "chemo_daycare_record",
+          "got": "chemo_daycare_record"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "joseph__04-daycare-bill.pdf",
+        "docType": {
+          "expected": "bill_insurance",
+          "got": "bill_insurance"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 14,
+        "reachesRecord": true,
+        "gold": 0,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "nandini__01-medical-oncology-opd.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "consult_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 11,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-05-07",
+            "match": "Oncology"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "nandini__02-prescription-opd.pdf",
+        "docType": {
+          "expected": "prescription_printed",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 13,
+        "reachesRecord": true,
+        "gold": 3,
+        "found": 3,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "nandini__03-discharge-summary-with-injection.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": false,
+        "gold": 7,
+        "found": 5,
+        "extracted": 4,
+        "correct": 4,
+        "missed": [
+          {
+            "type": "admission_documented",
+            "date": "2026-06-15"
+          },
+          {
+            "type": "discharge_documented",
+            "date": "2026-06-18"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "nandini__04-prescription-handwritten.jpg",
+        "docType": {
+          "expected": "prescription_handwritten",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "insufficient",
+          "got": "mismatch",
+          "reasons": [
+            "age_mismatch"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 2735,
+        "reachesRecord": false,
+        "gold": 0,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [],
+        "extra": [
+          {
+            "type": "prescription_documented",
+            "date": "2006-05-12",
+            "quote": "2) Tab. pantoprazole4o mg 1-0-0 X5d\n2) Tab. Alprazolam 0.25 mg 0-0-1 X 3 d"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "parvati__01-xray-chest-photo.jpg",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 2585,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "parvati__02-egfr-molecular-report.pdf",
+        "docType": {
+          "expected": "ihc_molecular_report",
+          "got": "ihc_molecular_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 17,
+        "reachesRecord": true,
+        "gold": 2,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [
+          {
+            "type": "report_pending_documented",
+            "match": "ALK"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "parvati__03-cbc-esr-photo.jpg",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 3032,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "parvati__04-prescription-handwritten.jpg",
+        "docType": {
+          "expected": "prescription_handwritten",
+          "got": "prescription_handwritten"
+        },
+        "identity": {
+          "expected": "insufficient",
+          "got": "insufficient",
+          "reasons": [
+            "handwritten_header"
+          ]
+        },
+        "handwritten": true,
+        "method": "rules",
+        "ms": 3001,
+        "reachesRecord": false,
+        "gold": 0,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ritu__01-cervix-biopsy-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ritu__02-cbc-wrong-patient.pdf",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "mismatch",
+          "got": "mismatch",
+          "reasons": [
+            "age_mismatch"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 11,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ritu__03-discharge-summary-dehydration.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 17,
+        "reachesRecord": false,
+        "gold": 7,
+        "found": 6,
+        "extracted": 4,
+        "correct": 4,
+        "missed": [
+          {
+            "type": "prescription_documented",
+            "match": "ORS"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ritu__04-prescription-opd.pdf",
+        "docType": {
+          "expected": "prescription_printed",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 4,
+        "found": 4,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "salma__01-core-biopsy-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 17,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-03-06"
+          }
+        ],
+        "extra": [
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-03-02",
+            "quote": "Collected: 02.03.2026"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "salma__02-ihc-breast-panel.pdf",
+        "docType": {
+          "expected": "ihc_molecular_report",
+          "got": "ihc_molecular_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "salma__03-chemo-cycle2.pdf",
+        "docType": {
+          "expected": "chemo_daycare_record",
+          "got": "chemo_daycare_record"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 14,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "chemotherapy_session_documented",
+            "date": "2026-04-28",
+            "match": "Cycle 2"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "salma__04-prescription-bilingual.jpg",
+        "docType": {
+          "expected": "prescription_printed",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 3431,
+        "reachesRecord": false,
+        "gold": 4,
+        "found": 4,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "vijay__01-head-neck-consultation.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "consult_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-05-05",
+            "match": "Head"
+          }
+        ],
+        "extra": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-05-05",
+            "quote": "Date: 5th May 2026"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "vijay__02-radiotherapy-completion.pdf",
+        "docType": {
+          "expected": "radiotherapy_summary",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 13,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "radiotherapy_documented"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "vijay__03-cbc-hindi-photo.jpg",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 3406,
+        "reachesRecord": false,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "vijay__04-prescription-handwritten.jpg",
+        "docType": {
+          "expected": "prescription_handwritten",
+          "got": "prescription_handwritten"
+        },
+        "identity": {
+          "expected": "insufficient",
+          "got": "insufficient",
+          "reasons": [
+            "handwritten_header"
+          ]
+        },
+        "handwritten": true,
+        "method": "rules",
+        "ms": 1953,
+        "reachesRecord": false,
+        "gold": 0,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      }
+    ]
+  },
+  "ocr": {
+    "cer": 0.0942,
+    "maxCer": 0.1566
+  }
+}

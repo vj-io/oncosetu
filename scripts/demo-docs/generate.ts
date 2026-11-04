@@ -9,6 +9,7 @@ import { dirname, join, resolve } from 'node:path'
 import { docs } from './docs'
 import type { Doc } from './docs'
 import { initEngine, layout, photograph, toPdf, toSvg } from './engine'
+import { pageTruth, type OcrTruth } from './truth'
 
 const ROOT = resolve(dirname(process.argv[1] ?? '.'), '..', '..')
 const OUT = join(ROOT, 'public', 'demo-docs')
@@ -93,10 +94,12 @@ async function main() {
     for (const f of await readdir(OUT)) if (/^(hero|returning|fulfilled)__/.test(f) || f === 'manifest.json' || f === 'patients.json') await rm(join(OUT, f))
 
   const manifest = []
+  const truth: OcrTruth = {} // ground-truth text of every image page, for the OCR CER in scripts/eval.ts
   for (const d of docs) {
     const file = fileName(d)
     const skip = only !== undefined && !file.includes(only)
     const pages = d.pages ? d.pages() : layout({ ...d, file }, { fs: d.fs ?? 1, foot: d.fmt === 'jpg' ? 9.6 : 7 })
+    if (d.fmt === 'jpg') truth[file] = Object.fromEntries(pages.map((ops, i) => [String(i + 1), { handwritten: d.docType === 'prescription_handwritten', text: pageTruth(ops) }]))
     let bytes: Uint8Array = new Uint8Array(0)
     if (skip) {
       // metadata only
@@ -124,6 +127,7 @@ async function main() {
   }
   await writeFile(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n')
   await writeFile(join(OUT, 'patients.json'), JSON.stringify(patients, null, 2) + '\n')
+  await writeFile(join(ROOT, 'data', 'eval', 'ocr-truth.json'), JSON.stringify(truth, null, 2) + '\n')
   console.log(`\n${manifest.length} documents + manifest.json + patients.json -> ${OUT}`)
 }
 

@@ -219,6 +219,7 @@ Environment variables (names and purpose only; the repository ships no key gener
 | `HMAC_KEY` | Base64, 32 bytes. Blind indexes |
 | `SIGNING_KEY_ED25519` | Base64 of a PKCS#8 PEM Ed25519 private key. Signs snapshots |
 | `SIGNING_KEY_ID` | Identifier for the signing key, for rotation |
+| `SIGNING_KEYS_RETIRED` | Optional JSON `{"<old key id>": "<base64 SPKI PEM>"}` of rotated-out public keys, so old seals still verify (RUNBOOK §3) |
 | `DEMO_MODE` | Set to `true` to enable the demo accounts, the simulated phone outbox and the demo clock |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | Optional. Real SMS and WhatsApp delivery through Twilio. Also needs a sender, below |
 | `TWILIO_FROM` or `TWILIO_MESSAGING_SERVICE_SID` | Optional. SMS sender (the Messaging Service wins if both are set) |

@@ -45,7 +45,7 @@ Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulate
 | `DATABASE_URL_APP` | Non-owner app role `oncosetu_app` (no BYPASSRLS) — everything at request time uses this |
 | `APP_MASTER_KEY` | AES-256-GCM envelope key for PII columns and stored files. **Losing it makes all data unreadable** |
 | `HMAC_KEY` | Blind indexes (phone, token, ABHA) |
-| `SIGNING_KEY_ED25519`, `SIGNING_KEY_ID` | Seal and share-payload signatures (see rotation note in RUNBOOK) |
+| `SIGNING_KEY_ED25519`, `SIGNING_KEY_ID`, `SIGNING_KEYS_RETIRED` | Seal and share-payload signatures; retired public keys stay verifiable (rotation: RUNBOOK §3) |
 | `BACKUP_KEY` | Encrypts backups; needed together with `APP_MASTER_KEY` to read one |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob (backups) |
 | `CRON_SECRET` | Bearer for `/api/cron/*` (Vercel adds it to scheduled calls) |
@@ -161,7 +161,6 @@ npm run test:e2e                                       # 42 Playwright tests aga
 - Malware check is the EICAR signature only (no ClamAV on serverless).
 - Hindi is the only regional language; Hindi copy and Radar wording need review by a native speaker and the clinician
   advisor before a pilot.
-- `verifyEd25519` checks only the active key id — ship a retired-keys list before rotating `SIGNING_KEY_ED25519`.
 - Backups: up to 24 h data loss after the 6 h PITR window; same Vercel account as the app (pilot needs an off-account
   copy); erased patients linger in backups up to 35 days.
 - Name search and duplicate detection decrypt all patients of an org (marked `ponytail:` — fine to ~10k patients).

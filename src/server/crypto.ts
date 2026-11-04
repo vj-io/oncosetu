@@ -2,6 +2,7 @@
 //   APP_MASTER_KEY       base64, 32 bytes — wraps per-value DEKs (AES-256-GCM envelope)
 //   HMAC_KEY             base64, 32 bytes — blind indexes (phone_hmac, token_hash, …)
 //   SIGNING_KEY_ED25519  base64 of a PKCS#8 PEM Ed25519 private key; SIGNING_KEY_ID names it
+//   SIGNING_KEYS_RETIRED optional JSON {"<old key id>": "<base64 of its SPKI PEM public key>"} — verify-only, after rotation
 import {
   createHash, createHmac, createPrivateKey, createPublicKey, randomBytes, scrypt as scryptCb, sign, timingSafeEqual,
   verify, createCipheriv, createDecipheriv, type KeyObject,
@@ -175,15 +176,29 @@ export function signEd25519(bytes: Buffer | Uint8Array): { signature: string; ke
   return { signature: sign(null, bytes, s.priv).toString('base64url'), keyId: s.id }
 }
 
-// ponytail: one active key; add retired public keys here when SIGNING_KEY_ID rotates (E-PAS-04).
-export function verifyEd25519(bytes: Buffer | Uint8Array, signature: string, keyId: string): boolean {
-  const s = signer()
-  if (keyId !== s.id) return false
-  try { return verify(null, bytes, s.pub, Buffer.from(signature, 'base64url')) } catch { return false }
+let retiredKeys: Map<string, KeyObject> | undefined
+
+/** Public keys of rotated-out signing keys (E-PAS-04): old seals and share payloads stay verifiable. */
+function retired(): Map<string, KeyObject> {
+  if (!retiredKeys) {
+    const ids = JSON.parse(process.env.SIGNING_KEYS_RETIRED || '{}') as Record<string, string>
+    retiredKeys = new Map(Object.entries(ids).map(([id, b64]) => [id, createPublicKey(Buffer.from(b64, 'base64').toString('utf8'))]))
+  }
+  return retiredKeys
 }
 
-export function publicKeys(): { keyId: string; alg: 'Ed25519'; publicKeyPem: string; publicKeyRaw: string }[] {
+/** Verifies against the key the signature names: the active key or a retired one. Unknown key id → false. */
+export function verifyEd25519(bytes: Buffer | Uint8Array, signature: string, keyId: string): boolean {
   const s = signer()
-  const jwk = s.pub.export({ format: 'jwk' }) as { x: string }
-  return [{ keyId: s.id, alg: 'Ed25519', publicKeyPem: s.pub.export({ format: 'pem', type: 'spki' }).toString(), publicKeyRaw: jwk.x }]
+  const pub = keyId === s.id ? s.pub : retired().get(keyId)
+  if (!pub) return false
+  try { return verify(null, bytes, pub, Buffer.from(signature, 'base64url')) } catch { return false }
+}
+
+export function publicKeys(): { keyId: string; alg: 'Ed25519'; status: 'active' | 'retired'; publicKeyPem: string; publicKeyRaw: string }[] {
+  const s = signer()
+  const entry = (keyId: string, pub: KeyObject, status: 'active' | 'retired') => ({
+    keyId, alg: 'Ed25519' as const, status, publicKeyPem: pub.export({ format: 'pem', type: 'spki' }).toString(), publicKeyRaw: (pub.export({ format: 'jwk' }) as { x: string }).x,
+  })
+  return [entry(s.id, s.pub, 'active'), ...[...retired()].filter(([id]) => id !== s.id).map(([id, pub]) => entry(id, pub, 'retired'))]
 }

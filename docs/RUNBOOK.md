@@ -105,12 +105,12 @@ Sealed snapshots are signed with Ed25519. Each snapshot stores the `key_id` it w
 
 **Old key ids must stay verifiable**: a snapshot sealed years ago is still shown to patients and receiving hospitals, and a snapshot that fails verification is displayed as "seal broken".
 
-**Current limitation, read before rotating.** `verifyEd25519` in `src/server/crypto.ts` accepts only the active key id and returns false for any other (the comment there: "one active key; add retired public keys here when SIGNING_KEY_ID rotates", E-PAS-04), and `publicKeys()` lists only the active key. Changing `SIGNING_KEY_ID` today would make every existing snapshot fail verification. Before the first rotation, ship a change that keeps a list of retired public keys (id and public key only) and checks the snapshot's own `key_id` against it, in both functions.
+**Retired keys.** `SIGNING_KEYS_RETIRED` (optional) is a JSON object of rotated-out keys, `{"<key id>": "<base64 of its SPKI PEM public key>"}`. `verifyEd25519` in `src/server/crypto.ts` checks each signature against the key its own `key_id` names (the active key or a retired one), and `/api/keys` lists retired keys with `status: "retired"`, so share viewers and the public `/verify` page keep working for old seals. Public halves only: a retired private key is never needed again.
 
-Rotation, once that exists:
+Rotation:
 
 1. Generate the new key: `openssl genpkey -algorithm ed25519 -out new.pem`; env value `base64 -i new.pem | tr -d '\n'`. Choose a new id (`k-YYYY-MM`). Store `new.pem` only in the secret store.
-2. Add the **current** key's public half (id and `openssl pkey -in old.pem -pubout`) to the retired list. Deploy this first.
+2. Add the **current** key's public half to `SIGNING_KEYS_RETIRED` under its id (`openssl pkey -in old.pem -pubout | base64 | tr -d '\n'`). Deploy this first.
 3. Set the new `SIGNING_KEY_ED25519` and `SIGNING_KEY_ID` in Vercel and redeploy.
 4. Check `/api/keys` lists both ids and the public `/verify` page of an old snapshot and of a new one both say intact. Run the drill: it verifies the signature of every snapshot against the key list.
 5. Keep the retired public keys for as long as any snapshot signed with them exists. The old private key is no longer needed for anything: archive it offline or destroy it.

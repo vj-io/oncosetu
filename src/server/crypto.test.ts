@@ -1,11 +1,14 @@
-import { generateKeyPairSync, randomBytes } from 'node:crypto'
+import { generateKeyPairSync, randomBytes, sign } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import {
   base32Decode, base32Encode, decryptBytes, decryptField, encryptBytes, encryptField, hashPassword, hmac, maskPhone,
   normalizePhone, phoneHmac, publicKeys, randomToken, sha256Hex, signEd25519, timingSafeEqualStr, verifyEd25519, verifyPassword,
 } from './crypto'
 
+const OLD = generateKeyPairSync('ed25519') // a rotated-out signing key, listed in SIGNING_KEYS_RETIRED
+
 beforeAll(() => {
+  process.env.SIGNING_KEYS_RETIRED = JSON.stringify({ 'k-old': Buffer.from(OLD.publicKey.export({ format: 'pem', type: 'spki' }).toString()).toString('base64') })
   process.env.APP_MASTER_KEY = randomBytes(32).toString('base64')
   process.env.HMAC_KEY = randomBytes(32).toString('base64')
   const { privateKey } = generateKeyPairSync('ed25519')
@@ -94,6 +97,14 @@ describe('Ed25519', () => {
     expect(verifyEd25519(msg, signature, keyId)).toBe(true)
     expect(verifyEd25519(Buffer.from('{"snapshot":2}'), signature, keyId)).toBe(false)
     expect(verifyEd25519(msg, signature, 'k-other')).toBe(false)
-    expect(publicKeys()[0]).toMatchObject({ keyId: 'k-test', alg: 'Ed25519' })
+    expect(publicKeys()[0]).toMatchObject({ keyId: 'k-test', alg: 'Ed25519', status: 'active' })
+  })
+  it('still verifies signatures made with a retired key, by its own key id', () => {
+    const msg = Buffer.from('{"snapshot":"sealed before rotation"}')
+    const old = sign(null, msg, OLD.privateKey).toString('base64url')
+    expect(verifyEd25519(msg, old, 'k-old')).toBe(true)
+    expect(verifyEd25519(msg, old, 'k-test')).toBe(false) // wrong key id
+    expect(verifyEd25519(Buffer.from('{"snapshot":"tampered"}'), old, 'k-old')).toBe(false)
+    expect(publicKeys().map((k) => [k.keyId, k.status])).toEqual([['k-test', 'active'], ['k-old', 'retired']])
   })
 })

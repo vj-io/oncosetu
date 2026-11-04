@@ -125,7 +125,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
     <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] [&>*]:min-w-0">
       {/* Placards */}
       <section aria-labelledby="facts-h" className="grid content-start gap-4">
-        <h2 id="facts-h" className="ds-kicker">Facts on exhibit · {live.length}</h2>
+        <h2 id="facts-h" className="ds-kicker">Facts on file · {live.length}</h2>
         {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">No machine-extracted facts. Anything listed here must be quoted from the page text.</p>}
         {events.map((e, i) => {
           const ev = e.evidence[0]

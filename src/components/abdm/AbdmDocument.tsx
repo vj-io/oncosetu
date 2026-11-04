@@ -81,7 +81,7 @@ export async function AbdmDocument({ patientId, documentId, focusEventId }: { pa
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] [&>*]:min-w-0">
         <section aria-labelledby="facts-h" className="grid content-start gap-4">
-          <h2 id="facts-h" className="ds-kicker">Facts on exhibit · {live.length}</h2>
+          <h2 id="facts-h" className="ds-kicker">Facts on file · {live.length}</h2>
           {facts.map(({ e, refs }, i) => {
             const fields = Object.entries(e.fields).filter(([k]) => k !== 'event_date_text' && k !== 'institution_name')
             const v = (k: string) => (Array.isArray(e.fields[k]) ? (e.fields[k] as string[]).join(', ') : e.fields[k] != null ? String(e.fields[k]) : '')

@@ -126,7 +126,7 @@ npm run test:e2e                                       # 42 Playwright tests aga
   then `BASE_URL=http://localhost:3100 PUBLIC_BASE_URL=http://localhost:3100 npx playwright test`. Building in the same
   folder as a running dev server disturbs it — build in a copy.
 - Offline capture is a standalone script that needs a production server: `tests/e2e/offline-capture.e2e.ts`.
-- Extraction eval: `npx tsx --env-file=.env.local scripts/eval.ts` → `data/eval/report.json`.
+- Extraction eval: `npx tsx --env-file=.env.local scripts/eval.ts` → `data/eval/report.json` (tuned + held-out sets, OCR CER); `--llm` → `report-llm.json` (about 60 free-tier calls). Results show on `/admin/metrics`.
 - OTP sends are limited to 3 per phone per 10 min — tests use fresh random phones.
 
 ## 6. Deploy and operations
@@ -156,8 +156,12 @@ npm run test:e2e                                       # 42 Playwright tests aga
 
 **Known limits worth improving**
 
-- Extraction evaluation is 20 synthetic documents tuned on themselves (PRD asks for 60, held out); OCR error rate is
-  not measured; drug-name WER for voice is not measured.
+- Extraction recall on the 40-document held-out set is 0.73 with Gemini, 0.65 rules-only (target 0.85); consultation
+  notes and radiotherapy summaries are not extracted, pathology is 0.57. Identity returns `insufficient` for 13 of 40
+  documents that are the patient's (header formats such as "Patient: X, 55 Y / M", Hindi headers). OCR CER on phone
+  photos is 7.9% (target 5%). Improving any of these on the held-out set makes it no longer blind: write a fresh set
+  first (`scripts/demo-docs/heldout-docs.ts` shows the format). Gold labels need the clinician advisor's review.
+  Drug-name WER for voice is not measured.
 - Malware check is the EICAR signature only (no ClamAV on serverless).
 - Hindi is the only regional language; Hindi copy and Radar wording need review by a native speaker and the clinician
   advisor before a pilot.

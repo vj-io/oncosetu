@@ -42,7 +42,7 @@ The gate does not catch every error. PRD §9.4a sets out what it covers:
 
 | Error class | Caught by the gate? | Control |
 |---|---|---|
-| Fabricated fact | Yes: the quote is not found | Gate. Unsupported facts reaching the record: 0 on the eval set |
+| Fabricated fact | Yes: the quote is not found | Gate. Unsupported facts reaching the record: 0 on both eval sets (60 documents) |
 | Omission | No | Clinician-abstracted gold set; per-class recall reported to verifiers |
 | Right quote, wrong field, date or patient | No, partly | Binding checks (FR-EXT-09), `binding_uncertain` flag, per-document identity check |
 | Faithfully quoted OCR error | No | Span-confidence flag below 0.80; low-confidence spans are always human-verified |
@@ -154,51 +154,56 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 
 ## Evaluation
 
-Sources: `data/eval/report.json` (rule-based path) and `data/eval/report-llm.json` (Gemini `gemini-3.5-flash-lite`, hybrid mode, run 3 November 2026 through the shared budget: 18 calls, all within quota). An extracted event counts as correct when it matches at least one gold fact on type, date and text.
+`scripts/eval.ts` runs the same pipeline code as the server over two synthetic sets and compares the output with hand-written gold labels. An extracted event counts as correct when it matches at least one gold fact on type, date and text.
 
-| Path | Precision | Recall | Unsupported facts in record |
-|---|---|---|---|
-| Rule-based only | 0.949 | 0.962 | 0 |
-| Gemini free tier + rules (hybrid) | 0.956 | 0.981 | 0 |
+- **Tuned set:** the 20 demo documents in `public/demo-docs/` (gold: `data/eval/gold.json`). The rule library was developed on these, so its numbers are optimistic.
+- **Held-out set:** 40 documents in `data/eval/heldout/` (gold: `data/eval/gold-heldout.json`): 10 new patients, about 30 invented institutions, all 13 document types, 3 handwritten prescriptions, Hindi and bilingual pages, photographed pages, 2 wrong-patient headers and 1 prompt-injection line. They were written after the rules were frozen and the rules have not been tuned on them.
+- Reports: `data/eval/report.json` (rules) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
 
-The same model on its own (replacing the rules) reached precision 0.71 and recall 0.23 on this set: it merged several prescription lines into one item with a letterhead quote, which the gate correctly refused. That result is why the free-tier model augments the rules and why prompt v2 asks for one fact per item.
-
-Rule-based path in detail:
-
-| Measure | Result |
-|---|---|
-| Unsupported facts reaching the record | 0 |
-| Handwritten pages auto-extracted | 0 |
-| Event precision | 0.949 (37 of 39 extracted events correct) |
-| Event recall | 0.962 (50 of 52 gold facts found) |
-| Identity decision | 20 of 20 documents |
-| Document classification | 0.95 (19 of 20) |
-| Prompt-injection test document | Flagged; no forbidden field accepted |
-
-Per document class:
-
-| Class | Gold facts | Recall | Extracted | Precision |
+| PRD §9.5 metric | Target | Tuned · rules | Held-out · rules | Held-out · rules + Gemini |
 |---|---|---|---|---|
-| Pathology report | 7 | 0.857 | 7 | 0.857 |
-| IHC / molecular report | 1 | 1.000 | 2 | 0.500 |
-| Imaging report | 2 | 1.000 | 2 | 1.000 |
-| Lab report | 3 | 1.000 | 3 | 1.000 |
-| Printed prescription | 11 | 1.000 | 5 | 1.000 |
-| Discharge summary | 23 | 0.957 | 15 | 1.000 |
-| Chemotherapy day-care record | 4 | 1.000 | 4 | 1.000 |
-| Other | 1 | 1.000 | 1 | 1.000 |
+| Unsupported facts reaching the record | 0 | 0 | 0 | 0 |
+| Handwritten pages auto-extracted | 0 | 0 | 0 | 0 |
+| Event precision | ≥ 0.95 | 0.949 | 0.889 | 0.907 |
+| Event recall (omission) | ≥ 0.85 | 0.962 | 0.646 | 0.734 |
+| Classification macro-F1 | ≥ 0.85 | 0.947 | 0.983 | 0.983 |
+| Identity decision as expected | held, never wrong | 20 / 20 | 27 / 40 | 27 / 40 |
 
-Handwritten prescriptions have 0 gold facts and 0 extracted events, by design. The two missed gold facts are a wide local excision (`hero__10-histopathology-later.pdf`) and a pending histopathology report (`returning__01-discharge-summary.pdf`). The two wrong events are procedure events: one has no date (`hero__10`), and one comes from an IHC report (`hero__11`). One document was classified as IHC/molecular instead of pathology (`returning__07`).
+The rules + Gemini column on the tuned set is precision 0.952, recall 0.981.
+
+**OCR character error rate** (FR-DOC-02, target ≤ 5% on printed pages): 7.9% mean, 10.8% worst, over the 9 printed photographed pages of both sets (handwritten pages excluded; only whitespace is normalised). Below target. The errors come from shadow and noise on phone photos; tesseract `eng+hin` also read that noise as Devanagari on English pages, so a page without a confidently read Devanagari word is now read again with `eng` alone (9.4% → 7.9%). FR-EXT-10 is the control for what remains: spans below 0.80 confidence are shown beside the page image and cannot be bulk-verified.
+
+Held-out recall by document type (shown to verifiers as the coverage note, FR-EXT-08; target ≥ 0.85):
+
+| Type | Gold facts | Rules | Rules + Gemini |
+|---|---|---|---|
+| Discharge summary | 30 | 0.700 | 0.800 |
+| Printed prescription | 16 | 0.813 | 0.813 |
+| Pathology report | 7 | 0.429 | 0.571 |
+| Lab report | 5 | 1.000 | 1.000 |
+| IHC / molecular report | 4 | 0.750 | 0.750 |
+| Imaging report | 4 | 1.000 | 1.000 |
+| Consultation note | 3 | 0.000 | 0.000 |
+| Chemotherapy day-care record | 3 | 0.667 | 0.667 |
+| Procedure / operative note | 3 | 0.000 | 0.667 |
+| Radiotherapy summary | 2 | 0.000 | 0.000 |
+| Other | 2 | 0.000 | 0.500 |
+
+What the held-out set found:
+
+- **A safety failure, fixed.** The first blind run auto-extracted one handwritten prescription: black ink, 0.31 of its lines below 0.75 confidence, just under the classifier's bar, so it was treated as printed (and its date misread as 2006). Borderline pages are now held when the whole page also reads below 0.80 confidence. That run is kept in `data/eval/heldout-blind-run.json`; the handwriting result on the held-out set is no longer blind.
+- **Identity holds too many documents.** 13 held-out documents that belong to the patient came back `insufficient` (7 `name_missing`, from headers such as "Patient: X, 55 Y / M" and Hindi or bilingual headers; 6 `no_corroborating_field`). Safe, since they wait for a person, but it costs coverage. Both wrong-patient documents were caught.
+- **Recall is the weak point.** Consultation notes and radiotherapy summaries are not extracted; pathology reports reach 0.43 / 0.57. Some consultation misses are partly strict gold labels (the right type and date, but no doctor or department in the quote).
+- The prompt-injection line was flagged and no forbidden field reached a draft.
+- Earlier, the model on its own (replacing the rules) reached precision 0.71 and recall 0.23 on the tuned set: it merged several prescription lines into one item with a letterhead quote, which the gate refused. That is why the free-tier model augments the rules.
 
 Caveats:
 
-- The set is 20 synthetic documents in `public/demo-docs/`, authored by the team. PRD §9.5 specifies 60 documents across 15 types. The larger set is not built.
-- The gold labels were written on the same documents the rules were tuned on. These numbers are not held-out.
-- The run used the rule-based path only (`"method": "rules"`; no AI runs are recorded).
-- Against the PRD §9.5 targets, precision (0.949) is just under the ≥ 0.95 target, and recall meets the ≥ 0.85 target. The report's `pass` flag covers only the two hard gates.
-- The PRD's identity target (mismatch recall ≥ 0.99 on 200 header pairs) is not what this report measures. The identity unit tests (`src/core/identity/identity.test.ts`) use a 360-pair generated set: mismatch recall 100%, false-match rate 0%.
+- Both sets are synthetic and authored by the team; the clinician advisor has not reviewed the gold labels. Per-type counts are small (1 to 30 facts), so per-type recall is noisy.
+- The eval scores a held document as if a person attached it, which is when production extracts it.
+- PRD §9.5 also names a 200-pair identity set and 150 date strings: those live in the unit tests (`src/core/identity/identity.test.ts`, 360 generated pairs, mismatch recall 100%; `src/core/dates/dates.test.ts`, ≥ 150 cases). The 30-document adversarial set and the 20-page handwritten set are not built: the two sets hold 2 injection documents and 4 handwritten pages.
 
-Rerun with `npx tsx --env-file=.env.local scripts/eval.ts`. It overwrites `data/eval/report.json` and exits with code 1 if a hard gate fails.
+Rerun with `npx tsx --env-file=.env.local scripts/eval.ts` (both sets; `--set tuned|heldout` for one, written to `report-<set>.json`; `--llm` for the Gemini path). It exits with code 1 if a hard gate fails. Regenerate the held-out documents with `npx tsx scripts/demo-docs/generate-heldout.ts`.
 
 ## Run locally
 
@@ -285,7 +290,7 @@ Scripts and commands (from `package.json` and `scripts/`):
 
 ## Project layout
 
-- `data/eval/`: hand-authored gold labels (`gold.json`) and the evaluation report (`report.json`).
+- `data/eval/`: hand-authored gold labels (`gold.json`, `gold-heldout.json`), the held-out documents (`heldout/`), OCR ground truth and the evaluation reports (`report.json`, `report-llm.json`).
 - `data/abdm/`: synthetic FHIR R4 document bundles and the in-process HIP's patient index (`hip.json`).
 - `docs/`: `BRIEF.md` (product summary), `PRD.md` (product spec, v1.1), `ARCHITECTURE.md` (build contract and ADRs), `AGENT-RULES.md`.
 - `drizzle/`: SQL migrations, including database roles and row-level security.
@@ -313,7 +318,7 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for nine rules; `RAD-IMG-PT-01` stays in shadow to show the mechanism. The wording still needs review by the team's clinician advisor before any pilot.
 - **Erasure runs after the retention period, in the database.** `erase_patient()` (SECURITY DEFINER) refuses unless the request is due, consent is withdrawn and the org matches; it then deletes 20 tables of patient data in one transaction and leaves a PII-free tombstone, the consent history and the audit trail. A daily Vercel cron runs due requests; admins can run them from `/admin/erasure`. Default retention is 10 years (configurable, minimum 3).
 - **Voice input uses the browser's Web Speech API** behind an organisation flag; no audio is retained and drug-name WER is unmeasured.
-- **Evaluation set is small and not held out.** See the caveats in the Evaluation section.
+- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini and 0.65 with rules alone (target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.
 

@@ -1,7 +1,7 @@
 # OncoSetu — build report
 
 How the prototype was built from PRD v1.1 (`docs/PRD.md`): the design-system decision, how the work was split across
-models, and what was verified. Date: 2 Nov 2026. Live: https://oncosetu-zeta.vercel.app
+models, and what was verified. Date: 2 Nov 2026, updated 4 Nov 2026. Live: https://oncosetu-zeta.vercel.app
 
 ## 1. Design system — evaluated from the brag-styles kit
 
@@ -32,7 +32,7 @@ Translation from video kit to a clinical UI (see `src/app/globals.css`, `src/com
 - **Safety in the brand:** on patient-facing surfaces the product shows as "Setu Records" until disclosure is cleared,
   because the name "OncoSetu" itself contains "Onco" (FR-CON-07).
 
-## 2. Delegation — 25 subagents, by complexity
+## 2. Delegation — 26 subagents, by complexity
 
 Opus orchestrated (plans, contracts in `docs/ARCHITECTURE.md` and `docs/AGENT-RULES.md`, merges, reviews, deploys).
 
@@ -63,8 +63,9 @@ Opus orchestrated (plans, contracts in `docs/ARCHITECTURE.md` and `docs/AGENT-RU
 | | ABDM HIU (**Opus**) | Transport interface, X25519/HKDF/AES-GCM, consent-gated decrypt, FHIR mapping |
 | | Backups (**Opus**) | Encrypted daily backups to private Blob (Mumbai) + verified restore |
 | | Perf probe (**Sonnet**) | Co-located FR-LED-07 measurement on Vercel sin1 |
+| Completion | Held-out eval (**Sonnet**) | 40 documents written after the rules froze, gold labels, OCR ground truth, CER and macro-F1 in `scripts/eval.ts` |
 
-Totals: 13 Opus (correctness- or security-critical), 11 Sonnet (well-specified features and tests), 1 Haiku
+Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified features and tests), 1 Haiku
 (documentation). Agents ran up to seven at once with explicit file ownership; the orchestrator committed between phases.
 
 ## 3. Verification evidence (2 Nov 2026)
@@ -75,7 +76,7 @@ Totals: 13 Opus (correctness- or security-critical), 11 Sonnet (well-specified f
 | Integration tests (`npm run test:integration`, live DB) | 27 passed — RLS isolation, erasure, inbound, ABDM, backup type round trips, shared LLM budget |
 | End-to-end (`npm run test:e2e`, production build) | 42 / 42 passed — PRD V01–V06 plus inbound, erasure, ABDM, perf |
 | Offline capture (`tests/e2e/offline-capture.e2e.ts`) | Passed against a production build |
-| Extraction eval (`scripts/eval.ts`, `--llm`) | 0 unsupported facts in the record; rules 0.949 / 0.962, Gemini hybrid 0.956 / 0.981 (precision / recall, 20 synthetic docs) |
+| Extraction eval (`scripts/eval.ts`, `--llm`) | 0 unsupported facts and 0 handwritten pages extracted on 60 synthetic docs. Tuned set (20): rules 0.949 / 0.962, Gemini hybrid 0.952 / 0.981. Held-out set (40, written after the rules froze): rules 0.889 / 0.646, Gemini hybrid 0.907 / 0.734 (precision / recall; targets 0.95 / 0.85). Classification macro-F1 0.983. OCR CER on photographed printed pages 7.9% (target 5%) |
 | FR-LED-07, co-located (`vercel crons run /api/cron/perf-probe`) | PASS — 508-item ledger 1.14 s and 1.21 s in sin1 (budget 2 s) |
 | Restore drill (Neon PITR, `scripts/restore-drill.ts`) | PASS — 14 checks |
 | Restore from the Vercel-made encrypted backup | PASS — 9 checks, 40 tables, 27,566 rows, 60 signatures, 358 files |
@@ -86,7 +87,7 @@ Totals: 13 Opus (correctness- or security-critical), 11 Sonnet (well-specified f
 
 | Integration | Status |
 |---|---|
-| LLM extraction | **Live: Gemini free tier** (`gemini-3.5-flash-lite`, fallback `gemini-flash-lite-latest`), behind a Postgres-enforced shared budget (8/min, 200/day, 60 s cooldown after a 429) and in hybrid mode with the rule library. Eval: precision 0.956, recall 0.981, 0 unsupported facts (18 calls, all within quota). Daily health check `GET /api/cron/llm-health` |
+| LLM extraction | **Live: Gemini free tier** (`gemini-3.5-flash-lite`, fallback `gemini-flash-lite-latest`), behind a Postgres-enforced shared budget (8/min, 200/day, 60 s cooldown after a 429) and in hybrid mode with the rule library. Eval on the 40-document held-out set: precision 0.907, recall 0.734, 0 unsupported facts (58 calls for both sets, all within quota). Daily health check `GET /api/cron/llm-health` |
 | SMS / WhatsApp out | Demo mode by decision: messages recorded in the outbox and shown on the demo phone. Twilio adapter built and wire-tested; enable with `TWILIO_*` |
 | WhatsApp in / email drop | Demo mode by decision: endpoints built and E2E-tested with signed payloads; enable with Twilio / Postmark accounts |
 | ABDM | Demo mode by decision: PRD-specified in-process gateway with real X25519/HKDF/AES-GCM; sandbox client built; enable with HIU registration (`ABDM_*`) |

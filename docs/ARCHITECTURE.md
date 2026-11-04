@@ -19,7 +19,7 @@ deployable unit — see ADR at the bottom.
   **the app must be fully functional with no LLM**. Every path goes through the same evidence gate.
   The LLM path is exercised without a key by `src/server/pipeline/llm-path.test.ts` (AI SDK test model; tests pin the
   provider with `setLlmProviderForTests`, which production never calls and which refuses to run when `NODE_ENV=production`).
-- OCR: `tesseract.js` 7 (eng+hin) server-side for images/scans → per-word confidence + bbox. Text-layer PDFs via `unpdf`.
+- OCR: `tesseract.js` 7 server-side for images/scans → per-word confidence + bbox: eng+hin first; a page with no Devanagari word read at confidence ≥ 0.8 is read again with eng alone (the Hindi model misreads noisy English photos). Text-layer PDFs via `unpdf`.
 - Images re-encoded with `sharp` (strips metadata/payloads). QR via `qrcode`. YAML via `yaml`. UUIDv7 via `uuid`.
 - Tests: Vitest (unit, `src/**/*.test.ts`), Playwright (E2E, `tests/e2e/**`).
 - Hosting: Vercel (Fluid compute, Node runtime). Files ≤ 4 MB per request (Vercel body limit 4.5 MB) — the client

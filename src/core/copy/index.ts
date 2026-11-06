@@ -74,3 +74,12 @@ export function formatDateIN(iso: string | null | undefined, lang: Lang = 'en', 
   const month = MONTHS[lang][m - 1]
   return precision === 'month' ? `${month} ${y}` : `${d} ${month} ${y}`
 }
+
+/** Hindi when an Accept-Language header lists it before English, else English. */
+export function langFromAcceptLanguage(header: string | null): Lang {
+  for (const tag of (header ?? '').split(',').map((p) => p.split(';')[0].trim().toLowerCase())) {
+    if (tag === 'hi' || tag.startsWith('hi-')) return 'hi'
+    if (tag === 'en' || tag.startsWith('en-')) return 'en'
+  }
+  return 'en'
+}

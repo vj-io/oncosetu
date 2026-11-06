@@ -135,7 +135,7 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
   const prev = sealed(rows({ documents: [d] }), '2026-10-10T06:00:00Z')
 
   it('splits new vs newly received older, flags conflicts, and limits Verify all', () => {
-    const v = buildLedgerView({ rows: base, prev, role: 'records', now: NOW })
+    const v = buildLedgerView({ rows: base, prev, role: 'records', now: NOW, viewedByMe: new Set([lab.id]) })
     expect(v.mode).toBe('diff')
     expect(v.events.newly_received_older.map((i) => i.id)).toEqual([old.id])
     expect(v.conflicts).toHaveLength(1)
@@ -147,6 +147,9 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
     expect(bulkSkipReason(items.get(old.id))).toContain('newly_received_older')
     expect(bulkSkipReason(items.get(a.id))).toContain('conflict')
     expect(bulkSkipReason(undefined)).toEqual(['not_in_record'])
+    // Eligible but its source not opened by this person: bulk verify leaves it out.
+    const unopened = itemsById(buildLedgerView({ rows: base, prev, role: 'records', now: NOW })).get(lab.id)
+    expect(bulkSkipReason(unopened)).toEqual(['source_not_opened'])
     expect(v.counts).toMatchObject({ verified: 0, unverified: 5 })
   })
 

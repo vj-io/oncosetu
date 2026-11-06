@@ -16,6 +16,9 @@ export const EVENT_TYPES = [
   'consultation_documented',
   'referral_documented',
   'report_pending_documented',
+  'allergy_documented',
+  'follow_up_documented',
+  'lab_results_documented',
   'patient_statement',
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -47,6 +50,9 @@ export const EVENT_FIELDS: Record<EventType, readonly string[]> = {
   consultation_documented: ['doctor_name', 'department_text', 'institution_name', 'event_date_text', 'event_date'],
   referral_documented: ['referred_to_text', 'doctor_name', 'institution_name', 'event_date_text', 'event_date'],
   report_pending_documented: ['test_name', 'status_text', 'institution_name', 'event_date_text', 'event_date'],
+  allergy_documented: ['allergy_text', 'institution_name', 'event_date_text', 'event_date'],
+  follow_up_documented: ['appointment_text', 'institution_name', 'event_date_text', 'event_date'],
+  lab_results_documented: ['test_names', 'institution_name', 'event_date_text', 'event_date'],
   patient_statement: ['statement_text', 'medication_names', 'scan_name', 'institution_name', 'event_date_text'],
 }
 

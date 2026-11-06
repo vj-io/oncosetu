@@ -10,7 +10,7 @@ import { postJson } from './client'
 
 type Sealed = { snapshotId: string; seq: number; sha256: string; keyId: string; sealedAt: string }
 
-/** "Verify all eligible" (FR-LED-05) and "Seal snapshot" (FR-LED-01, clinicians). */
+/** "Verify opened items" (FR-LED-05; only items whose source this person opened) and "Seal snapshot" (FR-LED-01, clinicians). */
 export function LedgerToolbar({ patientId, eligibleIds, counts, nextSeq, canSeal }: { patientId: string; eligibleIds: string[]; counts: LedgerView['counts']; nextSeq: number; canSeal: boolean }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -51,7 +51,7 @@ export function LedgerToolbar({ patientId, eligibleIds, counts, nextSeq, canSeal
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" icon={<CheckCheck aria-hidden />} disabled={!eligibleIds.length} onClick={() => { setDialog('bulk'); setError(null) }}>
-        Verify all eligible ({eligibleIds.length})
+        Verify opened items ({eligibleIds.length})
       </Button>
       {canSeal && (
         <Button icon={<StampIcon aria-hidden />} disabled={!total && !counts.documents} onClick={() => { setDialog('seal'); setError(null) }}>
@@ -63,7 +63,7 @@ export function LedgerToolbar({ patientId, eligibleIds, counts, nextSeq, canSeal
         open={dialog === 'bulk'}
         onClose={close}
         title={`Verify ${eligibleIds.length} items`}
-        description="Only items with no conflict, no low OCR confidence, no identity warning, no uncertain binding and that are not newly received older records. Everything else stays for one-by-one review with its source open."
+        description="Only items whose source you opened, with no conflict, no low OCR confidence, no identity warning, no uncertain binding and that are not newly received older records. Everything else stays for one-by-one review with its source open."
         footer={<><Button variant="ghost" onClick={close}>Cancel</Button><Button loading={busy} onClick={bulk}>Verify {eligibleIds.length}</Button></>}
       >
         <p className="text-[15px] text-muted">Each item gets its own verification record with your name, role and time.</p>

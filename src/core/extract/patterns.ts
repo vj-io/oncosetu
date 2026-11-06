@@ -42,7 +42,7 @@ const TESTS = [
   String.raw`culture(?:\s+report)?`, String.raw`frozen\s+section`, String.raw`bone\s+marrow(?:\s+(?:biopsy|aspiration|report))?`, String.raw`flow\s+cytometry`,
   String.raw`karyotyp\w+`, String.raw`tumou?r\s+markers?`, String.raw`CA[\s-]?125`, String.raw`CA[\s-]?15[.-]3`, 'CEA', 'PSA', 'AFP',
   String.raw`PET[\s-]?CT(?:\s+report)?`, String.raw`CT(?:\s+scan)?\s+report`, String.raw`MRI(?:\s+report)?`, String.raw`USG(?:\s+report)?`, String.raw`bone\s+scan`,
-  String.raw`mammogra(?:m|phy)`, String.raw`2D\s*echo`, 'MUGA',
+  String.raw`mammogra(?:m|phy)`, String.raw`2D\s*echo`, 'MUGA', String.raw`lab(?:oratory)?(?=\s+reports?(?![\p{L}]))`,
 ].join('|')
 const STATUS = String.raw`to\s+follow|awaited|awaiting|pending|will\s+follow|sent(?:\s+for)?|dispatched|under\s+process|being\s+processed|in\s+process|not\s+(?:yet\s+)?received`
 const PENDING_A = new RegExp(String.raw`(?<![\p{L}])(${TESTS})(?![\p{L}])[^.\n;]{0,40}?(?<![\p{L}])(${STATUS})(?![\p{L}])`, 'giu')
@@ -63,16 +63,29 @@ const RT_DATE_LABEL = /(?<![\p{L}])(date\s+of\s+completion|completion\s+date|tre
 const RT_NOT_DONE = /(?<![\p{L}])(?:not|to\s+be|will\s+be|yet\s+to\s+be)\s+complet/iu
 
 const BODY = String.raw`(?:\s+(?:of\s+)?(?:the\s+)?(?:thorax|chest|abdomen\s+(?:and|&)\s+pelvis|abdomen|pelvis|neck|brain|head|whole\s+body|bilateral\s+breasts?|breasts?|spine|liver))?`
+// "ECG / Chest X-ray" is kept as written (the ECG half is not dropped); standalone ECG is not an imaging report.
 const IMAGING = new RegExp(
-  String.raw`(?<![\p{L}])(?:(?:PET[\s-]?CT|CECT|NCCT|CT(?:\s+scan)?|MRI|USG|ultrasound|ultrasonography|X-?ray)${BODY}|mammogra(?:m|phy)|sonomammography|bone\s+scan|2D\s*echo|MUGA)(?![\p{L}])(?![\s-]+guided)`,
+  String.raw`(?<![\p{L}])(?:(?:(?:ECG|EKG)\s*(?:\/|&|and)\s*)?(?:chest\s+)?(?:PET[\s-]?CT|CECT|NCCT|CT(?:\s+scan)?|MRI|USG|ultrasound|ultrasonography|X-?ray)${BODY}|mammogra(?:m|phy)|sonomammography|bone\s+scan|2D\s*echo|MUGA)(?![\p{L}])(?![\s-]+guided)`,
   'giu',
 )
 const PATH_MENTION = /(?<![\p{L}])((?:HPE|histopatholog\w*)(?:\s+report)?|biopsy\s+report)\s+(?:dated|dt\.?|on|of)\s+/giu
+/** "Addendum to histopathology report dated …" points at the report it amends, which is its own document. */
+const AMENDS = /(?:addendum|amendment|corrigendum|supplement(?:ary)?)\s+(?:report\s+)?to\s+$/iu
 
 const REFERRAL = /(?<![\p{L}])(?:referred|refer|referral|ref\.?)\s+to\s+((?:Dr\.?\s*)?[\p{L}][\p{L}\p{M}.&'’\- ]{2,80}?)(?=\s+for(?![\p{L}])|\s+(?:on|dated)\s|[,;:\n(]|\.\s|\.$|$)/giu
 
 const ADMISSION = /(?<![\p{L}])(?:D\.?O\.?A\.?|Date\s+of\s+Admission|Admission\s+Date|Admitted\s+on|Date\s+of\s+Adm\.?)(?![\p{L}])\s*[:\-–]?\s*/giu
 const DISCHARGE = /(?<![\p{L}])(?:D\.?O\.?D\.?|Date\s+of\s+Discharge|Discharge\s+Date|Discharged\s+on)(?![\p{L}])\s*[:\-–]?\s*/giu
+
+const ALLERGY = /(?<![\p{L}])(?:(?:no|nil)\s+known\s+(?:drug\s+|food\s+)?allerg(?:y|ies)|NKDA|(?:known\s+)?allergic\s+to\s+[^.;\n\t]{2,60}?(?=\s*(?:[.;\n\t]|$))|allerg(?:y|ies)\s*[:\-–]\s*[^.;\n\t]{2,60}?(?=\s*(?:[.;\n\t]|$)))/iu
+// A date already written down for something still to come (review visit, suture removal, dressing, next cycle).
+const FOLLOW_UP = /(?<![\p{L}])(?:review|follow[\s-]?up|re-?visit|(?:suture|stitch(?:es)?)\s+removal|removal\s+of\s+(?:sutures|stitches)|(?:wound\s+)?dressing|next\s+(?:visit|review|appointment|cycle)|appointment)(?![\p{L}])/iu
+const FOLLOW_UP_PAST = /(?<![\p{L}])(?:was|were|done|performed|completed|reviewed)(?![\p{L}])/iu
+const FOLLOW_UP_TAIL = /[\s,:\-–]*(?:(?:on|dated|due|at|by|for)[\s:]*)?$/iu
+// One lab result row as printed: a test name, a number (with the lab's own H/L mark, if any) and a lab unit
+// ("Haemoglobin  11.8 g/dL  12.0 - 15.5 g/dL").
+const RESULT_ROW = /^[\s•*-]*([\p{L}][\p{L}\p{M}\d ()/.,'+-]{1,44}?)\s*[:\-–]?\s+[<>]?\s*\d[\d,]*(?:\.\d+)?(?:\s*[HL*](?![\p{L}]))?\s*(?:g\/dl|gm\/dl|gm?%|mg\/dl|mg\/l|mmol\/l|meq\/l|[iu]u\/l|u\/l|iu\/ml|ng\/ml|pg\/ml|[µu]g\/l|[µu]iu\/ml|fl|pg|%|\/\s?cu\.?\s?mm|\/\s?cumm|\/\s?[µu]l|\/\s?mm3|lakhs?|million|x\s?10|sec(?:onds)?|mm\/(?:1st\s+)?hr?)(?![\p{L}])/iu
+const RESULT_DOCS: ReadonlySet<DocType> = new Set(['lab_report', 'discharge_summary', 'chemo_daycare_record', 'consult_note', 'procedure_note'])
 
 const MED_LINE = /^\s*(?:\d{1,2}[.)]\s*)?(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syr|Syrup|Susp|Oint|Gel|Drops?|Sachet|Neb)\.?\s+([A-Za-z][\w+-]*(?:\s+(?!(?:OD|BD|BID|TDS|TID|QID|HS|SOS|PRN|STAT|x|X|for|after|before|daily|once|twice|thrice|morning|night|with|mg|ml|mcg|g|IU|units?)\b)[A-Za-z][\w+-]*){0,2})/u
 
@@ -85,18 +98,45 @@ const TITLES: Partial<Record<DocType, RegExp>> = {
 
 // ---------- helpers ----------
 
+// "Tab. Thyroxine", "Dr. Meera", "Reg. No.", initials, list numbers ("1. Tab."): a full stop that does not end a sentence.
+const ABBREV = /(?:(?:^|[^\p{L}])(?:Dr|Drs|Mr|Mrs|Ms|Smt|Shri|Sh|Prof|Tab|Cap|Inj|Syp|Syr|No|Nos|Reg|Hosp|Dt|St|Sr|Jr|Pvt|Ltd|Co|vs|approx|Ref|Wt|Ht|\p{Lu})|(?:^|[^\p{L}\d])\d{1,2})\.$/u
+const SENTENCE_END = /[.;!?]\s+(?=[\p{Lu}(•"“])/gu
+
+/**
+ * Sentence segments. A line that starts in lower case continues the previous line's sentence (wrapped text), so a
+ * quote never starts mid-sentence ("drug allergies. CT thorax …" was the bug). Table rows and headings start a new
+ * line in upper case or a digit and stay whole. A sentence longer than a quote falls back to its lines.
+ */
 function segments(page: ExtractPage): Seg[] {
+  const lines = [...page.text.matchAll(/[^\n]+/g)].map((m) => ({ start: m.index!, end: m.index! + m[0].length }))
+  const blocks: { start: number; end: number; lines: typeof lines }[] = []
+  for (const l of lines) {
+    const prev = blocks.at(-1)
+    const text = page.text.slice(l.start, l.end)
+    if (prev && /^\s*\p{Ll}/u.test(text) && !/[.:;!?]\s*$/.test(page.text.slice(prev.start, prev.end))) {
+      prev.end = l.end
+      prev.lines.push(l)
+    } else blocks.push({ start: l.start, end: l.end, lines: [l] })
+  }
   const out: Seg[] = []
-  for (const m of page.text.matchAll(/[^\n]+/g)) {
-    const lineStart = m.index!
-    const line = m[0]
-    // Split long lines into sentences.
-    const parts = line.length > MAX_QUOTE ? [...line.matchAll(/[^.;]+[.;]?/g)].map((p) => [p.index!, p.index! + p[0].length]) : [[0, line.length]]
-    for (const [a, b] of parts) {
-      const raw = line.slice(a, b)
-      const lead = raw.length - raw.trimStart().length
-      const text = raw.trim()
-      if (text) out.push({ page, start: lineStart + a + lead, end: lineStart + a + lead + text.length, text })
+  const push = (a: number, b: number) => {
+    const raw = page.text.slice(a, b)
+    const lead = raw.length - raw.trimStart().length
+    const text = raw.trim()
+    if (text) out.push({ page, start: a + lead, end: a + lead + text.length, text })
+  }
+  for (const b of blocks) {
+    const body = page.text.slice(b.start, b.end)
+    const cuts = [0]
+    for (const m of body.matchAll(SENTENCE_END)) if (m[0][0] !== '.' || !ABBREV.test(body.slice(0, m.index! + 1))) cuts.push(m.index! + 1)
+    cuts.push(body.length)
+    for (let i = 0; i + 1 < cuts.length; i++) {
+      const [a, z] = [b.start + cuts[i], b.start + cuts[i + 1]]
+      if (z - a <= MAX_QUOTE || b.lines.length === 1) {
+        // A single overlong line keeps the old split (sentences on . and ;) so nothing is lost to the quote cap.
+        if (z - a > MAX_QUOTE) for (const p of page.text.slice(a, z).matchAll(/[^.;]+[.;]?/g)) push(a + p.index!, a + p.index! + p[0].length)
+        else push(a, z)
+      } else for (const l of b.lines) if (l.end > a && l.start < z) push(Math.max(l.start, a), Math.min(l.end, z))
     }
   }
   return out
@@ -201,13 +241,46 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         for (const m of t.matchAll(IMAGING)) add('imaging_report_documented', page, seg.start, seg.end, { test_name: m[0], event_date_text: dates[0].raw })
         for (const m of t.matchAll(PATH_MENTION)) {
           const d = dateAfter(t, m.index! + m[0].length)
-          if (d) add('pathology_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d.raw })
+          if (d && !AMENDS.test(t.slice(0, m.index!))) add('pathology_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d.raw })
         }
       }
 
       // Referrals
       for (const m of t.matchAll(REFERRAL)) add('referral_documented', page, seg.start, seg.end, { referred_to_text: m[1], event_date_text: dates[0]?.raw })
+
+      // Allergy statements, word for word ("No known drug allergies", "Allergic to sulpha drugs")
+      const al = ALLERGY.exec(t)
+      if (al) add('allergy_documented', page, seg.start, seg.end, { allergy_text: al[0].replace(/\s+/g, ' '), event_date_text: dates[0]?.raw })
+
+      // Follow-up dates already written down: the text before the date names what is due
+      const fu = FOLLOW_UP.exec(t)
+      const due = fu && !FOLLOW_UP_PAST.test(t) ? dates.find((d) => d.start > fu.index) : undefined
+      if (fu && due) {
+        const what = t.slice(fu.index, due.start).replace(FOLLOW_UP_TAIL, '')
+        add('follow_up_documented', page, seg.start, seg.end, { appointment_text: (what.length <= 80 ? what : fu[0]).replace(/\s+/g, ' '), event_date_text: due.raw })
+      }
     })
+
+    // Lab result rows, grouped into quotes of consecutive rows: the values are shown as printed, never interpreted
+    if (RESULT_DOCS.has(docType)) {
+      let rows: { seg: Seg; name: string }[] = []
+      const flush = () => {
+        if (rows.length) {
+          const text = page.text.slice(rows[0].seg.start, rows.at(-1)!.seg.end)
+          add('lab_results_documented', page, rows[0].seg.start, rows.at(-1)!.seg.end, { test_names: [...new Set(rows.map((r) => r.name))], event_date_text: absDates(text)[0]?.raw })
+        }
+        rows = []
+      }
+      for (const seg of segs) {
+        const m = seg.text.includes('\n') ? null : RESULT_ROW.exec(seg.text)
+        if (!m) flush()
+        else {
+          if (rows.length && seg.end - rows[0].seg.start > MAX_QUOTE) flush()
+          rows.push({ seg, name: m[1].trim() })
+        }
+      }
+      flush()
+    }
 
     // Printed prescription medication blocks
     if (docType === 'prescription_printed') {

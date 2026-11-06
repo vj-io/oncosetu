@@ -115,11 +115,11 @@ test('V02-E2E-05 a hidden-instruction document is flagged: no forbidden fields, 
   const up = await uploadAndWait(records, p.id, 'hero__08-lab-report-injection.pdf')
   expect(up.doc.flags).toMatchObject({ injection: true })
   const evs = (await eventsOf(p.id)).filter((e) => e.documentId === up.documentId)
-  // Only the visible lab report is a fact; nothing came from the hidden text.
-  expect(evs.map((e) => e.eventType)).toEqual(['lab_report_documented'])
+  // Only the visible lab report (and its printed result rows) are facts; nothing came from the hidden text.
+  expect([...new Set(evs.map((e) => e.eventType))].sort()).toEqual(['lab_report_documented', 'lab_results_documented'])
   const dump = JSON.stringify(evs.map((e) => e.fields)).toLowerCase() + JSON.stringify(await Promise.all(evs.map((e) => evidenceOf(e.id)))).toLowerCase()
   for (const bad of ['ignore previous', 'verified', 'stage iv', 'carcinoma', 'diagnosis']) expect(dump).not.toContain(bad)
-  expect(Object.keys(evs[0].fields).sort()).toEqual(expect.arrayContaining(['test_name']))
+  expect(Object.keys(evs.find((e) => e.eventType === 'lab_report_documented')!.fields)).toEqual(expect.arrayContaining(['test_name']))
   expect(evs.every((e) => e.verificationStatus === 'unverified')).toBe(true) // the document could not change any status
   // Staff see why it is flagged.
   const page = await ui('records')
@@ -183,6 +183,7 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   expect(byRecords.body.verified).toEqual([])
   expect(byRecords.body.skipped).toEqual(expect.arrayContaining([{ id: ctEv.id, reasons: ['clinician_tier'] }, { id: cbcEv.id, reasons: ['binding_uncertain'] }]))
   const clinician = await staff('clinician')
+  await clinician.post(`/api/events/${ctEv.id}/viewed`) // bulk verify only takes items whose source this person opened
   const byClinician = await clinician.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
   expect(byClinician.body.verified).toEqual([ctEv.id])
   expect(byClinician.body.skipped).toEqual([{ id: cbcEv.id, reasons: ['binding_uncertain'] }])

@@ -36,7 +36,7 @@ const DOCS = path.resolve(__dirname, '../public/demo-docs')
 const N = ORG_NARMADA_ID
 const SHARE_PASSCODE = '246810'
 const RETURNING_S0_AT = Date.parse('2026-02-16T10:30:00+05:30') // the returning patient's previous visit
-const SHADOW_RULE = 'RAD-IMG-PT-01' // left in shadow so the shadow-mode mechanism is demonstrable
+const PET_RULE = 'RAD-IMG-PT-01' // the PET-CT the returning patient mentioned: reviewed like the rest, so clinicians see it (mentor review, 5 Nov 2026)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const t0 = Date.now()
 const step = (s: string) => console.log(`[${((Date.now() - t0) / 1000).toFixed(0).padStart(4)}s] ${s}`)
@@ -289,11 +289,11 @@ async function main() {
     ['desk', 'records', 'clinician', 'admin'].map((r) => staffLogin(`${r}@narmada.demo`)),
   ) as Staff[]
 
-  // 2. rule review: Dr. Meera Iyer reviewed every rule except the one left in shadow
-  for (const r of RADAR_RULES.filter((x) => x.id !== SHADOW_RULE)) {
+  // 2. rule review: Dr. Meera Iyer reviewed every rule (shadow mode is still the YAML default for an unreviewed rule)
+  for (const r of RADAR_RULES) {
     await admin.post(`/api/admin/rules/${r.id}`, { mode: 'production', reviewerId: clinician.staffId, confirm: true })
   }
-  step(`rules: ${RADAR_RULES.length - 1} in production (reviewed by Dr. Meera Iyer), ${SHADOW_RULE} in shadow`)
+  step(`rules: ${RADAR_RULES.length} in production (reviewed by Dr. Meera Iyer)`)
 
   // 3a. returning patient — previous visit on 16 Feb 2026 (org clock moved back; see header)
   await setClockOffset(Math.round((RETURNING_S0_AT - Date.now()) / 1000))
@@ -456,7 +456,7 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
       check(view.events.amended.length, 'returning: ledger has no "Amended" item')
       check(view.conflicts.some((c) => c.kind === 'medication_names'), 'returning: ledger has no medicine conflict')
       check(view.patientSaid.length, 'returning: ledger has no "Patient said"')
-      check(miss.some((m) => m.ruleId === SHADOW_RULE && m.mode === 'shadow'), `returning: no shadow ${SHADOW_RULE} item`)
+      check(miss.some((m) => m.ruleId === PET_RULE && m.mode === 'production'), `returning: no ${PET_RULE} item in production`)
     }
     if (key === 'fulfilled') {
       check(reqs.length === 1 && reqs[0].state === 'fulfilled' && reqs[0].reminder7SentAt, 'fulfilled: request not fulfilled with a 7-day reminder')

@@ -43,11 +43,12 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
   expect(list.progress).toMatchObject({ documents: 8, awaitingDecision: 0 })
 
-  // Records staff verify what is eligible, from the ledger.
+  // Records staff open the sources, then verify what is eligible from the ledger (bulk verify takes opened items only).
+  for (const e of await eventsOf(p.id)) await records.post(`/api/events/${e.id}/viewed`)
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
   await expect(rec.getByText('Initial record · first visit')).toBeVisible()
-  const bulkButton = rec.getByRole('button', { name: /Verify all eligible \(\d+\)/ })
+  const bulkButton = rec.getByRole('button', { name: /Verify opened items \(\d+\)/ })
   const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
   expect(eligible).toBeGreaterThan(0)
   await bulkButton.click()
@@ -123,7 +124,10 @@ test('V03-E2E-02 returning visit: pre-visit answers, new lab report, ledger "New
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
   await expect(page.getByRole('heading', { name: 'What changed since S0' })).toBeVisible()
-  expect(await count(page, 'New since last visit')).toBe(1)
+  // The new lab report: its report fact plus its printed result rows (5 Nov 2026), all from that one document.
+  const fromLab = (await eventsOf(p.id)).filter((e) => e.documentId === docId && !e.withdrawnAt)
+  expect(fromLab.map((e) => e.eventType)).toContain('lab_results_documented')
+  expect(await count(page, 'New since last visit')).toBe(fromLab.length)
   expect(await count(page, 'Patient said')).toBe(5) // one line per answered question, "no" included
   const added = sectionOf(page, 'New since last visit')
   await expect(added).toContainText('Haematology')
@@ -135,8 +139,13 @@ test('V03-E2E-02 returning visit: pre-visit answers, new lab report, ledger "New
 
   // Verify the new item and seal S1: the hash is recorded and publicly checkable.
   const newEvents = (await eventsOf(p.id)).filter((e) => e.documentId === docId)
+  for (const e of newEvents) await clinician.post(`/api/events/${e.id}/viewed`)
   const v = await clinician.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: newEvents.map((e) => e.id) })
-  expect(v.body.verified.length).toBe(newEvents.length)
+  // OCR'd result rows are never bulk-verified (binding_uncertain): each one is checked against the image, one by one.
+  const ocrRows = newEvents.filter((e) => e.eventType === 'lab_results_documented')
+  expect(v.body.skipped.map((x: { id: string }) => x.id).sort()).toEqual(ocrRows.map((e) => e.id).sort())
+  for (const e of ocrRows) expect((await clinician.post(`/api/events/${e.id}/verify`, { action: 'verify', rowVersion: e.rowVersion })).ok).toBe(true)
+  expect(v.body.verified.length + ocrRows.length).toBe(newEvents.length)
   const s1 = await seal(clinician, p.id)
   expect(s1.seq).toBe(1)
   const stored = (await snapshotsOf(p.id)).map((s) => ({ seq: s.seq, sha256: s.sha256 }))

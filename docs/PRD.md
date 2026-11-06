@@ -527,7 +527,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-LED-02 | Ledger = diff between `S_n` and the current record, grouped into: **New since last visit** (event_date > S_n.sealed_at), **Newly received older records** (event_date ≤ S_n.sealed_at but not in S_n) — visually distinct with the event date prominent, **Amended / corrected**, **Conflicts**, **Patient said** (unconfirmed by documents), **Missing records** (from Radar), **Duplicates suppressed** (count, expandable) | M | Each category has fixture tests |
 | FR-LED-03 | Conflict detection is attribute-level and deterministic: same event type + overlapping date window + different values on a compared field (e.g., medication name on a prescription vs patient statement; date of a procedure in two documents) | M | Conflict fixtures |
 | FR-LED-04 | Ledger items show WHAT (event), WHERE (source + page + quote), WHO (verification status and actor), WHEN (event date, document date, received date) | M | |
-| FR-LED-05 | Bulk actions are limited: "verify all" is not available for items with conflicts, low OCR confidence, identity warnings or newly received older records | M | E2E |
+| FR-LED-05 | Bulk actions are limited: "verify all" is not available for items with conflicts, low OCR confidence, identity warnings or newly received older records. *Amended 5 Nov 2026:* it takes only items whose source the verifier has opened ("Verify opened items") | M | E2E |
 | FR-LED-06 | First visit: no S_n → ledger shows "Initial record" mode with onboarding priorities (FR-ONB) | M | |
 | FR-LED-07 | Ledger renders in ≤ 2 s for a patient with 500 events | S | Performance test |
 
@@ -687,6 +687,8 @@ MVP and pilot use a tablet (10–11") on a stand plus the patient's phone. A ded
 `document_received`, `procedure_documented`, `pathology_report_documented`, `molecular_test_documented`, `imaging_report_documented`, `lab_report_documented`, `prescription_documented`, `chemotherapy_session_documented`, `radiotherapy_documented`, `admission_documented`, `discharge_documented`, `consultation_documented`, `referral_documented`, `report_pending_documented` (a document says a result is awaited), `patient_statement`.
 
 Fields are descriptive and quoted (e.g., `procedure_text`, `institution_name`, `test_name`, `medication_names[]` from printed prescriptions only, `cycle_number` when written). **No** stage, grade, response, progression, risk or dose-calculation fields.
+
+*Amendment, 5 Nov 2026 (mentor review of the clinician walkthrough):* three more descriptive types, each a word-for-word quote with no interpretation: `allergy_documented` (`allergy_text`, e.g. "No known drug allergies"; clinician tier), `follow_up_documented` (`appointment_text` + a date already written for something still to come, e.g. "Suture removal on 24/03/2026") and `lab_results_documented` (`test_names[]`; the quote is the result rows as printed, values and the lab's own H/L marks included; nothing is flagged as high or low by the system, and rows read by OCR always need a one-by-one check against the page image). Diagnosis text and medical history stay out of the event list: they are read in the source document.
 
 ### 7.3 Provenance: three independent axes
 

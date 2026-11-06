@@ -157,12 +157,13 @@ npm run test:e2e                                       # 42 Playwright tests aga
 
 **Known limits worth improving**
 
-- Extraction recall on the 40-document held-out set is 0.73 with Gemini, 0.65 rules-only (target 0.85); consultation
-  notes and radiotherapy summaries are not extracted, pathology is 0.57. Identity returns `insufficient` for 13 of 40
+- Extraction recall on the 40-document held-out set is 0.73 with Gemini (4 Nov run), 0.66 rules-only (target 0.85);
+  consultation notes and radiotherapy summaries are not extracted, pathology is 0.57. Identity returns `insufficient` for 13 of 40
   documents that are the patient's (header formats such as "Patient: X, 55 Y / M", Hindi headers). OCR CER on phone
   photos is 7.9% (target 5%). Improving any of these on the held-out set makes it no longer blind: write a fresh set
   first (`scripts/demo-docs/heldout-docs.ts` shows the format). Gold labels need the clinician advisor's review.
-  Drug-name WER for voice is not measured.
+  Drug-name WER for voice is not measured. The three fact types added on 5 Nov (allergy, follow-up date, lab result
+  rows) have no gold labels yet, so the eval counts them without scoring them. The `--llm` report predates them.
 - Malware check is the EICAR signature only (no ClamAV on serverless).
 - Hindi is the only regional language; Hindi copy and Radar wording need review by a native speaker and the clinician
   advisor before a pilot.

@@ -5,6 +5,27 @@ import { buildExtractionPrompt, classifyDocument, detectInjection, extractFallba
 
 // Synthetic documents in common Indian layouts (no real patient data).
 const DOCS: Record<string, { type: DocType; pages: string[] }> = {
+  // Mentor review, 5 Nov 2026: a sentence wrapped across lines, an investigations table and follow-up advice.
+  wrapped: {
+    type: 'discharge_summary',
+    pages: [
+      `TRIVENI HOSPITAL, NASHIK
+DISCHARGE SUMMARY
+Name: Sunita Sharma      Age/Sex: 52 Y / F
+Date of Admission: 10/03/2026    Date of Discharge: 14/03/2026
+Course in hospital: uneventful. Discharge medications as below; follow-up advice at the end.
+Known hypothyroidism on Tab. Thyroxine 50 mcg once daily. No known
+drug allergies. CT thorax and abdomen dated 20/02/2026 was reviewed at admission.
+Investigation \tResult \tReference range \tDate
+Haemoglobin \t11.8 g/dL \t12.0 - 15.5 g/dL \t10/03/2026
+Platelet count \t2.31 lakh /cu.mm \t1.50 - 4.10 lakh \t10/03/2026
+ECG / Chest X-ray \tWithin normal limits \t- \t10/03/2026
+• Review in the Surgical Oncology OPD on 20 Mar 2026 (Mon - Sat).
+• Suture removal on 24/03/2026 at the dressing room.
+• Dressing was done on 25/03/2026.
+• Collect pending laboratory reports from the Medical Records counter.`,
+    ],
+  },
   discharge: {
     type: 'discharge_summary',
     pages: [
@@ -180,6 +201,23 @@ const events = (k: keyof typeof DOCS) => {
 }
 
 describe('extractPatterns: what is found', () => {
+  it('quotes start at a sentence; allergy, follow-up dates, result rows and pending lab reports are found', () => {
+    const items = extractFallback(pagesOf(DOCS.wrapped)).items
+    const of = (t: string) => items.filter((i) => i.event_type === t)
+    // The CT fact no longer quotes "drug allergies. CT thorax …" (read as if the patient had allergies).
+    expect(of('imaging_report_documented').map((i) => i.quote)).toContain('CT thorax and abdomen dated 20/02/2026 was reviewed at admission.')
+    expect(of('allergy_documented')).toEqual([expect.objectContaining({ quote: 'No known\ndrug allergies.', fields: expect.objectContaining({ allergy_text: 'No known drug allergies' }) })])
+    expect(of('imaging_report_documented').map((i) => i.fields.test_name)).toContain('ECG / Chest X-ray')
+    const results = of('lab_results_documented')
+    expect(results).toHaveLength(1)
+    expect(results[0].fields.test_names).toEqual(['Haemoglobin', 'Platelet count'])
+    expect(results[0].quote).toContain('11.8 g/dL')
+    expect(of('follow_up_documented').map((i) => [i.fields.appointment_text, i.fields.event_date_text])).toEqual([
+      ['Review in the Surgical Oncology OPD', '20 Mar 2026'], ['Suture removal', '24/03/2026'], // "Dressing was done" is past, not due
+    ])
+    expect(of('report_pending_documented')).toContainEqual(expect.objectContaining({ fields: expect.objectContaining({ test_name: 'laboratory', status_text: 'pending' }) }))
+  })
+
   it('discharge summary', () => {
     const ev = events('discharge')
     expect(ev).toContainEqual(expect.objectContaining({ type: 'admission_documented', event_date_text: '10/03/2026', institution_name: 'CITY CANCER HOSPITAL, PUNE' }))

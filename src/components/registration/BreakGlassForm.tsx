@@ -30,7 +30,7 @@ export function BreakGlassForm({ patientId }: { patientId: string }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid gap-4" noValidate>
+    <form method="post" onSubmit={submit} className="grid gap-4" noValidate>
       <Field label="Reason for opening this record" error={error ?? undefined} hint="Recorded with your name. Visible to the administrator and in the patient's access log.">
         <Textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={4} maxLength={500} />
       </Field>

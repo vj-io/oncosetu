@@ -66,7 +66,7 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
 
           {mode === "scan" && <Scanner onCode={(c) => { setValue(c); lookup("scan", c); }} />}
 
-          <form className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); lookup(mode, value); }}>
+          <form method="post" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end" onSubmit={(e) => { e.preventDefault(); lookup(mode, value); }}>
             <Field label={mode === "scan" ? "Or type the code printed on the card" : MODES.find((m) => m.key === mode)!.label}>
               <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder={MODES.find((m) => m.key === mode)!.placeholder} autoComplete="off" inputMode={mode === "phone" ? "tel" : undefined} />
             </Field>

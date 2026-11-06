@@ -59,7 +59,9 @@ export default function StaffLoginPage() {
         body: JSON.stringify({ email, password, totp }),
       });
       if (res.ok) {
-        router.push("/desk");
+        // Each role starts on its own work list: a clinician on Patients, records staff on the records queue.
+        const role = ((await res.json().catch(() => null)) as { staff?: { role?: string } } | null)?.staff?.role;
+        router.push(role === "clinician" ? "/patients" : role === "records" ? "/records" : "/desk");
         return;
       }
       const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
@@ -92,7 +94,8 @@ export default function StaffLoginPage() {
           <p className="mt-4 text-muted">Email, password and the 6-digit code from your authenticator app.</p>
 
           <Frame animate className="mt-8 px-5 py-6 sm:px-8 sm:py-8">
-            <form onSubmit={onSubmit} className="grid gap-5">
+            {/* method="post": a submit before hydration must never put the password in the URL (it did, as a GET). */}
+            <form method="post" onSubmit={onSubmit} className="grid gap-5">
               <Field label="Email">
                 <Input type="email" name="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
               </Field>

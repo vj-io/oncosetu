@@ -5,6 +5,7 @@ import { BrassSeal, Frame, KeyValue, LanguageToggle, Spotlight, Wordmark } from 
 import { formatDateIN } from '@/core/copy'
 import { verifyCopy as T } from '@/i18n/ledger'
 import { verifySnapshotPublic } from '@/server/ledger/seal'
+import { browserLang } from '@/server/portal/context'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const fill = (s: string, v: Record<string, string | number>) => s.replace(/\{(\w+)\}/g, (m, k: string) => String(v[k] ?? m))
@@ -21,7 +22,8 @@ function Check({ ok, yes, no }: { ok: boolean; yes: string; no: string }) {
 /** Public verdict for one sealed snapshot: hash recomputed from the stored bytes, Ed25519 signature checked. No patient data. */
 export default async function VerifySnapshotPage({ params, searchParams }: { params: Promise<{ snapshotId: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { snapshotId } = await params
-  const lang = (await searchParams).lang === 'hi' ? 'hi' : 'en'
+  const asked = (await searchParams).lang
+  const lang = asked === 'hi' || asked === 'en' ? asked : await browserLang()
   if (!UUID.test(snapshotId)) notFound()
   const v = await verifySnapshotPublic(snapshotId)
   if (!v) notFound()

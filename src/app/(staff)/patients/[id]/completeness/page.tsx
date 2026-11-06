@@ -94,7 +94,9 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
     }] : []),
     { label: 'History', value: <History created={it.createdAt} entries={history} /> },
   ]
-  const title = (view.neutral ? it.neutral : it.wording)[lang]
+  const listed = (view.neutral ? it.neutral : it.wording)[lang]
+  // A received item is still open, but "not in file" next to a "Received" badge reads as a contradiction (mentor review).
+  const title = it.state === 'received' && lang === 'en' ? listed.replace(/\b(?:(is|are) )?not in file\b/, (_, v?: string) => `${v ? (v === 'is' ? 'was' : 'were') + ' ' : ''}listed as not in file`) : listed
   const actions = (
     <MissingActions id={it.id} patientId={patientId} state={it.state} institutionDiffers={it.institutionDiffers} canAct={canAct} canRequest={canRequest}
       proposed={proposed ? { label: docLabel(proposed.docType), date: proposed.documentDate ? d(proposed.documentDate) : 'not stated', institution: proposed.institution, href: `/patients/${patientId}/documents/${proposed.id}` } : null}
@@ -103,7 +105,8 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
   return (
     <article id={`m-${it.id}`} className="grid gap-4 border-b border-rule pb-8 last:border-b-0">
       {OPEN.includes(it.state) ? (
-        <EmptyFrame animate delay={Math.min(index * 60, 400)} title={title} status={it.state} accession={view.neutral ? undefined : it.ruleId} action={actions} />
+        <EmptyFrame animate delay={Math.min(index * 60, 400)} title={title} status={it.state} accession={view.neutral ? undefined : it.ruleId} action={actions}
+          detail={it.state === 'received' ? 'A document that may close this item has arrived. The item stays open until a person confirms the match or sets it aside.' : undefined} />
       ) : (
         // Resolved: no longer an empty frame on the wall, so no "Not in file" kicker.
         <div className="grid gap-2 sm:pl-25">

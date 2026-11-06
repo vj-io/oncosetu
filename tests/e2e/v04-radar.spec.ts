@@ -255,17 +255,20 @@ test('V04-E2E-08 an unreviewed (shadow) rule runs in shadow mode only: its item 
   const shadow = all.find((m) => m.ruleId === 'RAD-HPE-IHC-01')!
   expect(shadow).toMatchObject({ mode: 'shadow' }) // detected and recorded, not surfaced
   expect(all.find((m) => m.ruleId === HPE)).toMatchObject({ mode: 'production' })
+  // Production items: the histopathology report and the "pending laboratory reports" the discharge summary mentions.
+  const production = all.filter((m) => m.mode === 'production')
+  expect(production.map((m) => m.ruleId).sort()).toEqual([HPE, 'RAD-PEND-01'].sort())
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/completeness`)
-  await expect(page.locator('article[id^="m-"]')).toHaveCount(1)
+  await expect(page.locator('article[id^="m-"]')).toHaveCount(production.length)
   await expect(page.locator(`article#m-${shadow.id}`)).toHaveCount(0)
   await expect(page.locator('main')).not.toContainText('IHC report mentioned as pending')
   await page.goto(`/patients/${p.id}/ledger`)
   await expect(page.locator('main')).not.toContainText('IHC report mentioned as pending')
   // The sealed index and the share payload carry production items only.
   const sealed = await seal(clinician, p.id)
-  expect(sealed.counts.missing).toBe(1)
+  expect(sealed.counts.missing).toBe(production.length)
   const payload = (await records.get(`/api/patients/${p.id}/share-payload`)).body
   expect(JSON.stringify(payload.absent)).not.toMatch(/IHC|immunohisto/i)
   // The administrator sees it counted as a shadow hit on the rule page, awaiting clinician review.

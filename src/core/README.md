@@ -17,7 +17,7 @@ Const arrays + union types (use the arrays for zod enums / DB enums):
 
 | Export | Values |
 |---|---|
-| `EVENT_TYPES` / `EventType` | PRD §7.2 (15 types) |
+| `EVENT_TYPES` / `EventType` | PRD §7.2 (18 types: the 15 of v1.0 plus `allergy_documented`, `follow_up_documented`, `lab_results_documented`, amended 5 Nov 2026) |
 | `EXTRACTABLE_EVENT_TYPES` | all except `document_received`, `patient_statement` |
 | `EVENT_FIELDS: Record<EventType, string[]>` | per-type field allow-list (the gate and the LLM prompt use it) |
 | `DOC_TYPES` / `DocType` | `pathology_report, ihc_molecular_report, imaging_report, lab_report, prescription_printed, prescription_handwritten, discharge_summary, consult_note, chemo_daycare_record, radiotherapy_summary, procedure_note, bill_insurance, other` |

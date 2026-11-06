@@ -132,6 +132,13 @@ export function LedgerItem({ item, index = 0 }: { item: ItemView; index?: number
         viewedSource: item.viewedSource, typeLabel: item.typeLabel, sources: item.sources.filter((s) => s.href).slice(0, 1),
       }} />}
     >
+      {item.amends && (
+        <p className="text-[15px]">
+          <span className="ds-kicker mr-1.5">Amends</span>
+          {item.amends.label}{item.amends.date && <span className="text-muted"> · {item.amends.date}</span>}
+          {item.amends.href && <> · <Link href={item.amends.href} className="text-setu-ink underline decoration-brass underline-offset-4">Open the original to compare</Link></>}
+        </p>
+      )}
       <FlagBadges flags={item.flags} />
     </Placard>
   )

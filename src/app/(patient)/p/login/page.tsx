@@ -5,7 +5,7 @@ import { Kicker } from '@/components/portal/ui'
 import { tp } from '@/i18n/patient'
 import { isDemo } from '@/server/demo'
 import { safePortalNext } from '@/lib/safe-next'
-import { langParam } from '@/server/portal/context'
+import { browserLang, langParam } from '@/server/portal/context'
 import { getSession } from '@/server/session'
 
 /** `next` is only ever a same-origin /p path (safePortalNext); `?lang=` rides along when the visitor chose one. */
@@ -17,7 +17,7 @@ export default async function PatientLoginPage({ searchParams }: { searchParams:
   const sp = await searchParams
   const chosen = langParam(sp.lang)
   const next = safePortalNext(sp.next)
-  const lang = chosen ?? 'en'
+  const lang = chosen ?? (await browserLang()) // after sign-in the patient's own preferred language applies
   if (s && s.kind !== 'staff') redirect(landing(next, chosen))
   return (
     // Not signed in: the neutral brand always (nothing is known about this visitor's disclosure status).

@@ -68,7 +68,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   if (!v) return null // the workspace layout explains the denial
 
   const items = Object.values(v.events).flat()
-  const eligible = items.filter((i) => i.status === 'unverified' && i.bulk.eligible && i.permits.verify === true).map((i) => i.id)
+  const eligible = items.filter((i) => i.status === 'unverified' && i.bulk.eligible && i.permits.verify === true && i.viewedSource).map((i) => i.id)
   const total = v.counts.verified + v.counts.unverified + v.counts.disputed
   const sealedDay = v.snapshot ? v.snapshot.sealedLabel.split(',')[0] : ''
   const canAct = session.role !== 'desk'

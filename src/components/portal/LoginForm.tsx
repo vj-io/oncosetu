@@ -79,7 +79,7 @@ export function LoginForm({ lang, demo, after }: { lang: "en" | "hi"; demo: bool
     <div className="mt-8 grid gap-6">
       <Frame className="px-5 py-6 sm:px-8 sm:py-8">
         {step === "phone" ? (
-          <form onSubmit={sendCode} className="grid gap-5" noValidate>
+          <form method="post" onSubmit={sendCode} className="grid gap-5" noValidate>
             <PField label={tp(lang, "phoneLabel")} hint={tp(lang, "phoneHint")}>
               <PInput big type="tel" name="phone" inputMode="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} />
             </PField>
@@ -89,7 +89,7 @@ export function LoginForm({ lang, demo, after }: { lang: "en" | "hi"; demo: bool
             </PButton>
           </form>
         ) : (
-          <form onSubmit={verify} className="grid gap-5" noValidate>
+          <form method="post" onSubmit={verify} className="grid gap-5" noValidate>
             <p role="status" className="text-[15px] text-muted">
               {tp(lang, "codeSent")}
             </p>

@@ -40,7 +40,7 @@ export function PinGate(props: Props) {
 
   return (
     <Frame matte className="mx-auto max-w-md">
-      <form onSubmit={submit} className="grid gap-5 p-5 sm:p-6" noValidate>
+      <form method="post" onSubmit={submit} className="grid gap-5 p-5 sm:p-6" noValidate>
         <header className="grid gap-2">
           <p className="ds-kicker flex items-center gap-2">
             {setup ? <KeyRound aria-hidden className="size-4" /> : <Lock aria-hidden className="size-4" />}

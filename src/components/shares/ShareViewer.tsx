@@ -67,7 +67,12 @@ export function ShareViewer({ id }: { id: string }) {
 
   useEffect(() => {
     let alive = true
-    resolve().then((ph) => alive && setPhase(ph))
+    resolve().then((ph) => {
+      if (!alive) return
+      // Start in Hindi when the viewer's browser prefers it (the toggle still switches); read after mount, not during SSR.
+      if (navigator.languages?.find((l) => /^(hi|en)\b/i.test(l))?.toLowerCase().startsWith('hi')) setLang('hi')
+      setPhase(ph)
+    })
     return () => { alive = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])

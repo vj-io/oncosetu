@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brandFor, formatDateIN, istDate, lintText, patientDocLabel, staffDocLabel } from '.'
+import { brandFor, formatDateIN, istDate, langFromAcceptLanguage, lintText, patientDocLabel, staffDocLabel } from '.'
 
 const terms = (text: string, rs: Parameters<typeof lintText>[1]) => lintText(text, rs).map((h) => h.match)
 
@@ -108,5 +108,16 @@ describe('formatDateIN', () => {
   it('istDate', () => {
     expect(istDate('2026-03-11T18:29:00Z')).toBe('2026-03-11')
     expect(istDate('2026-03-11T18:30:00Z')).toBe('2026-03-12')
+  })
+})
+
+describe('langFromAcceptLanguage', () => {
+  it('picks Hindi only when the browser lists it before English', () => {
+    expect(langFromAcceptLanguage('hi-IN,hi;q=0.9,en-US;q=0.8')).toBe('hi')
+    expect(langFromAcceptLanguage('en-IN,en;q=0.9,hi;q=0.8')).toBe('en')
+    expect(langFromAcceptLanguage('mr-IN,hi;q=0.8')).toBe('hi')
+    expect(langFromAcceptLanguage('fr-FR')).toBe('en')
+    expect(langFromAcceptLanguage(null)).toBe('en')
+    expect(langFromAcceptLanguage('hil')).toBe('en') // Hiligaynon, not Hindi
   })
 })

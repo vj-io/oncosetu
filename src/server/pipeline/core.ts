@@ -283,7 +283,7 @@ export type DraftEvent = {
 const DOC_DATED: ReadonlySet<string> = new Set([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented', 'lab_report_documented',
   'prescription_documented', 'consultation_documented', 'report_pending_documented', 'referral_documented',
-  'chemotherapy_session_documented',
+  'chemotherapy_session_documented', 'allergy_documented', 'lab_results_documented',
 ])
 
 /** One fact per document: the same type + key (cycle, date, test, procedure) found twice keeps the dated, earliest quote. */
@@ -294,7 +294,8 @@ function dedupeKey(d: DraftEvent): string {
     case 'chemotherapy_session_documented': return `chemo|${s('cycle_number')}`
     case 'admission_documented': case 'discharge_documented': return `${d.eventType}|${d.eventDate}`
     case 'procedure_documented': return `proc|${s('procedure_text')}|${d.eventDate}`
-    case 'prescription_documented': return `rx|${d.evidence.charStart}`
+    case 'prescription_documented': case 'lab_results_documented': return `${d.eventType}|${d.evidence.charStart}`
+    case 'follow_up_documented': return `fu|${s('appointment_text')}|${d.eventDate}`
     default: return `${d.eventType}|${s('test_name')}|${d.eventDate}`
   }
 }
@@ -327,10 +328,14 @@ export function gateAndDate(
       dateFlags = [...doc.flags]
       out.date_from_document = true
     } else if (!parsed) dateFlags = ['date_unknown']
+    if (candidate.event_type === 'follow_up_documented') dateFlags = dateFlags.filter((f) => f !== 'date_future') // due dates are meant to be ahead
     for (const f of dateFlags) out[f as EventFlag] = true
     const anchor = eventDate ?? doc?.iso ?? null
     if (anchor && daysBetween(anchor, received) > LATE_RECEIVED_DAYS) out.late_received = true
     if (page.lowConfidence) out.low_confidence = true
+    // An OCR'd result value can lose a decimal point (11.4 read as 114): each set of rows is checked against the page
+    // image, one by one (binding_uncertain blocks bulk verify).
+    if (candidate.event_type === 'lab_results_documented' && page.source === 'ocr') out.binding_uncertain = true
     if (page.source === 'ocr') out.ocr = true
     if (method === 'rules' || candidate.origin === 'rules') out.rule_based = true
     else out.llm = true

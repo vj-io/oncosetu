@@ -109,10 +109,12 @@ export function bulkSkipReason(item: ItemView | undefined): string[] | null {
   if (item.status !== 'unverified') return ['not_unverified']
   if (!item.bulk.eligible) return item.bulk.reasons
   if (item.permits.verify !== true) return ['clinician_tier']
+  // Bulk verify never skips the source check: only items whose source this person opened (mentor review).
+  if (!item.viewedSource) return ['source_not_opened']
   return null
 }
 
-/** POST /api/patients/[id]/verify-bulk — verifies only FR-LED-05-eligible, tier-permitted, unverified items; reports the rest. */
+/** POST /api/patients/[id]/verify-bulk — verifies only FR-LED-05-eligible, tier-permitted, unverified items whose source the actor opened; reports the rest. */
 export async function verifyBulk(ctx: Ctx<z.infer<typeof bulkBody>>, patientId: string) {
   await assertPatientAccess(ctx, patientId)
   const ledger: LedgerView = await loadLedger(ctx.db, patientId, ctx.session, await now(ctx.session.orgId))

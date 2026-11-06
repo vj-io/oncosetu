@@ -28,7 +28,8 @@ function headline(e: ViewerEvent): string {
   if (e.eventType === 'admission_documented') return `Admitted ${e.eventDate ? fmtDate(e.eventDate) : ''}`.trim()
   if (e.eventType === 'discharge_documented') return `Discharged ${e.eventDate ? fmtDate(e.eventDate) : ''}`.trim()
   if (e.eventType === 'report_pending_documented') return `${v('test_name') || 'Report'} — ${v('status_text') || 'pending'}`
-  return v('procedure_text') || v('medication_names') || v('test_name') || v('referred_to_text') || v('treatment_text') || EVENT_LABEL[e.eventType] || e.eventType
+  if (e.eventType === 'follow_up_documented') return `${v('appointment_text')}${e.eventDate ? ` — ${fmtDate(e.eventDate)}` : ''}`
+  return v('allergy_text') || v('procedure_text') || v('medication_names') || v('test_names') || v('test_name') || v('referred_to_text') || v('treatment_text') || EVENT_LABEL[e.eventType] || e.eventType
 }
 
 /** Crop of the page image around a low-confidence quote (FR-EXT-10): the person compares the pixels, not the OCR. */
@@ -131,7 +132,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
           const ev = e.evidence[0]
           const page = pages.find((p) => p.pageNo === ev?.pageNo)
           const conf = ev?.charStart != null && ev.charEnd != null ? spanConfidence(page, ev.charStart, ev.charEnd) : null
-          const low = !!e.flags.low_confidence || (conf !== null && conf < 0.8)
+          const low = !!e.flags.low_confidence || !!e.flags.binding_uncertain || (conf !== null && conf < 0.8) // OCR'd result rows always show the image
           const flags = Object.keys(e.flags).filter((k) => e.flags[k] && FLAG_LABEL[k])
           const fields = Object.entries(e.fields).filter(([k]) => k !== 'event_date_text' && k !== 'institution_name')
           const withdrawn = !!e.withdrawnAt

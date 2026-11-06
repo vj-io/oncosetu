@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Hand-authored gold abstraction for the synthetic documents in public/demo-docs (read from each document's text). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions list one entry per medication. `identity` is the expected header decision against the patient in patients.json; `held` = the document must not reach the record without a person's decision.",
+  "about": "Hand-authored gold abstraction for the synthetic documents in public/demo-docs (read from each document's text). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions list one entry per medication. `identity` is the expected header decision against the patient in patients.json; `held` = the document must not reach the record without a person's decision. Revised 5 Nov 2026 (mentor review): \"Collect pending laboratory reports\" is a pending-report fact (added to hero__01 and returning__01); an addendum's reference to the report it amends is not a new fact (removed from returning__07: the amended report is its own document).",
   "docs": {
     "hero__01-discharge-summary.pdf": {
       "patientKey": "hero", "docType": "discharge_summary", "identity": "match",
@@ -10,6 +10,7 @@
         { "type": "procedure_documented", "date": "2026-03-12", "match": "wide local excision" },
         { "type": "report_pending_documented", "match": "IHC" },
         { "type": "report_pending_documented", "match": "histopathology" },
+        { "type": "report_pending_documented", "match": "laboratory" },
         { "type": "imaging_report_documented", "date": "2026-02-20", "match": "CT" },
         { "type": "imaging_report_documented", "date": "2026-03-10", "match": "X-ray" },
         { "type": "prescription_documented", "match": "Paracetamol" },
@@ -77,6 +78,7 @@
         { "type": "discharge_documented", "date": "2026-01-20" },
         { "type": "procedure_documented", "date": "2026-01-15", "match": "hemicolectomy" },
         { "type": "report_pending_documented", "match": "histopathology" },
+        { "type": "report_pending_documented", "match": "laboratory" },
         { "type": "prescription_documented", "match": "Paracetamol" },
         { "type": "prescription_documented", "match": "Pantoprazole" },
         { "type": "prescription_documented", "match": "Metformin" }
@@ -114,8 +116,7 @@
     "returning__07-histopathology-addendum.pdf": {
       "patientKey": "returning", "docType": "pathology_report", "identity": "match", "addendum": true,
       "events": [
-        { "type": "molecular_test_documented", "date": "2026-01-30", "match": "Immunohistochemistry" },
-        { "type": "pathology_report_documented", "date": "2026-01-22" }
+        { "type": "molecular_test_documented", "date": "2026-01-30", "match": "Immunohistochemistry" }
       ]
     },
     "fulfilled__01-admission-summary.pdf": {

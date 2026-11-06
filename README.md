@@ -18,7 +18,7 @@ OncoSetu was named OncoBridge in PRD v1.0. "Setu" means bridge. This is an acade
 The core loop:
 
 1. **Capture.** A desk tablet (multi-page camera), a patient or caregiver upload link protected by OTP, bulk PDF and photo upload, a per-patient email drop address, or WhatsApp forwarding confirmed with a one-time code (see Inbound channels). Handwritten pages are stored as images and are never auto-extracted.
-2. **Evidence-gated extraction.** Extraction proposes events, each with a quote. A deterministic gate accepts only quotes found verbatim in the page text, checks that fields and dates appear in that quote, and checks identity per document. Event, document and received dates are kept separate.
+2. **Evidence-gated extraction.** Extraction proposes events, each with a quote. A deterministic gate accepts only quotes found verbatim in the page text, checks that fields and dates appear in that quote, and checks identity per document. Event, document and received dates are kept separate. Quotes are whole sentences. Besides record events, it lists allergy statements, follow-up dates already written down (review visit, suture removal) and lab result rows as printed, never interpreted. Diagnosis text and medical history stay in the source document.
 3. **Document index and timeline.** Each item shows what it says, where (page and quote), who verified it and when. Records staff verify against the source. A clinician sees key items and conflicts.
 4. **Missing-Record Radar.** Deterministic rules on documented events list referenced documents that are not in the file, for example "histopathology report not in file" for an excision documented on a given date. It is a document-completeness checklist. Rules run in shadow mode until a clinician reviews them.
 5. **Records Request Kit.** English and Hindi request letters, tracked through states, with reminders at 7 and 21 days and an escalation information sheet. The letters make no deadline promise.
@@ -27,7 +27,7 @@ The core loop:
 
 Around the loop:
 
-- **Patient and caregiver portal:** OTP sign-in, caregiver-primary accounts, and pre-visit questions with text read-back.
+- **Patient and caregiver portal:** OTP sign-in, caregiver-primary accounts, and pre-visit questions with text read-back. Before sign-in, the portal, share links and the public verify page open in Hindi when the browser prefers Hindi; after sign-in, the patient's own language applies.
 - **Offline desk capture (PWA):** an encrypted local queue that syncs when the network returns.
 - **Admin console:** rule review, the audit-chain view, metrics, and the measurement study.
 - **ABDM pull (J6, FR-ING-ABDM-01/02):** records staff request FHIR records linked to the patient's ABHA, the patient approves in the portal, and the encrypted bundles become structured facts (`external_structured`, evidence = the FHIR resource) that feed the ledger and the Radar. Runs against an in-process consent manager and HIP (see ABDM below).
@@ -158,18 +158,21 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 
 - **Tuned set:** the 20 demo documents in `public/demo-docs/` (gold: `data/eval/gold.json`). The rule library was developed on these, so its numbers are optimistic.
 - **Held-out set:** 40 documents in `data/eval/heldout/` (gold: `data/eval/gold-heldout.json`): 10 new patients, about 30 invented institutions, all 13 document types, 3 handwritten prescriptions, Hindi and bilingual pages, photographed pages, 2 wrong-patient headers and 1 prompt-injection line. They were written after the rules were frozen and the rules have not been tuned on them.
-- Reports: `data/eval/report.json` (rules) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
+- Reports: `data/eval/report.json` (rules, 5 November 2026) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026, before the 5 November extractor changes: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
+- Only event types that a set's gold labels at all are scored. The three types added on 5 November (allergy statements, follow-up dates, lab result rows) are not labelled yet: they are counted (tuned: 5 / 9 / 13, held-out: 0 / 4 / 8), still pass the hard gates, and are scored once someone labels them.
 
 | PRD §9.5 metric | Target | Tuned · rules | Held-out · rules | Held-out · rules + Gemini |
 |---|---|---|---|---|
 | Unsupported facts reaching the record | 0 | 0 | 0 | 0 |
 | Handwritten pages auto-extracted | 0 | 0 | 0 | 0 |
-| Event precision | ≥ 0.95 | 0.949 | 0.889 | 0.907 |
-| Event recall (omission) | ≥ 0.85 | 0.962 | 0.646 | 0.734 |
+| Event precision | ≥ 0.95 | 0.950 | 0.911 | 0.907 |
+| Event recall (omission) | ≥ 0.85 | 0.943 | 0.658 | 0.734 |
 | Classification macro-F1 | ≥ 0.85 | 0.947 | 0.983 | 0.983 |
 | Identity decision as expected | held, never wrong | 20 / 20 | 27 / 40 | 27 / 40 |
 
-The rules + Gemini column on the tuned set is precision 0.952, recall 0.981.
+The rules + Gemini column on the tuned set is precision 0.952, recall 0.981 (4 November run).
+
+**5 November changes (mentor review).** Quotes are now whole sentences, joined across wrapped lines: a fact never starts mid-sentence. Before, the CT fact quoted "drug allergies. CT thorax …", which reads as if the patient had allergies when the page says "No known drug allergies". That moved the rules numbers from tuned 0.949 / 0.962 and held-out 0.889 / 0.646 to the figures above. Two tuned gold labels were revised (`about` in `gold.json` says why). One tuned fact is now missed: "Specimen sent for histopathology" had only ever been matched by accident, through the old line-long quote of the IHC fact.
 
 **OCR character error rate** (FR-DOC-02, target ≤ 5% on printed pages): 7.9% mean, 10.8% worst, over the 9 printed photographed pages of both sets (handwritten pages excluded; only whitespace is normalised). Below target. The errors come from shadow and noise on phone photos; tesseract `eng+hin` also read that noise as Devanagari on English pages, so a page without a confidently read Devanagari word is now read again with `eng` alone (9.4% → 7.9%). FR-EXT-10 is the control for what remains: spans below 0.80 confidence are shown beside the page image and cannot be bulk-verified.
 
@@ -179,7 +182,7 @@ Held-out recall by document type (shown to verifiers as the coverage note, FR-EX
 |---|---|---|---|
 | Discharge summary | 30 | 0.700 | 0.800 |
 | Printed prescription | 16 | 0.813 | 0.813 |
-| Pathology report | 7 | 0.429 | 0.571 |
+| Pathology report | 7 | 0.571 | 0.571 |
 | Lab report | 5 | 1.000 | 1.000 |
 | IHC / molecular report | 4 | 0.750 | 0.750 |
 | Imaging report | 4 | 1.000 | 1.000 |
@@ -193,7 +196,7 @@ What the held-out set found:
 
 - **A safety failure, fixed.** The first blind run auto-extracted one handwritten prescription: black ink, 0.31 of its lines below 0.75 confidence, just under the classifier's bar, so it was treated as printed (and its date misread as 2006). Borderline pages are now held when the whole page also reads below 0.80 confidence. That run is kept in `data/eval/heldout-blind-run.json`; the handwriting result on the held-out set is no longer blind.
 - **Identity holds too many documents.** 13 held-out documents that belong to the patient came back `insufficient` (7 `name_missing`, from headers such as "Patient: X, 55 Y / M" and Hindi or bilingual headers; 6 `no_corroborating_field`). Safe, since they wait for a person, but it costs coverage. Both wrong-patient documents were caught.
-- **Recall is the weak point.** Consultation notes and radiotherapy summaries are not extracted; pathology reports reach 0.43 / 0.57. Some consultation misses are partly strict gold labels (the right type and date, but no doctor or department in the quote).
+- **Recall is the weak point.** Consultation notes and radiotherapy summaries are not extracted; pathology reports reach 0.57. Some consultation misses are partly strict gold labels (the right type and date, but no doctor or department in the quote).
 - The prompt-injection line was flagged and no forbidden field reached a draft.
 - Earlier, the model on its own (replacing the rules) reached precision 0.71 and recall 0.23 on the tuned set: it merged several prescription lines into one item with a letterhead quote, which the gate refused. That is why the free-tier model augments the rules.
 
@@ -315,10 +318,10 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Email drop and WhatsApp intake have not run against Postmark or Twilio.** Tests post the documented payloads, signed or authenticated as the providers do. Not proven: real Postmark and Twilio traffic, a receiving domain (the configured one is a placeholder), and WhatsApp Business sender approval. Vercel limits a request to 4.5 MB, so one mail carries about 3.3 MB of attachments (base64); larger mails are refused by the platform. The sender address of an email is not checked with SPF or DKIM: the 80-bit alias plus a verified sender address is the control. Inline images (signature logos) count as attachments. An expired WhatsApp hold that nobody answers keeps its encrypted files until the next message or the daily cron.
 - **Backups are daily.** Point-in-time restore covers 6 hours (Neon free plan); after that the encrypted daily backups (35 days, private Blob store in Mumbai) lose up to 24 hours of writes. They live in the same Vercel account as the app, a restore after losing the whole Neon project (new database, migrations, then load) is documented but not exercised, and an erased patient stays inside older backups until they expire. Reading a backup needs both `BACKUP_KEY` and `APP_MASTER_KEY`.
 - **Hindi is the only regional language.** Patient-facing strings are in English and Hindi.
-- **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for nine rules; `RAD-IMG-PT-01` stays in shadow to show the mechanism. The wording still needs review by the team's clinician advisor before any pilot.
+- **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for all ten rules (until 5 Nov 2026 `RAD-IMG-PT-01` stayed in shadow to show the mechanism, which hid the PET-CT a returning patient mentioned from clinicians). The wording still needs review by the team's clinician advisor before any pilot.
 - **Erasure runs after the retention period, in the database.** `erase_patient()` (SECURITY DEFINER) refuses unless the request is due, consent is withdrawn and the org matches; it then deletes 20 tables of patient data in one transaction and leaves a PII-free tombstone, the consent history and the audit trail. A daily Vercel cron runs due requests; admins can run them from `/admin/erasure`. Default retention is 10 years (configurable, minimum 3).
 - **Voice input uses the browser's Web Speech API** behind an organisation flag; no audio is retained and drug-name WER is unmeasured.
-- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini and 0.65 with rules alone (target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
+- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini (4 Nov run) and 0.66 with rules alone (target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.
 

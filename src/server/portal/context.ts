@@ -1,6 +1,7 @@
 // Per-request context for every /p/** page: who is signed in, which language, which brand (FR-CON-07).
 import { eq } from 'drizzle-orm'
-import { brandFor } from '@/core/copy'
+import { headers } from 'next/headers'
+import { brandFor, langFromAcceptLanguage } from '@/core/copy'
 import type { Disclosure, Lang } from '@/core/types'
 import { withOrg } from '@/db'
 import { orgSettings, patients, type OrgFlags } from '@/db/schema'
@@ -29,6 +30,9 @@ export function langParam(raw: string | string[] | undefined): Lang | null {
 }
 
 export type PortalSearch = Promise<{ lang?: string | string[] }>
+
+/** Before sign-in nothing is known about the visitor: the browser's language (Hindi or English). */
+export const browserLang = async (): Promise<Lang> => langFromAcceptLanguage((await headers()).get('accept-language'))
 
 /** Signed-in patient or caregiver, or redirect to /p/login. Language: ?lang= first, else the patient's preferred language. */
 export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx> {

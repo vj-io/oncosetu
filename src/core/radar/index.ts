@@ -110,7 +110,8 @@ function lang<T>(f: (l: Lang) => T): { en: T; hi: T } {
 }
 
 function fill(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
+  const s = template.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
+  return s.charAt(0).toUpperCase() + s.slice(1) // "{test} report …" with a test written in lower case ("laboratory")
 }
 
 /** "1–3, 5" */

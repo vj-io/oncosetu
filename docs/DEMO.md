@@ -52,8 +52,7 @@ Patient / caregiver portal: `/p/login` → phone number → **Send code** → op
 | **Lakshmi Narayanan** (fulfilled) | fulfilled__01 (desk), fulfilled__02 (uploaded by her husband in the portal) | 4 items, 3 verified by the clinician (the 4th — the discharge summary's repeat of the admission — is a suppressed duplicate in the ledger, so it stays unverified) | Discharge summary for the 2 Apr 2026 admission — *closed* (confirmed by Records) | Request to Poompuhar given 12 days ago → 7-day reminder SMS → **fulfilled**; S0 sealed; share link below |
 | **Aarav Kulkarni** (minor) | none | — | — | Guardian consent by OTP to his mother; flagged minor, guardian-primary |
 
-Rules: 9 of 10 in production ("reviewed by Dr. Meera Iyer"), RAD-IMG-PT-01 in shadow. Demo clock 0. Audit chain
-fresh and intact.
+Rules: all 10 in production ("reviewed by Dr. Meera Iyer"). Demo clock 0. Audit chain fresh and intact.
 
 ## The script
 
@@ -125,8 +124,10 @@ Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Las
   prescription's **Capecitabine, Ondansetron** → **Resolve** with a note (clinician only).
 - **Patient said:** his five confirmed pre-visit answers (another hospital, the new medicine, a PET-CT in April 2026,
   no admissions) — "Not yet supported by a document".
-- **Shadow mode:** the PET-CT answer raised RAD-IMG-PT-01 ("Report for the PET-CT the patient mentioned is not in
-  file") — logged, not shown, because no clinician has reviewed that rule (Admin → Rules shows it).
+- **Missing records:** the PET-CT answer raises RAD-IMG-PT-01 ("Report for the PET-CT the patient mentioned is not in
+  file"). Until 5 Nov 2026 the seed left this rule in shadow mode to show the mechanism, which hid the item from
+  clinicians; the mentor review flagged it, so every rule is now reviewed. Shadow mode is still the default for an
+  unreviewed rule (Admin → Rules → Return to shadow shows it).
 - **Completeness checklist:** "Prescription the patient mentioned from City Care Hospital, Nagpur is not in file" is
   shown as **received · proposed** — the engine matched the 12 May *Madhyam* prescription (any prescription within
   ±30 days satisfies RAD-RX-OUT-01). Click **Not a match**: a person decides, and the engine will not propose that document again.
@@ -153,8 +154,8 @@ Open the seeded share link in the private window:
 ### 5:10 – 6:00 · Admin
 
 Sign in as Admin (Farhan Sheikh).
-- **Rules** (`/admin/rules`): 9 rules in **production** — "reviewed by Dr. Meera Iyer"; **RAD-IMG-PT-01 in shadow**
-  with its shadow hit count (the returning patient's PET-CT). Production needs a named reviewing clinician.
+- **Rules** (`/admin/rules`): all 10 rules in **production** — "reviewed by Dr. Meera Iyer". Production needs a named
+  reviewing clinician; a rule returned to shadow keeps running and logging, but its items are hidden until reviewed again.
 - **Audit** (`/admin/audit`) → **Verify chain** → intact (hash-chained, ids only — no names or quotes).
 - **Metrics** (`/admin/metrics`): completeness items detected / requested / received / closed, request fulfilment.
 - **Settings → Demo clock → +7 days**, then open Sunita's **Requests** tab (as Records): the cycles 1–3 letter given

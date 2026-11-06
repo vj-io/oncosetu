@@ -136,13 +136,14 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, llm, can
     <div className="grid gap-10">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         {/* Onboarding progress (FR-ONB-02) */}
-        <section aria-labelledby="progress-h" className="grid content-start gap-5 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
+        <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
           <header className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="ds-kicker">Onboarding backlog</p>
               <h2 id="progress-h" className="mt-1 text-xl tracking-[-0.02em]">{p.documents} document{p.documents === 1 ? '' : 's'} in file</h2>
             </div>
-            <Badge tone={llm.on ? 'setu' : 'shadow'} icon={<Bot />}>{llm.label}</Badge>
+            {/* The model label is long: it wraps inside the card instead of pushing the card under the upload box. */}
+            <Badge tone={llm.on ? 'setu' : 'shadow'} icon={<Bot />} className="max-w-full"><span className="whitespace-normal leading-snug">{llm.label}</span></Badge>
           </header>
           <ProgressMeter label="Pages received" value={p.pagesReceived} max={Math.max(p.pagesReceived, 1)} detail={String(p.pagesReceived)} tone="neutral" />
           <ProgressMeter label="Pages processed" value={p.pagesProcessed} max={Math.max(p.pagesReceived, 1)} tone="setu" />

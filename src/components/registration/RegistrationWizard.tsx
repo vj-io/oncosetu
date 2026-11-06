@@ -140,7 +140,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
   }
 
   return (
-    <form onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)] gap-8" noValidate>
+    <form method="post" onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)] gap-8" noValidate>
       <ol aria-label="Registration steps" className="flex flex-wrap gap-x-6 gap-y-2">
         {STEPS.map((s, i) => (
           <li key={s} aria-current={i === step ? "step" : undefined} className={clsx("flex items-center gap-2 border-b-2 pb-1.5", i === step ? "border-ink text-ink" : "border-transparent text-faint")}>

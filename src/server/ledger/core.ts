@@ -42,6 +42,9 @@ export const EVENT_LABEL: Record<EventType, string> = {
   consultation_documented: 'Consultation documented',
   referral_documented: 'Referral documented',
   report_pending_documented: 'Report awaited (documented)',
+  allergy_documented: 'Allergy statement documented',
+  follow_up_documented: 'Follow-up date documented',
+  lab_results_documented: 'Lab results as written',
   patient_statement: 'Patient statement',
 }
 
@@ -51,6 +54,7 @@ export const FIELD_LABEL: Record<string, string> = {
   medication_names: 'Medicines', prescriber_name: 'Prescriber', cycle_number: 'Cycle', regimen_text: 'Regimen',
   treatment_text: 'Treatment', doctor_name: 'Doctor', department_text: 'Department', referred_to_text: 'Referred to',
   document_title: 'Document', statement_text: 'Statement', scan_name: 'Scan', event_date: 'Date',
+  allergy_text: 'Allergy (as written)', appointment_text: 'Due',
 }
 
 const QUESTION_LABEL: Record<string, string> = {
@@ -63,7 +67,7 @@ const STATUS_LABEL: Record<VerificationStatus, string> = {
   rejected: 'Rejected', disputed: 'Disputed',
 }
 
-const HEADLINE_FIELDS = ['procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
+const HEADLINE_FIELDS = ['allergy_text', 'appointment_text', 'procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
 
 const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
@@ -192,7 +196,7 @@ export type VerifyAction = 'verify' | 'edit' | 'reject' | 'dispute'
 /** Clinician tier by default (FR-VER-02): pathology/molecular/imaging report events and treatment events. */
 export const CLINICIAN_TIER_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented',
-  'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented',
+  'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented', 'allergy_documented',
 ])
 const OLDER_CLINICIAN_DOCS: ReadonlySet<DocType> = new Set<DocType>(['pathology_report', 'ihc_molecular_report', 'imaging_report'])
 
@@ -284,6 +288,8 @@ export type ItemView = {
   when: { event: string; eventIso: string | null; dateFrom: 'event' | 'document' | null; document: string | null; received: string }
   provenance: { sourceType: string; method: string; docType: DocType | null; institution: string | null }
   viewedSource: boolean
+  /** Amended items: what this replaces (the earlier report, or the earlier version of this item). */
+  amends: { label: string; date: string | null; href: string | null } | null
   bulk: { eligible: boolean; reasons: string[] }
   permits: Record<VerifyAction, Permit>
   editable: { key: string; label: string; value: string; list: boolean }[]
@@ -340,6 +346,13 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     return id ? (isDocType(t) ? staffDocLabel(t) : 'Unclassified document') : 'No document'
   }
 
+  const amendsOf = (e: CoreEvent): ItemView['amends'] => {
+    const orig = e.documentId ? docById.get(e.documentId)?.amendmentOf : null
+    const o = orig ? docById.get(orig) : null
+    if (o) return { label: docLabel(o.id), date: o.documentDate ? day(o.documentDate) : null, href: headlinesOnly ? null : `/patients/${rows.patientId}/documents/${o.id}` }
+    return e.supersedesId ? { label: 'The earlier version of this item (kept)', date: null, href: null } : null
+  }
+
   const view = (it: LedgerEventItem): ItemView => {
     const e = it.event
     const row = rowById.get(e.id)!
@@ -362,6 +375,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       },
       provenance: { sourceType: e.sourceType, method: e.extractionMethod, docType: isDocType(dt) ? dt : null, institution: e.documentId ? docById.get(e.documentId)?.institutionName ?? null : null },
       viewedSource: !!viewedByMe?.has(e.id) || (!!e.supersedesId && !!viewedByMe?.has(e.supersedesId)),
+      amends: it.category === 'amended' ? amendsOf(e) : null,
       bulk: bulkVerifyEligible({ flags, category: it.category, verificationStatus: e.verificationStatus }),
       permits: permitsFor(role, tier),
       editable: headlinesOnly ? [] : editableFields(e.eventType).map((k) => ({ key: k, label: FIELD_LABEL[k] ?? k, value: fieldText(e.fields[k]), list: k === 'medication_names' || k === 'test_names' })),

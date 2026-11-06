@@ -54,6 +54,7 @@ const EVENT_DOC: Partial<Record<EventType, DocType>> = {
   molecular_test_documented: 'ihc_molecular_report',
   imaging_report_documented: 'imaging_report',
   lab_report_documented: 'lab_report',
+  lab_results_documented: 'lab_report',
   prescription_documented: 'prescription_printed',
   chemotherapy_session_documented: 'chemo_daycare_record',
   radiotherapy_documented: 'radiotherapy_summary',

@@ -103,6 +103,10 @@ async function runSet(name: SetName) {
 
   console.log(`\n== ${name}: ${spec.dir} ==`)
   const files = Object.keys(gold.docs).sort()
+  // Only event types this set's gold labels at all are scored; the rest (types added after the gold was written) are
+  // counted, still pass the hard gates, and are scored once someone labels them.
+  const scoredTypes = new Set(Object.values(gold.docs).flatMap((d) => d.events.map((e) => e.type)))
+  const unscored: Record<string, number> = {}
   for (const file of files) {
     const g = gold.docs[file]
     const p = patients.find((x) => x.patientKey === g.patientKey)!
@@ -138,12 +142,14 @@ async function runSet(name: SetName) {
     }
 
     // Extraction quality is measured on the drafts (what the record gets once identity is settled), held docs included.
-    const goldHit = g.events.map((ge) => a.drafts.some((d) => matches(ge, d)))
-    const predOk = a.drafts.map((d) => g.events.some((ge) => matches(ge, d)))
+    for (const d of a.drafts) if (!scoredTypes.has(d.eventType)) unscored[d.eventType] = (unscored[d.eventType] ?? 0) + 1
+    const drafts = a.drafts.filter((d) => scoredTypes.has(d.eventType))
+    const goldHit = g.events.map((ge) => drafts.some((d) => matches(ge, d)))
+    const predOk = drafts.map((d) => g.events.some((ge) => matches(ge, d)))
     const c = (byClass[g.docType] ??= { gold: 0, found: 0, pred: 0, correct: 0 })
     c.gold += g.events.length
     c.found += goldHit.filter(Boolean).length
-    c.pred += a.drafts.length
+    c.pred += drafts.length
     c.correct += predOk.filter(Boolean).length
     if (a.identified.identity.result === g.identity) identityCorrect++
     if (a.classified.docType === g.docType) typeCorrect++
@@ -158,12 +164,12 @@ async function runSet(name: SetName) {
     perDoc.push({
       file, docType: { expected: g.docType, got: a.classified.docType }, identity: { expected: g.identity, got: a.identified.identity.result, reasons: a.identified.identity.reasons },
       handwritten: a.classified.handwritten, method: a.method, ms: Date.now() - t0, reachesRecord,
-      gold: g.events.length, found: goldHit.filter(Boolean).length, extracted: a.drafts.length, correct: predOk.filter(Boolean).length,
+      gold: g.events.length, found: goldHit.filter(Boolean).length, extracted: drafts.length, correct: predOk.filter(Boolean).length,
       missed: g.events.filter((_, i) => !goldHit[i]),
-      extra: a.drafts.filter((_, i) => !predOk[i]).map((d) => ({ type: d.eventType, date: d.eventDate, quote: d.evidence.quote.slice(0, 90) })),
+      extra: drafts.filter((_, i) => !predOk[i]).map((d) => ({ type: d.eventType, date: d.eventDate, quote: d.evidence.quote.slice(0, 90) })),
       gateRejected: a.gate.rejected.length, unsupported: problems.map((x) => x.why),
     })
-    console.log(`${file.padEnd(54)} id=${a.identified.identity.result.padEnd(12)} type=${a.classified.docType.padEnd(22)} found ${goldHit.filter(Boolean).length}/${g.events.length}  correct ${predOk.filter(Boolean).length}/${a.drafts.length}`)
+    console.log(`${file.padEnd(54)} id=${a.identified.identity.result.padEnd(12)} type=${a.classified.docType.padEnd(22)} found ${goldHit.filter(Boolean).length}/${g.events.length}  correct ${predOk.filter(Boolean).length}/${drafts.length}`)
   }
 
   const tot = Object.values(byClass).reduce((a, c) => ({ gold: a.gold + c.gold, found: a.found + c.found, pred: a.pred + c.pred, correct: a.correct + c.correct }), { gold: 0, found: 0, pred: 0, correct: 0 })
@@ -178,6 +184,7 @@ async function runSet(name: SetName) {
     precision: ratio(tot.correct, tot.pred),
     recall: ratio(tot.found, tot.gold),
     counts: tot,
+    unscoredTypes: unscored,
     recallByClass: Object.fromEntries(DOC_TYPES.filter((t) => byClass[t]).map((t) => [t, { recall: ratio(byClass[t].found, byClass[t].gold), gold: byClass[t].gold }])),
     precisionByClass: Object.fromEntries(DOC_TYPES.filter((t) => byClass[t]).map((t) => [t, { precision: ratio(byClass[t].correct, byClass[t].pred), extracted: byClass[t].pred }])),
     identity: { correct: identityCorrect, total: files.length, accuracy: ratio(identityCorrect, files.length) },

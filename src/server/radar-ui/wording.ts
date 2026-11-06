@@ -23,7 +23,10 @@ export type WordingTrigger = {
 const str = (v: FieldValue | undefined): string | null =>
   v === undefined ? null : Array.isArray(v) ? (v.length ? v.join(', ') : null) : String(v).trim() || null
 const both = (f: (l: Lang) => string): L2 => ({ en: f('en'), hi: f('hi') })
-const fill = (template: string, vars: Record<string, string>) => template.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
+const fill = (template: string, vars: Record<string, string>) => {
+  const s = template.replace(/\{(\w+)\}/g, (m, k: string) => vars[k] ?? m)
+  return s.charAt(0).toUpperCase() + s.slice(1) // same as runRadar's fill
+}
 
 /** Cycle numbers from the stored `grouped` column (`[1,2,3]`, `{cycles}` or `[{cycles}]`). */
 export function groupedCycles(grouped: unknown): number[] {

@@ -47,9 +47,9 @@ Patient / caregiver portal: `/p/login` → phone number → **Send code** → op
 
 | Patient | Documents | Record | Checklist (production) | Requests · seals · links |
 |---|---|---|---|---|
-| **Sunita Deshmukh** (hero) | hero__01–09 (hero__10/11 are kept for the live demo, at `/demo-docs/`). hero__07 wrong patient → *mismatch*, held. hero__05 handwritten → image only, identity *insufficient*, held. hero__08 → *Hidden instructions removed* | 28 items; 5 verified by Records (printed prescription, Hindi CBC and its result rows), 23 not yet verified; hero__08 deliberately left unverified | Histopathology report not in file (12 Mar 2026, discharge summary p.2) · IHC report and laboratory report mentioned as pending on 14 Mar 2026 · Chemotherapy records for cycles 1–3 (one grouped item, *requested*) | Letter for cycles 1–3 to Kasturi Day-Care, given today (for the +7 d step). **No snapshot** — S0 is sealed live |
-| **Mohd. Abdul Rahim Khan** (returning) | returning__01–03 on 16 Feb 2026 (all verified, sealed), returning__04–07 today | 28 items, 13 verified (in S0) | Report for the PET-CT the patient mentioned · Laboratory report mentioned as pending on 20 Jan 2026 · Prescription from City Care Hospital, Nagpur — *received · proposed* (see Known issues) | **S0 sealed 16 Feb 2026, 10:31 IST** by Dr. Meera Iyer; pre-visit answers confirmed |
-| **Lakshmi Narayanan** (fulfilled) | fulfilled__01 (desk), fulfilled__02 (uploaded by her husband in the portal) | 10 items, 9 verified by the clinician (the 10th — the discharge summary's repeat of the admission — is a suppressed duplicate in the ledger, so it stays unverified) | Discharge summary for the 2 Apr 2026 admission — *closed* (confirmed by Records) | Request to Poompuhar given 12 days ago → 7-day reminder SMS → **fulfilled**; S0 sealed; share link below |
+| **Sunita Deshmukh** (hero) | hero__01–09 (hero__10/11 are kept for the live demo, at `/demo-docs/`). hero__07 wrong patient → *mismatch*, held. hero__05 handwritten → image only, identity *insufficient*, held. hero__08 → *Hidden instructions removed* | 31 items; 5 verified by Records (printed prescription, Hindi CBC and its result rows), 26 not yet verified; hero__08 deliberately left unverified | Histopathology report not in file (12 Mar 2026, discharge summary p.2) · IHC report and laboratory report mentioned as pending on 14 Mar 2026 · Chemotherapy records for cycles 1–3 (one grouped item, *requested*) | Letter for cycles 1–3 to Kasturi Day-Care, given today (for the +7 d step). **No snapshot** — S0 is sealed live |
+| **Mohd. Abdul Rahim Khan** (returning) | returning__01–03 on 16 Feb 2026 (all verified, sealed), returning__04–07 today | 34 items, 17 verified (in S0) | Report for the PET-CT the patient mentioned · Laboratory report mentioned as pending on 20 Jan 2026 · Prescription from City Care Hospital, Nagpur — *received · proposed* (see Known issues) | **S0 sealed 16 Feb 2026, 10:31 IST** by Dr. Meera Iyer; pre-visit answers confirmed |
+| **Lakshmi Narayanan** (fulfilled) | fulfilled__01 (desk), fulfilled__02 (uploaded by her husband in the portal) | 12 items, 11 verified by the clinician (the 12th — the discharge summary's repeat of the admission — is a suppressed duplicate in the ledger, so it stays unverified) | Discharge summary for the 2 Apr 2026 admission — *closed* (confirmed by Records) | Request to Poompuhar given 12 days ago → 7-day reminder SMS → **fulfilled**; S0 sealed; share link below |
 | **Aarav Kulkarni** (minor) | none | — | — | Guardian consent by OTP to his mother; flagged minor, guardian-primary |
 
 Rules: all 10 in production ("reviewed by Dr. Meera Iyer"). Demo clock 0. Audit chain fresh and intact.
@@ -81,6 +81,9 @@ missing, and turns each into a records request. It never diagnoses."
      *insufficient*) — the system does not guess.
    - The printed prescription and the Hindi CBC are **verified · matches source** (Ravi); the rest are
      **not yet verified** — partial verification is normal.
+   - The discharge summary also gives **Diagnosis as written** and **History as written** ("Known hypothyroidism on
+     Tab. Thyroxine 50 mcg once daily."): copied word for word, clinician tier, never shown at the desk, on patient
+     pages or in share links (the share link below lists 10 of Lakshmi's 12 items for that reason).
 3. **Completeness checklist** tab — the empty frames:
    - *Histopathology report not in file for the procedure documented on 12 Mar 2026 (Discharge summary, p.2).*
    - *IHC report mentioned as pending on … is not in file (Discharge summary …).*
@@ -94,7 +97,11 @@ missing, and turns each into a records request. It never diagnoses."
 5. **The document arrives** (private window). Download
    `https://oncosetu-zeta.vercel.app/demo-docs/hero__10-histopathology-later.pdf` first. `/p/login` → `+91 98230 55102`
    → **Demo phone → Show latest message** → code → the portal opens **in Hindi** (Rohan's preferred language), brand
-   **Setu Records**, no diagnosis words (disclosure unknown). **दस्तावेज़ भेजें / Send documents** → choose the PDF →
+   **Setu Records**, no diagnosis words (disclosure unknown). The language switch also offers **Hinglish**. Home shows
+   only what the papers say: each missing paper with **Ask at: TRIVENI MULTISPECIALITY HOSPITAL**, the doctor named on
+   the latest papers (Dr. R. S. Joglekar) and the dates already written down (dressing, review visit, suture removal;
+   a treatment cycle is shown as "a date written in your papers"). **Send documents** opens with forwarding from
+   WhatsApp or email (not switched on in the demo). **दस्तावेज़ भेजें / Send documents** → choose the PDF →
    send. The patient side gets no content back.
 6. **Back in staff view** (Records): Completeness → the histopathology frame now reads **received · proposed** with the
    note **"Institution differs from the one in the triggering record (E-RAD-01)"** (Nirnay lab vs Triveni hospital) →
@@ -114,8 +121,9 @@ missing, and turns each into a records request. It never diagnoses."
 ### 3:40 – 4:40 · Returning patient: the Change Ledger (J2)
 
 Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Last seal: **S0 · 16 Feb 2026, 10:31 IST**
-(3 documents, 13 verified items). Everything below arrived after it and is not yet verified:
-- **New since last visit** (10): chemotherapy cycle 2 (12 May 2026) with its next-cycle date and pre-cycle results;
+(3 documents, 17 verified items). Everything below arrived after it and is not yet verified:
+- **New since last visit** (12): chemotherapy cycle 2 (12 May 2026) with its next-cycle date, pre-cycle results and its
+  "Diagnosis" row as written (staff-only, clinician tier);
   the 12 May prescription as three items (Capecitabine + Ondansetron · Pantoprazole + Loperamide · Metformin) and its
   allergy line; the haematology report (20 May 2026, OCR of a phone photo with a Devanagari name header) and its result
   rows as printed — OCR rows always show the photo and are verified one by one, never in bulk.
@@ -146,7 +154,7 @@ sent** (it is in the Demo phone, to her husband), **fulfilled** by the discharge
 Open the seeded share link in the private window:
 
 - Current link (from the last reset — **every reset makes a new one**; the seed prints it under "SHARE LINK"):
-  `https://oncosetu-zeta.vercel.app/s/5cf1c7b9-3a38-430d-9622-5b9c57e90823#8WRbiEv8lQsnC-Ry3tPxO4NGmKI0LKN-xjQ6dzSPru0`
+  `https://oncosetu-zeta.vercel.app/s/498b48e8-3566-4608-8ba5-8999e3686805#Zb3Tpy07ThHjYLIU8rSFYxhntKInJ_DOYQw1NjLtKUo`
 - Passcode **246810** · expires 7 days after the reset · the same URL works on `http://localhost:3000` (the key is in
   the `#fragment`, the ciphertext is in the shared database).
 - Shows "Document index, not a clinical summary", "Signature verified — issued by Setu Records", 10 items with who

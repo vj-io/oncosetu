@@ -29,7 +29,7 @@ function headline(e: ViewerEvent): string {
   if (e.eventType === 'discharge_documented') return `Discharged ${e.eventDate ? fmtDate(e.eventDate) : ''}`.trim()
   if (e.eventType === 'report_pending_documented') return `${v('test_name') || 'Report'} — ${v('status_text') || 'pending'}`
   if (e.eventType === 'follow_up_documented') return `${v('appointment_text')}${e.eventDate ? ` — ${fmtDate(e.eventDate)}` : ''}`
-  return v('allergy_text') || v('procedure_text') || v('medication_names') || v('test_names') || v('test_name') || v('referred_to_text') || v('treatment_text') || EVENT_LABEL[e.eventType] || e.eventType
+  return v('section_text') || v('history_text') || v('allergy_text') || v('procedure_text') || v('medication_names') || v('test_names') || v('test_name') || v('referred_to_text') || v('treatment_text') || EVENT_LABEL[e.eventType] || e.eventType
 }
 
 /** Crop of the page image around a low-confidence quote (FR-EXT-10): the person compares the pixels, not the OCR. */

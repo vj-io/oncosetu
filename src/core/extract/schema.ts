@@ -1,7 +1,10 @@
 // LLM structured-output contract `extraction.v1` and prompt `extract.v1` (PRD §9.2). Output is data only:
 // it is always passed through runGate before anything reaches the record.
 import { z } from 'zod'
-import { DOC_TYPES, EVENT_FIELDS, EXTRACTABLE_EVENT_TYPES, type DocType } from '../types'
+import { DOC_TYPES, EVENT_FIELDS, EXTRACTABLE_EVENT_TYPES as ALL_EXTRACTABLE, STAFF_ONLY_EVENT_TYPES, type DocType } from '../types'
+
+// Diagnosis and history sections are copied by the rule extractor only: the prompt forbids diagnosis output.
+const EXTRACTABLE_EVENT_TYPES = ALL_EXTRACTABLE.filter((t) => !STAFF_ONLY_EVENT_TYPES.has(t))
 
 export const EXTRACTION_SCHEMA_VERSION = 'extraction.v1'
 

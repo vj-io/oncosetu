@@ -19,6 +19,8 @@ export const EVENT_TYPES = [
   'allergy_documented',
   'follow_up_documented',
   'lab_results_documented',
+  'diagnosis_documented',
+  'history_documented',
   'patient_statement',
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -28,6 +30,13 @@ export const EXTRACTABLE_EVENT_TYPES = EVENT_TYPES.filter(
   (t) => t !== 'document_received' && t !== 'patient_statement',
 ) as Exclude<EventType, 'document_received' | 'patient_statement'>[]
 export type ExtractableEventType = Exclude<EventType, 'document_received' | 'patient_statement'>
+
+/**
+ * A document's own diagnosis and history sections, quoted word for word and attached to that document (FR-EXT-05):
+ * never a derived patient attribute. Staff-only: never on patient pages, SMS or share links, hidden from the desk,
+ * and taken by the rule extractor only (the LLM prompt forbids diagnosis output).
+ */
+export const STAFF_ONLY_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>(['diagnosis_documented', 'history_documented'])
 
 /**
  * Per-event-type field allow-list (PRD §7.2: descriptive, quoted fields only).
@@ -53,6 +62,8 @@ export const EVENT_FIELDS: Record<EventType, readonly string[]> = {
   allergy_documented: ['allergy_text', 'institution_name', 'event_date_text', 'event_date'],
   follow_up_documented: ['appointment_text', 'institution_name', 'event_date_text', 'event_date'],
   lab_results_documented: ['test_names', 'institution_name', 'event_date_text', 'event_date'],
+  diagnosis_documented: ['section_text', 'institution_name', 'event_date_text', 'event_date'],
+  history_documented: ['history_text', 'institution_name', 'event_date_text', 'event_date'],
   patient_statement: ['statement_text', 'medication_names', 'scan_name', 'institution_name', 'event_date_text'],
 }
 
@@ -118,7 +129,9 @@ export type Disclosure = (typeof DISCLOSURES)[number]
 export const CONSENT_PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics'] as const
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number]
 
-export type Lang = 'en' | 'hi'
+export type Lang = 'en' | 'hi' | 'hinglish'
+/** Letters to hospitals and the escalation sheet: English or Hindi only (never Hinglish). */
+export type LetterLang = 'en' | 'hi'
 
 /** Field values an event may carry (all verbatim text, except cycle_number). */
 export type FieldValue = string | number | string[]

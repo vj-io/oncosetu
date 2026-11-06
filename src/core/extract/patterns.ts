@@ -82,6 +82,13 @@ const ALLERGY = /(?<![\p{L}])(?:(?:no|nil)\s+known\s+(?:drug\s+|food\s+)?allerg(
 const FOLLOW_UP = /(?<![\p{L}])(?:review|follow[\s-]?up|re-?visit|(?:suture|stitch(?:es)?)\s+removal|removal\s+of\s+(?:sutures|stitches)|(?:wound\s+)?dressing|next\s+(?:visit|review|appointment|cycle)|appointment)(?![\p{L}])/iu
 const FOLLOW_UP_PAST = /(?<![\p{L}])(?:was|were|done|performed|completed|reviewed)(?![\p{L}])/iu
 const FOLLOW_UP_TAIL = /[\s,:\-–]*(?:(?:on|dated|due|at|by|for)[\s:]*)?$/iu
+// A document's own diagnosis and history sections, copied word for word (staff-only, FR-EXT-05): a "Diagnosis" heading
+// and its paragraph, or "Diagnosis: …" on one line (table rows); a sentence that opens a history statement.
+const DX_HEADING = /^(?:(?:final|provisional|clinical|working)\s+)?diagnos[ie]s\s*:?$/iu
+const DX_INLINE = /^(?:(?:final|provisional|clinical|working)\s+)?diagnos[ie]s\s*[:\-–]\s*(\S[\s\S]*)$/iu
+const HEADING_LINE = /^[\p{Lu}][\p{L}\s,&/()'-]{0,48}$/u
+const SENTENCE_DONE = /[.;!?]\s*$/
+const HISTORY = /^(?:no\s+)?(?:k\/c\/o\b|known\s+(?!(?:drug|food)\b|allerg)|h\/o\b|(?:(?:past|medical|family|surgical)\s+)?history\s+of\b|(?:past|medical|family|surgical)\s+history\s*[:\-–]|co-?morbidit(?:y|ies)\b)/iu
 // One lab result row as printed: a test name, a number (with the lab's own H/L mark, if any) and a lab unit
 // ("Haemoglobin  11.8 g/dL  12.0 - 15.5 g/dL").
 const RESULT_ROW = /^[\s•*-]*([\p{L}][\p{L}\p{M}\d ()/.,'+-]{1,44}?)\s*[:\-–]?\s+[<>]?\s*\d[\d,]*(?:\.\d+)?(?:\s*[HL*](?![\p{L}]))?\s*(?:g\/dl|gm\/dl|gm?%|mg\/dl|mg\/l|mmol\/l|meq\/l|[iu]u\/l|u\/l|iu\/ml|ng\/ml|pg\/ml|[µu]g\/l|[µu]iu\/ml|fl|pg|%|\/\s?cu\.?\s?mm|\/\s?cumm|\/\s?[µu]l|\/\s?mm3|lakhs?|million|x\s?10|sec(?:onds)?|mm\/(?:1st\s+)?hr?)(?![\p{L}])/iu
@@ -178,6 +185,25 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
 
   for (const page of pages) {
     const segs = segments(page)
+
+    // Diagnosis sections: the heading and its paragraph (the next sentences on the same line, or wrapped mid-sentence)
+    const inDx = new Set<Seg>()
+    segs.forEach((seg, i) => {
+      const inline = DX_INLINE.exec(seg.text)
+      if (inline) return add('diagnosis_documented', page, seg.start, seg.end, { section_text: inline[1].replace(/\s+/g, ' ') })
+      if (!DX_HEADING.test(seg.text)) return
+      const body: Seg[] = []
+      for (const s of segs.slice(i + 1)) {
+        const prev = body.at(-1)
+        if (prev && SENTENCE_DONE.test(prev.text) && page.text.slice(prev.end, s.start).includes('\n')) break
+        if ((prev && HEADING_LINE.test(s.text)) || s.end - seg.start > MAX_QUOTE) break
+        body.push(s)
+      }
+      if (!body.length) return
+      for (const s of body) inDx.add(s)
+      add('diagnosis_documented', page, seg.start, body.at(-1)!.end, { section_text: page.text.slice(body[0].start, body.at(-1)!.end).replace(/\s+/g, ' ') })
+    })
+
     segs.forEach((seg, i) => {
       const t = seg.text
       const at = (local: number) => seg.start + local
@@ -259,6 +285,9 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         const what = t.slice(fu.index, due.start).replace(FOLLOW_UP_TAIL, '')
         add('follow_up_documented', page, seg.start, seg.end, { appointment_text: (what.length <= 80 ? what : fu[0]).replace(/\s+/g, ' '), event_date_text: due.raw })
       }
+
+      // History statements ("Known hypothyroidism on …"), word for word; a diagnosis paragraph already holds its own
+      if (!inDx.has(seg) && HISTORY.test(t)) add('history_documented', page, seg.start, seg.end, { history_text: t.replace(/\s+/g, ' ') })
     })
 
     // Lab result rows, grouped into quotes of consecutive rows: the values are shown as printed, never interpreted

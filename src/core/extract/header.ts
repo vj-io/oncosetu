@@ -30,6 +30,8 @@ export interface ParsedHeader {
   genericDate?: LabelledSpan
   institution?: Span
   referringDoctor?: LabelledSpan
+  /** The doctor a document names as in charge (Primary oncologist > Consultant / Treating > Referred by > Admitting). */
+  doctor?: LabelledSpan
 }
 
 const SEP = String.raw`\s*[:：\-–=.]?\s*`
@@ -76,6 +78,16 @@ const DATE_LABELS = {
 const DOB_LABEL = String.raw`D\.?O\.?B\.?|Date\s+of\s+Birth|Birth\s*Date|जन्म\s*(?:तिथि|तारीख़?)`
 const REF_LABEL = String.raw`Ref(?:\.|erred)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)|Ref\.?\s*Physician|Consultant|Treating\s+Doctor`
 const REF_RE = new RegExp(String.raw`(?<![\p{L}])(${REF_LABEL})${SEP}((?:Dr\.?\s*)?[\p{L}][\p{L}\p{M}.' ]{1,60}?)${STOP}`, 'gimu')
+
+// A doctor named in a header table cell: "Consultant: \tDr. R. S. Joglekar (Medical Oncology)". Name only, never the
+// department; it stops at "(", "," or a tab, and before the next cell's label when single-spaced (OCR).
+const DOCTOR_LABELS = [
+  String.raw`Primary\s+(?:Oncologist|Consultant)|Consultant\s+in\s+charge`,
+  String.raw`Consultant|Treating\s+(?:Doctor|Consultant|Physician)`,
+  String.raw`Ref(?:\.|erred)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)`,
+  String.raw`Admitting\s+(?:Doctor|Physician|Consultant)`,
+]
+const DOCTOR_NAME = String.raw`(Dr\.?\s*[\p{L}][\p{L}\p{M}.']*(?:[ ]+(?!(?:Date|Report|Reported|Age|Sex|UHID|Ward|Bed|Cycle|Length|Specimen|Sample|Lab|Reg)\b)[\p{L}][\p{L}\p{M}.']*){0,4})`
 
 const INSTITUTION_WORDS =
   /\b(?:hospital|hospitals|institute|institution|centre|center|clinic|clinics|diagnostics?|laborator(?:y|ies)|labs?|medical|healthcare|health\s*care|pathology|imaging|scans?|cancer|oncology|memorial|trust|college|nursing\s+home|polyclinic|aiims|sansthan|research|foundation)\b|अस्पताल|संस्थान|चिकित्सालय|केंद्र/iu
@@ -175,6 +187,13 @@ export function parseHeader(text: string): ParsedHeader {
     const v = trimSpan(text, m.indices![2][0], m.indices![2][1])
     if (/^self$/i.test(v.value)) continue
     out.referringDoctor = { ...v, label: m[1], labelStart: m.index! }
+    break
+  }
+
+  for (const label of DOCTOR_LABELS) {
+    const m = new RegExp(String.raw`(?<![\p{L}])(${label})\s*[:：\-–]?\s*${DOCTOR_NAME}`, 'iud').exec(text)
+    if (!m) continue
+    out.doctor = { ...trimSpan(text, m.indices![2][0], m.indices![2][1]), label: m[1], labelStart: m.index! }
     break
   }
   return out

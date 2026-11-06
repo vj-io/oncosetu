@@ -60,6 +60,14 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
     expect(JSON.stringify(p)).not.toContain('AC chemotherapy') // event fields never leave
   })
 
+  it('diagnosis and history sections never leave in a share, even when cleared', () => {
+    const dx = ev('e4', 'diagnosis_documented', { section_text: 'Invasive carcinoma' }, '2026-03-18', 'd-ds', 'verified_matches_source')
+    const snap = buildSnapshot({ patientId: 'p1', events: [...events, dx], documents: docs, statements: [], missing }, '2026-10-20T06:00:00.000Z')
+    const p = buildSharePayload({ ...base, snapshot: snap, disclosure: 'cleared', scope: 'index_with_quotes', quotes: { ...base.quotes, e4: 'Invasive carcinoma' } })
+    expect(p.items).toHaveLength(3)
+    expect(JSON.stringify(p)).not.toContain('Invasive carcinoma')
+  })
+
   it('quotes only when cleared and asked for', () => {
     expect(() => buildSharePayload({ ...base, scope: 'index_with_quotes' })).toThrow()
     const p = buildSharePayload({ ...base, disclosure: 'cleared', scope: 'index_with_quotes' })

@@ -1,3 +1,4 @@
+import type { Lang } from "@/core/types";
 import { cloneElement, useId, type ComponentProps, type ReactElement, type ReactNode } from "react";
 import Link from "next/link";
 import clsx from "clsx";
@@ -119,7 +120,7 @@ export function PSelect({ className, children, ...rest }: ComponentProps<"select
 }
 
 /** Small label above a page title. The design system's kicker is letter-spaced mono caps, which breaks Devanagari: plain type in Hindi. */
-export function Kicker({ lang, children }: { lang: "en" | "hi"; children: ReactNode }) {
+export function Kicker({ lang, children }: { lang: Lang; children: ReactNode }) {
   return (
     <p className="ds-kicker" style={lang === "hi" ? { letterSpacing: "normal", fontFamily: "var(--font-deva)", fontSize: "0.9375rem", textTransform: "none" } : undefined}>
       {children}

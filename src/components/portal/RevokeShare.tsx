@@ -1,12 +1,13 @@
 "use client";
 
+import type { Lang } from "@/core/types";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { tp } from "@/i18n/patient";
 import { ErrorNote, PButton } from "./ui";
 
 /** Switches a share link off with one tap; the link answers "gone" from the next request. */
-export function RevokeShare({ lang, shareId }: { lang: "en" | "hi"; shareId: string }) {
+export function RevokeShare({ lang, shareId }: { lang: Lang; shareId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);

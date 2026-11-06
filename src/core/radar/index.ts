@@ -3,7 +3,7 @@
 import { formatDateIN, istDate, patientDocLabel } from '../copy'
 import { dateRange, addDays } from '../dates'
 import { sha256Hex } from '../hash'
-import type { CoreDocument, CoreEvent, CoreStatement, DatePrecision, DocType, FieldValue, Lang, MissingState } from '../types'
+import type { CoreDocument, CoreEvent, CoreStatement, DatePrecision, DocType, FieldValue, Lang, LetterLang, MissingState } from '../types'
 import { RADAR_RULES, type RadarRule } from './rules'
 
 export { RADAR_RULES, RULES_YAML, loadRules, RuleSchema, type RadarRule } from './rules'
@@ -32,7 +32,7 @@ export interface RadarItem {
   /** Staff wording (administrative only). */
   wording: { en: string; hi: string }
   /** Patient-surface wording: neutral labels, no diagnosis/treatment-class words (FR-CON-07). */
-  neutralWording: { en: string; hi: string }
+  neutralWording: { en: string; hi: string; hinglish: string }
   sourceLabel: string
   mode: RuleMode
   grouped?: { cycles: number[] }
@@ -105,7 +105,7 @@ const sameInstitution = (a: string, b: string) => {
   return !!x && !!y && (x === y || x.includes(y) || y.includes(x))
 }
 
-function lang<T>(f: (l: Lang) => T): { en: T; hi: T } {
+function lang<T>(f: (l: LetterLang) => T): { en: T; hi: T } {
   return { en: f('en'), hi: f('hi') }
 }
 
@@ -179,12 +179,15 @@ export function runRadar(input: RadarInput): RadarOutput {
         const label = d ? patientDocLabel(d.docType, 'cleared', l) : l === 'en' ? 'record' : 'रिकॉर्ड'
         return t.pageNo ? `${label}, ${l === 'en' ? 'p.' : 'पृ.'}${t.pageNo}` : label
       })
-    const neutral = (types: DocType[], t: Trigger) =>
-      lang((l) => {
-        const label = patientDocLabel(types[0], 'not_cleared', l)
-        const date = formatDateIN(t.date, l, t.precision)
-        return l === 'en' ? `${label} not in file for an item documented on ${date}.` : `${date} को दर्ज एक प्रविष्टि के लिए ${label} फ़ाइल में नहीं है।`
-      })
+    const neutral = (types: DocType[], t: Trigger) => {
+      const label = (l: Lang) => patientDocLabel(types[0], 'not_cleared', l)
+      const date = (l: Lang) => formatDateIN(t.date, l, t.precision)
+      return {
+        en: `${label('en')} not in file for an item documented on ${date('en')}.`,
+        hi: `${date('hi')} को दर्ज एक प्रविष्टि के लिए ${label('hi')} फ़ाइल में नहीं है।`,
+        hinglish: `${date('hinglish')} ko darj ek entry ke liye ${label('hinglish')} file mein nahi hai.`,
+      }
+    }
 
     if (rule.kind === 'prior_cycles') {
       const cycleOf = (t: Trigger) => {
@@ -217,11 +220,14 @@ export function runRadar(input: RadarInput): RadarOutput {
         expectedTypes: [...rule.expects.document_types],
         window: { from: null, to: trigger.date },
         wording: lang((l) => fill(rule.wording[l], { missing_list: missingList, source_label: src[l], event_date: formatDateIN(trigger.date, l, trigger.precision) })),
-        neutralWording: lang((l) =>
-          l === 'en'
-            ? `${patientDocLabel('chemo_daycare_record', 'not_cleared', 'en')}s for ${missing.length} earlier visit${missing.length > 1 ? 's' : ''} not in file.`
-            : `पिछली ${missing.length} विज़िट के ${patientDocLabel('chemo_daycare_record', 'not_cleared', 'hi')} फ़ाइल में नहीं हैं।`,
-        ),
+        neutralWording: {
+          ...lang((l) =>
+            l === 'en'
+              ? `${patientDocLabel('chemo_daycare_record', 'not_cleared', 'en')}s for ${missing.length} earlier visit${missing.length > 1 ? 's' : ''} not in file.`
+              : `पिछली ${missing.length} विज़िट के ${patientDocLabel('chemo_daycare_record', 'not_cleared', 'hi')} फ़ाइल में नहीं हैं।`,
+          ),
+          hinglish: `Pichhli ${missing.length} visit ke ${patientDocLabel('chemo_daycare_record', 'not_cleared', 'hinglish')} file mein nahi hain.`,
+        },
         sourceLabel: src.en,
         mode,
         grouped: { cycles: missing },

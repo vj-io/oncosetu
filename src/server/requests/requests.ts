@@ -4,7 +4,7 @@
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { brandFor, formatDateIN, istDate } from '@/core/copy'
 import { transitionMissing } from '@/core/radar'
-import type { Disclosure, Lang, RequestState } from '@/core/types'
+import type { Disclosure, Lang, LetterLang, RequestState } from '@/core/types'
 import type { Tx } from '@/db'
 import { missingRecords, patients, recordRequests } from '@/db/schema'
 import { tr } from '@/i18n/requests'
@@ -122,7 +122,7 @@ export async function listRequests(tx: Tx, orgId: string, patientId: string, aud
       id: r.id, state: r.state, lang: r.lang,
       institution: audience === 'staff' ? r.institution : guardFree(r.institution, disclosure) ?? tr('en', 'reminderInstitutionFallback'),
       institutionPatientId: audience === 'staff' ? p.institutionPatientId ?? null : guardFree(p.institutionPatientId, disclosure),
-      documents: r.documents.map((key) => ({ key, label: { en: requestDocLabel(key, disclosure, 'en') ?? key, hi: requestDocLabel(key, disclosure, 'hi') ?? key } })),
+      documents: r.documents.map((key) => ({ key, label: { en: requestDocLabel(key, disclosure, 'en') ?? key, hi: requestDocLabel(key, disclosure, 'hi') ?? key, hinglish: requestDocLabel(key, disclosure, 'hinglish') ?? key } })),
       dateRange: r.dateRange ?? null,
       createdAt: r.createdAt.toISOString(), sentAt: r.sentAt?.toISOString() ?? null, fulfilledAt: r.fulfilledAt?.toISOString() ?? null,
       daysOpen: r.sentAt && ACTIVE.includes(r.state) ? Math.floor((+at - +r.sentAt) / 86_400_000) : null,
@@ -134,7 +134,7 @@ export async function listRequests(tx: Tx, orgId: string, patientId: string, aud
 
 export type CreateRequestInput = {
   patientId?: string; missingIds: string[]; institution: string; institutionPatientId?: string
-  documents: RequestDocKey[]; dateRange?: { from?: string; to?: string }; lang: Lang
+  documents: RequestDocKey[]; dateRange?: { from?: string; to?: string }; lang: LetterLang
 }
 
 export async function createRequest(ctx: Ctx, input: CreateRequestInput): Promise<{ id: string }> {

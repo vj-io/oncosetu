@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { brandFor, lintText } from '@/core/copy'
 import { DOC_TYPES, type Disclosure, type Lang } from '@/core/types'
-import { en, hi, tp, type PatientKey } from '@/i18n/patient'
+import { en, hi, hinglish, tp, type PatientKey } from '@/i18n/patient'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, type HomeData } from './summary'
 import { answersSchema, buildReadback, QUESTION_IDS, statedDate, transcriptOf, type Answers } from './visit-model'
@@ -15,7 +15,7 @@ const strings = (v: unknown, out: string[] = []): string[] => {
   return out
 }
 const dirty = (texts: string[]) => texts.flatMap((t) => [...lintText(t, ['diagnosis', 'radar']).map((h) => `${h.match} in "${t}"`), ...(/onco/i.test(t) ? [`Onco in "${t}"`] : [])])
-const LANGS: Lang[] = ['en', 'hi']
+const LANGS: Lang[] = ['en', 'hi', 'hinglish']
 const NOT_TOLD: Disclosure[] = ['not_cleared', 'unknown']
 
 const home: HomeData = {
@@ -24,11 +24,18 @@ const home: HomeData = {
     { id: 'dx', docType: null, documentDate: null, receivedAt: '2026-11-02T04:44:00.000Z' },
   ],
   looking: [
-    { id: 'm1', expectedTypes: ['pathology_report'], state: 'expected', date: '2026-03-12', precision: 'day' },
-    { id: 'm2', expectedTypes: ['ihc_molecular_report', 'lab_report'], state: 'requested', date: '2026-03-01', precision: 'month' },
-    { id: 'm3', expectedTypes: ['radiotherapy_summary', 'chemo_daycare_record'], state: 'received', date: null, precision: 'unknown' },
-    { id: 'm4', expectedTypes: [], state: 'expected', date: '2026-01-01', precision: 'year' },
+    { id: 'm1', expectedTypes: ['pathology_report'], state: 'expected', date: '2026-03-12', precision: 'day', institution: 'Triveni Multispeciality Hospital' },
+    { id: 'm2', expectedTypes: ['ihc_molecular_report', 'lab_report'], state: 'requested', date: '2026-03-01', precision: 'month', institution: 'Regional Cancer Centre' },
+    { id: 'm3', expectedTypes: ['radiotherapy_summary', 'chemo_daycare_record'], state: 'received', date: null, precision: 'unknown', institution: null },
+    { id: 'm4', expectedTypes: [], state: 'expected', date: '2026-01-01', precision: 'year', institution: null },
   ],
+  writtenDates: [
+    { id: 'f1', what: 'Review in the Surgical Oncology OPD', date: '2026-03-20', precision: 'day', docType: 'discharge_summary' },
+    { id: 'f2', what: 'Suture removal', date: '2026-03-24', precision: 'day', docType: 'discharge_summary' },
+    { id: 'f3', what: 'Next cycle of chemotherapy', date: '2026-06-26', precision: 'day', docType: 'chemo_daycare_record' },
+    { id: 'f4', what: 'Next visit: Cycle 5', date: '2026-06-26', precision: 'day', docType: 'chemo_daycare_record' },
+  ],
+  doctor: { name: 'Dr. R. S. Joglekar', docType: 'chemo_daycare_record', date: '2026-06-05' },
   openRequests: 2,
   lastStatement: { at: '2026-10-30T10:00:00.000Z', confirmed: false },
   activeShares: 1,
@@ -43,14 +50,18 @@ const answers: Answers = {
 }
 
 describe('patient catalogue', () => {
-  it('has the same keys and the same {tokens} in English and Hindi', () => {
+  it('has the same keys and the same {tokens} in English, Hindi and Hinglish', () => {
     expect(Object.keys(hi).sort()).toEqual(Object.keys(en).sort())
+    expect(Object.keys(hinglish).sort()).toEqual(Object.keys(en).sort())
     const tokens = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(',')
-    for (const k of Object.keys(en) as PatientKey[]) expect(`${k}:${tokens(hi[k])}`).toBe(`${k}:${tokens(en[k])}`)
+    for (const k of Object.keys(en) as PatientKey[]) {
+      expect(`${k}:${tokens(hi[k])}`).toBe(`${k}:${tokens(en[k])}`)
+      expect(`${k}:${tokens(hinglish[k])}`).toBe(`${k}:${tokens(en[k])}`)
+    }
   })
 
   it('is free of diagnosis words, radar words and the brand name', () => {
-    expect(dirty([...Object.values(en), ...Object.values(hi)])).toEqual([])
+    expect(dirty([...Object.values(en), ...Object.values(hi), ...Object.values(hinglish)])).toEqual([])
   })
 })
 
@@ -70,6 +81,20 @@ describe('home summary wording', () => {
     expect(s.looking[1].text).toContain('linked to Mar 2026')
     expect(s.looking[2].text).toBe('Treatment summary / Day-care record — received, the clinic team will check it')
     expect(s.documents.at(-1)?.label).toBe('Document (being checked)')
+  })
+
+  it('says where to ask, the dates already written down and the doctor the latest papers name — as written', () => {
+    const s = buildHomeSummary(home, 'not_cleared', 'en')
+    expect(s.looking.map((l) => l.ask)).toEqual(['Ask at: Triveni Multispeciality Hospital', null, null, null]) // "Cancer" in a name is not shown
+    expect(s.writtenDates.map((d) => d.text)).toEqual([
+      'A date written in your papers — 20 Mar 2026', 'Suture removal — 24 Mar 2026', 'A date written in your papers — 26 Jun 2026',
+      'A date written in your papers — 26 Jun 2026', // a treatment cycle is not named to a patient who has not been told
+    ])
+    expect(s.writtenDates[1].source).toBe('From: Hospital discharge summary')
+    expect(s.doctor).toBe('Doctor named on your latest papers: Dr. R. S. Joglekar (Day-care record, 5 Jun 2026)')
+    const told = buildHomeSummary(home, 'cleared', 'en')
+    expect(told.writtenDates[0].text).toBe('Review in the Surgical Oncology OPD — 20 Mar 2026')
+    expect(told.looking[1].ask).toBe('Ask at: Regional Cancer Centre')
   })
 
   it('may use clinical labels only when cleared', () => {

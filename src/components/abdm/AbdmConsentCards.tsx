@@ -1,5 +1,6 @@
 "use client";
 
+import type { Lang } from "@/core/types";
 // /p/abdm: the patient's (or acting caregiver's) answer to each ABDM consent request — the in-process stand-in for the
 // ABHA app. Neutral copy from src/i18n/abdm.ts only.
 import { useState } from "react";
@@ -15,7 +16,7 @@ const STATE: Record<string, AbdmKey> = {
   REQUESTED: "stateRequested", GRANTED: "stateGranted", DENIED: "stateDenied", REVOKED: "stateRevoked", EXPIRED: "stateExpired",
 };
 
-export function AbdmConsentCards({ lang, requests }: { lang: "en" | "hi"; requests: PatientAbdmRequest[] }) {
+export function AbdmConsentCards({ lang, requests }: { lang: Lang; requests: PatientAbdmRequest[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

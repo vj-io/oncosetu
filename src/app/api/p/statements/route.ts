@@ -10,7 +10,7 @@ export const POST = route({
   auth: 'patient',
   body: z.object({
     answers: answersSchema,
-    lang: z.enum(['en', 'hi']),
+    lang: z.enum(['en', 'hi', 'hinglish']),
     confirmation: z.enum(['confirmed', 'corrected', 'unconfirmed']),
   }),
 }, async ({ session, db, body, audit }) => {

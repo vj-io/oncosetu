@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { CONSENT_NOTICE_VERSION } from '@/i18n/consent'
 import { ISO_DATE, purposesSchema } from './logic'
 
-export const langSchema = z.enum(['en', 'hi'])
+export const langSchema = z.enum(['en', 'hi', 'hinglish'])
 export const personName = z.string().trim().min(2).max(120)
 export const phoneField = z.string().trim().min(5).max(32)
 

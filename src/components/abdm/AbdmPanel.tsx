@@ -89,6 +89,10 @@ export function AbdmPanel({ patientId }: { patientId: string }) {
             Ask the patient to share records linked to their ABHA. Bundles are decrypted only after the consent artefact is checked, mapped from FHIR
             into facts with their source resource, and erased when the artefact ends or the patient revokes it.
           </p>
+          <p className="max-w-2xl text-[15px] text-muted">
+            Planned, not live: production access as a health information user takes 3–6 months of ABDM approval. Today the
+            ways in are the desk, the patient&apos;s own upload or forward, and a records request letter.
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {ready && <Chip kicker="Gateway" tone={ready.transport === 'sandbox' ? 'setu' : 'shadow'}>{ready.transport === 'sandbox' ? 'ABDM sandbox' : 'In-process (synthetic HIP)'}</Chip>}

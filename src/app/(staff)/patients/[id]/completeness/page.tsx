@@ -143,7 +143,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
           kicker="Document-completeness checklist"
           title="Documents referenced but not in file"
           description="Each empty frame is a document that a recorded item refers to and that is not in this file. The wording is about documents only; a person confirms every closure."
-          actions={<LanguageToggle value={lang} />}
+          actions={<LanguageToggle value={lang} langs={['en', 'hi']} />}
         />
         <dl className="grid grid-cols-2 gap-6 border border-rule bg-surface px-5 py-5 sm:grid-cols-5">
           <Metric label="Detected" value={m.detected} />

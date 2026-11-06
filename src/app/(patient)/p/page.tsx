@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Camera, ClipboardList, FileText, History, Mail, Send, ShieldCheck, Share2 } from 'lucide-react'
+import { CalendarDays, Camera, ClipboardList, FileText, History, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
 import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { PortalFrame } from '@/components/portal/PortalFrame'
@@ -57,13 +57,40 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
         )}
       </section>
 
+      {(sum.doctor || sum.writtenDates.length > 0) && (
+        <section className="mt-12" aria-labelledby="written-h">
+          <SectionHeader title={<span id="written-h">{tp(lang, 'secWritten')}</span>} description={tp(lang, 'writtenIntro')} />
+          <ul className="mt-4 grid gap-2">
+            {sum.doctor && (
+              <li>
+                <Frame className="flex items-start gap-3 px-4 py-3">
+                  <Stethoscope aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
+                  <span className="text-[17px]">{sum.doctor}</span>
+                </Frame>
+              </li>
+            )}
+            {sum.writtenDates.map((d) => (
+              <li key={d.id}>
+                <Frame className="flex items-start gap-3 px-4 py-3">
+                  <CalendarDays aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
+                  <div className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="text-[17px]">{d.text}</span>
+                    {d.source && <span className="text-[15px] text-muted">{d.source}</span>}
+                  </div>
+                </Frame>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <section className="mt-12" aria-labelledby="look-h">
         <SectionHeader title={<span id="look-h">{tp(lang, 'secLooking')}</span>} description={tp(lang, 'lookingIntro')} />
         {sum.looking.length ? (
           <ul className="mt-6 grid gap-5">
             {sum.looking.map((m) => (
               <li key={m.id}>
-                <LookingItem text={m.text} />
+                <LookingItem text={m.text} note={m.ask} />
               </li>
             ))}
           </ul>

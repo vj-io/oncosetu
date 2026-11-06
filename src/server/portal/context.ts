@@ -23,10 +23,10 @@ export type PortalCtx = {
   actor: { kind: 'patient' | 'caregiver'; id: string }
 }
 
-/** `?lang=hi|en` (first value wins) or null. */
+/** `?lang=hi|en|hinglish` (first value wins) or null. */
 export function langParam(raw: string | string[] | undefined): Lang | null {
   const v = Array.isArray(raw) ? raw[0] : raw
-  return v === 'hi' || v === 'en' ? v : null
+  return v === 'hi' || v === 'en' || v === 'hinglish' ? v : null
 }
 
 export type PortalSearch = Promise<{ lang?: string | string[] }>

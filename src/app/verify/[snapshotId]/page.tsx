@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CircleCheck, CircleX } from 'lucide-react'
 import { BrassSeal, Frame, KeyValue, LanguageToggle, Spotlight, Wordmark } from '@/components/ui'
-import { formatDateIN } from '@/core/copy'
+import { formatDateIN, htmlLang } from '@/core/copy'
 import { verifyCopy as T } from '@/i18n/ledger'
 import { verifySnapshotPublic } from '@/server/ledger/seal'
 import { browserLang } from '@/server/portal/context'
@@ -23,7 +23,7 @@ function Check({ ok, yes, no }: { ok: boolean; yes: string; no: string }) {
 export default async function VerifySnapshotPage({ params, searchParams }: { params: Promise<{ snapshotId: string }>; searchParams: Promise<{ lang?: string }> }) {
   const { snapshotId } = await params
   const asked = (await searchParams).lang
-  const lang = asked === 'hi' || asked === 'en' ? asked : await browserLang()
+  const lang = asked === 'hi' || asked === 'en' || asked === 'hinglish' ? asked : await browserLang()
   if (!UUID.test(snapshotId)) notFound()
   const v = await verifySnapshotPublic(snapshotId)
   if (!v) notFound()
@@ -34,7 +34,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
   return (
     <div className="relative min-h-dvh overflow-hidden">
       <Spotlight />
-      <main lang={lang} className="relative mx-auto grid max-w-2xl gap-8 px-4 py-10 sm:py-16">
+      <main lang={htmlLang(lang)} className="relative mx-auto grid max-w-2xl gap-8 px-4 py-10 sm:py-16">
         <div className="flex items-center justify-between gap-4">
           <Wordmark brand="Setu Records" />
           <LanguageToggle value={lang} />

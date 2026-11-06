@@ -23,7 +23,7 @@ export const actorKind = pgEnum('actor_kind', ['staff', 'patient', 'caregiver', 
 export const sex = pgEnum('sex', ['female', 'male', 'other', 'unknown'])
 export const disclosureStatus = pgEnum('disclosure_status', ['cleared', 'not_cleared', 'unknown'])
 export const primaryContact = pgEnum('primary_contact', ['patient', 'caregiver'])
-export const lang = pgEnum('lang', ['en', 'hi'])
+export const lang = pgEnum('lang', ['en', 'hi', 'hinglish'])
 export const patientStatus = pgEnum('patient_status', ['active', 'merged', 'erasure_requested', 'inactive', 'erased'])
 export const consentAction = pgEnum('consent_action', ['grant', 'update', 'withdraw'])
 export const encounterType = pgEnum('encounter_type', ['onboarding', 'returning', 'between'])
@@ -38,7 +38,7 @@ export const eventType = pgEnum('event_type', [
   'imaging_report_documented', 'lab_report_documented', 'prescription_documented',
   'chemotherapy_session_documented', 'radiotherapy_documented', 'admission_documented',
   'discharge_documented', 'consultation_documented', 'referral_documented', 'report_pending_documented',
-  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'patient_statement',
+  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'diagnosis_documented', 'history_documented', 'patient_statement',
 ])
 export const datePrecision = pgEnum('date_precision', ['day', 'month', 'year', 'unknown'])
 export const sourceType = pgEnum('source_type', [

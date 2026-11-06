@@ -1,5 +1,6 @@
 "use client";
 
+import type { Lang } from "@/core/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -57,7 +58,7 @@ function send(blob: Blob, name: string, clientFileId: string, onPct: (n: number)
   });
 }
 
-export function UploadForm({ lang, canStore }: { lang: "en" | "hi"; canStore: boolean }) {
+export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }) {
   const router = useRouter();
   const [items, setItems] = useState<Item[]>([]);
   const [paused, setPaused] = useState(!canStore);

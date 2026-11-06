@@ -7,7 +7,7 @@ import { tp, type PatientKey } from "@/i18n/patient";
 import { buildReadback, QUESTIONS, TEST_KINDS, type Answer, type Answers, type QuestionId } from "@/server/portal/visit-model";
 import { ErrorNote, PButton, PField, PInput, PLink, PSelect, PTextarea } from "./ui";
 
-type Lang = "en" | "hi";
+import type { Lang } from "@/core/types";
 type Phase = "questions" | "review" | "saved";
 type Field = "place" | "names" | "free" | "whenText";
 
@@ -122,7 +122,7 @@ export function VisitFlow({
       if (res.status === 401) {
         // The session ended while the questions were open: sign in again, then come back here.
         const chosen = new URLSearchParams(window.location.search).get("lang");
-        window.location.assign(`/p/login?next=/p/visit${chosen === "hi" || chosen === "en" ? `&lang=${chosen}` : ""}`);
+        window.location.assign(`/p/login?next=/p/visit${chosen === "hi" || chosen === "en" || chosen === "hinglish" ? `&lang=${chosen}` : ""}`);
         return;
       }
       if (!res.ok) throw new Error(String(res.status));

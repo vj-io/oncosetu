@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, FileText, Lock, Printer, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { BrassSeal, Button, Chip, EmptyFrame, Field, Frame, Input, KeyValue, LanguageToggle, SectionHeader, Spotlight, Wordmark, type Tone } from '@/components/ui'
-import { formatDateIN, istDate } from '@/core/copy'
+import { formatDateIN, htmlLang, inLang, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { ts, type ShareKey } from '@/i18n/shares'
 import type { Verification } from '@/server/shares/payload'
@@ -82,7 +82,7 @@ export function ShareViewer({ id }: { id: string }) {
   // Built here, never taken from the payload: a forged `verifyPath` could point anywhere (javascript:, another site).
   const verifyHref = p && typeof p.seal?.snapshotId === 'string' && UUID.test(p.seal.snapshotId) ? `/verify/${p.seal.snapshotId}` : null
   return (
-    <div lang={lang} className={`relative flex min-h-dvh flex-col ${lang === 'hi' ? 'font-deva' : ''}`}>
+    <div lang={htmlLang(lang)} className={`relative flex min-h-dvh flex-col ${lang === 'hi' ? 'font-deva' : ''}`}>
       <header className="relative z-10 border-b border-rule bg-gallery print:border-b-2">
         <div className="mx-auto flex min-h-16 max-w-reading flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
           <Wordmark brand={signed ? p!.brand : 'Setu Records'} />
@@ -118,8 +118,8 @@ export function ShareViewer({ id }: { id: string }) {
             <article className="grid gap-12">
               <div className="grid gap-3">
                 <p className="ds-kicker">{t('viewerKicker')}</p>
-                <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{p.heading[lang]}</h1>
-                <p className="text-[17px]">{p.notice[lang]}</p>
+                <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{inLang(p.heading, lang)}</h1>
+                <p className="text-[17px]">{inLang(p.notice, lang)}</p>
                 <p className="font-mono text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
                 {signed ? (
                   <p role="status" className="flex items-start gap-2 border-l-[3px] border-l-sage bg-sage-tint px-3 py-2 text-[15px] text-sage-ink">
@@ -138,12 +138,12 @@ export function ShareViewer({ id }: { id: string }) {
                   <ol className="grid gap-4">
                     {p.items.map((it, i) => {
                       const v = signed ? VERIFY[it.verification] : undefined // chips only when the server vouches for them
-                      const source = it.source.label ? `${it.source.label[lang]}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : '—'
+                      const source = it.source.label ? `${inLang(it.source.label, lang)}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : '—'
                       return (
                         <li key={i}>
                           <Frame animate delay={Math.min(i * 40, 400)} className="grid gap-3 px-5 py-4">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <h2 className="text-lg leading-snug">{it.label[lang]}</h2>
+                              <h2 className="text-lg leading-snug">{inLang(it.label, lang)}</h2>
                               <span className="font-mono text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
                             </div>
                             <KeyValue items={[
@@ -173,7 +173,7 @@ export function ShareViewer({ id }: { id: string }) {
                       const status = a.state === 'received' ? 'received' : a.state === 'requested' ? 'requested' : 'expected'
                       const k = status === 'received' ? 'absentReceived' : status === 'requested' ? 'absentRequested' : 'absentExpected'
                       return (
-                        <EmptyFrame key={i} animate delay={Math.min(i * 60, 400)} title={a.text[lang]} status={status}
+                        <EmptyFrame key={i} animate delay={Math.min(i * 60, 400)} title={inLang(a.text, lang)} status={status}
                           kicker={hi(t(status === 'received' ? 'absentKickerReceived' : 'absentKicker'))} statusLabel={hi(t(k))} />
                       )
                     })}
@@ -189,7 +189,7 @@ export function ShareViewer({ id }: { id: string }) {
                       <li key={d.id} className="flex items-start gap-3 border-b border-rule pb-2 last:border-b-0">
                         <FileText aria-hidden className="mt-1 size-4 shrink-0 text-faint" />
                         <span className="grid gap-0.5">
-                          <span>{d.label[lang]}</span>
+                          <span>{inLang(d.label, lang)}</span>
                           <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
                         </span>
                       </li>
@@ -211,7 +211,7 @@ export function ShareViewer({ id }: { id: string }) {
         </main>
       </div>
       <footer className="border-t border-rule">
-        <p className="mx-auto max-w-reading px-4 py-6 text-[15px] text-muted sm:px-6">{p ? `${p.heading[lang]}. ${t('viewerFooter')}` : t('viewerFooter')}</p>
+        <p className="mx-auto max-w-reading px-4 py-6 text-[15px] text-muted sm:px-6">{p ? `${inLang(p.heading, lang)}. ${t('viewerFooter')}` : t('viewerFooter')}</p>
       </footer>
     </div>
   )

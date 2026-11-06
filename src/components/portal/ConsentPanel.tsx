@@ -10,6 +10,7 @@ import type { ConsentPurposes } from "@/db/schema";
 import { tp, type PatientKey } from "@/i18n/patient";
 import { formatDateTimeIN } from "@/server/portal/summary";
 import { ErrorNote, PButton } from "./ui";
+import type { Lang } from "@/core/types";
 
 type Purposes = ConsentPurposes;
 type Caregiver = { id: string; name: string; relation: string; active: boolean };
@@ -20,7 +21,7 @@ const PURPOSES = CONSENT_PURPOSES;
 export function ConsentPanel({
   lang, initial, caregivers, isPatient, lastUpdated, erasure: initialErasure,
 }: {
-  lang: "en" | "hi"; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; lastUpdated: string | null; erasure: ErasureStatus | null;
+  lang: Lang; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; lastUpdated: string | null; erasure: ErasureStatus | null;
 }) {
   const router = useRouter();
   const [purposes, setPurposes] = useState<Purposes>(initial);

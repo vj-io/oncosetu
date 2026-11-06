@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Ban, CalendarCheck, FileText, Info, Undo2 } from 'lucide-react'
 import clsx from 'clsx'
 import { Button, ButtonLink, Dialog, EmptyState, Field, Frame, Input, Skeleton, StatusBadge, Textarea, useToast } from '@/components/ui'
-import { formatDateIN, istDate } from '@/core/copy'
+import { formatDateIN, inLang, istDate } from '@/core/copy'
 import type { Lang, RequestState } from '@/core/types'
 import { tr, type RequestKey } from '@/i18n/requests'
 import type { RequestView } from '@/server/requests/requests'
@@ -84,7 +84,7 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
                   <StatusBadge status={r.state} label={actor === 'staff' ? undefined : ui.plain(t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' }))} />
                 </div>
                 <div className="grid gap-1 text-[15px]">
-                  <p>{t('recordsList', { list: r.documents.map((x) => x.label[lang]).join(', ') })}</p>
+                  <p>{t('recordsList', { list: r.documents.map((x) => inLang(x.label, lang)).join(', ') })}</p>
                   {period && <p className="text-muted">{period}</p>}
                   {r.institutionPatientId && <p className="font-mono text-[13px] text-muted">{t('letterUhid')} {r.institutionPatientId}</p>}
                   {actor === 'staff' && <p className="text-muted">{t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' })}{r.daysOpen != null ? ` · ${t('daysOpen', { n: r.daysOpen })}` : ''}</p>}

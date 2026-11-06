@@ -33,10 +33,10 @@ describe('copy lint: patient-facing catalogues', () => {
     expect(failures).toEqual([])
   })
 
-  it('neutral document labels and the non-cleared brand are clean in both languages', () => {
+  it('neutral document labels and the non-cleared brand are clean in every language', () => {
     for (const d of DOC_TYPES) {
       for (const disclosure of ['not_cleared', 'unknown'] as const) {
-        for (const lang of ['en', 'hi'] as const) {
+        for (const lang of ['en', 'hi', 'hinglish'] as const) {
           expect(lintText(patientDocLabel(d, disclosure, lang), ['diagnosis', 'radar'])).toEqual([])
         }
       }

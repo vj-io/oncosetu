@@ -222,6 +222,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
                 <Select value={f.preferredLanguage} onChange={(e) => set("preferredLanguage", e.target.value)}>
                   <option value="en">English</option>
                   <option value="hi">हिन्दी</option>
+                  <option value="hinglish">Hinglish (Hindi in English letters)</option>
                 </Select>
               </Field>
               <Field label="Mobile number" optional error={errors.phone} hint="Without a phone, consent is taken in person with a witness.">

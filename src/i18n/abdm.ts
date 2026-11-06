@@ -71,8 +71,42 @@ export const hi: Record<AbdmKey, string> = {
   sms: '{brand}: आपकी क्लिनिक टीम ने आपके ABHA स्वास्थ्य खाते से जुड़े रिकॉर्ड मँगवाने के लिए पूछा है। मंज़ूरी देने या मना करने के लिए {url} खोलें। आपकी मंज़ूरी के बिना कुछ नहीं मँगवाया जाता।',
 }
 
+/** Hinglish: Hindi in Roman script, as people write it on WhatsApp (patient's choice; never letters to hospitals). */
+export const hinglish: Record<AbdmKey, string> = {
+  kicker: 'ABHA records',
+  title: 'Aapke ABHA account ke records',
+  intro: 'Aapki clinic team woh records mangwane ke liye keh sakti hai jo doosre hospitals aur labs ne aapke ABHA health account se jode hain. Jab tak aap yahan manzoori nahi dete, kuch bhi nahi mangwaya jaata. Aap kabhi bhi apni manzoori wapas le sakte hain, tab woh records aapki file se hata diye jaate hain.',
+  none: 'Abhi koi request nahi hai.',
+  askTitle: 'Aapki clinic team records mangwane ke liye pooch rahi hai',
+  asksFor: 'Maange gaye records: {types}',
+  dates: 'Tareekhein: {from} se {to} tak',
+  keptUntil: 'Manzoori dene par ye records {date} tak aapki file mein rahenge, phir hata diye jaayenge.',
+  approve: 'Manzoori dein',
+  deny: 'Mana karein',
+  revoke: 'Manzoori wapas lein aur ye records hatayein',
+  revokeConfirm: 'Is manzoori se aaye records aapki file se hata diye jaayenge. Kya aap aage badhna chahte hain?',
+  yesRemove: 'Haan, hatayein',
+  cancel: 'Cancel karein',
+  stateRequested: 'Aapke jawab ka intezaar hai',
+  stateGranted: 'Manzoori di gayi',
+  stateDenied: 'Mana kiya gaya',
+  stateRevoked: 'Manzoori wapas li gayi, records hata diye gaye',
+  stateExpired: 'Samay poora hua, records hata diye gaye',
+  approvedOn: '{date} ko manzoori di gayi. Aaye documents: {count}. Ye {until} ko hata diye jaayenge.',
+  askedOn: '{date} ko poocha gaya',
+  savedApproved: 'Dhanyavaad. Aapki manzoori save ho gayi.',
+  savedDenied: 'Aapka jawab save ho gaya. Kuch bhi nahi mangwaya gaya.',
+  savedRevoked: 'Manzoori wapas li gayi. Records aapki file se hata diye gaye.',
+  error: 'Kuch gadbad ho gayi. Kripya dobara koshish karein.',
+  typeDiagnosticReport: 'Test aur scan reports',
+  typeDischargeSummary: 'Hospital se discharge ke kaagaz',
+  typeOPConsultation: 'Doctor visit ke notes',
+  typePrescription: 'Prescriptions',
+  sms: '{brand}: aapki clinic team ne aapke ABHA health account se jude records mangwane ke liye poocha hai. Manzoori dene ya mana karne ke liye {url} kholein. Aapki manzoori ke bina kuch nahi mangwaya jaata.',
+}
+
 export function ta(lang: Lang, key: AbdmKey, vars?: Record<string, string | number>): string {
-  const s = (lang === 'hi' ? hi : en)[key]
+  const s = (lang === 'hi' ? hi : lang === 'hinglish' ? hinglish : en)[key]
   return vars ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : s
 }
 

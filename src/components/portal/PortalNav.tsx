@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { LogOut } from "lucide-react";
+import type { Lang } from "@/core/types";
 
 export type NavItem = { href: string; label: string; query: string };
 
@@ -20,7 +21,7 @@ export function PortalNav({
   label: string;
   signOut: string;
   signingOut: string;
-  lang: "en" | "hi";
+  lang: Lang;
 }) {
   const pathname = usePathname();
   const router = useRouter();

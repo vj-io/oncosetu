@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import clsx from "clsx";
 import { Printer, Send } from "lucide-react";
 import { Badge, Button, Checkbox, Field, Input, LanguageToggle, Switch, type Lang } from "@/components/ui";
+import { htmlLang } from "@/core/copy";
 import { CONSENT_NOTICE_VERSION, consentCopy, type ConsentPurposeKey } from "@/i18n/consent";
 import { Notice, PRINT_CSS } from "./Notice";
 import { WRAP } from "./style";
@@ -60,7 +61,7 @@ export function ConsentCapture({
         <LanguageToggle value={lang} onChange={(l) => set({ language: l })} />
       </div>
 
-      <div lang={lang} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", lang === "hi" && "font-deva")}>
+      <div lang={htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", lang === "hi" && "font-deva")}>
         <h3 className="text-2xl leading-snug tracking-[-0.02em]">{consentCopy.title[lang]}</h3>
         <p className="max-w-2xl text-[17px] leading-relaxed">{consentCopy.intro[lang]}</p>
         <ul className="grid divide-y divide-rule border-y border-rule">

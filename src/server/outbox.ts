@@ -10,10 +10,11 @@ import { outbox } from '@/db/schema'
 import { maskPhone, normalizePhone, phoneHmac } from './crypto'
 import { log } from './log'
 import { SmsError, smsProvider, type SmsProvider } from './sms/provider'
+import type { Lang } from '@/core/types'
 
 export type OutboxMessage = {
   orgId: string; patientId?: string | null; toPhone: string; channel: 'sms' | 'whatsapp'
-  templateKey: string; body: string; lang: 'en' | 'hi'
+  templateKey: string; body: string; lang: Lang
 }
 
 export const RETRY_DELAY_MS = 1000

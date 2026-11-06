@@ -5,6 +5,7 @@ import { v7 as uuidv7 } from 'uuid'
 import { db, sideDb, withOrg, type Tx } from '@/db'
 import { otpChallenges, patients } from '@/db/schema'
 import { hmac, timingSafeEqualStr } from './crypto'
+import type { Lang } from '@/core/types'
 
 export const OTP_TTL_MS = 5 * 60_000
 export const OTP_MAX_ATTEMPTS = 5
@@ -80,7 +81,7 @@ export async function verifyOtp(phoneHmac: string, code: string, purpose = 'logi
   })
 }
 
-export type PhoneLogin = { patientId: string; orgId: string; caregiverId: string | null; preferredLanguage: 'en' | 'hi' }
+export type PhoneLogin = { patientId: string; orgId: string; caregiverId: string | null; preferredLanguage: Lang }
 
 /**
  * Which patient records this phone may open. Public routes only: it opens one transaction per match on `db`, so never

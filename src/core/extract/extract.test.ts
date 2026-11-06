@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { runGate } from '../gate'
-import type { DocType } from '../types'
+import { STAFF_ONLY_EVENT_TYPES, type DocType, type EventType } from '../types'
 import { buildExtractionPrompt, classifyDocument, detectInjection, extractFallback, ExtractionSchema, EXTRACTION_PROMPT_ID, EXTRACTION_SYSTEM_PROMPT } from '.'
 
 // Synthetic documents in common Indian layouts (no real patient data).
@@ -24,6 +24,25 @@ ECG / Chest X-ray \tWithin normal limits \t- \t10/03/2026
 • Suture removal on 24/03/2026 at the dressing room.
 • Dressing was done on 25/03/2026.
 • Collect pending laboratory reports from the Medical Records counter.`,
+    ],
+  },
+  // Mentor review, 6 Nov 2026: diagnosis and history sections, copied word for word (staff-only facts).
+  sections: {
+    type: 'discharge_summary',
+    pages: [
+      `TRIVENI HOSPITAL, NASHIK
+DISCHARGE SUMMARY
+Name: Sunita Sharma      Age/Sex: 52 Y / F
+Diagnosis
+Left breast, wide local excision: INVASIVE CARCINOMA, Nottingham grade 2 (3
++ 2 + 1 = 6/9). Tumour size 2.3 cm.
+All margins are free.
+Presenting complaints and history
+Lump noticed 3 months ago. Known hypothyroidism on Tab. Thyroxine 50 mcg once daily. No known drug allergies.
+No family history of breast or ovarian cancer.
+Diagnosis: \tCarcinoma left breast - adjuvant
+chemotherapy
+Regimen: \tTC, every 21 days`,
     ],
   },
   discharge: {
@@ -189,7 +208,9 @@ describe('extractFallback: every pattern candidate passes the evidence gate', ()
   it.each(Object.entries(DOCS))('%s', (_k, d) => {
     const pages = pagesOf(d)
     const ex = extractFallback(pages)
-    expect(ExtractionSchema.safeParse({ schema_version: ex.schema_version, doc_type: ex.doc_type, header: ex.header, items: ex.items }).success).toBe(true)
+    // Diagnosis and history sections are rule-only: outside the LLM contract, inside the gate
+    const llmShaped = ex.items.filter((i) => !STAFF_ONLY_EVENT_TYPES.has(i.event_type as EventType))
+    expect(ExtractionSchema.safeParse({ schema_version: ex.schema_version, doc_type: ex.doc_type, header: ex.header, items: llmShaped }).success).toBe(true)
     const gate = runGate(ex.items, pages)
     expect(gate.rejected).toEqual([])
   })
@@ -216,6 +237,21 @@ describe('extractPatterns: what is found', () => {
       ['Review in the Surgical Oncology OPD', '20 Mar 2026'], ['Suture removal', '24/03/2026'], // "Dressing was done" is past, not due
     ])
     expect(of('report_pending_documented')).toContainEqual(expect.objectContaining({ fields: expect.objectContaining({ test_name: 'laboratory', status_text: 'pending' }) }))
+  })
+
+  it('diagnosis and history sections are copied word for word, never from the allergy line', () => {
+    const items = extractFallback(pagesOf(DOCS.sections)).items
+    const of = (t: string) => items.filter((i) => i.event_type === t)
+    expect(of('diagnosis_documented').map((i) => [i.quote, i.fields.section_text])).toEqual([
+      // The heading and its paragraph, across a wrap that starts with "+"; it stops at the next paragraph
+      ['Diagnosis\nLeft breast, wide local excision: INVASIVE CARCINOMA, Nottingham grade 2 (3\n+ 2 + 1 = 6/9). Tumour size 2.3 cm.',
+        'Left breast, wide local excision: INVASIVE CARCINOMA, Nottingham grade 2 (3 + 2 + 1 = 6/9). Tumour size 2.3 cm.'],
+      ['Diagnosis: \tCarcinoma left breast - adjuvant\nchemotherapy', 'Carcinoma left breast - adjuvant chemotherapy'],
+    ])
+    expect(of('history_documented').map((i) => i.fields.history_text)).toEqual([
+      'Known hypothyroidism on Tab. Thyroxine 50 mcg once daily.', 'No family history of breast or ovarian cancer.',
+    ])
+    expect(runGate(items, pagesOf(DOCS.sections)).rejected).toEqual([])
   })
 
   it('discharge summary', () => {

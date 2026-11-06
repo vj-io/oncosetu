@@ -9,6 +9,7 @@ import { ConfirmStep, confirmOf, EMPTY_CONFIRM, type ConfirmState, type Purposes
 import { ConsentRecorder } from "./ConsentRecorder";
 import { Notice } from "./Notice";
 import { WRAP } from "./style";
+import type { Lang } from "@/core/types";
 
 /** Runs a POST, shows the outcome inline, refreshes the server data on success. */
 function useAction(patientId: string) {
@@ -35,7 +36,7 @@ const Status = ({ error, done }: { error: string | null; done: string | null }) 
   </>
 );
 
-export function ConsentActions({ patientId, current, language }: { patientId: string; current: Purposes | null; language: "en" | "hi" }) {
+export function ConsentActions({ patientId, current, language }: { patientId: string; current: Purposes | null; language: Lang }) {
   const router = useRouter();
   const a = useAction(patientId);
   const [open, setOpen] = useState(false);

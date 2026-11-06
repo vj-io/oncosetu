@@ -73,6 +73,8 @@ export type HeaderOut = {
   pageNo: number | null
   name?: HeaderField; age?: HeaderField; sex?: HeaderField; dob?: HeaderField; mrn?: HeaderField & { label: string }
   reportDate?: HeaderField & { label: string }; institution?: HeaderField; accession?: HeaderField
+  /** The doctor the document names as in charge (name only); shown to the patient as "named on your latest papers". */
+  doctor?: HeaderField & { label: string }
 }
 
 const span = (s?: Span): HeaderField | undefined => (s ? { value: s.value, start: s.start, end: s.end } : undefined)
@@ -168,6 +170,7 @@ export function readHeader(pages: PageRead[]): { header: HeaderOut; parsed: Pars
       reportDate: parsed.reportDate ? { ...span(parsed.reportDate)!, label: parsed.reportDate.label } : undefined,
       institution: span(parsed.institution),
       accession: span(parsed.ids.find((i) => i.label === 'Sample ID')),
+      doctor: parsed.doctor ? { ...span(parsed.doctor)!, label: parsed.doctor.label } : undefined,
     },
   }
 }
@@ -283,7 +286,8 @@ export type DraftEvent = {
 const DOC_DATED: ReadonlySet<string> = new Set([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented', 'lab_report_documented',
   'prescription_documented', 'consultation_documented', 'report_pending_documented', 'referral_documented',
-  'chemotherapy_session_documented', 'allergy_documented', 'lab_results_documented',
+  'chemotherapy_session_documented', 'allergy_documented', 'lab_results_documented', 'diagnosis_documented',
+  'history_documented',
 ])
 
 /** One fact per document: the same type + key (cycle, date, test, procedure) found twice keeps the dated, earliest quote. */
@@ -296,6 +300,7 @@ function dedupeKey(d: DraftEvent): string {
     case 'procedure_documented': return `proc|${s('procedure_text')}|${d.eventDate}`
     case 'prescription_documented': case 'lab_results_documented': return `${d.eventType}|${d.evidence.charStart}`
     case 'follow_up_documented': return `fu|${s('appointment_text')}|${d.eventDate}`
+    case 'diagnosis_documented': case 'history_documented': return `${d.eventType}|${s('section_text')}${s('history_text')}`
     default: return `${d.eventType}|${s('test_name')}|${d.eventDate}`
   }
 }

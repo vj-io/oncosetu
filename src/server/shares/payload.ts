@@ -3,7 +3,7 @@
 // "Setu Records", and free text that names a diagnosis (an institution) is dropped (FR-CON-07).
 import { brandFor, patientDocLabel } from '@/core/copy'
 import type { Snapshot } from '@/core/ledger'
-import type { DatePrecision, Disclosure, DocType, EventType, Lang, MissingState } from '@/core/types'
+import { STAFF_ONLY_EVENT_TYPES, type DatePrecision, type Disclosure, type DocType, type EventType, type Lang, type MissingState } from '@/core/types'
 import { ts } from '@/i18n/shares'
 import type { L2 } from '../radar-ui/wording'
 import { guardFree } from '../requests/letter'
@@ -62,7 +62,7 @@ const EVENT_DOC: Partial<Record<EventType, DocType>> = {
   consultation_documented: 'consult_note',
 }
 
-const both = (f: (l: Lang) => string): L2 => ({ en: f('en'), hi: f('hi') })
+const both = (f: (l: Lang) => string): L2 => ({ en: f('en'), hi: f('hi'), hinglish: f('hinglish') })
 
 export function buildSharePayload(i: PayloadInput): SharePayload {
   const cleared = i.disclosure === 'cleared'
@@ -72,7 +72,7 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
   const docs = new Map(i.snapshot.documents.map((d) => [d.id, d]))
 
   const items = [...i.snapshot.verified, ...i.snapshot.unverified]
-    .filter((e) => e.eventType !== 'patient_statement')
+    .filter((e) => e.eventType !== 'patient_statement' && !STAFF_ONLY_EVENT_TYPES.has(e.eventType))
     .map((e) => ({ e, k: `${e.eventDate ?? e.documentDate ?? '9999'}|${e.id}` }))
     .sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0))
     .map(({ e }) => e)

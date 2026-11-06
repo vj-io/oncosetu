@@ -7,7 +7,7 @@ const purposes = z.object({ store: z.boolean(), ai: z.boolean(), share: z.boolea
 
 export const POST = route({
   auth: 'patient',
-  body: z.object({ withdraw: z.boolean().optional(), purposes: purposes.optional(), lang: z.enum(['en', 'hi']).default('en') }),
+  body: z.object({ withdraw: z.boolean().optional(), purposes: purposes.optional(), lang: z.enum(['en', 'hi', 'hinglish']).default('en') }),
 }, async ({ session, db, body, audit }) => {
   if (!body.withdraw && !body.purposes) throw new HttpError(400, 'invalid_request', 'Nothing to change')
   // Without "store" there is no record to keep: turning it off is a withdrawal (same rule as the desk's consent tab).

@@ -169,6 +169,15 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
     expect(JSON.stringify(v)).not.toContain('CBC done on')
   })
 
+  it('diagnosis and history sections: clinician tier, never shown at the desk', () => {
+    const dx = event({ documentId: d.id, eventType: 'diagnosis_documented', fields: { section_text: 'Carcinoma of the ascending colon' }, eventDate: '2026-10-21' })
+    const withDx = { ...base, events: [...base.events, dx], evidence: [...base.evidence, quote(dx)] }
+    expect(itemsById(buildLedgerView({ rows: withDx, prev, role: 'clinician', now: NOW })).get(dx.id)).toMatchObject({ tier: 'clinician', headline: 'Carcinoma of the ascending colon' })
+    const desk = buildLedgerView({ rows: withDx, prev, role: 'desk', now: NOW })
+    expect(itemsById(desk).has(dx.id)).toBe(false)
+    expect(JSON.stringify(desk)).not.toMatch(/Diagnosis as written|Carcinoma/)
+  })
+
   it('desk conflicts and missing items carry no clinical content (S2a)', () => {
     const wording = { en: 'Imaging report not in file for the PET-CT documented on 2 Feb 2026', hi: 'h' }
     const missing = [{ ruleId: 'RAD-IMG-PT-01', ruleVersion: '1', mode: 'production' as const, triggerEventId: a.id, expectedTypes: ['imaging_report'], state: 'expected' as const, dedupeKey: 'k1', matchWindow: { wording } }]

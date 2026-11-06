@@ -4,8 +4,10 @@ import type { Tx } from '@/db'
 import { caregivers, patients } from '@/db/schema'
 import { decryptField } from '../crypto'
 import { sendMessage } from '../outbox'
+import { inLang } from '@/core/copy'
+import type { Lang } from '@/core/types'
 
-export type ContactTarget = { phone: string; lang: 'en' | 'hi'; caregiverId: string | null }
+export type ContactTarget = { phone: string; lang: Lang; caregiverId: string | null }
 
 async function activeCaregivers(tx: Tx, patientId: string) {
   return tx.select().from(caregivers)
@@ -13,7 +15,7 @@ async function activeCaregivers(tx: Tx, patientId: string) {
     .orderBy(desc(caregivers.isGuardian), asc(caregivers.createdAt))
 }
 
-const viaCaregiver = (c: typeof caregivers.$inferSelect, lang: 'en' | 'hi'): ContactTarget =>
+const viaCaregiver = (c: typeof caregivers.$inferSelect, lang: Lang): ContactTarget =>
   ({ phone: decryptField(c.phoneEnc), lang, caregiverId: c.id })
 
 /**
@@ -53,10 +55,10 @@ export async function patientPhoneTarget(tx: Tx, patientId: string): Promise<Con
  * Neutral SMS to the patient's OWN phone (not the caregiver's) when who can act for them changes, so a change they
  * did not make is noticed. Skipped with no phone on file or a deceased patient. Returns whether it was sent.
  */
-export async function tellPatient(tx: Tx, p: { orgId: string; patientId: string; templateKey: string; body: { en: string; hi: string } }): Promise<boolean> {
+export async function tellPatient(tx: Tx, p: { orgId: string; patientId: string; templateKey: string; body: { en: string; hi: string; hinglish?: string } }): Promise<boolean> {
   const [r] = await tx.select({ phoneEnc: patients.phoneEnc, deceased: patients.deceased, lang: patients.preferredLanguage })
     .from(patients).where(eq(patients.id, p.patientId))
   if (!r?.phoneEnc || r.deceased) return false
-  await sendMessage(tx, { orgId: p.orgId, patientId: p.patientId, toPhone: decryptField(r.phoneEnc), channel: 'sms', templateKey: p.templateKey, body: p.body[r.lang], lang: r.lang })
+  await sendMessage(tx, { orgId: p.orgId, patientId: p.patientId, toPhone: decryptField(r.phoneEnc), channel: 'sms', templateKey: p.templateKey, body: inLang(p.body, r.lang), lang: r.lang })
   return true
 }

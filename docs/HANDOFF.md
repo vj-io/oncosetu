@@ -151,7 +151,7 @@ npm run test:e2e                                       # 42 Playwright tests aga
 | Item | To finish |
 |---|---|
 | LLM extraction | **Live on Gemini's free tier** (see README "LLM extraction"). Free-tier terms let Google use prompts, so keep synthetic data only; for a pilot switch to a paid / DPA-covered model (`ANTHROPIC_API_KEY`, or raise `LLM_RPM`/`LLM_RPD` on a paid Gemini key). Health check: `vercel crons run /api/cron/llm-health`, then `scripts/llm-health-report.ts` |
-| Twilio SMS / WhatsApp | Twilio account + sender, `TWILIO_*` env; for Indian SMS, DLT sender and template registration; point the WhatsApp webhook at `/api/inbound/whatsapp`. Add a status-callback webhook for delivery receipts (not built) |
+| Twilio SMS / WhatsApp | Twilio account + sender, `TWILIO_*` env; for Indian SMS, DLT sender and template registration; point the WhatsApp webhook at `/api/inbound/whatsapp`. Set `WHATSAPP_INTAKE_NUMBER` so the patient's send page shows the number to forward to. Add a status-callback webhook for delivery receipts (not built) |
 | Postmark email drop | Inbound server + an MX domain; set `INBOUND_EMAIL_DOMAIN` to it; webhook `https://USER:PASS@<host>/api/inbound/email` |
 | ABDM sandbox | Legal entity + HIU registration; set `ABDM_*`. Still to build for the live sandbox: the gateway callback routes, the data-push endpoint (must keep the HIU private key encrypted between request and push), a key-format adapter for the reference Curve25519 encoding, ABHA *address* support, and confirming the entry checksum convention. Today the PRD-specified in-process gateway (real X25519/HKDF/AES-GCM) runs |
 

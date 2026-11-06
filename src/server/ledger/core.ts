@@ -7,7 +7,7 @@ import {
   type LedgerConflict, type LedgerEventItem, type LedgerRecord, type MissingLike, type Snapshot, type SnapshotEvent,
 } from '@/core/ledger'
 import {
-  DOC_TYPES, EVENT_FIELDS, EVENT_FLAGS,
+  DOC_TYPES, EVENT_FIELDS, EVENT_FLAGS, STAFF_ONLY_EVENT_TYPES,
   type CoreDocument, type CoreEvent, type CoreStatement, type DocType, type EventFlag, type EventType, type FieldValue,
   type VerificationStatus,
 } from '@/core/types'
@@ -45,6 +45,8 @@ export const EVENT_LABEL: Record<EventType, string> = {
   allergy_documented: 'Allergy statement documented',
   follow_up_documented: 'Follow-up date documented',
   lab_results_documented: 'Lab results as written',
+  diagnosis_documented: 'Diagnosis as written',
+  history_documented: 'History as written',
   patient_statement: 'Patient statement',
 }
 
@@ -54,7 +56,7 @@ export const FIELD_LABEL: Record<string, string> = {
   medication_names: 'Medicines', prescriber_name: 'Prescriber', cycle_number: 'Cycle', regimen_text: 'Regimen',
   treatment_text: 'Treatment', doctor_name: 'Doctor', department_text: 'Department', referred_to_text: 'Referred to',
   document_title: 'Document', statement_text: 'Statement', scan_name: 'Scan', event_date: 'Date',
-  allergy_text: 'Allergy (as written)', appointment_text: 'Due',
+  allergy_text: 'Allergy (as written)', appointment_text: 'Due', section_text: 'As written', history_text: 'As written',
 }
 
 const QUESTION_LABEL: Record<string, string> = {
@@ -67,7 +69,7 @@ const STATUS_LABEL: Record<VerificationStatus, string> = {
   rejected: 'Rejected', disputed: 'Disputed',
 }
 
-const HEADLINE_FIELDS = ['allergy_text', 'appointment_text', 'procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
+const HEADLINE_FIELDS = ['section_text', 'history_text', 'allergy_text', 'appointment_text', 'procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
 
 const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
@@ -197,6 +199,7 @@ export type VerifyAction = 'verify' | 'edit' | 'reject' | 'dispute'
 export const CLINICIAN_TIER_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented',
   'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented', 'allergy_documented',
+  'diagnosis_documented', 'history_documented',
 ])
 const OLDER_CLINICIAN_DOCS: ReadonlySet<DocType> = new Set<DocType>(['pathology_report', 'ihc_molecular_report', 'imaging_report'])
 
@@ -340,6 +343,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
   const inConflict = new Set(conflicts.flatMap((c) => [c.a.id, c.b.id]))
   const coreById = new Map(record.events.map((e) => [e.id, e]))
   const headlinesOnly = role === 'desk' // desk sees the ledger headline list only (PRD §6.1)
+  const shown = (it: LedgerEventItem) => !headlinesOnly || !STAFF_ONLY_EVENT_TYPES.has(it.event.eventType) // no diagnosis words at the desk (FR-VOX-06)
   const docType = (id: string | null) => (id ? docById.get(id)?.docType ?? null : null)
   const docLabel = (id: string | null) => {
     const t = docType(id)
@@ -412,10 +416,10 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       missing: preview.missing.length, statements: preview.statements.length,
     },
     events: {
-      initial_record: ledger.initial_record.map(view),
-      new_since_last_visit: ledger.new_since_last_visit.map(view),
-      newly_received_older: ledger.newly_received_older.map(view),
-      amended: ledger.amended.map(view),
+      initial_record: ledger.initial_record.filter(shown).map(view),
+      new_since_last_visit: ledger.new_since_last_visit.filter(shown).map(view),
+      newly_received_older: ledger.newly_received_older.filter(shown).map(view),
+      amended: ledger.amended.filter(shown).map(view),
     },
     conflicts: conflicts.map((c) => ({
       key: `${c.a.id}:${c.b.id}`, kind: c.kind, label: headlinesOnly ? 'Two sources disagree' : CONFLICT_LABEL[c.kind], sides: [side(c.a), side(c.b)],
@@ -432,7 +436,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       : { dedupeKey: m.dedupeKey, title: m.wording.en, state: m.state ?? 'expected', ruleId: m.ruleId }),
     duplicates: {
       count: ledger.duplicates_suppressed.count,
-      items: record.events.filter((e) => dupIds.has(e.id)).map((e) => ({
+      items: record.events.filter((e) => dupIds.has(e.id) && !(headlinesOnly && STAFF_ONLY_EVENT_TYPES.has(e.eventType))).map((e) => ({
         id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headlinesOnly ? null : headline(e.fields),
         date: day(e.eventDate ?? e.documentDate, e.eventDate ? e.datePrecision : 'day'), docLabel: docLabel(e.documentId),
       })),

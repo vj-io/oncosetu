@@ -92,6 +92,13 @@
       "when": 1793900000000,
       "tag": "0012_event_types_allergy_follow_up_results",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1794000000000,
+      "tag": "0013_event_types_diagnosis_history",
+      "breakpoints": true
     }
   ]
 }

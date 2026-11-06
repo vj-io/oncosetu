@@ -31,6 +31,8 @@ export const EVENT_LABEL: Record<string, string> = {
   allergy_documented: 'Allergy statement documented',
   follow_up_documented: 'Follow-up date documented',
   lab_results_documented: 'Lab results as written',
+  diagnosis_documented: 'Diagnosis as written',
+  history_documented: 'History as written',
   patient_statement: 'Patient statement',
 }
 
@@ -39,7 +41,7 @@ export const FIELD_LABEL: Record<string, string> = {
   specimen_text: 'Specimen', accession_number: 'Accession', status_text: 'Status', medication_names: 'Medicines', prescriber_name: 'Prescriber',
   cycle_number: 'Cycle', regimen_text: 'Regimen', treatment_text: 'Treatment', doctor_name: 'Doctor', department_text: 'Department',
   referred_to_text: 'Referred to', document_title: 'Title', statement_text: 'Statement', scan_name: 'Scan',
-  allergy_text: 'Allergy (as written)', appointment_text: 'Due',
+  allergy_text: 'Allergy (as written)', appointment_text: 'Due', section_text: 'As written', history_text: 'As written',
 }
 
 /** Event flag → chip label (never colour alone). */

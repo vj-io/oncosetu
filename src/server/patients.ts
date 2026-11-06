@@ -5,12 +5,13 @@ import { breakGlass, caregivers, consents, encounters, patients, type ConsentPur
 import { decryptField, maskPhone } from './crypto'
 import { HttpError } from './http'
 import type { Session } from './session'
+import type { Lang } from '@/core/types'
 
 export type PatientView = {
   id: string; orgId: string; name: string; initials: string; dob: string | null; ageYears: number | null
   sex: 'female' | 'male' | 'other' | 'unknown'; phoneMasked: string | null; mrn: string | null
   disclosure: 'cleared' | 'not_cleared' | 'unknown'; primaryContact: 'patient' | 'caregiver'; minor: boolean
-  deceased: boolean; preferredLanguage: 'en' | 'hi'; tokenRevoked: boolean; status: string
+  deceased: boolean; preferredLanguage: Lang; tokenRevoked: boolean; status: string
   caregivers: { id: string; name: string; relation: string; phoneMasked: string; isGuardian: boolean; active: boolean }[]
 }
 

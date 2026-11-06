@@ -186,10 +186,11 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
   );
 }
 
-export type Lang = "en" | "hi";
+export type Lang = "en" | "hi" | "hinglish";
+const LANG_LABEL: Record<Lang, [short: string, name: string]> = { en: ["EN", "English"], hi: ["हिं", "हिन्दी"], hinglish: ["Hinglish", "Hinglish"] };
 
-/** EN / हिं switch. Without `onChange` it sets `?lang=` on the current URL (server pages read searchParams). */
-export function LanguageToggle({ value, onChange, className }: { value: Lang; onChange?: (lang: Lang) => void; className?: string }) {
+/** EN / हिं / Hinglish switch (staff screens pass `langs` for EN / हिं only). Without `onChange` it sets `?lang=` on the current URL (server pages read searchParams). */
+export function LanguageToggle({ value, onChange, className, langs = ["en", "hi", "hinglish"] }: { value: Lang; onChange?: (lang: Lang) => void; className?: string; langs?: readonly Lang[] }) {
   const router = useRouter();
   const choose = (lang: Lang) => {
     if (lang === value) return;
@@ -200,21 +201,21 @@ export function LanguageToggle({ value, onChange, className }: { value: Lang; on
   };
   return (
     <div role="group" aria-label="Language · भाषा" className={clsx("inline-flex border border-ink bg-matte", className)}>
-      {(["en", "hi"] as const).map((lang) => (
+      {langs.map((lang) => (
         <button
           key={lang}
           type="button"
-          lang={lang}
+          lang={lang === "hinglish" ? "hi-Latn" : lang}
           aria-pressed={value === lang}
           onClick={() => choose(lang)}
           className={clsx(
             "h-11 min-w-12 px-3 transition-colors",
             value === lang ? "bg-obsidian text-gallery" : "text-ink hover:bg-spotlight",
-            lang === "en" ? "font-mono text-xs tracking-[0.14em]" : "font-deva text-[15px]",
+            lang === "hi" ? "font-deva text-[15px]" : "font-mono text-xs tracking-[0.14em]",
           )}
         >
-          <span aria-hidden>{lang === "en" ? "EN" : "हिं"}</span>
-          <span className="sr-only">{lang === "en" ? "English" : "हिन्दी"}</span>
+          <span aria-hidden>{LANG_LABEL[lang][0]}</span>
+          <span className="sr-only">{LANG_LABEL[lang][1]}</span>
         </button>
       ))}
     </div>

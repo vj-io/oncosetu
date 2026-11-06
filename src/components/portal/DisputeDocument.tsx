@@ -1,5 +1,6 @@
 "use client";
 
+import type { Lang } from "@/core/types";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { tp, type PatientKey } from "@/i18n/patient";
@@ -7,7 +8,7 @@ import { DISPUTE_REASONS, type DisputeReason } from "@/server/portal/dispute-rea
 import { ErrorNote, PButton } from "./ui";
 
 /** J7: "Something wrong with this?" on one document. A reason code only (no free text); the records team sees the item as disputed. */
-export function DisputeDocument({ lang, documentId, flagged }: { lang: "en" | "hi"; documentId: string; flagged: boolean }) {
+export function DisputeDocument({ lang, documentId, flagged }: { lang: Lang; documentId: string; flagged: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<DisputeReason | null>(null);

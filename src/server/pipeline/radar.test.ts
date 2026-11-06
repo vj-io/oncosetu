@@ -6,7 +6,7 @@ import { planRadarMerge, rowKey } from './radar'
 const P = 'patient-1'
 const item = (key: string, extra: Partial<RadarItem> = {}): RadarItem => ({
   dedupeKey: key, ruleId: 'RAD-SURG-HPE-01', ruleVersion: 1, triggerEventId: 'ev-1', triggerKind: 'event', expectedTypes: ['pathology_report'],
-  window: { from: '2026-03-12', to: '2026-05-11' }, wording: { en: 'w', hi: 'w' }, neutralWording: { en: 'n', hi: 'n' }, sourceLabel: 'Discharge summary, p.2',
+  window: { from: '2026-03-12', to: '2026-05-11' }, wording: { en: 'w', hi: 'w' }, neutralWording: { en: 'n', hi: 'n', hinglish: 'n' }, sourceLabel: 'Discharge summary, p.2',
   mode: 'shadow', ...extra,
 })
 const row = (key: string, state: string, extra = {}) => ({ id: `row-${key}`, dedupeKey: rowKey(P, key), state: state as never, proposedDocumentId: null, ...extra })

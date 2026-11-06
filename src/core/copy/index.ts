@@ -40,7 +40,25 @@ const NEUTRAL: Record<DocType, Label> = {
   other: { en: 'Other document', hi: 'अन्य दस्तावेज़' },
 }
 
+/** Hinglish neutral labels; cleared Hinglish uses the English clinical names (as people say them). */
+const NEUTRAL_HINGLISH: Record<DocType, string> = {
+  pathology_report: 'Lab report (tissue)',
+  ihc_molecular_report: 'Lab report (aur tests)',
+  imaging_report: 'Scan report',
+  lab_report: 'Lab report',
+  prescription_printed: 'Parcha',
+  prescription_handwritten: 'Parcha (haath se likha)',
+  discharge_summary: 'Hospital discharge summary',
+  consult_note: 'Doctor visit note',
+  chemo_daycare_record: 'Day-care record',
+  radiotherapy_summary: 'Treatment summary',
+  procedure_note: 'Procedure note',
+  bill_insurance: 'Bill / insurance kaagaz',
+  other: 'Doosra kaagaz',
+}
+
 export function patientDocLabel(docType: DocType, disclosure: Disclosure, lang: Lang = 'en'): string {
+  if (lang === 'hinglish') return disclosure === 'cleared' ? CLEARED[docType].en : NEUTRAL_HINGLISH[docType]
   return (disclosure === 'cleared' ? CLEARED : NEUTRAL)[docType][lang]
 }
 
@@ -48,13 +66,23 @@ export function staffDocLabel(docType: DocType): string {
   return CLEARED[docType].en
 }
 
+/** The HTML `lang` value: Hinglish is Hindi written in Latin script. */
+export const htmlLang = (lang: Lang): string => (lang === 'hinglish' ? 'hi-Latn' : lang)
+
+/** One string from an { en, hi, hinglish? } pair; Hinglish falls back to English where none was written (older rows). */
+export function inLang(x: { en: string; hi: string; hinglish?: string }, lang: Lang): string {
+  return lang === 'hinglish' ? x.hinglish ?? x.en : x[lang]
+}
+
 /** "OncoSetu" contains "Onco", so non-cleared patient surfaces show "Setu Records". */
 export function brandFor(disclosure: Disclosure): 'OncoSetu' | 'Setu Records' {
   return disclosure === 'cleared' ? 'OncoSetu' : 'Setu Records'
 }
 
+const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const MONTHS: Record<Lang, string[]> = {
-  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  en: EN_MONTHS,
+  hinglish: EN_MONTHS,
   hi: ['जनवरी', 'फ़रवरी', 'मार्च', 'अप्रैल', 'मई', 'जून', 'जुलाई', 'अगस्त', 'सितंबर', 'अक्टूबर', 'नवंबर', 'दिसंबर'],
 }
 
@@ -68,7 +96,7 @@ export function istDate(iso: string): string {
 
 /** "12 Mar 2026" / "12 मार्च 2026"; month precision → "Mar 2026"; year → "2026"; null → "date not stated". */
 export function formatDateIN(iso: string | null | undefined, lang: Lang = 'en', precision: DatePrecision = 'day'): string {
-  if (!iso || precision === 'unknown') return lang === 'hi' ? 'तारीख़ दर्ज नहीं' : 'date not stated'
+  if (!iso || precision === 'unknown') return lang === 'hi' ? 'तारीख़ दर्ज नहीं' : lang === 'hinglish' ? 'tareekh likhi nahi' : 'date not stated'
   const [y, m, d] = istDate(iso).split('-').map(Number)
   if (precision === 'year') return String(y)
   const month = MONTHS[lang][m - 1]

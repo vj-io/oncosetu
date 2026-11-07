@@ -140,6 +140,9 @@ describe('rejected uploads are returned and audited', () => {
     const { r, latest } = await rejected(new Uint8Array(Buffer.concat([Buffer.from([0, 1, 2, 3]), eicar])), 'x.bin')
     expect(r.rejected).toMatchObject({ status: 422, code: 'malware_signature' })
     expect(latest[0]).toMatchObject({ reason: 'malware_signature' })
+    // the bare signature reads as plain text (an accepted type since 7 Nov) and is still refused, not quarantined
+    const bare = await rejected(new Uint8Array(eicar), 'eicar.com')
+    expect(bare.r.rejected).toMatchObject({ status: 422, code: 'malware_signature' })
   }, 60_000)
 
   it('a file over the size limit is refused', async () => {

@@ -78,8 +78,10 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   if (bytes.length > cap) throw new HttpError(413, 'file_too_large', `Files must be ${cap / MB} MB or smaller`)
   const sniffed = input.bundle ? ({ kind: 'dicom', mime: STUDY_BUNDLE_MIME, category: 'scan' } as const) : sniffFile(bytes, input.fileName)
   const eicar = hasEicar(bytes)
+  // A bare test-virus signature is refused outright; plain text is now an accepted type, so check it before the sniff
+  // decides (inside a real PDF or image it is still quarantined below, kept encrypted and never served).
+  if (eicar && (!sniffed || sniffed.kind === 'text')) throw new HttpError(422, 'malware_signature', 'The file could not be accepted')
   if (!sniffed) {
-    if (eicar) throw new HttpError(422, 'malware_signature', 'The file could not be accepted')
     throw new HttpError(415, 'unsupported_type', 'Upload a PDF, a photo (JPEG, PNG, HEIC, WebP, TIFF), a DICOM scan, an ECG file, a short video, or a Word or text report')
   }
   if (sniffed.kind === 'zip') throw new HttpError(415, 'zip_not_expanded', 'A ZIP must be opened before intake (use the upload endpoint)')

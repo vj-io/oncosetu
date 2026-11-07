@@ -27,17 +27,22 @@ afterAll(async () => { await app.end(); await owner.end() })
 describe('privacy acknowledgements and ID checks (0014)', () => {
   it('are visible only inside their own org', async () => {
     const sid = await staffId()
-    await inTx(owner, async (tx) => {
+    const pid = await owner.begin(async (tx) => { // committed: the app connection must see it
       await setOrg(tx, ORG_NARMADA_ID)
       const [p] = await newPatient(tx, ORG_NARMADA_ID)
       await tx`insert into privacy_acknowledgements (org_id, patient_id, actor_type, actor_id, notice_version, language) values (${ORG_NARMADA_ID}, ${p.id}, 'patient', ${p.id}, 'dpdp-draft-v1', 'en')`
       await tx`insert into id_verifications (org_id, patient_id, id_type, last4, verified_by) values (${ORG_NARMADA_ID}, ${p.id}, 'aadhaar', '1234', ${sid})`
-      await tx`select set_config('app.org_id', ${ORG_GANGA_ID}, true)`
-      const set = tx.unsafe('set local role oncosetu_app')
-      await set
-      expect((await tx`select count(*)::int as n from privacy_acknowledgements`)[0].n).toBe(0)
-      expect((await tx`select count(*)::int as n from id_verifications`)[0].n).toBe(0)
+      return p.id as string
     })
+    // Read as the app role through its own connection (a managed database does not let the owner SET ROLE to it).
+    const seen = (org: string) => app.begin(async (tx) => {
+      await setOrg(tx, org)
+      const [a] = await tx`select count(*)::int as n from privacy_acknowledgements where patient_id = ${pid}`
+      const [b] = await tx`select count(*)::int as n from id_verifications where patient_id = ${pid}`
+      return [a.n, b.n]
+    })
+    expect(await seen(ORG_NARMADA_ID)).toEqual([1, 1])
+    expect(await seen(ORG_GANGA_ID)).toEqual([0, 0])
   })
 
   it('the database itself refuses anything but 4 characters for the stored ID part', async () => {
@@ -107,7 +112,7 @@ describe('chunked uploads (0015)', () => {
     await run((tx) => closeSession(tx, s.id, 'done'))
     const [{ n }] = await owner`select count(*)::int as n from upload_chunks where session_id = ${s.id}`
     expect(n).toBe(0) // chunks are gone once the file is assembled
-  }, 60_000)
+  }, 240_000) // 9 MB each way: against a remote managed database this takes minutes, not seconds
 
   it('refuses a file whose checksum does not match, and keeps the session so the bad chunk can be re-sent', async () => {
     const { startUpload, putChunk, assemble } = await import('../../src/server/uploads/chunks')

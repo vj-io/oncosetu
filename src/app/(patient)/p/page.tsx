@@ -18,7 +18,9 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
   const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId))
   const sum = buildHomeSummary(data, ctx.disclosure, lang)
   const q = `?lang=${lang}`
-  const firstName = ctx.session.displayName.trim().split(/\s+/)[0] ?? ''
+  const parts = ctx.session.displayName.trim().split(/\s+/)
+  // "Mohd.", "Dr.", "K." are not names: greet with the whole name
+  const firstName = !parts[0] || parts[0].endsWith('.') || parts[0].length < 3 ? ctx.session.displayName.trim() : parts[0]
 
   return (
     <PortalFrame ctx={ctx}>

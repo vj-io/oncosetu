@@ -67,7 +67,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
                 ))}
               </ul>
               <p className="text-sm text-muted">Notice {current.noticeVersion} · {current.language === 'hi' ? 'Hindi' : 'English'} · recorded {STAMP.format(current.recordedAt)} · {d.activeLinks} active share link{d.activeLinks === 1 ? '' : 's'}</p>
-              {!current.purposes.ai && <p className="text-sm text-muted">AI processing is declined: this patient is in manual mode and nothing is sent to an AI provider.</p>}
+              {!current.purposes.ai && <p className="text-sm text-muted">AI-assisted reading: declined. Documents are read by the rule library only.</p>}
               <ConsentActions patientId={id} current={current.purposes} language={p.preferredLanguage} />
             </div>
           </Frame>

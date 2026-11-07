@@ -67,7 +67,7 @@ export function PortalNav({
         href={`${it.href}${it.query}`}
         aria-current={active ? "page" : undefined}
         className={clsx(
-          "inline-flex h-11 items-center border-b-2 px-2.5 text-[15px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px]",
+          "inline-flex h-11 items-center border-b-2 px-2 text-[15px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px] lg:px-2.5",
           active ? "border-ink text-ink" : "border-transparent text-muted hover:border-rule hover:text-ink",
           extra,
         )}

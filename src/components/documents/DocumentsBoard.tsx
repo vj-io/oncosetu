@@ -141,14 +141,15 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   const fromSamples = (names: string[]) => upload(names.map((n) => ({ name: n, get: () => fetch(`/demo-docs/${n}`).then((r) => r.blob()) })))
 
   // Documents waiting for a person to confirm the patient sit in their own group, never under a clinical heading.
-  const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing'), [data.rows])
+  const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing' && r.status !== 'quarantined'), [data.rows])
+  const blocked = useMemo(() => data.rows.filter((r) => r.status === 'quarantined'), [data.rows])
   const groups = useMemo(() => {
-    const rest = data.rows.filter((r) => !held.includes(r))
+    const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r))
     const forms = rest.filter((r) => r.file?.label === 'Consent')
     const stored = rest.filter((r) => r.file?.storedOnly && !forms.includes(r))
     const text = rest.filter((r) => !r.file?.storedOnly)
     return PRIORITY_GROUPS.map((g) => ({ ...g, rows: g.title.startsWith('Scans') ? stored : g.title.startsWith('Signed consent') ? forms : text.filter((r) => g.types.includes(r.docType ?? 'other') || (g.title.startsWith('Other') && !r.docType)) })).filter((g) => g.rows.length)
-  }, [data.rows, held])
+  }, [data.rows, held, blocked])
   const p = data.progress
 
   return (
@@ -157,7 +158,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
         {/* Summary */}
         <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
           <p className="ds-kicker">In this file</p>
-          <h2 id="progress-h" className="text-xl tracking-[-0.02em]">{p.documents} document{p.documents === 1 ? '' : 's'}</h2>
+          <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}</h2>
           <p className="text-sm text-muted">
             {p.inQueue > 0 ? <><LoaderCircle aria-hidden className="ds-spin mr-1 inline size-3.5" />{p.inQueue} being checked · </> : null}
             {p.awaitingDecision > 0 ? <span className="text-madder-ink">{p.awaitingDecision} held for checking · </span> : null}
@@ -242,6 +243,15 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             </ul>
           </div>
         )}
+        {blocked.length > 0 && (
+          <div className="grid gap-3" data-testid="blocked-group">
+            <h3 className="ds-kicker flex items-center gap-2 border-b border-madder pb-2 text-madder-ink"><ShieldAlert aria-hidden className="size-4" />Blocked: unsafe file · {blocked.length}</h3>
+            <p className="text-sm text-muted">These files were refused by the safety check. They are never opened and never shown. The original is kept encrypted for the audit trail only.</p>
+            <ul className="grid gap-3">
+              {blocked.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={false} index={i} onChange={refresh} />)}
+            </ul>
+          </div>
+        )}
         {groups.map((g) => (
           <div key={g.title} className="grid gap-3">
             <h3 className="ds-kicker border-b border-rule pb-2">{g.title} · {g.rows.length}</h3>
@@ -260,7 +270,8 @@ const TONE_FOR: Record<string, Tone> = { done: 'verified', needs_review: 'unveri
 function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSummary; patientId: string; canDecide: boolean; index: number; onChange: () => void }) {
   const live = r.status === 'queued' || r.status === 'processing'
   const pos = trackerPosition(r.stages)
-  const pending = r.attachState === 'pending_decision' && !live
+  const blockedFile = r.status === 'quarantined'
+  const pending = r.attachState === 'pending_decision' && !live && !blockedFile
   const b = statusBadge(r.status)
   const href = `/patients/${patientId}/documents/${r.id}`
   const chips: { icon: ReactNode; text: string; tone: Tone }[] = []
@@ -269,8 +280,8 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
   if (cat) chips.push({ icon: <CatIcon />, text: r.file!.label, tone: 'neutral' })
   if (r.imaging?.synthetic) chips.push({ icon: <ShieldAlert />, text: 'Synthetic sample', tone: 'shadow' })
   if (r.flags.injection) chips.push({ icon: <ShieldAlert />, text: 'Hidden instructions removed', tone: 'conflict' })
-  if (r.flags.handwritten) chips.push({ icon: <Hand />, text: 'Handwritten · image only', tone: 'unverified' })
-  if (r.flags.lowConfidence) chips.push({ icon: <ScanText />, text: 'Low OCR confidence', tone: 'unverified' })
+  if (r.flags.handwritten) chips.push({ icon: <Hand />, text: 'Handwritten: kept as an image', tone: 'unverified' })
+  if (r.flags.lowConfidence) chips.push({ icon: <ScanText />, text: 'Read from a photo: check the numbers', tone: 'unverified' })
   if (r.flags.nearDuplicateOf) chips.push({ icon: <CopyCheck />, text: 'Possible duplicate', tone: 'unverified' })
   if (r.flags.languageUnsupported) chips.push({ icon: <Languages />, text: 'Language not supported', tone: 'shadow' })
   if (r.flags.amendmentOf) chips.push({ icon: <PenLine />, text: 'Amendment', tone: 'setu' })
@@ -282,7 +293,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
     <li className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-5">
         <div className="grid min-w-0 gap-1.5">
-          <p className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">ACC. {shortId(r.id)} · received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
+          <p className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
           <h4 className="text-lg leading-snug tracking-[-0.015em]">
             {r.title}
             {r.institution && <span className="text-muted"> · {r.institution}</span>}
@@ -315,7 +326,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
           )}
           <StatusBadge status={b.status} label={b.label} />
           {r.identity !== 'pending' && <StatusBadge status={r.identity} />}
-          {canDecide && !live && (
+          {canDecide && !live && !blockedFile && (
             <Link href={href} className="inline-flex items-center gap-1 pt-1 text-sm underline underline-offset-4 hover:text-setu-ink">
               Open source viewer <ArrowRight aria-hidden className="size-4" />
             </Link>
@@ -330,7 +341,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
         </div>
       )}
       {r.flags.quarantined && (
-        <p className="border-t border-rule px-4 py-3 text-sm text-madder-ink sm:px-5">Not processed: active content or a test virus signature was found. The original is kept encrypted and never opened.</p>
+        <p data-testid="blocked-note" className="border-t border-rule px-4 py-3 text-sm font-medium text-madder-ink sm:px-5">Blocked: unsafe file. It is never opened. It is kept for the audit trail only; there is nothing to attach or review.</p>
       )}
     </li>
   )

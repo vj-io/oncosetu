@@ -14,7 +14,7 @@ export type ViewerEvent = {
 }
 export type ViewerPage = { pageNo: number; text: string; words: { c: number; s: number; e: number }[] | null; lowConfidence: boolean; ocrConfidence: number | null }
 
-const METHOD: Record<string, string> = { text_layer: 'PDF text layer', ocr_llm: 'OCR', manual: 'Keyed by staff', structured_map: 'Structured', asr: 'Speech' }
+const METHOD: Record<string, string> = { text_layer: 'Typed PDF', ocr_llm: 'Read from a photo: check the numbers', manual: 'Entered by staff', structured_map: 'From a health record', asr: 'From speech' }
 
 function spanConfidence(page: ViewerPage | undefined, s: number, e: number): number | null {
   const ws = (page?.words ?? []).filter((w) => w.s < e && w.e > s)

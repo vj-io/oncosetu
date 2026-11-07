@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
@@ -33,7 +33,7 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     const patient = await loadPatient(tx, id)
     if (!patient) return null
     const [[docs], [open], [changed]] = await Promise.all([
-      tx.select({ n: count() }).from(documents).where(eq(documents.patientId, id)),
+      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'))), // filed documents only, so the badge matches the list
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
       // The "What's new" badge counts items that arrived after the last sealed visit (all items if none is sealed yet), not unverified items.
       tx.select({ n: count() }).from(events).where(and(

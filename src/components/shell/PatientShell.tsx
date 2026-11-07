@@ -45,7 +45,7 @@ export function PatientShell({
           </div>
         </div>
       </header>
-      {nav && <div className="relative z-20 border-b border-rule bg-gallery"><div className="mx-auto max-w-4xl px-4 sm:px-6">{nav}</div></div>}
+      {nav && <div className="relative z-20 border-b border-rule bg-gallery"><div className="mx-auto max-w-5xl px-4 sm:px-6">{nav}</div></div>}
       <div className="relative flex flex-1 flex-col">
         <Spotlight className="opacity-80" />
         <main id="main" tabIndex={-1} className="relative mx-auto w-full max-w-reading flex-1 px-4 py-8 outline-none sm:px-6 sm:py-12">

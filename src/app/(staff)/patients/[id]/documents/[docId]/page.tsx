@@ -70,7 +70,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
 
       <SectionHeader
         as="h2"
-        kicker={`Document · ACC. ${shortId(doc.id)}`}
+        kicker="Document"
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
         description={`${doc.documentDate ? `Document date ${fmtDate(doc.documentDate)}` : 'No document date found'} · received ${fmtDateTime(doc.receivedAt.toISOString())}${doc.pages ? ` · ${doc.pages} page${doc.pages > 1 ? 's' : ''}` : ''}`}
         actions={
@@ -237,7 +237,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             ) : null}
             {doc.attachReason && <p className="mt-3 text-sm text-muted">Decision reason: {doc.attachReason}</p>}
           </div>
-          {doc.attachState === 'pending_decision' && !live && <IdentityDecision documentId={doc.id} result={doc.identityResult} reasons={idDetails.reasons ?? []} />}
+          {doc.attachState === 'pending_decision' && !live && doc.status !== 'quarantined' && <IdentityDecision documentId={doc.id} result={doc.identityResult} reasons={idDetails.reasons ?? []} />}
           {attached && !live && (
             <details className="border border-rule bg-surface p-4">
               <summary className="cursor-pointer text-sm font-medium">Wrong patient? Detach this document</summary>

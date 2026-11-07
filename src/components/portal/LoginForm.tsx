@@ -140,6 +140,7 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
             <p role="status" className="text-[15px] text-muted">
               {tp(lang, "codeSent")}
             </p>
+            <p data-testid="code-not-arrived" className="text-[15px] text-muted">{tp(lang, "codeNotArrived")}</p>
             <PField label={tp(lang, "codeLabel")} hint={tp(lang, "codeHint")}>
               <PInput
                 big

@@ -58,10 +58,14 @@ describe('demo sample files', () => {
     expect(photo.flags.file).toMatchObject({ category: 'photo' })
     const heic = (await run(sunita, 'hero__16-report-photo.heic')).docs[0]
     expect(heic.flags.file).toMatchObject({ kind: 'heic' })
-    expect(heic.status).not.toBe('failed')
+    expect(heic).toMatchObject({ identityResult: 'match', attachState: 'auto' }) // age and date of birth are readable, so it is filed, not held
+    expect((await owner`select count(*)::int as n from events where document_id = ${heic.id}`)[0].n).toBeGreaterThan(0)
     const tiff = (await run(sunita, 'hero__17-scan-2-pages.tiff')).docs[0]
     expect(tiff.mime).toBe('image/tiff')
     expect(tiff.pages).toBe(2) // both pages are read
+    expect(tiff).toMatchObject({ identityResult: 'match', attachState: 'auto' })
+    expect((await owner`select count(*)::int as n from document_pages where document_id = ${tiff.id} and length(text) > 40`)[0].n).toBe(2)
+    expect((await owner`select count(*)::int as n from events where document_id = ${tiff.id}`)[0].n).toBeGreaterThan(0)
     const dx = (await run(sunita, 'hero__18-chest-xray-report.docx')).docs[0]
     expect(dx.flags.file).toMatchObject({ kind: 'docx', category: 'report' })
     expect(dx.identityResult).toBe('match')

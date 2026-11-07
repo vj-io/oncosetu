@@ -13,8 +13,11 @@ export const POST = route({ auth: 'public', body: z.object({ phone: z.string().m
   const logins = h ? await phoneLogins(h) : []
   if (!h || !logins.length) return { ok: true }
   const issued = await startOtp(h)
-  if (!issued) return { ok: true } // locked
   const m = logins[0]
+  if (!issued) { // locked or over the send limit: same reply as always (no enumeration), but the event is recorded
+    await withOrg(m.orgId, (tx) => writeAudit(tx, { orgId: m.orgId, actorId: m.caregiverId ?? m.patientId, actorRole: m.caregiverId ? 'caregiver' : 'patient', action: 'auth.otp_limited', targetType: 'patient', targetId: m.patientId, requestId, details: { outcome: 'locked' } }))
+    return { ok: true }
+  }
   await withOrg(m.orgId, async (tx) => {
     await sendMessage(tx, {
       orgId: m.orgId, patientId: m.patientId, toPhone: body.phone, channel: 'sms', templateKey: 'auth.otp',

@@ -38,6 +38,8 @@ export const answerSchema = z.object({
   free: text(2000),
   /** Any field of this answer was filled with voice typing. */
   voice: z.boolean().optional(),
+  /** Sarvam recordings behind this answer (voice_clips ids, FR-VOX-05); kept beside the statement. */
+  clips: z.array(z.uuid()).max(6).optional(),
 }).refine((a) => a.month == null || a.year != null, { message: 'month needs a year', path: ['month'] })
 
 export type Answer = z.infer<typeof answerSchema>

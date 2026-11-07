@@ -81,6 +81,12 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
                           <>
                             <blockquote className="border-l-[3px] border-violet pl-3 text-[15px] whitespace-pre-wrap">{it.transcript || '—'}</blockquote>
                             {it.readback && <p className="text-sm text-muted"><span className="font-medium">Read-back shown to the patient:</span> {it.readback}</p>}
+                            {it.audioId && (
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+                                <audio controls preload="none" src={`/api/patients/${id}/statements/${it.id}/audio`} className="h-9" aria-label="The patient's recording" />
+                                <span>Their own voice, kept beside the words{it.asr ? ` · transcribed by ${it.asr}` : ''}</span>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <p className="text-sm text-muted">The patient&rsquo;s words are visible to the Records and Clinician roles.</p>

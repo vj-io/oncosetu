@@ -74,6 +74,33 @@ describe('RLS as oncosetu_app', () => {
       expect((await tx`select id from patients where id = ${b.id}`).length).toBe(0)
     })
   })
+  it('keeps voice recordings inside their org, and lets the app only link them to a statement', async () => {
+    const clip = (tx: TransactionSql, org: string, patient: string) =>
+      tx`insert into voice_clips (org_id, patient_id, mime, size, bytes_enc, dek_wrapped, asr_provider, asr_model, created_by_kind, created_by_id)
+        values (${org}, ${patient}, 'audio/webm', 1, ${Buffer.from('x')}, 'v1.dek', 'sarvam', 'saaras:v4', 'patient', ${patient}) returning id`
+    await inTx(app, async (tx) => {
+      await setOrg(tx, ORG_GANGA_ID)
+      const [b] = await insertPatient(tx, ORG_GANGA_ID)
+      const [cb] = await clip(tx, ORG_GANGA_ID, b.id)
+      expect((await tx`update voice_clips set statement_id = ${randomUUID()} where id = ${cb.id}`).count).toBe(1)
+      await setOrg(tx, ORG_NARMADA_ID)
+      expect((await tx`select id from voice_clips where id = ${cb.id}`).length).toBe(0)
+      expect((await tx`delete from voice_clips where id = ${cb.id}`).count).toBe(0)
+    })
+    // each refusal in its own transaction: an error aborts the transaction it happens in
+    await inTx(app, async (tx) => {
+      await setOrg(tx, ORG_GANGA_ID)
+      const [b] = await insertPatient(tx, ORG_GANGA_ID)
+      const [cb] = await clip(tx, ORG_GANGA_ID, b.id)
+      expect(await code(tx`update voice_clips set bytes_enc = ${Buffer.from('y')} where id = ${cb.id}`)).toBe('42501')
+    })
+    await inTx(app, async (tx) => {
+      await setOrg(tx, ORG_GANGA_ID)
+      const [b] = await insertPatient(tx, ORG_GANGA_ID)
+      await setOrg(tx, ORG_NARMADA_ID)
+      expect(await code(clip(tx, ORG_GANGA_ID, b.id))).toBe('42501')
+    })
+  })
 })
 
 describe('append-only tables', () => {

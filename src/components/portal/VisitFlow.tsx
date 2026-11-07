@@ -36,6 +36,7 @@ function submittable(a: Answers): Answers {
     if (x.testKind) c.testKind = x.testKind;
     if (x.year != null) { c.year = x.year; if (x.month != null) c.month = x.month; }
     if (x.voice) c.voice = true;
+    if (x.clips?.length) c.clips = x.clips;
     out[q.id] = c;
   }
   return out;
@@ -80,11 +81,13 @@ export function VisitFlow({
     setAnswers((s) => ({ ...s, [id]: { ...(s[id] ?? { yn: "yes" as const }), ...patch } as Answer }));
   }
 
-  function addSaid(qid: QuestionId, field: Field, said: string) {
+  function addSaid(qid: QuestionId, field: Field, said: string, clipId?: string) {
     if (reviewed) setEdited(true);
     setAnswers((s) => {
-      const cur = (s[qid]?.[field] ?? "").trim();
-      return { ...s, [qid]: { ...(s[qid] ?? { yn: "yes" as const }), [field]: cur ? `${cur} ${said}` : said, voice: true } as Answer };
+      const prev = s[qid] ?? { yn: "yes" as const };
+      const cur = (prev[field] ?? "").trim();
+      const clips = clipId ? [...(prev.clips ?? []), clipId].slice(-6) : prev.clips; // the recordings stay beside the answer (FR-VOX-05)
+      return { ...s, [qid]: { ...prev, [field]: cur ? `${cur} ${said}` : said, voice: true, ...(clips ? { clips } : {}) } as Answer };
     });
   }
 
@@ -109,9 +112,10 @@ export function VisitFlow({
       try {
         const res = await fetch("/api/p/voice/transcribe", { method: "POST", body });
         if (!res.ok) throw new Error(String(res.status));
-        const said = ((await res.json()) as { text?: string }).text?.trim();
+        const out = (await res.json()) as { text?: string; clipId?: string };
+        const said = out.text?.trim();
         if (!said) throw new Error("empty");
-        addSaid(qid, field, said);
+        addSaid(qid, field, said, out.clipId);
       } catch {
         setVoiceMsg(tp(lang, "voiceFailed"));
       }
@@ -182,8 +186,30 @@ export function VisitFlow({
 
   const readback = buildReadback(submittable(answers), lang);
 
-  function read() {
-    if (!canSpeak || typeof speechSynthesis === "undefined") return;
+  // Spoken read-back (FR-VOX-04): Sarvam's voice when the server has it, else the browser's own voice.
+  const player = useRef<HTMLAudioElement | null>(null);
+  const [reading, setReading] = useState<"idle" | "loading" | "playing">("idle");
+  async function read() {
+    if (!canSpeak) return;
+    if (sarvam) {
+      if (player.current && !player.current.paused) { player.current.pause(); return setReading("idle"); }
+      setReading("loading");
+      try {
+        const res = await fetch("/api/p/voice/readback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers: submittable(answers), lang }) });
+        if (!res.ok) throw new Error(String(res.status));
+        const url = URL.createObjectURL(await res.blob());
+        const a = new Audio(url);
+        player.current = a;
+        a.onended = () => { setReading("idle"); URL.revokeObjectURL(url); };
+        await a.play();
+        setReading("playing");
+      } catch {
+        setReading("idle");
+        setError(tp(lang, "voiceFailed"));
+      }
+      return;
+    }
+    if (typeof speechSynthesis === "undefined") return;
     if (speechSynthesis.speaking) return speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance([readback.intro, ...readback.lines.map((l) => l.text)].join(" "));
     u.lang = lang === "hi" ? "hi-IN" : "en-IN";
@@ -274,7 +300,7 @@ export function VisitFlow({
           </ul>
         </div>
         {canSpeak && (
-          <PButton variant="secondary" icon={<Volume2 />} onClick={read} className="w-full sm:w-auto">{tp(lang, "readAloud")}</PButton>
+          <PButton variant="secondary" icon={<Volume2 />} loading={reading === "loading"} onClick={read} className="w-full sm:w-auto">{tp(lang, "readAloud")}</PButton>
         )}
         <p className="text-[15px] text-muted">{tp(lang, "reviewHelp")}</p>
         {error && <ErrorNote>{error}</ErrorNote>}

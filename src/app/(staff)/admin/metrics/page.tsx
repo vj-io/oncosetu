@@ -109,8 +109,8 @@ export default async function MetricsPage() {
 
         <Block kicker="Clinician time" title="Time on the record before sealing" note="Per visit: minutes from a clinician first opening “What’s new” during the visit to sealing it, from the activity log. Target for returning visits: a median of 3 minutes or less.">
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
-            <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(review.returning.medianMinutes)} ({review.returning.visits} visits)</dd>
-            <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(review.firstVisit.medianMinutes)} ({review.firstVisit.visits} visits)</dd>
+            <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(review.returning.medianMinutes)} ({review.returning.visits} {review.returning.visits === 1 ? 'visit' : 'visits'})</dd>
+            <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(review.firstVisit.medianMinutes)} ({review.firstVisit.visits} {review.firstVisit.visits === 1 ? 'visit' : 'visits'})</dd>
           </dl>
           <p className="text-sm text-faint">Time to open a named earlier report is not measured here: nothing records the moment someone starts looking for a report, so it stays a timed observation.</p>
         </Block>

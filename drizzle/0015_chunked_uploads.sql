@@ -40,6 +40,7 @@ GRANT SELECT, INSERT ON "upload_sessions" TO oncosetu_app;--> statement-breakpoi
 GRANT UPDATE ("state") ON "upload_sessions" TO oncosetu_app;--> statement-breakpoint
 GRANT DELETE ON "upload_sessions" TO oncosetu_app;--> statement-breakpoint
 GRANT SELECT, INSERT, DELETE ON "upload_chunks" TO oncosetu_app;--> statement-breakpoint
+GRANT UPDATE ("bytes_enc", "dek_wrapped", "size") ON "upload_chunks" TO oncosetu_app;--> statement-breakpoint
 ALTER TABLE "upload_sessions" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "upload_sessions" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "upload_chunks" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint

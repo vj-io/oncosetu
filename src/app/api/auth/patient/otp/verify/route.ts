@@ -3,6 +3,7 @@ import { withOrg } from '@/db'
 import { writeAudit } from '@/server/audit'
 import { phoneHmac } from '@/server/crypto'
 import { HttpError, route } from '@/server/http'
+import { isDemo } from '@/server/demo'
 import { phoneLogins, verifyOtp } from '@/server/otp'
 import { createSession } from '@/server/session'
 
@@ -13,7 +14,9 @@ export const POST = route({
   const invalid = new HttpError(401, 'invalid_code', 'Invalid or expired code')
   const h = phoneHmac(body.phone)
   if (!h) throw invalid
-  const ok = await verifyOtp(h, body.code.trim())
+  const code = body.code.trim()
+  // In demo mode the code may come from the demo-code button (its own purpose); a normal code is tried first and nothing else changes.
+  const ok = (await verifyOtp(h, code)) || (isDemo() && (await verifyOtp(h, code, 'demo_login')))
   const logins = await phoneLogins(h)
   const m = logins[0] // ponytail: a phone linked to several patients opens the first; add a chooser when that occurs
   if (!m) throw invalid

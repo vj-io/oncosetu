@@ -4,7 +4,9 @@ import type { Lang } from "@/core/types";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Frame } from "@/components/ui";
+import { dm } from "@/i18n/demo";
 import { tp } from "@/i18n/patient";
+import { DEMO_PEOPLE } from "@/lib/demo-people";
 import { ErrorNote, PButton, PField, PInput } from "./ui";
 
 const MAX_TRIES = 5; // the server locks the phone for 15 minutes after 5 wrong codes; its answers stay uniform
@@ -63,6 +65,30 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
     } else setError(tp(lang, "genericError"));
   }
 
+  const [demoState, setDemoState] = useState<{ key: string; msg: string } | null>(null);
+
+  /** Demo button: fills the phone, asks for a demo code, reads it from the simulated SMS outbox and fills the six digits. The person presses Sign in. */
+  async function demoSignIn(p: (typeof DEMO_PEOPLE)[number]) {
+    setError(null);
+    setPhone(p.phone);
+    setCode("");
+    setStep("phone");
+    setDemoState({ key: p.key, msg: dm(lang, "working") });
+    const res = await post("/api/auth/patient/demo-code", { phone: p.phone });
+    if (!res || !res.ok) { setDemoState({ key: p.key, msg: res?.status === 429 ? dm(lang, "tooMany") : dm(lang, "failed") }); return; }
+    let digits = "";
+    for (let i = 0; i < 8 && !digits; i++) {
+      const r = await fetch(`/api/demo/outbox?phone=${encodeURIComponent(p.phone)}`, { cache: "no-store" }).catch(() => null);
+      const body = (await r?.json().catch(() => null)) as { messages?: { body: string; templateKey: string }[] } | null;
+      digits = body?.messages?.find((m) => m.templateKey === "auth.otp")?.body.match(/(\d{6})/)?.[1] ?? "";
+      if (!digits) await new Promise((ok) => setTimeout(ok, 300));
+    }
+    if (!digits) { setDemoState({ key: p.key, msg: dm(lang, "failed") }); return; }
+    setStep("code");
+    setCode(digits);
+    setDemoState({ key: p.key, msg: dm(lang, "filled") });
+  }
+
   async function showDemo() {
     setDemoBusy(true);
     setDemoText(null);
@@ -78,6 +104,23 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
 
   return (
     <div className="mt-8 grid gap-6">
+      {demo && (
+        <section aria-labelledby="demo-accounts" data-testid="demo-accounts" className="grid gap-3 border border-rule bg-surface px-5 py-5">
+          <h2 id="demo-accounts" className="text-lg">{dm(lang, "title")}</h2>
+          <p className="text-[15px] text-muted">{dm(lang, "hint")}</p>
+          <ul className="grid gap-2">
+            {DEMO_PEOPLE.map((p) => (
+              <li key={p.key}>
+                <button type="button" onClick={() => demoSignIn(p)} data-testid={`demo-${p.key}`} className="flex min-h-12 w-full items-center justify-between gap-3 border border-control bg-matte px-4 py-2 text-left text-[15px] hover:border-ink hover:bg-spotlight">
+                  <span>{dm(lang, p.key)}</span>
+                  <span className="shrink-0 font-mono text-[12px] text-muted">{p.phone}</span>
+                </button>
+                {demoState?.key === p.key && <p role="status" className="mt-1 text-[15px] text-muted">{demoState.msg}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Frame className="px-5 py-6 sm:px-8 sm:py-8">
         {step === "phone" ? (
           <form method="post" onSubmit={sendCode} className="grid gap-5" noValidate>

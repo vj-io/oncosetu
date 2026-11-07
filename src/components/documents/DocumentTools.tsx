@@ -96,7 +96,7 @@ export function ManualEventForm({ documentId, pages }: { documentId: string; pag
         e.preventDefault()
         const body: Record<string, string | string[]> = {}
         for (const [k, v] of Object.entries(fields)) if (v.trim() && allowed.includes(k)) body[k] = k.endsWith('_names') ? v.split(',').map((x) => x.trim()).filter(Boolean) : v.trim()
-        if (await a.run(`/api/documents/${documentId}/manual-events`, { eventType: type, fields: body, quote, pageNo }, 'Fact added — it passed the evidence gate')) {
+        if (await a.run(`/api/documents/${documentId}/manual-events`, { eventType: type, fields: body, quote, pageNo }, 'Fact added with its quote')) {
           setQuote('')
           setFields({})
         }
@@ -106,7 +106,7 @@ export function ManualEventForm({ documentId, pages }: { documentId: string; pag
         <Field label="Fact type"><Select value={type} onChange={(e) => setType(e.target.value)}>{EXTRACTABLE_EVENT_TYPES.map((t) => <option key={t} value={t}>{EVENT_LABEL[t]}</option>)}</Select></Field>
         <Field label="Page"><Select value={String(pageNo)} onChange={(e) => setPageNo(Number(e.target.value))}>{pages.map((p) => <option key={p} value={p}>{p}</option>)}</Select></Field>
       </div>
-      <Field label="Quote (copy exactly from the page text)" hint="8–300 characters. Every value below must appear inside this quote.">
+      <Field label="Words from the page (copy them exactly)" hint="8 to 300 characters. Every detail below must appear inside these words.">
         <Textarea rows={3} value={quote} maxLength={300} onChange={(e) => setQuote(e.target.value)} />
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -117,7 +117,7 @@ export function ManualEventForm({ documentId, pages }: { documentId: string; pag
         ))}
       </div>
       {a.error && <p className="text-sm text-madder-ink">{a.error}</p>}
-      <div><Button type="submit" size="sm" icon={<Plus />} loading={a.busy}>Add fact through the gate</Button></div>
+      <div><Button type="submit" size="sm" icon={<Plus />} loading={a.busy}>Add fact</Button></div>
     </form>
   )
 }

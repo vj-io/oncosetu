@@ -38,7 +38,9 @@ export const eventType = pgEnum('event_type', [
   'imaging_report_documented', 'lab_report_documented', 'prescription_documented',
   'chemotherapy_session_documented', 'radiotherapy_documented', 'admission_documented',
   'discharge_documented', 'consultation_documented', 'referral_documented', 'report_pending_documented',
-  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'diagnosis_documented', 'history_documented', 'patient_statement',
+  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'diagnosis_documented', 'history_documented',
+  'stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented', 'addendum_documented', 'regimen_documented',
+  'patient_statement',
 ])
 export const datePrecision = pgEnum('date_precision', ['day', 'month', 'year', 'unknown'])
 export const sourceType = pgEnum('source_type', [
@@ -69,7 +71,8 @@ export const impactRating = pgEnum('impact_rating', ['none', 'delayed_decision',
 export const repeatTestReason = pgEnum('repeat_test_reason', ['unavailable', 'quality', 'clinical_need'])
 export const mergeState = pgEnum('merge_state', ['requested', 'approved', 'executed', 'rejected'])
 
-export type ConsentPurposes = { store: boolean; ai: boolean; share: boolean; abdm: boolean; metrics: boolean }
+/** `team` (case discussion with a care team) was added later: rows written before it have no such key, which reads as off. */
+export type ConsentPurposes = { store: boolean; ai: boolean; share: boolean; abdm: boolean; metrics: boolean; team?: boolean }
 export type OrgFlags = { voice: boolean; tts: boolean; ai_extraction: boolean }
 /** OCR word: text, confidence 0..1, char start/end in page text, optional bbox [x0,y0,x1,y1]. */
 export type OcrWord = { t: string; c: number; s: number; e: number; b?: [number, number, number, number] }
@@ -758,4 +761,78 @@ export const RLS_TABLES = [
   'erasure_requests', // 0003
   'contact_emails', 'inbound_aliases', 'inbound_holds', 'inbound_hold_files', // 0008
   'abdm_consent_requests', 'abdm_transfers', // 0009
+  'privacy_acknowledgements', 'id_verifications', // 0014
+  'upload_sessions', 'upload_chunks', // 0015
+  'signed_consents', // 0016
 ] as const
+
+// ── privacy, ID and chunked uploads (0014, 0015) ─────────────────────────────
+export const privacyAcknowledgements = pgTable('privacy_acknowledgements', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  actorType: text('actor_type').$type<'patient' | 'caregiver'>().notNull(),
+  actorId: uuid('actor_id').notNull(),
+  noticeVersion: text('notice_version').notNull(),
+  language: text('language').notNull(),
+  acknowledgedAt: tsz('acknowledged_at').notNull().defaultNow(),
+}, (t) => [index('privacy_ack_patient_idx').on(t.patientId, t.acknowledgedAt)])
+
+export const ID_TYPES = ['aadhaar', 'abha', 'pan', 'voter_id', 'passport', 'driving_licence'] as const
+export type IdType = (typeof ID_TYPES)[number]
+
+export const idVerifications = pgTable('id_verifications', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  idType: text('id_type').$type<IdType>().notNull(),
+  last4: text('last4').notNull(), // the ONLY part of an ID that is ever stored
+  verifiedBy: uuid('verified_by').notNull().references(() => staff.id),
+  verifiedAt: tsz('verified_at').notNull().defaultNow(),
+  revokedAt: tsz('revoked_at'),
+}, (t) => [index('id_verifications_patient_idx').on(t.patientId, t.verifiedAt)])
+
+export const uploadSessions = pgTable('upload_sessions', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  uploaderKind: text('uploader_kind').$type<'staff' | 'patient' | 'caregiver'>().notNull(),
+  uploaderId: uuid('uploader_id').notNull(),
+  fileNameEnc: text('file_name_enc'),
+  totalSize: bigint('total_size', { mode: 'number' }).notNull(),
+  totalChunks: integer('total_chunks').notNull(),
+  sha256: text('sha256').notNull(),
+  intakeRoute: text('intake_route').notNull(),
+  encounterId: uuid('encounter_id'),
+  state: text('state').$type<'open' | 'done' | 'aborted'>().notNull().default('open'),
+  createdAt: createdAt(),
+  expiresAt: tsz('expires_at').notNull(),
+})
+
+export const uploadChunks = pgTable('upload_chunks', {
+  id: pk(),
+  orgId: orgId(),
+  sessionId: uuid('session_id').notNull().references(() => uploadSessions.id, { onDelete: 'cascade' }),
+  idx: integer('idx').notNull(),
+  bytesEnc: bytea('bytes_enc').notNull(),
+  dekWrapped: text('dek_wrapped').notNull(),
+  size: integer('size').notNull(),
+  createdAt: createdAt(),
+}, (t) => [uniqueIndex('upload_chunks_session_idx_uq').on(t.sessionId, t.idx)])
+
+export const signedConsents = pgTable('signed_consents', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  consentId: uuid('consent_id').references(() => consents.id),
+  action: text('action').$type<'grant' | 'update' | 'withdraw'>().notNull(),
+  formVersion: text('form_version').notNull(),
+  signerNameEnc: text('signer_name_enc'),
+  signerRelation: text('signer_relation').$type<'self' | 'guardian' | 'caregiver'>().notNull(),
+  method: text('method').$type<'drawn' | 'typed'>().notNull(),
+  witnessStaffId: uuid('witness_staff_id').references(() => staff.id),
+  signedAt: tsz('signed_at').notNull().defaultNow(),
+  language: text('language').notNull(),
+  purposes: jsonb('purposes').$type<ConsentPurposes>().notNull(),
+  documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+}, (t) => [index('signed_consents_patient_idx').on(t.patientId, t.signedAt)])

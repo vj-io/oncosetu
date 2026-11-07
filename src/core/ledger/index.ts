@@ -208,6 +208,25 @@ function eventSignature(e: CoreEvent): string {
   return canonicalJson({ t: e.eventType, d: e.eventDate, f: Object.fromEntries(fields.map(([k, v]) => [k, Array.isArray(v) ? v.map(norm).sort() : norm(String(v))])) })
 }
 
+const info = (e: CoreEvent) => Object.values(e.fields).reduce<number>((n, v) => n + fieldStr(v).length, 0)
+const contains = (a: string, b: string) => !!a && !!b && (a === b || ` ${a} `.includes(` ${b} `) || ` ${b} `.includes(` ${a} `))
+
+/**
+ * The same real-world event written twice with different wording: a procedure on the same day where one name contains the
+ * other ("Right hemicolectomy" / "hemicolectomy"), the same chemotherapy cycle on the same day however the regimen is worded,
+ * or the same scan named "CT" and "CT thorax". Different dates, or names that do not contain each other, are never merged.
+ */
+export function sameEvent(a: CoreEvent, b: CoreEvent): boolean {
+  if (a.eventType !== b.eventType || !a.eventDate || a.eventDate !== b.eventDate) return false
+  if (a.eventType === 'procedure_documented') return contains(norm(fieldStr(a.fields.procedure_text)), norm(fieldStr(b.fields.procedure_text)))
+  if (a.eventType === 'chemotherapy_session_documented') {
+    if (a.fields.cycle_number === undefined || norm(fieldStr(a.fields.cycle_number)) !== norm(fieldStr(b.fields.cycle_number))) return false
+    return true // the same cycle cannot happen twice on one day, so differently worded records of it are one event
+  }
+  if (a.eventType === 'imaging_report_documented') return contains(norm(fieldStr(a.fields.test_name)), norm(fieldStr(b.fields.test_name)))
+  return false
+}
+
 function findConflicts(events: CoreEvent[], statements: CoreStatement[]): LedgerConflict[] {
   const out: LedgerConflict[] = []
   const pair = (type: EventType, key: (e: CoreEvent) => string | null, kind: LedgerConflict['kind']) => {
@@ -262,8 +281,12 @@ export function diffLedger(prev: Snapshot | null, current: LedgerRecord, now: st
   const kept = new Map<string, CoreEvent>()
   for (const e of [...events].sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : a.receivedAt > b.receivedAt ? 1 : a.id < b.id ? -1 : 1))) {
     const sig = eventSignature(e)
-    if ((e.documentId && docById.get(e.documentId)?.duplicateOf) || kept.has(sig)) dupIds.push(e.id)
-    else kept.set(sig, e)
+    if ((e.documentId && docById.get(e.documentId)?.duplicateOf) || kept.has(sig)) { dupIds.push(e.id); continue }
+    const twin = [...kept.entries()].find(([, k]) => sameEvent(k, e))
+    if (twin && !docById.get(twin[1].documentId ?? '')?.duplicateOf) {
+      // Keep the version that says more; on a tie the earlier one stays.
+      if (info(e) > info(twin[1])) { dupIds.push(twin[1].id); kept.delete(twin[0]); kept.set(sig, e) } else dupIds.push(e.id)
+    } else kept.set(sig, e)
   }
   const dup = new Set(dupIds)
   const live = events.filter((e) => !dup.has(e.id))

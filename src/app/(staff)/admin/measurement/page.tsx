@@ -14,7 +14,7 @@ import { requireStaff } from '@/server/session'
 export const metadata = { title: 'Measurement study · Admin · OncoSetu' }
 
 const REASON: Record<string, string> = { unavailable: 'Earlier result unavailable', quality: 'Poor quality', clinical_need: 'Clinical need' }
-const PHASE: Record<string, string> = { baseline: 'Baseline', shadow: 'Shadow', live: 'Live' }
+const PHASE: Record<string, string> = { baseline: 'Baseline', shadow: 'Trial run', live: 'Live' }
 
 export default async function MeasurementPage() {
   const s = await requireStaff(sectionRoles('measurement'))
@@ -24,7 +24,7 @@ export default async function MeasurementPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Baseline measurement study (§16.4)" title="Measurement study"
+      <SectionHeader as="h1" kicker="Admin · Baseline measurement study" title="Measurement study"
         description="Consultation forms from clinicians, plus the measures the system collects itself. The export has no names, phones, dates of birth, encounter ids, clinician ids or exact dates."
         actions={canExport ? <ButtonLink href="/api/measure/export.csv" prefetch={false} variant="secondary" icon={<Download aria-hidden />}>Export anonymised CSV</ButtonLink> : undefined} />
 

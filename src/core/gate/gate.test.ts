@@ -84,8 +84,8 @@ describe('runGate: acceptance and offsets', () => {
 
 describe('runGate: event types and fields', () => {
   it('rejects unknown and non-extractable event types', () => {
-    // diagnosis_documented exists since 6 Nov 2026 (a document's own section, quoted); a staging type never will
-    expect(one(cand('stage_documented', 'IHC to follow.')).rejected[0]).toMatchObject({ reason: 'unknown_event_type', detail: 'stage_documented' })
+    // diagnosis_documented exists since 6 Nov 2026 (a document's own section, quoted); a tumour-grade type never will
+    expect(one(cand('tumour_grade_documented', 'IHC to follow.')).rejected[0]).toMatchObject({ reason: 'unknown_event_type', detail: 'tumour_grade_documented' })
     expect(one(cand('patient_statement', 'IHC to follow.')).rejected[0].reason).toBe('event_type_not_extractable')
     expect(one(cand('document_received', 'IHC to follow.')).rejected[0].reason).toBe('event_type_not_extractable')
   })

@@ -56,12 +56,17 @@ export type DocSummary = {
   identity: DocRow['identityResult']; identityReasons: string[]; attachState: DocRow['attachState']; events: number; verified: number; rejected: number
   flags: { lowConfidence: boolean; handwritten: boolean; injection: boolean; nearDuplicateOf: string | null; languageUnsupported: boolean; quarantined: boolean; amendmentOf: string | null; lateReceived: boolean; detached: boolean }
   needsRunner: boolean
+  /** Kind of file (Report, Scan, ECG, Video, Photo) and, for imaging, what the header says. Never findings. */
+  file: { kind: string; category: string; label: string; storedOnly: boolean; note: string | null } | null
+  imaging: { label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null; patientName: string | null; patientSex: string | null; patientAge: string | null; frames: number; instances: number; synthetic: boolean } | null
 }
 
 function summary(d: DocRow, counts: { events: number; verified: number }, lateReceived: boolean): DocSummary {
+  const file = d.flags.file as { kind: string; category: string; label: string; storedOnly?: boolean; note?: string } | undefined
+  const im = d.flags.imaging as (Record<string, unknown> & { modalityLabel: string; modalities?: string[] }) | undefined
   const gate = d.flags.gate as { rejected?: number } | undefined
   return {
-    id: d.id, title: d.docType ? staffDocLabel(d.docType as DocType) : d.status === 'quarantined' ? 'Quarantined file' : 'Document',
+    id: d.id, title: d.flags.consentForm ? ((d.flags.consentForm as { action?: string }).action === 'withdraw' ? 'Signed withdrawal of consent' : 'Signed consent form') : im ? String(im.studyLabel ?? im.modalityLabel) : file?.storedOnly ? `${file.label} file` : d.docType ? staffDocLabel(d.docType as DocType) : d.status === 'quarantined' ? 'Quarantined file' : 'Document',
     docType: d.docType, institution: d.institutionName, documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), pages: d.pages,
     status: displayStatus(d), stage: d.stage, stages: stageStates(d), identity: d.identityResult,
     identityReasons: ((d.identityDetails?.reasons as string[] | undefined) ?? []), attachState: d.attachState,
@@ -72,6 +77,12 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
       detached: d.attachState === 'detached',
     },
     needsRunner: needsRunner(d),
+    file: file ? { kind: file.kind, category: file.category, label: file.label, storedOnly: !!file.storedOnly, note: file.note ?? null } : null,
+    imaging: im ? {
+      label: String(im.studyLabel ?? im.modalityLabel), modality: (im.modality as string | null) ?? null, studyDate: (im.studyDate as string | null) ?? null, bodyPart: (im.bodyPart as string | null) ?? null,
+      institution: (im.institution as string | null) ?? null, patientName: (im.patientName as string | null) ?? null, patientSex: (im.patientSex as string | null) ?? null,
+      patientAge: (im.patientAge as string | null) ?? null, frames: Number(im.frames ?? 1), instances: Number(im.instances ?? 1), synthetic: !!im.synthetic,
+    } : null,
   }
 }
 

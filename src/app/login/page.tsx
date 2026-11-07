@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
+import { roleHome } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Field, Frame, Input, Placard, Spotlight, Wordmark } from "@/components/ui";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
@@ -61,7 +62,7 @@ export default function StaffLoginPage() {
       if (res.ok) {
         // Each role starts on its own work list: a clinician on Patients, records staff on the records queue.
         const role = ((await res.json().catch(() => null)) as { staff?: { role?: string } } | null)?.staff?.role;
-        router.push(role === "clinician" ? "/patients" : role === "records" ? "/records" : "/desk");
+        router.push(roleHome(role));
         return;
       }
       const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
@@ -127,10 +128,13 @@ export default function StaffLoginPage() {
             </form>
           </Frame>
           <p className="mt-6 text-[15px] text-muted">
-            Patient or caregiver?{" "}
+            Patient or family?{" "}
             <Link href="/p/login" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">
-              Use the patient portal
+              Sign in here
             </Link>
+          </p>
+          <p className="mt-2 text-[15px] text-muted">
+            <Link href="/security" className="inline-flex min-h-11 items-center underline decoration-brass underline-offset-4 hover:decoration-ink">Security & compliance</Link>
           </p>
         </div>
 

@@ -20,7 +20,8 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
       .from(documents)
       .where(and(
         eq(documents.patientId, patientId), isNull(documents.duplicateOf),
-        notInArray(documents.attachState, ['rejected', 'detached']), notInArray(documents.status, ['quarantined']),
+        // only papers filed under this patient: a held (possibly another person's), rejected, detached or blocked file is never listed
+        notInArray(documents.attachState, ['rejected', 'detached', 'pending_decision']), notInArray(documents.status, ['quarantined']),
       ))
       .orderBy(desc(documents.receivedAt)).limit(50),
     tx.select({

@@ -29,25 +29,31 @@ export type RecordRows = {
 // ── labels ───────────────────────────────────────────────────────────────────
 export const EVENT_LABEL: Record<EventType, string> = {
   document_received: 'Document received',
-  procedure_documented: 'Procedure documented',
-  pathology_report_documented: 'Pathology report documented',
-  molecular_test_documented: 'Molecular test documented',
-  imaging_report_documented: 'Imaging report documented',
-  lab_report_documented: 'Lab report documented',
-  prescription_documented: 'Prescription documented',
-  chemotherapy_session_documented: 'Chemotherapy session documented',
-  radiotherapy_documented: 'Radiotherapy documented',
-  admission_documented: 'Admission documented',
-  discharge_documented: 'Discharge documented',
-  consultation_documented: 'Consultation documented',
-  referral_documented: 'Referral documented',
-  report_pending_documented: 'Report awaited (documented)',
-  allergy_documented: 'Allergy statement documented',
-  follow_up_documented: 'Follow-up date documented',
-  lab_results_documented: 'Lab results as written',
-  diagnosis_documented: 'Diagnosis as written',
-  history_documented: 'History as written',
-  patient_statement: 'Patient statement',
+  procedure_documented: 'Procedure or surgery',
+  pathology_report_documented: 'Pathology report',
+  molecular_test_documented: 'Molecular or IHC test',
+  imaging_report_documented: 'Imaging report',
+  lab_report_documented: 'Lab report',
+  prescription_documented: 'Medicines on a prescription',
+  chemotherapy_session_documented: 'Chemotherapy day-care visit',
+  radiotherapy_documented: 'Radiotherapy',
+  admission_documented: 'Hospital admission',
+  discharge_documented: 'Hospital discharge',
+  consultation_documented: 'Consultation',
+  referral_documented: 'Referral',
+  report_pending_documented: 'Report still awaited',
+  allergy_documented: 'Allergy, as written',
+  follow_up_documented: 'Follow-up date',
+  lab_results_documented: 'Blood tests, as printed',
+  diagnosis_documented: 'Diagnosis, as written',
+  history_documented: 'History, as written',
+  patient_statement: 'Patient said',
+  stage_documented: 'Stage, as written',
+  marker_results_documented: 'Marker results, as written',
+  margins_documented: 'Margins, as written',
+  impression_documented: 'Impression, as written',
+  addendum_documented: 'Addendum, as written',
+  regimen_documented: 'Regimen, as written',
 }
 
 export const FIELD_LABEL: Record<string, string> = {
@@ -57,6 +63,7 @@ export const FIELD_LABEL: Record<string, string> = {
   treatment_text: 'Treatment', doctor_name: 'Doctor', department_text: 'Department', referred_to_text: 'Referred to',
   document_title: 'Document', statement_text: 'Statement', scan_name: 'Scan', event_date: 'Date',
   allergy_text: 'Allergy (as written)', appointment_text: 'Due', section_text: 'As written', history_text: 'As written',
+  marker_text: 'As written', margins_text: 'As written', addendum_text: 'As written',
 }
 
 const QUESTION_LABEL: Record<string, string> = {
@@ -69,7 +76,7 @@ const STATUS_LABEL: Record<VerificationStatus, string> = {
   rejected: 'Rejected', disputed: 'Disputed',
 }
 
-const HEADLINE_FIELDS = ['section_text', 'history_text', 'allergy_text', 'appointment_text', 'procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
+const HEADLINE_FIELDS = ['section_text', 'marker_text', 'margins_text', 'addendum_text', 'history_text', 'allergy_text', 'appointment_text', 'procedure_text', 'test_name', 'test_names', 'treatment_text', 'medication_names', 'referred_to_text', 'department_text', 'doctor_name', 'document_title', 'institution_name']
 
 const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
@@ -200,6 +207,7 @@ export const CLINICIAN_TIER_TYPES: ReadonlySet<EventType> = new Set<EventType>([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented',
   'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented', 'allergy_documented',
   'diagnosis_documented', 'history_documented',
+  'stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented', 'addendum_documented', 'regimen_documented',
 ])
 const OLDER_CLINICIAN_DOCS: ReadonlySet<DocType> = new Set<DocType>(['pathology_report', 'ihc_molecular_report', 'imaging_report'])
 
@@ -477,6 +485,23 @@ export type TimelineView = {
   shown: number
 }
 
+/** Case and spacing do not make a different hospital. */
+export const institutionKey = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
+const titleCase = (s: string) => s.toLowerCase().replace(/(^|[\s(\-/])(\p{L})/gu, (_, p: string, c: string) => p + c.toUpperCase())
+/** key -> the display form: a mixed-case spelling if one exists, else Title Case of the shouting one. */
+export function canonicalInstitutions(names: readonly (string | null)[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const raw of names) {
+    if (!raw) continue
+    const name = raw.trim().replace(/\s+/g, ' ')
+    const k = institutionKey(name)
+    const shouting = name === name.toUpperCase() && name !== name.toLowerCase()
+    const have = out.get(k)
+    if (!have || (!shouting && have === have.toUpperCase())) out.set(k, shouting ? titleCase(name) : name)
+  }
+  return out
+}
+
 const STATUS_SLUG: Record<SnapshotEvent['label'], string> = { Verified: 'verified', 'Not yet verified': 'unverified', Disputed: 'disputed' }
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -505,6 +530,9 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     }
   })
   const uniq = <T,>(xs: T[]) => [...new Set(xs)]
+  // One hospital written as "MADHYAM DAY-CARE ONCOLOGY CENTRE" and "Madhyam Day-Care Oncology Centre" is one facet entry (case and spacing ignored), shown in the nicer casing.
+  const canon = canonicalInstitutions(all.map((i) => i.institution))
+  for (const i of all) if (i.institution) i.institution = canon.get(institutionKey(i.institution)) ?? i.institution
   const facets: TimelineView['facets'] = {
     types: uniq(all.map((i) => i.docType).filter(isDocType)).sort().map((t) => ({ value: t, label: staffDocLabel(t) })),
     institutions: uniq(all.map((i) => i.institution).filter((x): x is string => !!x)).sort(),
@@ -512,7 +540,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     statuses: (['Verified', 'Not yet verified', 'Disputed'] as const).filter((l) => all.some((i) => i.label === l)).map((l) => ({ value: STATUS_SLUG[l], label: l })),
   }
   const shown = all.filter((i) =>
-    (!f.type || i.docType === f.type) && (!f.inst || i.institution === f.inst) && (!f.source || i.sourceType === f.source) && (!f.status || STATUS_SLUG[i.label] === f.status))
+    (!f.type || i.docType === f.type) && (!f.inst || (i.institution !== null && institutionKey(i.institution) === institutionKey(f.inst))) && (!f.source || i.sourceType === f.source) && (!f.status || STATUS_SLUG[i.label] === f.status))
   const dated = shown.filter((i) => i.dateIso).sort((x, y) => (x.dateIso! < y.dateIso! ? -1 : x.dateIso! > y.dateIso! ? 1 : x.id < y.id ? -1 : 1))
   const years: TimelineView['years'] = []
   for (const i of dated) {

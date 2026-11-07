@@ -151,7 +151,7 @@ export function EvidenceGateDemo() {
 
         <div aria-live="polite" className="grid gap-5">
           {phase !== "idle" && (
-            <StageTracker label="Evidence gate" stages={["Proposed", "Search page text", "Decision"]} current={stage} failed={phase === "rejected"} />
+            <StageTracker label="The check" stages={["Suggested", "Search the page", "Decision"]} current={stage} failed={phase === "rejected"} />
           )}
           {phase === "accepted" && hit && (
             <Placard
@@ -171,7 +171,7 @@ export function EvidenceGateDemo() {
               who="Not yet verified; records staff check it against the source"
               when="Event date stays separate from document and received dates"
               accession={hash ? `${hash.slice(0, 4)}·${hash.slice(4, 8)}`.toUpperCase() : undefined}
-              footer={<span className="font-mono text-[11px] tracking-[0.1em] text-faint">SHA-256 OF QUOTE</span>}
+              footer={<span className="font-mono text-[11px] tracking-[0.1em] text-faint">FINGERPRINT OF THE QUOTE</span>}
             />
           )}
           {phase === "rejected" && (

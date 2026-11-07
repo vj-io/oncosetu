@@ -2,7 +2,7 @@
 import type { Status } from '@/components/ui'
 
 export const STAGE_KEYS = ['received', 'text', 'classified', 'identity', 'extracted', 'gate', 'completeness'] as const
-export const STAGE_LABELS = ['Received', 'Text', 'Classified', 'Identity', 'Extracted', 'Evidence gate', 'Completeness'] as const
+export const STAGE_LABELS = ['Received', 'Reading', 'Sorting', 'Patient match', 'Facts', 'Quote check', 'Checklist'] as const
 
 export type StageState = 'done' | 'active' | 'pending' | 'failed' | 'waiting'
 
@@ -33,6 +33,12 @@ export const EVENT_LABEL: Record<string, string> = {
   lab_results_documented: 'Lab results as written',
   diagnosis_documented: 'Diagnosis as written',
   history_documented: 'History as written',
+  stage_documented: 'Stage as written',
+  marker_results_documented: 'Marker results as written',
+  margins_documented: 'Margins as written',
+  impression_documented: 'Impression as written',
+  addendum_documented: 'Addendum as written',
+  regimen_documented: 'Regimen as written',
   patient_statement: 'Patient statement',
 }
 
@@ -42,11 +48,12 @@ export const FIELD_LABEL: Record<string, string> = {
   cycle_number: 'Cycle', regimen_text: 'Regimen', treatment_text: 'Treatment', doctor_name: 'Doctor', department_text: 'Department',
   referred_to_text: 'Referred to', document_title: 'Title', statement_text: 'Statement', scan_name: 'Scan',
   allergy_text: 'Allergy (as written)', appointment_text: 'Due', section_text: 'As written', history_text: 'As written',
+  marker_text: 'As written', margins_text: 'As written', addendum_text: 'As written',
 }
 
 /** Event flag → chip label (never colour alone). */
 export const FLAG_LABEL: Record<string, string> = {
-  low_confidence: 'Low OCR confidence', binding_uncertain: 'Binding uncertain', date_ambiguous: 'Date ambiguous (DD/MM read)',
+  low_confidence: 'Low OCR confidence', binding_uncertain: 'Binding uncertain', date_ambiguous: 'Day and month could be swapped (read as day/month)',
   date_unknown: 'Date not stated', date_future: 'Date in the future', late_received: 'Newly received older record',
   identity_warning: 'Attached by a person', date_from_document: 'Date = document date', conflict: 'Conflict', patient_confirmed: 'Patient confirmed',
 }
@@ -54,6 +61,8 @@ export const FLAG_LABEL: Record<string, string> = {
 export const PRIORITY_GROUPS: { title: string; types: string[] }[] = [
   { title: 'Pathology & molecular', types: ['pathology_report', 'ihc_molecular_report'] },
   { title: 'Imaging reports', types: ['imaging_report'] },
+  { title: 'Scans, ECG and video', types: [] },
+  { title: 'Signed consent forms', types: [] },
   { title: 'Discharge & procedure summaries', types: ['discharge_summary', 'procedure_note'] },
   { title: 'Treatment records', types: ['chemo_daycare_record', 'radiotherapy_summary', 'consult_note'] },
   { title: 'Prescriptions', types: ['prescription_printed', 'prescription_handwritten'] },

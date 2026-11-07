@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Hand-authored gold abstraction for the synthetic documents in public/demo-docs (read from each document's text). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions list one entry per medication. `identity` is the expected header decision against the patient in patients.json; `held` = the document must not reach the record without a person's decision. Revised 5 Nov 2026 (mentor review): \"Collect pending laboratory reports\" is a pending-report fact (added to hero__01 and returning__01); an addendum's reference to the report it amends is not a new fact (removed from returning__07: the amended report is its own document).",
+  "about": "Revised 7 Nov 2026 (oncologist audit): quote-only facts for stage, margins, marker and mismatch-repair result rows, imaging and pathologist impressions, addendum text and the regimen line were labelled by reading each document (a regimen already on its cycle record is not a separate fact); the urea cream on returning__06 was missing from the gold. Hand-authored gold abstraction for the synthetic documents in public/demo-docs (read from each document's text). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions list one entry per medication. `identity` is the expected header decision against the patient in patients.json; `held` = the document must not reach the record without a person's decision. Revised 5 Nov 2026 (mentor review): \"Collect pending laboratory reports\" is a pending-report fact (added to hero__01 and returning__01); an addendum's reference to the report it amends is not a new fact (removed from returning__07: the amended report is its own document).",
   "docs": {
     "hero__01-discharge-summary.pdf": {
       "patientKey": "hero", "docType": "discharge_summary", "identity": "match",
@@ -21,11 +21,17 @@
     },
     "hero__02-chemo-daycare-cycle4.pdf": {
       "patientKey": "hero", "docType": "chemo_daycare_record", "identity": "match",
-      "events": [{ "type": "chemotherapy_session_documented", "date": "2026-06-05", "match": "Cycle 4" }]
+      "events": [
+        { "type": "chemotherapy_session_documented", "date": "2026-06-05", "match": "Cycle 4" },
+        { "type": "regimen_documented", "match": "TC, every 21 days" }
+      ]
     },
     "hero__03-ct-thorax-abdomen.jpg": {
       "patientKey": "hero", "docType": "imaging_report", "identity": "match",
-      "events": [{ "type": "imaging_report_documented", "date": "2026-02-20", "match": "CT" }]
+      "events": [
+        { "type": "imaging_report_documented", "date": "2026-02-20", "match": "CT" },
+        { "type": "impression_documented", "match": "Enhancing lesion" }
+      ]
     },
     "hero__04-prescription-printed.pdf": {
       "patientKey": "hero", "docType": "prescription_printed", "identity": "match",
@@ -57,19 +63,30 @@
     },
     "hero__09-mammography-2024.pdf": {
       "patientKey": "hero", "docType": "imaging_report", "identity": "match",
-      "events": [{ "type": "imaging_report_documented", "date": "2024-11-18", "match": "mammogra" }]
+      "events": [
+        { "type": "imaging_report_documented", "date": "2024-11-18", "match": "mammogra" },
+        { "type": "impression_documented", "match": "BI-RADS category 3" }
+      ]
     },
     "hero__10-histopathology-later.pdf": {
       "patientKey": "hero", "docType": "pathology_report", "identity": "match",
       "events": [
         { "type": "pathology_report_documented", "date": "2026-03-18" },
         { "type": "procedure_documented", "date": "2026-03-12", "match": "wide local excision" },
-        { "type": "report_pending_documented", "match": "IHC" }
+        { "type": "report_pending_documented", "match": "IHC" },
+        { "type": "margins_documented", "match": "All margins" },
+        { "type": "margins_documented", "match": "Closest margin" }
       ]
     },
     "hero__11-ihc-later.pdf": {
       "patientKey": "hero", "docType": "ihc_molecular_report", "identity": "match",
-      "events": [{ "type": "molecular_test_documented", "date": "2026-03-28" }]
+      "events": [
+        { "type": "molecular_test_documented", "date": "2026-03-28" },
+        { "type": "marker_results_documented", "match": "Estrogen receptor" },
+        { "type": "marker_results_documented", "match": "Progesterone receptor" },
+        { "type": "marker_results_documented", "match": "HER2/neu" },
+        { "type": "marker_results_documented", "match": "Ki-67" }
+      ]
     },
     "returning__01-discharge-summary.pdf": {
       "patientKey": "returning", "docType": "discharge_summary", "identity": "match",
@@ -86,11 +103,20 @@
     },
     "returning__02-histopathology.pdf": {
       "patientKey": "returning", "docType": "pathology_report", "identity": "match",
-      "events": [{ "type": "pathology_report_documented", "date": "2026-01-22" }]
+      "events": [
+        { "type": "pathology_report_documented", "date": "2026-01-22" },
+        { "type": "stage_documented", "match": "pT3 pN1b" },
+        { "type": "margins_documented", "match": "distal resection margin" },
+        { "type": "margins_documented", "match": "Both resection margins" },
+        { "type": "margins_documented", "match": "Margins negative" }
+      ]
     },
     "returning__03-chemo-cycle1.pdf": {
       "patientKey": "returning", "docType": "chemo_daycare_record", "identity": "match",
-      "events": [{ "type": "chemotherapy_session_documented", "date": "2026-02-10", "match": "Cycle 1" }]
+      "events": [
+        { "type": "chemotherapy_session_documented", "date": "2026-02-10", "match": "Cycle 1" },
+        { "type": "regimen_documented", "match": "CAPOX" }
+      ]
     },
     "returning__04-lab-cbc-lft.jpg": {
       "patientKey": "returning", "docType": "lab_report", "identity": "match",
@@ -100,7 +126,8 @@
       "patientKey": "returning", "docType": "chemo_daycare_record", "identity": "match",
       "events": [
         { "type": "chemotherapy_session_documented", "date": "2026-05-12", "match": "Cycle 2" },
-        { "type": "chemotherapy_session_documented", "date": "2026-02-10", "match": "Cycle 1" }
+        { "type": "chemotherapy_session_documented", "date": "2026-02-10", "match": "Cycle 1" },
+        { "type": "regimen_documented", "match": "CAPOX" }
       ]
     },
     "returning__06-prescription.pdf": {
@@ -110,13 +137,18 @@
         { "type": "prescription_documented", "match": "Ondansetron" },
         { "type": "prescription_documented", "match": "Pantoprazole" },
         { "type": "prescription_documented", "match": "Loperamide" },
-        { "type": "prescription_documented", "match": "Metformin" }
+        { "type": "prescription_documented", "match": "Metformin" },
+        { "type": "prescription_documented", "match": "Urea" }
       ]
     },
     "returning__07-histopathology-addendum.pdf": {
       "patientKey": "returning", "docType": "pathology_report", "identity": "match", "addendum": true,
       "events": [
-        { "type": "molecular_test_documented", "date": "2026-01-30", "match": "Immunohistochemistry" }
+        { "type": "molecular_test_documented", "date": "2026-01-30", "match": "Immunohistochemistry" },
+        { "type": "marker_results_documented", "match": "MLH1" },
+        { "type": "marker_results_documented", "match": "pMMR" },
+        { "type": "addendum_documented", "match": "proteins was performed" },
+        { "type": "addendum_documented", "match": "is unchanged" }
       ]
     },
     "fulfilled__01-admission-summary.pdf": {

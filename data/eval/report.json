@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T03:46:25.182Z",
+  "generatedAt": "2026-11-07T08:28:11.261Z",
   "method": "rules",
   "note": "Precision counts an extracted event correct when it matches at least one gold fact (type, date, text); recall counts gold facts found. Held documents (identity not matched) are scored on what would be extracted after a person attaches them; nothing from them reaches the record. Top-level numbers are the TUNED set (the rule library was tuned on it: optimistic); `heldout` was written after the rules were frozen.",
   "dataset": "20 synthetic documents in public/demo-docs (gold: data/eval/gold.json)",
@@ -8,33 +8,51 @@
     "handwrittenAutoExtracted": 0,
     "pass": true
   },
-  "precision": 0.95,
-  "recall": 0.943,
+  "precision": 0.983,
+  "recall": 0.973,
   "counts": {
-    "gold": 53,
-    "found": 50,
-    "pred": 40,
-    "correct": 38
+    "gold": 73,
+    "found": 71,
+    "pred": 60,
+    "correct": 59
+  },
+  "untouchedLabels": {
+    "precision": 0.976,
+    "recall": 0.963,
+    "counts": {
+      "gold": 54,
+      "found": 52,
+      "pred": 41,
+      "correct": 40
+    },
+    "excludesTypes": [
+      "stage_documented",
+      "marker_results_documented",
+      "margins_documented",
+      "impression_documented",
+      "addendum_documented",
+      "regimen_documented"
+    ]
   },
   "unscoredTypes": {
     "history_documented": 3,
     "allergy_documented": 5,
     "diagnosis_documented": 9,
-    "follow_up_documented": 9,
+    "follow_up_documented": 11,
     "lab_results_documented": 13
   },
   "recallByClass": {
     "pathology_report": {
-      "recall": 0.833,
-      "gold": 6
+      "recall": 1,
+      "gold": 16
     },
     "ihc_molecular_report": {
       "recall": 1,
-      "gold": 1
+      "gold": 5
     },
     "imaging_report": {
       "recall": 1,
-      "gold": 2
+      "gold": 4
     },
     "lab_report": {
       "recall": 1,
@@ -42,7 +60,7 @@
     },
     "prescription_printed": {
       "recall": 1,
-      "gold": 11
+      "gold": 12
     },
     "prescription_handwritten": {
       "recall": null,
@@ -54,7 +72,7 @@
     },
     "chemo_daycare_record": {
       "recall": 1,
-      "gold": 4
+      "gold": 7
     },
     "other": {
       "recall": 1,
@@ -63,16 +81,16 @@
   },
   "precisionByClass": {
     "pathology_report": {
+      "precision": 1,
+      "extracted": 16
+    },
+    "ihc_molecular_report": {
       "precision": 0.833,
       "extracted": 6
     },
-    "ihc_molecular_report": {
-      "precision": 0.5,
-      "extracted": 2
-    },
     "imaging_report": {
       "precision": 1,
-      "extracted": 2
+      "extracted": 4
     },
     "lab_report": {
       "precision": 1,
@@ -80,7 +98,7 @@
     },
     "prescription_printed": {
       "precision": 1,
-      "extracted": 5
+      "extracted": 6
     },
     "prescription_handwritten": {
       "precision": null,
@@ -92,7 +110,7 @@
     },
     "chemo_daycare_record": {
       "precision": 1,
-      "extracted": 4
+      "extracted": 7
     },
     "other": {
       "precision": 1,
@@ -203,7 +221,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 1230,
+      "ms": 861,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -227,7 +245,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 103,
+      "ms": 57,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -251,7 +269,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 109,
+      "ms": 61,
       "reachesRecord": true,
       "gold": 12,
       "found": 11,
@@ -280,12 +298,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 51,
+      "ms": 36,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 2,
+      "found": 2,
+      "extracted": 2,
+      "correct": 2,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -304,12 +322,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 10324,
+      "ms": 8510,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 2,
+      "found": 2,
+      "extracted": 2,
+      "correct": 2,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -328,7 +346,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 38,
+      "ms": 44,
       "reachesRecord": true,
       "gold": 6,
       "found": 6,
@@ -354,7 +372,7 @@
       },
       "handwritten": true,
       "method": "rules",
-      "ms": 3504,
+      "ms": 3180,
       "reachesRecord": false,
       "gold": 0,
       "found": 0,
@@ -378,7 +396,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 4684,
+      "ms": 3218,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -406,7 +424,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 24,
+      "ms": 19,
       "reachesRecord": false,
       "gold": 1,
       "found": 1,
@@ -430,7 +448,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 29,
+      "ms": 20,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -454,12 +472,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 21,
+      "ms": 14,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 2,
+      "found": 2,
+      "extracted": 2,
+      "correct": 2,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -478,26 +496,14 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 29,
+      "ms": 17,
       "reachesRecord": true,
-      "gold": 3,
-      "found": 2,
-      "extracted": 3,
-      "correct": 2,
-      "missed": [
-        {
-          "type": "procedure_documented",
-          "date": "2026-03-12",
-          "match": "wide local excision"
-        }
-      ],
-      "extra": [
-        {
-          "type": "procedure_documented",
-          "date": null,
-          "quote": "Specimen: \tWide local excision, left breast \tClinical details: \tLeft breast lump, upper ou"
-        }
-      ],
+      "gold": 5,
+      "found": 5,
+      "extracted": 5,
+      "correct": 5,
+      "missed": [],
+      "extra": [],
       "gateRejected": 0,
       "unsupported": []
     },
@@ -514,12 +520,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 28,
+      "ms": 23,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 2,
-      "correct": 1,
+      "gold": 5,
+      "found": 5,
+      "extracted": 6,
+      "correct": 5,
       "missed": [],
       "extra": [
         {
@@ -544,7 +550,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 29,
+      "ms": 19,
       "reachesRecord": true,
       "gold": 8,
       "found": 7,
@@ -573,12 +579,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 20,
+      "ms": 12,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 5,
+      "found": 5,
+      "extracted": 5,
+      "correct": 5,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -597,12 +603,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 29,
+      "ms": 17,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 2,
+      "found": 2,
+      "extracted": 2,
+      "correct": 2,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -621,7 +627,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 6251,
+      "ms": 5184,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -645,12 +651,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 29,
+      "ms": 26,
       "reachesRecord": true,
-      "gold": 2,
-      "found": 2,
-      "extracted": 2,
-      "correct": 2,
+      "gold": 3,
+      "found": 3,
+      "extracted": 3,
+      "correct": 3,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -669,12 +675,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 20,
+      "ms": 18,
       "reachesRecord": true,
-      "gold": 5,
-      "found": 5,
-      "extracted": 3,
-      "correct": 3,
+      "gold": 6,
+      "found": 6,
+      "extracted": 4,
+      "correct": 4,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -693,12 +699,12 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 21,
+      "ms": 25,
       "reachesRecord": true,
-      "gold": 1,
-      "found": 1,
-      "extracted": 1,
-      "correct": 1,
+      "gold": 5,
+      "found": 5,
+      "extracted": 5,
+      "correct": 5,
       "missed": [],
       "extra": [],
       "gateRejected": 0,
@@ -713,13 +719,31 @@
       "handwrittenAutoExtracted": 0,
       "pass": true
     },
-    "precision": 0.911,
-    "recall": 0.658,
+    "precision": 0.935,
+    "recall": 0.76,
     "counts": {
-      "gold": 79,
-      "found": 52,
-      "pred": 45,
-      "correct": 41
+      "gold": 96,
+      "found": 73,
+      "pred": 62,
+      "correct": 58
+    },
+    "untouchedLabels": {
+      "precision": 0.915,
+      "recall": 0.709,
+      "counts": {
+        "gold": 79,
+        "found": 56,
+        "pred": 47,
+        "correct": 43
+      },
+      "excludesTypes": [
+        "stage_documented",
+        "marker_results_documented",
+        "margins_documented",
+        "impression_documented",
+        "addendum_documented",
+        "regimen_documented"
+      ]
     },
     "unscoredTypes": {
       "diagnosis_documented": 5,
@@ -729,23 +753,23 @@
     },
     "recallByClass": {
       "pathology_report": {
-        "recall": 0.571,
-        "gold": 7
+        "recall": 0.625,
+        "gold": 8
       },
       "ihc_molecular_report": {
-        "recall": 0.75,
-        "gold": 4
+        "recall": 0.923,
+        "gold": 13
       },
       "imaging_report": {
         "recall": 1,
-        "gold": 4
+        "gold": 8
       },
       "lab_report": {
         "recall": 1,
         "gold": 5
       },
       "prescription_printed": {
-        "recall": 0.813,
+        "recall": 1,
         "gold": 16
       },
       "prescription_handwritten": {
@@ -753,16 +777,16 @@
         "gold": 0
       },
       "discharge_summary": {
-        "recall": 0.7,
+        "recall": 0.733,
         "gold": 30
       },
       "consult_note": {
-        "recall": 0,
-        "gold": 3
+        "recall": 0.25,
+        "gold": 4
       },
       "chemo_daycare_record": {
-        "recall": 0.667,
-        "gold": 3
+        "recall": 0.8,
+        "gold": 5
       },
       "radiotherapy_summary": {
         "recall": 0,
@@ -783,16 +807,16 @@
     },
     "precisionByClass": {
       "pathology_report": {
-        "precision": 0.667,
-        "extracted": 6
+        "precision": 0.714,
+        "extracted": 7
       },
       "ihc_molecular_report": {
         "precision": 1,
-        "extracted": 3
+        "extracted": 10
       },
       "imaging_report": {
         "precision": 1,
-        "extracted": 4
+        "extracted": 8
       },
       "lab_report": {
         "precision": 1,
@@ -808,15 +832,15 @@
       },
       "discharge_summary": {
         "precision": 1,
-        "extracted": 19
+        "extracted": 21
       },
       "consult_note": {
-        "precision": 0,
-        "extracted": 2
+        "precision": 0.333,
+        "extracted": 3
       },
       "chemo_daycare_record": {
         "precision": 1,
-        "extracted": 2
+        "extracted": 4
       },
       "radiotherapy_summary": {
         "precision": null,
@@ -968,7 +992,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 14,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -992,12 +1016,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 6193,
+        "ms": 5550,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1018,7 +1042,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 21,
+        "ms": 24,
         "reachesRecord": false,
         "gold": 2,
         "found": 0,
@@ -1052,26 +1076,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 18,
+        "ms": 22,
         "reachesRecord": true,
         "gold": 5,
-        "found": 2,
+        "found": 5,
         "extracted": 1,
         "correct": 1,
-        "missed": [
-          {
-            "type": "prescription_documented",
-            "match": "Paracetamol"
-          },
-          {
-            "type": "prescription_documented",
-            "match": "Ondansetron"
-          },
-          {
-            "type": "prescription_documented",
-            "match": "B-complex"
-          }
-        ],
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1091,18 +1102,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 18,
+        "ms": 29,
         "reachesRecord": false,
         "gold": 7,
-        "found": 5,
-        "extracted": 4,
-        "correct": 4,
+        "found": 6,
+        "extracted": 6,
+        "correct": 6,
         "missed": [
-          {
-            "type": "procedure_documented",
-            "date": "2026-04-03",
-            "match": "cholecystectomy"
-          },
           {
             "type": "prescription_documented",
             "match": "Ursodeoxycholic"
@@ -1127,7 +1133,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 16,
+        "ms": 20,
         "reachesRecord": false,
         "gold": 1,
         "found": 0,
@@ -1157,7 +1163,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 17,
+        "ms": 23,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1183,7 +1189,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3397,
+        "ms": 3614,
         "reachesRecord": false,
         "gold": 2,
         "found": 0,
@@ -1216,12 +1222,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 13,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1240,7 +1246,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 21,
+        "ms": 15,
         "reachesRecord": true,
         "gold": 3,
         "found": 2,
@@ -1271,7 +1277,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 20,
+        "ms": 18,
         "reachesRecord": false,
         "gold": 9,
         "found": 5,
@@ -1312,12 +1318,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 12,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1336,7 +1342,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 11,
         "reachesRecord": true,
         "gold": 1,
         "found": 0,
@@ -1371,7 +1377,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 12,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1395,12 +1401,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 17,
+        "ms": 10,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 0,
-        "extracted": 1,
-        "correct": 0,
+        "gold": 2,
+        "found": 1,
+        "extracted": 2,
+        "correct": 1,
         "missed": [
           {
             "type": "consultation_documented",
@@ -1433,7 +1439,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 19,
+        "ms": 15,
         "reachesRecord": false,
         "gold": 1,
         "found": 0,
@@ -1461,12 +1467,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 12,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1485,12 +1491,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 18,
+        "ms": 14,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 4,
+        "found": 4,
+        "extracted": 3,
+        "correct": 3,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1509,7 +1515,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 16,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1533,7 +1539,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 13,
+        "ms": 16,
         "reachesRecord": true,
         "gold": 0,
         "found": 0,
@@ -1559,7 +1565,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 13,
+        "ms": 12,
         "reachesRecord": false,
         "gold": 1,
         "found": 0,
@@ -1589,7 +1595,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 11,
         "reachesRecord": true,
         "gold": 3,
         "found": 3,
@@ -1615,7 +1621,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 16,
+        "ms": 13,
         "reachesRecord": false,
         "gold": 7,
         "found": 5,
@@ -1650,7 +1656,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 2858,
+        "ms": 2180,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,
@@ -1674,12 +1680,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 4205,
+        "ms": 3272,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1698,12 +1704,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 10,
         "reachesRecord": true,
-        "gold": 2,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 4,
+        "found": 3,
+        "extracted": 2,
+        "correct": 2,
         "missed": [
           {
             "type": "report_pending_documented",
@@ -1727,7 +1733,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 4908,
+        "ms": 4896,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1753,7 +1759,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 3304,
+        "ms": 4306,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,
@@ -1777,12 +1783,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 31,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1803,7 +1809,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 19,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -1829,7 +1835,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 17,
+        "ms": 26,
         "reachesRecord": false,
         "gold": 7,
         "found": 6,
@@ -1858,7 +1864,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 25,
         "reachesRecord": true,
         "gold": 4,
         "found": 4,
@@ -1882,7 +1888,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 17,
+        "ms": 22,
         "reachesRecord": true,
         "gold": 1,
         "found": 0,
@@ -1917,12 +1923,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 33,
         "reachesRecord": true,
-        "gold": 1,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
+        "gold": 5,
+        "found": 5,
+        "extracted": 5,
+        "correct": 5,
         "missed": [],
         "extra": [],
         "gateRejected": 0,
@@ -1943,12 +1949,12 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 36,
         "reachesRecord": false,
-        "gold": 1,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
+        "gold": 2,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
         "missed": [
           {
             "type": "chemotherapy_session_documented",
@@ -1975,7 +1981,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3585,
+        "ms": 3317,
         "reachesRecord": false,
         "gold": 4,
         "found": 4,
@@ -1999,7 +2005,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 13,
+        "ms": 32,
         "reachesRecord": true,
         "gold": 1,
         "found": 0,
@@ -2037,7 +2043,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 12,
+        "ms": 30,
         "reachesRecord": false,
         "gold": 1,
         "found": 0,
@@ -2067,7 +2073,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3563,
+        "ms": 6186,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -2093,7 +2099,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 2018,
+        "ms": 2447,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,

@@ -283,3 +283,34 @@ describe('requestState (FR-REQ-03)', () => {
     expect(requestState(s, now, fulfilled, terminal)).toBe(state)
   })
 })
+
+describe('same event written twice with different wording', () => {
+  const rec = (events: CoreEvent[]): LedgerRecord => ({ patientId: 'p', events, documents: [doc('d1', 'discharge_summary', '2026-02-10'), doc('d2', 'chemo_daycare_record', '2026-02-10')], statements: [], missing: [] })
+  const ids = (events: CoreEvent[]) => diffLedger(null, rec(events), '2026-03-01T00:00:00Z').initial_record.map((i) => i.event.id).sort()
+  const dups = (events: CoreEvent[]) => diffLedger(null, rec(events), '2026-03-01T00:00:00Z').duplicates_suppressed.ids
+
+  it('merges "Right hemicolectomy" and "hemicolectomy" on the same day, keeping the fuller one', () => {
+    const a = ev('a', 'procedure_documented', { procedure_text: 'hemicolectomy' }, '2026-01-20', 'd1', { receivedAt: '2026-03-01T10:00:00Z' })
+    const b = ev('b', 'procedure_documented', { procedure_text: 'Right hemicolectomy' }, '2026-01-20', 'd1', { receivedAt: '2026-03-02T10:00:00Z' })
+    expect(ids([a, b])).toEqual(['b'])
+    expect(dups([a, b])).toEqual(['a'])
+  })
+  it('merges the same cycle on the same day when one record also names the regimen', () => {
+    const a = ev('a', 'chemotherapy_session_documented', { cycle_number: 1 }, '2026-02-10', 'd2')
+    const b = ev('b', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'Capecitabine' }, '2026-02-10', 'd2', { receivedAt: '2026-03-02T10:00:00Z' })
+    expect(ids([a, b])).toEqual(['b'])
+  })
+  it('never merges different dates, different cycles or unrelated procedures', () => {
+    expect(ids([ev('a', 'procedure_documented', { procedure_text: 'hemicolectomy' }, '2026-01-20', 'd1'), ev('b', 'procedure_documented', { procedure_text: 'hemicolectomy' }, '2026-01-21', 'd1')])).toEqual(['a', 'b'])
+    expect(ids([ev('a', 'chemotherapy_session_documented', { cycle_number: 1 }, '2026-02-10', 'd2'), ev('b', 'chemotherapy_session_documented', { cycle_number: 2 }, '2026-02-10', 'd2')])).toEqual(['a', 'b'])
+    expect(ids([ev('a', 'procedure_documented', { procedure_text: 'wide local excision' }, '2026-01-20', 'd1'), ev('b', 'procedure_documented', { procedure_text: 'sentinel node biopsy' }, '2026-01-20', 'd1')])).toEqual(['a', 'b'])
+  })
+  it('merges the same cycle on the same day even when the regimen is worded differently', () => {
+    expect(ids([ev('a', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'Capecitabine' }, '2026-02-10', 'd2'), ev('b', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'CAPOX regimen', event_date_text: '10/02/2026' }, '2026-02-10', 'd2')])).toHaveLength(1)
+  })
+  it('merges "CT" with "CT thorax" on the same day but not different scans', () => {
+    const e = (id: string, name: string) => ev(id, 'imaging_report_documented', { test_name: name }, '2026-02-20', 'd1')
+    expect(ids([e('a', 'CT'), e('b', 'CT thorax')])).toEqual(['b'])
+    expect(ids([e('a', 'CT thorax'), e('b', 'PET-CT')])).toEqual(['a', 'b'])
+  })
+})

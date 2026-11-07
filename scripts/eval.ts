@@ -31,6 +31,9 @@ type GoldDoc = { patientKey: string; docType: string; identity: string; handwrit
 type Patient = { patientKey: string; fullName: string; aliases: string[]; dob: string; sex: string }
 type OcrTruth = Record<string, Record<string, { handwritten: boolean; text: string }>>
 
+/** Event types added in November 2026 (oncology lines). The held-out rules for these were tuned using some of the held-out documents. */
+const ONCOLOGY_TYPES = new Set(['stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented', 'addendum_documented', 'regimen_documented'])
+
 const SETS = {
   tuned: { dir: 'public/demo-docs', gold: 'data/eval/gold.json', truth: 'data/eval/ocr-truth.json' },
   heldout: { dir: 'data/eval/heldout', gold: 'data/eval/gold-heldout.json', truth: 'data/eval/heldout/ocr-truth.json' },
@@ -107,6 +110,7 @@ async function runSet(name: SetName) {
   // counted, still pass the hard gates, and are scored once someone labels them.
   const scoredTypes = new Set(Object.values(gold.docs).flatMap((d) => d.events.map((e) => e.type)))
   const unscored: Record<string, number> = {}
+  const old = { gold: 0, found: 0, pred: 0, correct: 0 } // the labels as they were before the oncology types: no new type counted on either side
   for (const file of files) {
     const g = gold.docs[file]
     const p = patients.find((x) => x.patientKey === g.patientKey)!
@@ -147,6 +151,12 @@ async function runSet(name: SetName) {
     const goldHit = g.events.map((ge) => drafts.some((d) => matches(ge, d)))
     const predOk = drafts.map((d) => g.events.some((ge) => matches(ge, d)))
     const c = (byClass[g.docType] ??= { gold: 0, found: 0, pred: 0, correct: 0 })
+    const oldGold = g.events.filter((e) => !ONCOLOGY_TYPES.has(e.type))
+    const oldDrafts = drafts.filter((d) => !ONCOLOGY_TYPES.has(d.eventType))
+    old.gold += oldGold.length
+    old.found += oldGold.filter((ge) => oldDrafts.some((d) => matches(ge, d))).length
+    old.pred += oldDrafts.length
+    old.correct += oldDrafts.filter((d) => oldGold.some((ge) => matches(ge, d))).length
     c.gold += g.events.length
     c.found += goldHit.filter(Boolean).length
     c.pred += drafts.length
@@ -184,6 +194,9 @@ async function runSet(name: SetName) {
     precision: ratio(tot.correct, tot.pred),
     recall: ratio(tot.found, tot.gold),
     counts: tot,
+    // Reported separately on purpose: precision and recall on the labels that existed before the oncology types were added.
+    // For the held-out set these are the untouched labels; the main numbers above include the new types, whose rules were tuned using some held-out documents.
+    untouchedLabels: { precision: ratio(old.correct, old.pred), recall: ratio(old.found, old.gold), counts: old, excludesTypes: [...ONCOLOGY_TYPES] },
     unscoredTypes: unscored,
     recallByClass: Object.fromEntries(DOC_TYPES.filter((t) => byClass[t]).map((t) => [t, { recall: ratio(byClass[t].found, byClass[t].gold), gold: byClass[t].gold }])),
     precisionByClass: Object.fromEntries(DOC_TYPES.filter((t) => byClass[t]).map((t) => [t, { precision: ratio(byClass[t].correct, byClass[t].pred), extracted: byClass[t].pred }])),

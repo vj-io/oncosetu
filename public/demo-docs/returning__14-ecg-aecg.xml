@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AnnotatedECG xmlns="urn:hl7-org:v3">
+  <id root="2.16.840.1.113883.3.SYNTHETIC" extension="DEMO-ECG-1"/>
+  <effectiveTime><low value="20260510093000"/></effectiveTime>
+  <componentOf><timepointEvent><componentOf><subjectAssignment><subject><trialSubject><id extension="SYN-RET"/><subjectDemographicPerson><name>Mohd Abdul Rahim Khan</name><administrativeGenderCode code="M"/></subjectDemographicPerson></trialSubject></subject></subjectAssignment></componentOf></timepointEvent></componentOf>
+  <!-- SYNTHETIC SAMPLE: no waveform data, for demonstration only -->
+</AnnotatedECG>

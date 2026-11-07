@@ -138,17 +138,24 @@ export function ShareViewer({ id }: { id: string }) {
                   <ol className="grid gap-4">
                     {p.items.map((it, i) => {
                       const v = signed ? VERIFY[it.verification] : undefined // chips only when the server vouches for them
+                      // Items of the same kind on the same date look identical: number them and say which paper each came from.
+                      const sameKey = (x: typeof it) => `${inLang(x.label, lang)}|${x.date ?? ''}`
+                      const twins = p.items.filter((x) => sameKey(x) === sameKey(it))
+                      const nthItem = twins.length > 1 ? ` (${twins.indexOf(it) + 1} of ${twins.length})` : ''
+                      const doc = twins.length > 1 ? p.documents.find((d) => d.id === it.source.documentId) : undefined
+                      const fromPaper = doc ? [doc.institution, t('received', { date: formatDateIN(istDate(doc.receivedAt), lang) })].filter(Boolean).join(' · ') : null
                       const source = it.source.label ? `${inLang(it.source.label, lang)}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : '—'
                       return (
                         <li key={i}>
                           <Frame animate delay={Math.min(i * 40, 400)} className="grid gap-3 px-5 py-4">
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <h2 className="text-lg leading-snug">{inLang(it.label, lang)}</h2>
+                              <h2 className="text-lg leading-snug">{inLang(it.label, lang)}{nthItem}</h2>
                               <span className="font-mono text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
                             </div>
                             <KeyValue items={[
                               { label: t('source'), value: source },
                               ...(it.institution ? [{ label: t('placeLabel'), value: it.institution }] : []),
+                              ...(fromPaper ? [{ label: t('docsTitle'), value: fromPaper }] : []),
                               ...(v ? [{ label: t('verificationLabel'), value: <Chip tone={v.tone}>{t(v.key)}</Chip> }] : []),
                             ]} />
                             {it.quote && (
@@ -185,15 +192,21 @@ export function ShareViewer({ id }: { id: string }) {
                 <SectionHeader title={<span id="docs-h">{t('docsTitle')}</span>} />
                 {p.documents.length ? (
                   <ul className="grid gap-2">
-                    {p.documents.map((d) => (
+                    {p.documents.map((d) => {
+                      // Several papers of the same kind look identical in a list: number them so each can be told apart.
+                      const same = p.documents.filter((x) => inLang(x.label, lang) === inLang(d.label, lang))
+                      const firstItem = same.length > 1 ? p.items.find((it) => it.source.documentId === d.id && inLang(it.label, lang) !== inLang(d.label, lang)) : undefined // only when the list would otherwise repeat
+                      const nth = same.length > 1 ? ` (${same.indexOf(d) + 1} of ${same.length})` : ''
+                      return (
                       <li key={d.id} className="flex items-start gap-3 border-b border-rule pb-2 last:border-b-0">
                         <FileText aria-hidden className="mt-1 size-4 shrink-0 text-faint" />
                         <span className="grid gap-0.5">
-                          <span>{inLang(d.label, lang)}</span>
-                          <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
+                          <span>{inLang(d.label, lang)}{nth}</span>
+                          <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, firstItem ? `${inLang(firstItem.label, lang)}${firstItem.date ? ` ${formatDateIN(firstItem.date, lang, firstItem.precision)}` : ''}` : null, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
                         </span>
                       </li>
-                    ))}
+                      )
+                    })}
                   </ul>
                 ) : <p className="text-muted">{t('docsEmpty')}</p>}
               </section>

@@ -21,6 +21,12 @@ export const EVENT_TYPES = [
   'lab_results_documented',
   'diagnosis_documented',
   'history_documented',
+  'stage_documented',
+  'marker_results_documented',
+  'margins_documented',
+  'impression_documented',
+  'addendum_documented',
+  'regimen_documented',
   'patient_statement',
 ] as const
 export type EventType = (typeof EVENT_TYPES)[number]
@@ -36,7 +42,11 @@ export type ExtractableEventType = Exclude<EventType, 'document_received' | 'pat
  * never a derived patient attribute. Staff-only: never on patient pages, SMS or share links, hidden from the desk,
  * and taken by the rule extractor only (the LLM prompt forbids diagnosis output).
  */
-export const STAFF_ONLY_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>(['diagnosis_documented', 'history_documented'])
+export const STAFF_ONLY_EVENT_TYPES: ReadonlySet<EventType> = new Set<EventType>([
+  'diagnosis_documented', 'history_documented',
+  // Quote-only oncology lines (mentor review, 7 Nov 2026): a sentence or table row copied word for word, never derived.
+  'stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented', 'addendum_documented', 'regimen_documented',
+])
 
 /**
  * Per-event-type field allow-list (PRD §7.2: descriptive, quoted fields only).
@@ -64,6 +74,14 @@ export const EVENT_FIELDS: Record<EventType, readonly string[]> = {
   lab_results_documented: ['test_names', 'institution_name', 'event_date_text', 'event_date'],
   diagnosis_documented: ['section_text', 'institution_name', 'event_date_text', 'event_date'],
   history_documented: ['history_text', 'institution_name', 'event_date_text', 'event_date'],
+  // Quote-only oncology lines. `section_text` (not "stage_text" / "impression_text") because the gate refuses field names
+  // that say stage or impression: the field holds the document's own words, and the name must not claim more.
+  stage_documented: ['section_text', 'institution_name', 'event_date_text', 'event_date'],
+  marker_results_documented: ['marker_text', 'institution_name', 'event_date_text', 'event_date'],
+  margins_documented: ['margins_text', 'institution_name', 'event_date_text', 'event_date'],
+  impression_documented: ['section_text', 'institution_name', 'event_date_text', 'event_date'],
+  addendum_documented: ['addendum_text', 'institution_name', 'event_date_text', 'event_date'],
+  regimen_documented: ['regimen_text', 'institution_name', 'event_date_text', 'event_date'],
   patient_statement: ['statement_text', 'medication_names', 'scan_name', 'institution_name', 'event_date_text'],
 }
 
@@ -126,7 +144,7 @@ export type RequestState = (typeof REQUEST_STATES)[number]
 export const DISCLOSURES = ['cleared', 'not_cleared', 'unknown'] as const
 export type Disclosure = (typeof DISCLOSURES)[number]
 
-export const CONSENT_PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics'] as const
+export const CONSENT_PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics', 'team'] as const
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number]
 
 export type Lang = 'en' | 'hi' | 'hinglish'

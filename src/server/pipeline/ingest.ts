@@ -11,7 +11,11 @@ import { storeFile } from '@/server/files'
 import { HttpError } from '@/server/http'
 import { log } from '@/server/log'
 import { assertConsent } from '@/server/patients'
-import { dHash, hamming, hasEicar, MAX_FILE_BYTES, NEAR_DUP_HAMMING, scanPdf, sniffMime } from './safety'
+import { MAX_FILE_BYTES, MB } from '@/core/limits'
+import { readDicomMeta } from './dicom'
+import { CATEGORY_LABEL, isStoredOnly, sniffFile, storedNote } from './filetypes'
+import { STUDY_BUNDLE_MIME } from './study'
+import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, scanPdf } from './safety'
 
 // 'abdm': FHIR bundles pulled over ABDM (src/server/abdm/flow.ts) are stored directly as structured documents, not via ingestDocument.
 export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync' | 'email' | 'whatsapp' | 'abdm'
@@ -29,6 +33,10 @@ export type IngestInput = {
   mime?: string
   bytes: Uint8Array
   clientCapturedAt?: Date | null
+  /** A DICOM study kept as one document (instances bundled in a stored ZIP); `imaging` is its header summary. */
+  bundle?: { imaging: Record<string, unknown> }
+  /** Size cap for this file (default MAX_FILE_BYTES; a study opened from a ZIP may be larger). */
+  maxBytes?: number
   /** Route handlers pass ctx.audit so the actor's role is recorded; otherwise the uploader kind is used. */
   audit?: (action: string, targetType: string | null, targetId: string | null, details?: AuditDetails) => Promise<void>
 }
@@ -66,13 +74,18 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   }
 
   if (!bytes.length) throw new HttpError(400, 'empty_file', 'The file is empty')
-  if (bytes.length > MAX_FILE_BYTES) throw new HttpError(413, 'file_too_large', 'Files must be 4 MB or smaller')
-  const mime = sniffMime(bytes)
+  const cap = input.maxBytes ?? MAX_FILE_BYTES
+  if (bytes.length > cap) throw new HttpError(413, 'file_too_large', `Files must be ${cap / MB} MB or smaller`)
+  const sniffed = input.bundle ? ({ kind: 'dicom', mime: STUDY_BUNDLE_MIME, category: 'scan' } as const) : sniffFile(bytes, input.fileName)
   const eicar = hasEicar(bytes)
-  if (!mime) {
-    if (eicar) throw new HttpError(422, 'malware_signature', 'The file could not be accepted')
-    throw new HttpError(415, 'unsupported_type', 'Upload a PDF, JPEG, PNG, WebP or HEIC file')
+  // A bare test-virus signature is refused outright; plain text is now an accepted type, so check it before the sniff
+  // decides (inside a real PDF or image it is still quarantined below, kept encrypted and never served).
+  if (eicar && (!sniffed || sniffed.kind === 'text')) throw new HttpError(422, 'malware_signature', 'The file could not be accepted')
+  if (!sniffed) {
+    throw new HttpError(415, 'unsupported_type', 'Upload a PDF, a photo (JPEG, PNG, HEIC, WebP, TIFF), a DICOM scan, an ECG file, a short video, or a Word or text report')
   }
+  if (sniffed.kind === 'zip') throw new HttpError(415, 'zip_not_expanded', 'A ZIP must be opened before intake (use the upload endpoint)')
+  const mime = sniffed.mime
 
   // E-DOC-01: exact duplicate for this patient → linked, not reprocessed.
   const sha256 = sha256Hex(bytes)
@@ -91,7 +104,7 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   // E-DOC-02: perceptual hash for images; near-duplicate = Hamming ≤ 6 against this patient's images.
   let phash: string | null = null
   let nearDupOf: string | null = null
-  if (!quarantine && mime !== 'application/pdf') {
+  if (!quarantine && mime.startsWith('image/')) {
     phash = await dHash(bytes).catch(() => null)
     if (phash) {
       const others = await tx.select({ id: documents.id, phash: documents.phash }).from(documents)
@@ -104,6 +117,15 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   const flags: Record<string, unknown> = {}
   if (quarantine) flags.quarantine = { reasons: [...(eicar ? ['eicar_signature'] : []), ...active.map((n) => `pdf_${n}`)], scan: QUARANTINE_SCAN_LABEL }
   if (nearDupOf) flags.near_duplicate = { of: nearDupOf, method: 'dhash' }
+  // What kind of file this is, for the Documents page. Imaging, ECG and video are stored and shown but never read for facts.
+  flags.file = { kind: sniffed.kind, category: sniffed.category, label: CATEGORY_LABEL[sniffed.category], ...(isStoredOnly(sniffed.kind) ? { storedOnly: true, note: storedNote(sniffed.category, sniffed.kind) } : {}) }
+  if (input.bundle && !quarantine) flags.imaging = input.bundle.imaging
+  else if (sniffed.kind === 'dicom' && !quarantine) {
+    const m = readDicomMeta(bytes)
+    if (m) flags.imaging = { ...m, modalities: m.modality ? [m.modality] : [], instances: 1 }
+    if (m?.modality === 'ECG') flags.file = { kind: 'dicom', category: 'ecg', label: CATEGORY_LABEL.ecg, storedOnly: true, note: storedNote('ecg', 'dicom') }
+    else flags.file = { ...(flags.file as object), previewNote: 'Header could not be read — file stored' }
+  }
 
   let row: { id: string; status: DocStatus }
   try {

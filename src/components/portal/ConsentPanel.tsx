@@ -42,6 +42,7 @@ export function ConsentPanel({
       });
       if (res.status === 401) { router.replace(`/p/login?lang=${lang}`); return false; }
       if (!res.ok) throw new Error(String(res.status));
+      router.refresh();
       return true;
     } catch {
       setError(tp(lang, "genericError"));
@@ -51,7 +52,7 @@ export function ConsentPanel({
 
   async function toggle(key: (typeof PURPOSES)[number], on: boolean) {
     // turning "keep my papers" off means there is nothing to keep: everything goes off, as with the withdraw button
-    const next = key === "store" && !on ? { store: false, ai: false, share: false, abdm: false, metrics: false } : { ...purposes, [key]: on };
+    const next = key === "store" && !on ? { store: false, ai: false, share: false, abdm: false, metrics: false, team: false } : { ...purposes, [key]: on };
     const prev = purposes;
     setPurposes(next);
     setBusy(key);
@@ -62,14 +63,10 @@ export function ConsentPanel({
     setBusy(null);
   }
 
-  async function withdraw() {
-    setBusy("withdraw");
-    if (await post("/api/p/consent", { withdraw: true, lang })) {
-      setPurposes({ store: false, ai: false, share: false, abdm: false, metrics: false });
-      setNote({ kind: "withdrawn", text: tp(lang, "withdrawDone") });
-      setUpdated(formatDateTimeIN(new Date(), lang));
-    }
-    setBusy(null);
+  /** Withdrawal is always signed: the button takes the person to the signature step, which records the withdrawal and the signed PDF together. */
+  function withdraw() {
+    window.dispatchEvent(new CustomEvent("consent:sign-withdraw"));
+    document.getElementById("sign-h")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   /** J8: only offered once permission is withdrawn. The server answers with the date the records become eligible for removal. */

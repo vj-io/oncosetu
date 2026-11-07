@@ -23,6 +23,31 @@ export function guardFree(text: string | null | undefined, disclosure: Disclosur
   return disclosure !== 'cleared' && lintText(t, ['diagnosis']).length ? null : t
 }
 
+/**
+ * A place name for a paper the patient carries. If the name itself carries a diagnosis word ("... Cancer Centre",
+ * "... Chemotherapy Unit") and the patient may not have been told, the word is left out and the rest is kept
+ * ("Kasturi Day-Care Unit"), so the letter still names the hospital. If nothing is left, it is blank.
+ */
+export function neutralName(text: string | null | undefined, disclosure: Disclosure): string | null {
+  const t = (text ?? '').trim()
+  if (!t) return null
+  if (disclosure === 'cleared' || !lintText(t, ['diagnosis']).length) return t
+  const kept = t.split(/\s+/).filter((w) => !lintText(w.replace(/[,.;:()]/g, ''), ['diagnosis']).length)
+  const out = kept.join(' ').replace(/\s+,/g, ',').replace(/^[,\s-]+|[,\s-]+$/g, '')
+  return out.length >= 3 && lintText(out, ['diagnosis']).length === 0 ? out : null
+}
+
+/** The hospital as the patient side may see it: the safe part of the name ("Kasturi Day-Care Unit"), the same rule as the letter, and "the hospital" only when nothing safe is left. */
+export const patientInstitution = (name: string, disclosure: Disclosure): string => neutralName(name, disclosure) ?? tr('en', 'reminderInstitutionFallback')
+
+/** "1, 2 and 3" for the cycles a grouped request covers. */
+export function cycleList(cycles: readonly number[], lang: Lang): string {
+  const c = [...new Set(cycles)].sort((a, b) => a - b)
+  if (!c.length) return ''
+  const and = lang === 'hi' ? 'और' : lang === 'hinglish' ? 'aur' : 'and'
+  return c.length === 1 ? String(c[0]) : `${c.slice(0, -1).join(', ')} ${and} ${c[c.length - 1]}`
+}
+
 export type LetterInput = {
   lang: Lang
   disclosure: Disclosure
@@ -32,6 +57,8 @@ export type LetterInput = {
   institutionPatientId: string | null
   documents: string[]
   dateRange: { from?: string; to?: string } | null
+  /** Chemotherapy cycles this request covers, when it was raised for a grouped item. */
+  cycles?: number[]
   /** YYYY-MM-DD (IST) */
   today: string
 }
@@ -55,11 +82,14 @@ export function buildLetter(i: LetterInput): Letter {
     lang: l, brand,
     title: tr(l, 'letterTitle'),
     date: tr(l, 'letterDate', { date: formatDateIN(i.today, l) }),
-    to: { dept: tr(l, 'letterDept'), institution: guardFree(i.institution, disclosure), blankLabel: tr(l, 'letterInstitutionBlank') },
+    to: { dept: tr(l, 'letterDept'), institution: neutralName(i.institution, disclosure), blankLabel: tr(l, 'letterInstitutionBlank') },
     subject: tr(l, 'letterSubject'),
     salutation: tr(l, 'letterSalutation'),
     intro: tr(l, 'letterIntro'),
-    documents: [...new Set(i.documents.map((d) => requestDocLabel(d, disclosure, l)).filter((x): x is string => !!x))],
+    documents: [...new Set(i.documents.map((d) => {
+      const label = requestDocLabel(d, disclosure, l)
+      return label && d === 'chemo_daycare_record' && i.cycles?.length ? `${label}: ${l === 'hi' ? 'चक्र' : l === 'hinglish' ? 'cycle' : i.cycles.length > 1 ? 'cycles' : 'cycle'} ${cycleList(i.cycles, l)}` : label
+    }).filter((x): x is string => !!x))],
     patient: [
       { label: tr(l, 'letterPatient'), value: i.patient.name },
       { label: tr(l, 'letterDob'), value: i.patient.dob ? formatDateIN(i.patient.dob, l) : null },

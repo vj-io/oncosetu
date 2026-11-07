@@ -219,20 +219,20 @@ describe('(b) fabricated quotes, forbidden fields, unknown event types and hidde
   })
 
   it('an unknown event type fails the extraction.v1 schema (stricter than the gate): both attempts rejected, rules path, nothing unknown kept', async () => {
-    const bad = response('lab_report', [GOOD, item('stage_documented', {}, 'Total bilirubin 0.7 mg/dL')])
+    const bad = response('lab_report', [GOOD, item('tumour_grade_documented', {}, 'Total bilirubin 0.7 mg/dL')])
     const model = scripted(bad)
     const { a, runs } = await viaPipeline('lab', model)
     expect(model.doGenerateCalls).toHaveLength(2) // one retry
     expect(runs.map((r) => r.outcome)).toEqual(['schema_error', 'schema_error'])
     expect(a.method).toBe('rules')
-    expect(a.drafts.map((d) => d.eventType)).not.toContain('stage_documented')
+    expect(a.drafts.map((d) => d.eventType)).not.toContain('tumour_grade_documented')
     expect(a.drafts).toEqual((await rulesOnly('lab')).drafts)
   })
 
   it('defence in depth: if an unknown or system-only event type ever got past the schema, the gate still rejects it', async () => {
     const a = await analyse(pagesOf.lab, PATIENT, RECEIVED, async () => ({
       schema_version: 'extraction.v1', doc_type: 'lab_report', header: NULL_HEADER,
-      items: [item('stage_documented', {}, 'Total bilirubin 0.7 mg/dL'), item('document_received', {}, 'Total bilirubin 0.7 mg/dL')],
+      items: [item('tumour_grade_documented', {}, 'Total bilirubin 0.7 mg/dL'), item('document_received', {}, 'Total bilirubin 0.7 mg/dL')],
     }))
     expect(a.gate.rejected.map((r) => r.reason)).toEqual(['unknown_event_type', 'event_type_not_extractable'])
     expect(a.drafts).toEqual([])

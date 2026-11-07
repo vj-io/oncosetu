@@ -1,0 +1,130 @@
+[
+  {
+    "file": "hero__12-chest-xray.dcm",
+    "patientKey": "hero",
+    "title": "Chest X-ray (DICOM)",
+    "demoStep": "imaging: stored, not read",
+    "kind": "dicom",
+    "expect": "identity: match; Imaging file - stored, not read; preview shown"
+  },
+  {
+    "file": "hero__13-xray-wrong-patient.dcm",
+    "patientKey": "hero",
+    "title": "Chest X-ray with another patient name (DICOM)",
+    "demoStep": "imaging: wrong patient is held",
+    "kind": "dicom",
+    "expect": "identity: mismatch; held for checking"
+  },
+  {
+    "file": "hero__14-mammogram.dcm",
+    "patientKey": "hero",
+    "title": "Mammogram (DICOM, RLE-compressed)",
+    "demoStep": "imaging: compressed preview",
+    "kind": "dicom",
+    "expect": "identity: match; preview from RLE"
+  },
+  {
+    "file": "returning__08-ct-chest-series.zip",
+    "patientKey": "returning",
+    "title": "CT chest, 12 slices in a ZIP (CD export with DICOMDIR)",
+    "demoStep": "imaging: a series becomes one study",
+    "kind": "zip",
+    "expect": "one CT study of 12 images; middle slice preview; slider"
+  },
+  {
+    "file": "returning__09-petct-study.zip",
+    "patientKey": "returning",
+    "title": "PET-CT study, 16 images in a ZIP",
+    "demoStep": "imaging: PET plus CT is one PET-CT",
+    "kind": "zip",
+    "expect": "one PET-CT study of 16 images"
+  },
+  {
+    "file": "returning__10-mri-brain.dcm",
+    "patientKey": "returning",
+    "title": "MRI brain, 9 frames (DICOM)",
+    "demoStep": "imaging: multi-frame slider",
+    "kind": "dicom",
+    "expect": "MRI; 9 frames; middle frame first"
+  },
+  {
+    "file": "returning__11-ultrasound-cine.dcm",
+    "patientKey": "returning",
+    "title": "Ultrasound cine, 16 frames (DICOM)",
+    "demoStep": "imaging: cine",
+    "kind": "dicom",
+    "expect": "Ultrasound; 16 frames"
+  },
+  {
+    "file": "returning__12-bone-scan.dcm",
+    "patientKey": "returning",
+    "title": "Bone scan (DICOM)",
+    "demoStep": "imaging: bone scan",
+    "kind": "dicom",
+    "expect": "Bone scan / nuclear scan"
+  },
+  {
+    "file": "returning__13-ecg-waveform.dcm",
+    "patientKey": "returning",
+    "title": "12-lead ECG waveform (DICOM)",
+    "demoStep": "ECG: stored, not read",
+    "kind": "ecg",
+    "expect": "ECG file - stored, not read; trace preview"
+  },
+  {
+    "file": "returning__14-ecg-aecg.xml",
+    "patientKey": "returning",
+    "title": "ECG export, HL7 aECG XML",
+    "demoStep": "ECG: stored, not read",
+    "kind": "ecg",
+    "expect": "ECG file - stored, not read; waits for a person to attach"
+  },
+  {
+    "file": "hero__15-xray-film-photo.jpg",
+    "patientKey": "hero",
+    "title": "Phone photo of an X-ray film (JPEG)",
+    "demoStep": "photo formats",
+    "kind": "image",
+    "expect": "Photo; no readable text; held until a person attaches it"
+  },
+  {
+    "file": "hero__16-report-photo.heic",
+    "patientKey": "hero",
+    "title": "Phone photo of a chest X-ray report (HEIC)",
+    "demoStep": "photo formats",
+    "kind": "image",
+    "expect": "HEIC photo is converted and read like any photo"
+  },
+  {
+    "file": "hero__17-scan-2-pages.tiff",
+    "patientKey": "hero",
+    "title": "Scanned note, 2-page TIFF",
+    "demoStep": "photo formats",
+    "kind": "image",
+    "expect": "both pages read"
+  },
+  {
+    "file": "hero__18-chest-xray-report.docx",
+    "patientKey": "hero",
+    "title": "Chest X-ray report (Word)",
+    "demoStep": "typed report from a Word file",
+    "kind": "docx",
+    "expect": "read like a typed report, with quotes"
+  },
+  {
+    "file": "returning__15-petct-report.pdf",
+    "patientKey": "returning",
+    "title": "PET-CT report (typed PDF)",
+    "demoStep": "closes the PET-CT checklist item once a person confirms it",
+    "kind": "pdf",
+    "expect": "imaging report; closes RAD-IMG-PT-01 when attached and confirmed"
+  },
+  {
+    "file": "returning__16-ultrasound-clip.mp4",
+    "patientKey": "returning",
+    "title": "Short ultrasound clip (MP4)",
+    "demoStep": "video: stored and played, not read",
+    "kind": "video",
+    "expect": "Video file - stored, not read; plays inline"
+  }
+]

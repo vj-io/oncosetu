@@ -5,6 +5,7 @@
 import type { Lang } from '@/core/types'
 
 export const en = {
+  planned: 'Planned: not live yet. This page shows how it will work.',
   kicker: 'ABHA records',
   title: 'Records from your ABHA account',
   intro: 'Your clinic team can ask to bring in records that other hospitals and labs have linked to your ABHA health account. Nothing is brought in unless you approve it here. You can withdraw your approval at any time, and the records are then removed from your file.',
@@ -39,6 +40,7 @@ export const en = {
 export type AbdmKey = keyof typeof en
 
 export const hi: Record<AbdmKey, string> = {
+  planned: 'योजना में है: अभी चालू नहीं है। यह पेज दिखाता है कि यह कैसे काम करेगा।',
   kicker: 'ABHA रिकॉर्ड',
   title: 'आपके ABHA खाते के रिकॉर्ड',
   intro: 'आपकी क्लिनिक टीम वे रिकॉर्ड मँगवाने के लिए कह सकती है जिन्हें दूसरे अस्पतालों और लैब ने आपके ABHA स्वास्थ्य खाते से जोड़ा है। जब तक आप यहाँ मंज़ूरी नहीं देते, कुछ भी नहीं मँगवाया जाता। आप कभी भी अपनी मंज़ूरी वापस ले सकते हैं, तब वे रिकॉर्ड आपकी फ़ाइल से हटा दिए जाते हैं।',
@@ -73,6 +75,7 @@ export const hi: Record<AbdmKey, string> = {
 
 /** Hinglish: Hindi in Roman script, as people write it on WhatsApp (patient's choice; never letters to hospitals). */
 export const hinglish: Record<AbdmKey, string> = {
+  planned: 'Planned hai: abhi live nahi hai. Yeh page dikhata hai ki yeh kaise kaam karega.',
   kicker: 'ABHA records',
   title: 'Aapke ABHA account ke records',
   intro: 'Aapki clinic team woh records mangwane ke liye keh sakti hai jo doosre hospitals aur labs ne aapke ABHA health account se jode hain. Jab tak aap yahan manzoori nahi dete, kuch bhi nahi mangwaya jaata. Aap kabhi bhi apni manzoori wapas le sakte hain, tab woh records aapki file se hata diye jaate hain.',

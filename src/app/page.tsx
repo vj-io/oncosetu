@@ -128,17 +128,16 @@ export default function Home() {
                 animate
                 delay={1300}
                 className="relative z-10 mx-3 -mt-6 sm:mx-10 lg:mr-24 lg:-ml-4"
-                kicker="Document index · item 07"
-                title="Procedure documented"
+                kicker="Document index · one item"
+                title="Surgery, as written"
                 status={<StatusBadge status="verified_matches_source" />}
                 what="Wide local excision · 12 Mar 2026"
                 where="Discharge summary · page 2 · quote above"
-                who="Records officer, against the source"
-                when="Event 12 Mar · document 15 Mar · received 28 Oct 2026"
-                accession="7F3A·21C9"
+                who="Checked against the page by records staff"
+                when="Done 12 Mar · document dated 15 Mar · received 28 Oct 2026"
               />
               <div className="absolute -top-6 right-1 z-20 sm:-right-5">
-                <BrassSeal animate delay={2000} code="S0·7F3A21" label="S0 sealed" size={104} />
+                <BrassSeal animate delay={2000} code="S0·7F3A21" label="Sealed" size={104} />
               </div>
             </div>
           </div>
@@ -161,7 +160,7 @@ export default function Home() {
                 </li>
               ))}
             </ul>
-            <p className="mt-4 text-sm text-faint">Figures from published studies; full citations in the PRD (§2.4 and Appendix H).</p>
+            <p className="mt-4 text-sm text-faint">Figures are from published Indian studies; the sources are listed in the project documents.</p>
             <div className="mt-12 grid max-w-3xl gap-2 border-l-2 border-ink pl-5">
               <p className="ds-kicker">What is not known</p>
               <p className="text-lg leading-relaxed">
@@ -183,8 +182,8 @@ export default function Home() {
             <ol className="mt-12 grid gap-x-8 gap-y-14 md:grid-cols-2 lg:grid-cols-3">
               <Room
                 n="1"
-                title="Capture"
-                medium="Desk camera · patient upload link · bulk PDF"
+                title="Collect the papers"
+                medium="Desk camera · patient upload link · PDFs forwarded on WhatsApp"
                 visual={
                   <div className="relative h-36 w-52">
                     {["WhatsApp PDF", "Phone photo", "Printed report · 4 pp"].map((l, i) => (
@@ -204,12 +203,12 @@ export default function Home() {
                   </div>
                 }
               >
-                Paper, photos and forwarded PDFs, de-duplicated by hash. Handwritten pages are kept as images and never auto-extracted.
+                Paper, photos and forwarded PDFs. The same file is never added twice. Handwritten pages are kept as pictures and never read by the software. X-ray, CT, PET-CT, MRI, ultrasound and ECG reports can be uploaded and kept too: the index reads the written report, not the images themselves.
               </Room>
               <Room
                 n="2"
-                title="Evidence gate"
-                medium="Deterministic · whitespace-normalised verbatim match"
+                title="Every fact must show its words"
+                medium="A fact is kept only if its exact words are on the page"
                 className="lg:col-span-2"
                 visual={
                   <div className="grid w-full max-w-lg gap-3">
@@ -228,8 +227,7 @@ export default function Home() {
                   </div>
                 }
               >
-                A model may propose a fact, but only a quote found verbatim in the page text lets it through. Wrong-patient headers and low-confidence
-                OCR are flagged for a human.
+                The software may suggest a fact, but it is kept only if the exact words are found on the page. A report with another patient’s name is held back, and anything read from a blurry photo is flagged for a person to check.
               </Room>
               <Room
                 n="3"
@@ -253,12 +251,12 @@ export default function Home() {
               </Room>
               <Room
                 n="4"
-                title="Completeness checklist"
-                medium="Deterministic rules · shadow mode until clinician review"
+                title="Missing papers"
+                medium="Fixed rules, switched on only after a clinician has reviewed them"
                 className="lg:col-span-2"
                 visual={
                   <div className="grid w-full max-w-lg gap-6">
-                    <EmptyFrame title="Histopathology report" detail="for procedure documented on 12 Mar 2026 (Discharge summary, p.2)" accession="RAD-02" />
+                    <EmptyFrame title="Histopathology report" detail="Mentioned in the discharge summary, page 2, for the surgery on 12 Mar 2026" />
                   </div>
                 }
               >
@@ -284,8 +282,8 @@ export default function Home() {
               </Room>
               <Room
                 n="6"
-                title="Change ledger"
-                medium="Diff against the last sealed snapshot"
+                title="What’s new"
+                medium="Everything that arrived since the last sealed visit"
                 visual={
                   <div className="flex w-full max-w-sm items-center gap-4">
                     <ul className="grid flex-1 gap-1.5 text-[13px]">
@@ -302,7 +300,7 @@ export default function Home() {
                         </li>
                       ))}
                     </ul>
-                    <BrassSeal code="S1·C0DE" label="S1 sealed" size={84} />
+                    <BrassSeal code="S1·C0DE" label="Sealed" size={84} />
                   </div>
                 }
               >
@@ -311,7 +309,7 @@ export default function Home() {
               <Room
                 n="7"
                 title="Share link"
-                medium="Passcode · expiry · revocable · key in the URL fragment"
+                medium="Passcode · expiry date · can be switched off any time"
                 visual={
                   <div className="grid w-full max-w-xs gap-3">
                     <p className="flex items-center gap-2 border border-rule bg-matte px-3 py-2 font-mono text-[12px] text-label">
@@ -342,15 +340,14 @@ export default function Home() {
           <div className="mx-auto max-w-gallery px-4 py-20 sm:px-8 sm:py-24">
             <SectionHeader
               kicker="Try it"
-              title={<span id="gate">Test the evidence gate yourself.</span>}
-              description="The extractor proposes facts with quotes. The gate does not take its word: it normalises whitespace and searches the page text. If the quote is there, the fact is added to the index. Change one digit and it is refused."
+              title={<span id="gate">Try to fool it.</span>}
+              description="The software proposes a fact with a quote. We do not take its word: we search the page for those exact words. If they are there, the fact goes in the index. Change one digit and it is refused."
             />
             <div className="mt-12">
               <EvidenceGateDemo />
             </div>
             <p className="mt-8 max-w-3xl text-sm text-faint">
-              What the gate cannot see: omissions, a right quote bound to the wrong field, or an OCR error quoted faithfully. Those are measured
-              separately (recall against clinician abstraction, binding checks, OCR-confidence flags) and shown to the verifier.
+              What this check cannot catch: a line the software missed, right words attached to the wrong test, or a misread photo quoted faithfully. Those are measured separately and shown to the person checking.
             </p>
           </div>
         </section>
@@ -452,8 +449,11 @@ export default function Home() {
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-gallery flex-wrap items-center justify-between gap-4 px-4 py-6 sm:px-8">
           <p className="font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase">
-            Document index, not a clinical summary · Every displayed fact links to a verbatim source quote
+            A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document
           </p>
+          <Link href="/security" className="inline-flex h-11 items-center font-mono text-[12px] tracking-[0.12em] text-ink uppercase underline decoration-brass underline-offset-4 hover:decoration-ink">
+            Security and privacy
+          </Link>
           <Link href="/styleguide" className="inline-flex h-11 items-center font-mono text-[12px] tracking-[0.12em] text-ink uppercase underline decoration-brass underline-offset-4 hover:decoration-ink">
             Style guide
           </Link>

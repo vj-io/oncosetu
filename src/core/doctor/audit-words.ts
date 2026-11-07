@@ -1,0 +1,80 @@
+// Plain-language names for activity-log entries, so no screen prints a raw code such as "event.source_viewed". Pure.
+
+const WORDS: Record<string, string> = {
+  'document.view': 'Opened a document page',
+  'document.upload': 'Document added',
+  'document.duplicate_upload': 'Same file uploaded again (not added twice)',
+  'document.quarantined': 'File set aside as unsafe or unsupported',
+  'document.processed': 'Document read by the system',
+  'document.unreadable': 'Document could not be read',
+  'document.identity_decision': 'A person decided whose document it is',
+  'document.detach': 'Document taken out of the record',
+  'document.tags': 'Document type changed by a person',
+  'document.reprocess': 'Document read again',
+  'document.manual_event': 'A person added a fact from a quote',
+  'document.dispute': 'Patient disputed a document',
+  'event.source_viewed': 'Opened the page behind a fact',
+  'event.verify_bulk': 'Several facts marked as checked',
+  'event.edit': 'A fact was corrected (original kept)',
+  'event.dispute': 'A fact was disputed',
+  'conflict.resolve': 'A disagreement between two sources was settled',
+  'snapshot.seal': 'Visit sealed',
+  'share.create': 'Share link created',
+  'share.revoke': 'Share link switched off',
+  'share.payload': 'Share link prepared',
+  'share.locked': 'Share link locked after wrong passcodes',
+  'request.create': 'Request letter created',
+  'request.mark_sent': 'Request marked as given',
+  'request.letter_print': 'Request letter printed',
+  'request.reminder': 'Reminder sent to the patient',
+  'request.withdraw': 'Request withdrawn',
+  'request.unobtainable': 'Request closed: paper cannot be obtained',
+  'request.settled': 'Request closed: paper received',
+  'missing.transition': 'Missing-paper item updated',
+  'statements.view': 'Read the patient’s own answers',
+  'statements.submit': 'Patient gave answers before the visit',
+  'consent.recorded': 'Consent recorded',
+  'consent.withdrawn': 'Consent withdrawn',
+  'consent.otp_requested': 'A code was sent for consent',
+  'desk.lookup': 'Looked the patient up at the desk',
+  'desk.verified': 'Patient identity confirmed at the desk',
+  'desk.verify_failed': 'Identity check failed at the desk',
+  'desk.otp_requested': 'A code was sent to the patient at the desk',
+  'encounter.started': 'Visit started',
+  'patient.registered': 'Patient registered',
+  'patient.search': 'Searched for a patient',
+  'patient.disclosure_changed': 'Whether the diagnosis may be discussed was changed',
+  'patient.primary_contact_changed': 'Main contact changed',
+  'patient.pre_visit_link_sent': 'Pre-visit link sent',
+  'patient.token_issued': 'Records card issued',
+  'patient.token_reissued': 'Records card replaced',
+  'patient.token_revoked': 'Records card switched off',
+  'break_glass.granted': 'Emergency access granted',
+  'access.refused': 'Access refused',
+  'caregiver.added': 'Family member added',
+  'caregiver.revoked': 'Family member removed',
+  'erasure.request': 'Erasure requested',
+  'erasure.executed': 'Records erased',
+  'auth.login': 'Signed in',
+  'auth.login_failed': 'Failed sign-in',
+  'auth.logout': 'Signed out',
+  'auth.patient_login': 'Patient signed in',
+  'auth.otp_sent': 'Sign-in code sent',
+  'auth.otp_failed': 'Wrong sign-in code',
+  'abdm.consent_requested': 'Records requested from other hospitals through ABDM',
+  'abdm.transfer_received': 'Records received through ABDM',
+}
+
+/** A plain name for an action code. Unknown codes become lower-case words, never the raw code. */
+export function describeAction(action: string): string {
+  if (WORDS[action]) return WORDS[action]
+  const t = action.replace(/[._]+/g, ' ').trim()
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : 'Activity'
+}
+
+/** What kind of thing an entry was about, in words. */
+const TARGETS: Record<string, string> = {
+  patient: 'Patient record', document: 'Document', event: 'Fact', snapshot: 'Sealed visit', share_link: 'Share link', record_request: 'Request letter',
+  missing_record: 'Missing paper', session: 'Sign-in session', staff: 'Staff account', caregiver: 'Family member', encounter: 'Visit', erasure_request: 'Erasure request',
+}
+export const describeTarget = (t: string | null) => (t ? TARGETS[t] ?? t.replace(/_/g, ' ') : '—')

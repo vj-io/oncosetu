@@ -6,8 +6,9 @@ import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
+import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
-import { Badge, Frame, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
+import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
@@ -40,7 +41,9 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const { detail: d, patient } = data
   const doc = d.doc
   if (doc.intakeRoute === 'abdm') return <AbdmDocument patientId={id} documentId={doc.id} focusEventId={event ?? null} /> // FHIR source, not pages
-  const title = doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
+  const imgFlags = doc.flags.imaging as { studyLabel?: string; modalityLabel?: string } | undefined
+  const fileLabel = (doc.flags.file as { label?: string; storedOnly?: boolean } | undefined)
+  const title = imgFlags ? (imgFlags.studyLabel ?? imgFlags.modalityLabel ?? 'Imaging file') : fileLabel?.storedOnly ? `${fileLabel.label} file` : doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
   const b = statusBadge(d.status)
   const header = ((doc.identityDetails as { header?: Header } | null)?.header ?? {}) as Header
   const idDetails = (doc.identityDetails ?? {}) as { reasons?: string[]; notes?: string[]; score?: number }
@@ -51,15 +54,10 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const erratum = flags.erratum as { detachedAt: string; reason: string; withdrawnEventIds: string[]; sealedSnapshots: { seq: number }[] } | undefined
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
-  const extraction = flags.extraction as { method?: string; llm_off?: string } | undefined
-  const LLM_OFF: Record<string, string> = {
-    quota_rpm: 'The shared LLM budget for this minute was in use, so the rule-based extractor ran instead.',
-    quota_rpd: 'Today’s free-tier LLM budget is spent, so the rule-based extractor ran instead.',
-    quota_cooldown: 'The LLM provider asked us to slow down, so the rule-based extractor ran instead.',
-    rate_limited: 'The LLM provider refused the call (rate limit), so the rule-based extractor ran instead.',
-  }
-  const llmNote = extraction?.llm_off ? LLM_OFF[extraction.llm_off] : undefined
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
+  const fileInfo = flags.file as { kind?: string; category?: string; label?: string; storedOnly?: boolean; note?: string; previewNote?: string } | undefined
+  const imaging = flags.imaging as (ImagingDetails & { modalityLabel?: string; studyLabel?: string }) | undefined
+  const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
   const pageNos = d.pages.filter((p) => p.text.trim()).map((p) => p.pageNo)
@@ -67,12 +65,12 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   return (
     <div className="grid gap-10 py-8 [&>*]:min-w-0">
       <Link href={`/patients/${id}/documents`} className="inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
-        <ArrowLeft aria-hidden className="size-4" /> Document index
+        <ArrowLeft aria-hidden className="size-4" /> All documents
       </Link>
 
       <SectionHeader
         as="h2"
-        kicker={`Source viewer · ACC. ${shortId(doc.id)}`}
+        kicker="Document"
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
         description={`${doc.documentDate ? `Document date ${fmtDate(doc.documentDate)}` : 'No document date found'} · received ${fmtDateTime(doc.receivedAt.toISOString())}${doc.pages ? ` · ${doc.pages} page${doc.pages > 1 ? 's' : ''}` : ''}`}
         actions={
@@ -96,9 +94,9 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </Notice>
         )}
         {injection && (
-          <Notice tone="conflict" icon={<ShieldAlert />} title={`Hidden instructions removed before extraction${injection.patterns.length ? ` · ${injection.patterns.join(', ').replace(/_/g, ' ')}` : ''}`}>
+          <Notice tone="conflict" icon={<ShieldAlert />} title={<>Hidden text removed before reading<InfoTip>{EXPLAIN.hiddenInstructions}</InfoTip></>}>
             {injection.hiddenChars > 0 ? `${injection.hiddenChars} characters of invisible text (white or under 2 pt) on page ${injection.hiddenPages.join(', ')} were stripped. ` : 'Instruction-like wording was found in the visible text. '}
-            The model has no tools and no write access; nothing in a document can verify an item or change a status, and every fact still needs a verbatim quote from the visible text.
+            Nothing written inside a document can confirm a fact or change anything, and every fact still needs its exact words from the visible text.
             {hidden.length > 0 && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm underline underline-offset-4">Show the removed text</summary>
@@ -108,7 +106,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </Notice>
         )}
         {doc.handwritten && (
-          <Notice tone="unverified" icon={<Hand />} title="Handwritten — stored as an image only">
+          <Notice tone="unverified" icon={<Hand />} title={<>Handwritten, kept as an image only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
             Handwriting is never machine-extracted (no OCR text is kept, so no facts can be quoted). Tag the document type, date and institution below.
           </Notice>
         )}
@@ -131,7 +129,6 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             </Link>; the ledger shows it as “Amended”.
           </Notice>
         )}
-        {llmNote && <Notice tone="shadow" icon={<Languages />} title="Rule-based extraction (LLM budget)">{llmNote} Every fact still needs a verbatim quote; use Reprocess later to try the LLM again.</Notice>}
         {Boolean(flags.language_unsupported) && <Notice tone="shadow" icon={<Languages />} title="Language not supported by OCR — stored as an image" />}
         {d.status === 'needs_password' && (
           <Notice tone="unverified" icon={<KeyRound />} title="This PDF is password-protected">
@@ -146,26 +143,36 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
       </div>
 
+      {/* Scans, ECG, video: stored and shown, never read */}
+      {storedOnly && !quarantine && (
+        <section aria-labelledby="stored-h" className="grid gap-4">
+          <h2 id="stored-h" className="text-lg font-medium" data-testid="stored-note">{fileInfo?.note ?? 'File — stored, not read'}</h2>
+          {doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study'
+            ? (imaging
+              ? <ImagingViewer documentId={doc.id} details={imaging} canView />
+              : <Notice tone="shadow" icon={<ScanText />} title="The header could not be read">{fileInfo?.previewNote ?? 'The file is stored as it came.'}</Notice>)
+            : doc.mime === 'application/pdf'
+              ? <div className="max-h-[40rem] overflow-y-auto border border-rule"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
+            : doc.mime.startsWith('video/')
+              ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
+              : <Notice tone="shadow" icon={<ScanText />} title="Kept exactly as it arrived">Open the original to view it with the right program.</Notice>}
+        </section>
+      )}
+
       {/* Evidence: facts on exhibit beside the lit source text */}
-      {attached && (
+      {attached && !storedOnly && (
         <div className="grid gap-4">
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3">
             <p className="text-[15px]">
               {gate ? (
                 <>
-                  <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} passed the evidence gate</span>
+                  <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} found, each with its quote</span>
                   {gate.rejected > 0
-                    ? <span className="text-madder-ink"> · {gate.rejected} proposed fact{gate.rejected > 1 ? 's' : ''} rejected — quote not found in source{Object.keys(gate.reasons).some((r) => r !== 'quote_not_found') ? ` (${Object.entries(gate.reasons).map(([r, n]) => `${r.replace(/_/g, ' ')} ${n}`).join(', ')})` : ''}</span>
-                    : <span className="text-muted"> · 0 rejected</span>}
+                    ? <span className="text-madder-ink"> · {gate.rejected} line{gate.rejected > 1 ? 's' : ''} not indexed: open the source and read the page</span>
+                    : <span className="text-muted"> · none left out</span>}
                 </>
               ) : <span className="text-muted">No automatic extraction for this file.</span>}
             </p>
-            {d.coverage && (
-              <p className="max-w-xl text-sm text-muted">
-                <span className="ds-kicker mr-1">Coverage</span>
-                Extraction recall for this document class ({title.toLowerCase()}) in evaluation: <span className="font-mono text-ink">{d.coverage.recall.toFixed(2)}</span> ({d.coverage.gold} gold facts) — review the source for anything not listed.
-              </p>
-            )}
           </div>
           <SourceViewer
             documentId={doc.id}
@@ -184,10 +191,10 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
 
       <div className="grid gap-8 lg:grid-cols-2 [&>*]:min-w-0">
         {/* Original */}
-        {d.original && doc.status !== 'quarantined' && (
+        {d.original && doc.status !== 'quarantined' && !storedOnly && (
           <section aria-labelledby="orig-h" className="grid content-start gap-3 [&>*]:min-w-0">
-            <h2 id="orig-h" className="ds-kicker">Original file · immutable, decrypted on request</h2>
-            <Frame matte caption={`${doc.mime} · ${(doc.sizeBytes / 1024).toFixed(0)} KB · sha256 ${doc.sha256.slice(0, 12)}…`}>
+            <h2 id="orig-h" className="ds-kicker">Original file</h2>
+            <Frame matte caption={`${fileInfo?.label ?? 'File'} · ${doc.sizeBytes > 1048576 ? (doc.sizeBytes / 1048576).toFixed(1) + ' MB' : (doc.sizeBytes / 1024).toFixed(0) + ' KB'}`}>
               {doc.mime === 'application/pdf' ? (
                 <div className="max-h-[40rem] overflow-y-auto"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
               ) : (
@@ -204,7 +211,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
 
         {/* Identity: header vs registered (FR-ID-03..05) */}
         <section aria-labelledby="id-h" className="grid content-start gap-4 [&>*]:min-w-0">
-          <h2 id="id-h" className="ds-kicker">Identity check · header vs registered patient</h2>
+          <h2 id="id-h" className="ds-kicker">Is this the right patient? <span className="normal-case">header vs registered patient</span>{doc.attachState === 'pending_decision' && <InfoTip>{EXPLAIN.wrongPatient}</InfoTip>}</h2>
           <div className="border border-rule bg-surface p-5 shadow-placard">
             <div className="flex flex-wrap items-center gap-2">
               {doc.identityResult !== 'pending' ? <StatusBadge status={doc.identityResult} /> : <Badge tone="shadow">Not checked yet</Badge>}
@@ -230,7 +237,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             ) : null}
             {doc.attachReason && <p className="mt-3 text-sm text-muted">Decision reason: {doc.attachReason}</p>}
           </div>
-          {doc.attachState === 'pending_decision' && !live && <IdentityDecision documentId={doc.id} result={doc.identityResult} reasons={idDetails.reasons ?? []} />}
+          {doc.attachState === 'pending_decision' && !live && doc.status !== 'quarantined' && <IdentityDecision documentId={doc.id} result={doc.identityResult} reasons={idDetails.reasons ?? []} />}
           {attached && !live && (
             <details className="border border-rule bg-surface p-4">
               <summary className="cursor-pointer text-sm font-medium">Wrong patient? Detach this document</summary>
@@ -240,18 +247,18 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         </section>
       </div>
 
-      {/* Manual mode (FR-EXT-07) */}
-      {attached && doc.status !== 'quarantined' && !live && (
+      {/* Manual correction (FR-EXT-07) */}
+      {attached && !storedOnly && doc.status !== 'quarantined' && !live && (
         <section aria-labelledby="manual-h" className="grid gap-4">
-          <h2 id="manual-h" className="ds-kicker border-b border-rule pb-2">Manual mode · works with no AI provider</h2>
+          <h2 id="manual-h" className="ds-kicker border-b border-rule pb-2">Correct or add details by hand</h2>
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="grid content-start gap-3">
-              <h3 className="text-lg">Tag the document</h3>
+              <h3 className="text-lg">Document type, date and hospital</h3>
               <TagForm documentId={doc.id} handwritten={!!doc.handwritten} initial={{ docType: doc.docType, documentDate: doc.documentDate, institution: doc.institutionName }} />
             </div>
             <div className="grid content-start gap-3">
-              <h3 className="text-lg">Add a fact by quote</h3>
-              {pageNos.length ? <ManualEventForm documentId={doc.id} pages={pageNos} /> : <p className="text-[15px] text-muted">This document is image-only: facts cannot be quoted, so only tags are allowed.</p>}
+              <h3 className="text-lg">Add a fact from the page</h3>
+              {pageNos.length ? <ManualEventForm documentId={doc.id} pages={pageNos} /> : <p className="text-[15px] text-muted">This document is a picture only, so facts cannot be quoted from it. You can still set its type, date and hospital.</p>}
             </div>
           </div>
         </section>

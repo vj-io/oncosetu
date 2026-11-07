@@ -3,7 +3,8 @@
 import { inflateSync } from 'node:zlib'
 import sharp from 'sharp'
 
-export const MAX_FILE_BYTES = 4 * 1024 * 1024
+import { MAX_FILE_BYTES } from '@/core/limits'
+export { MAX_FILE_BYTES }
 
 export type SniffedMime = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic'
 

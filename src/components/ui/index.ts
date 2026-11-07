@@ -26,3 +26,6 @@ export type { PlacardProps } from "./exhibit";
 
 export { Tabs, Dialog, ToastProvider, useToast, Tooltip, LanguageToggle } from "./interactive";
 export type { TabItem, Lang } from "./interactive";
+
+export { InfoTip, Explainer } from "./InfoTip";
+export { EXPLAIN } from "./explain";

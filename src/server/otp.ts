@@ -1,6 +1,6 @@
 // Phone OTP: 6 digits, hashed at rest, 5 min expiry, 5 failed attempts → phone locked 15 min. Uniform failures.
 import { randomInt } from 'node:crypto'
-import { and, desc, eq, gt, sql } from 'drizzle-orm'
+import { and, desc, eq, gt, ne, sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 import { db, sideDb, withOrg, type Tx } from '@/db'
 import { otpChallenges, patients } from '@/db/schema'
@@ -52,7 +52,7 @@ export async function startOtp(phoneHmac: string, purpose = 'login'): Promise<{ 
   const now = new Date()
   // ponytail: count-then-insert, so a burst of parallel requests can overshoot by a few; an advisory lock per phone if that matters.
   const sent = await sideDb.select({ at: otpChallenges.createdAt }).from(otpChallenges)
-    .where(and(eq(otpChallenges.phoneHmac, phoneHmac), gt(otpChallenges.createdAt, new Date(now.getTime() - OTP_SEND_LIMITS[1].windowMs))))
+    .where(and(eq(otpChallenges.phoneHmac, phoneHmac), ne(otpChallenges.purpose, 'demo_login'), gt(otpChallenges.createdAt, new Date(now.getTime() - OTP_SEND_LIMITS[1].windowMs))))
   if (!sendAllowed(sent.map((s) => s.at), now)) return null
   const prev = await latest(sideDb, phoneHmac, purpose)
   if (isLocked(prev, now)) return null
@@ -64,6 +64,17 @@ export async function startOtp(phoneHmac: string, purpose = 'login'): Promise<{ 
     id, phoneHmac, purpose, codeHash: otpCodeHash(id, code), attempts: carried,
     expiresAt: new Date(now.getTime() + OTP_TTL_MS),
   })
+  return { code }
+}
+
+/**
+ * DEMO_MODE sign-in code for a seeded demo phone (policy in demo-login.ts). Its own purpose, so it never counts toward the real
+ * 3-per-10-minutes send limit and never touches the real lock; it expires after 3 minutes.
+ */
+export async function startDemoOtp(phoneHmac: string): Promise<{ code: string }> {
+  const id = uuidv7()
+  const code = String(randomInt(0, 1_000_000)).padStart(6, '0')
+  await sideDb.insert(otpChallenges).values({ id, phoneHmac, purpose: 'demo_login', codeHash: otpCodeHash(id, code), attempts: 0, expiresAt: new Date(Date.now() + 3 * 60_000) })
   return { code }
 }
 

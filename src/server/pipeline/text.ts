@@ -11,7 +11,7 @@ import sharp from 'sharp'
 import { createWorker, type Worker } from 'tesseract.js'
 import { extractImages, getDocumentProxy, getResolvedPDFJS } from 'unpdf'
 import type { OcrWord } from '@/db/schema'
-import type { SniffedMime } from './safety'
+import { unzipSync } from 'fflate'
 
 export const OCR_LOW_CONFIDENCE = 0.8
 export const TEXT_PROCESSOR = { name: 'unpdf', version: '2.1' } as const
@@ -148,11 +148,36 @@ async function blueInk(jpeg: Buffer): Promise<number> {
   return ink ? blue / ink : 0
 }
 
-/** EXIF-rotate, strip metadata, cap the long side at 2400 px, JPEG. */
-export async function normaliseImage(bytes: Uint8Array): Promise<Buffer> {
-  return sharp(bytes).rotate().resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
-    .jpeg({ quality: 85 }).toBuffer()
+/** HEIC/HEIF that sharp's build cannot decode (no HEVC) is converted to JPEG first. */
+async function heicToJpeg(bytes: Uint8Array): Promise<Buffer> {
+  const { default: convert } = await import('heic-convert')
+  return Buffer.from(new Uint8Array(await convert({ buffer: bytes, format: 'JPEG', quality: 0.9 })))
 }
+
+/** EXIF-rotate, strip metadata, cap the long side at 2400 px, JPEG. `page` picks a page of a multi-page TIFF. */
+export async function normaliseImage(bytes: Uint8Array, page = 0, heic = false): Promise<Buffer> {
+  const run = (src: Uint8Array) => sharp(src, page ? { page } : {}).rotate().resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 }).toBuffer()
+  try {
+    return await run(bytes)
+  } catch (e) {
+    if (!heic) throw e
+    return run(await heicToJpeg(bytes))
+  }
+}
+
+/** Text of a Word document: paragraphs, tabs and line breaks kept, everything else dropped. */
+export function docxText(bytes: Uint8Array): string {
+  const files = unzipSync(bytes, { filter: (f) => f.name === 'word/document.xml' })
+  const xml = Buffer.from(files['word/document.xml'] ?? new Uint8Array()).toString('utf8')
+  return xml.replace(/<\/w:p>/g, '\n').replace(/<w:tab\/>/g, '\t').replace(/<w:br\/>/g, '\n').replace(/<[^>]+>/g, '')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+const typedPage = (text: string, processor: string): PageRead => ({
+  pageNo: 1, text, words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null, hidden: null, image: null,
+  processor, processorVersion: '1',
+})
 
 async function ocrPage(pageNo: number, image: Buffer): Promise<PageRead> {
   const [first, ink] = await Promise.all([ocrImage(image), blueInk(image)])
@@ -263,16 +288,30 @@ async function readPdf(bytes: Uint8Array, password?: string): Promise<ReadResult
   }
 }
 
-/** Reads every page of a sniffed file. `password` is used once and never stored (FR-ING-07). */
-export async function readPages(bytes: Uint8Array, mime: SniffedMime, password?: string): Promise<ReadResult> {
+const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+const MAX_TIFF_PAGES = 20
+
+/** Reads every page of a sniffed file (mime from sniffFile). `password` is used once and never stored (FR-ING-07). */
+export async function readPages(bytes: Uint8Array, mime: string, password?: string): Promise<ReadResult> {
   if (mime === 'application/pdf') return readPdf(bytes, password)
-  let image: Buffer
-  try {
-    image = await normaliseImage(bytes)
-  } catch {
-    return { kind: 'unreadable', reason: mime === 'image/heic' ? 'heic_decode_unsupported' : 'image_decode_failed' }
+  if (mime === 'text/plain') return { kind: 'pages', pages: [typedPage(Buffer.from(bytes).toString('utf8'), 'plain-text')] }
+  if (mime === DOCX) {
+    try {
+      const t = docxText(bytes)
+      return t ? { kind: 'pages', pages: [typedPage(t, 'docx-text')] } : { kind: 'unreadable', reason: 'docx_empty' }
+    } catch {
+      return { kind: 'unreadable', reason: 'docx_unreadable' }
+    }
   }
-  return { kind: 'pages', pages: [await ocrPage(1, image)] }
+  const heic = mime === 'image/heic'
+  try {
+    const count = mime === 'image/tiff' ? Math.min((await sharp(bytes).metadata()).pages ?? 1, MAX_TIFF_PAGES) : 1
+    const pages: PageRead[] = []
+    for (let i = 0; i < count; i++) pages.push(await ocrPage(i + 1, await normaliseImage(bytes, i, heic)))
+    return { kind: 'pages', pages }
+  } catch {
+    return { kind: 'unreadable', reason: heic ? 'heic_decode_unsupported' : 'image_decode_failed' }
+  }
 }
 
 /** Share of letters that are Devanagari, and whether an unsupported script dominates (FR-DOC-05). */

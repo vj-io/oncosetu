@@ -84,7 +84,7 @@ export function AbdmPanel({ patientId }: { patientId: string }) {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
           <p className="ds-kicker flex items-center gap-1.5"><Network aria-hidden className="size-3.5" /> ABDM · health information exchange</p>
-          <h2 id="abdm-h" className="text-xl">Records from ABDM</h2>
+          <h2 id="abdm-h" className="text-xl">Records from ABDM <span data-testid="abdm-planned" className="ml-2 inline-block border border-amber bg-amber-tint px-2 py-0.5 align-middle font-mono text-[11px] tracking-[0.08em] text-amber-ink uppercase">Planned: not live yet</span></h2>
           <p className="max-w-2xl text-[15px] text-muted">
             Ask the patient to share records linked to their ABHA. Bundles are decrypted only after the consent artefact is checked, mapped from FHIR
             into facts with their source resource, and erased when the artefact ends or the patient revokes it.

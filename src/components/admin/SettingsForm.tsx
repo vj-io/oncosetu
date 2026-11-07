@@ -25,14 +25,14 @@ export function SettingsForm({ flags: initial, retentionDays: initialDays, minRe
         <div className="divide-y divide-rule">
           <Switch label="Voice input" description="Patients and desk staff can answer pre-visit questions by voice." checked={flags.voice} onChange={toggle('voice')} />
           <Switch label="Spoken read-back" description="Read the confirmed answers aloud (text read-back is always available)." checked={flags.tts} onChange={toggle('tts')} />
-          <Switch label="AI extraction" description="Use the language model for extraction. Off: rule-based extraction only. Every result passes the same evidence gate." checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
+          <Switch label="AI-assisted reading (only for patients who consented)" description="Off: documents are read by fixed rules only. Every result passes the same evidence check." checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
         </div>
         <div><Button disabled={!dirtyFlags} loading={busy === 'flags'} onClick={() => run('flags', () => postJson('/api/admin/settings', { flags }), 'Feature flags saved')}>Save flags</Button></div>
       </section>
 
       <section aria-labelledby="ret-h" className="grid gap-3 bg-matte p-5 shadow-frame sm:p-6">
         <h2 id="ret-h" className="text-xl tracking-[-0.02em]">Retention</h2>
-        <p className="max-w-prose text-sm text-muted">How long records are kept after the last encounter before erasure requests are actioned (PRD §10.5). Never shorter than 3 years ({minRetentionDays} days), the Indian Medical Council minimum for indoor records. The audit trail is kept as legally required.</p>
+        <p className="max-w-prose text-sm text-muted">How long records are kept after the last encounter before erasure requests are actioned. Never shorter than 3 years ({minRetentionDays} days), the Indian Medical Council minimum for indoor records. The audit trail is kept as legally required.</p>
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Retention (days)" error={days && !daysValid ? `Enter a whole number from ${minRetentionDays} to 36500.` : undefined}>
             <Input type="number" inputMode="numeric" min={minRetentionDays} max={36500} value={days} onChange={(e) => setDays(e.target.value)} className="w-40 font-mono" />

@@ -148,6 +148,19 @@ export type SafetyInput = {
   qa: { reviewed: number; disagree: number }
   radarWordingHits: number; radarTemplates: number
   diagnosisWordHits: number; diagnosisSurfaceScanned: number
+  /** Message kinds that matched, shown so a breach can be traced (no message text). */
+  diagnosisHitKinds?: string[]
+}
+
+/**
+ * The disclosure status a patient had at a given moment, rebuilt from the audit trail of changes (each row says from -> to).
+ * A message sent while disclosure was "cleared" may correctly name the diagnosis; judging it by the status the patient has
+ * today (after a clinician changed it) would raise a false breach, so each message is judged by the status in force when it was sent.
+ */
+export function disclosureAt(current: string, changes: readonly { at: Date; from: string; to: string }[], at: Date): string {
+  const sorted = [...changes].sort((a, b) => a.at.getTime() - b.at.getTime())
+  const next = sorted.find((c) => c.at.getTime() > at.getTime())
+  return next ? next.from : current
 }
 
 const zero = (n: number): SafetyStatus => (n === 0 ? 'on_target' : 'breach')
@@ -185,7 +198,7 @@ export function safetyKpis(i: SafetyInput): SafetyKpi[] {
     {
       key: 'diagnosis_words', zeroTarget: true, target: '0', observed: String(i.diagnosisWordHits), status: zero(i.diagnosisWordHits),
       label: 'Diagnosis words reaching a not_cleared / unknown patient-facing surface',
-      basis: `${i.diagnosisSurfaceScanned} outbox messages and read-back texts for patients with disclosure not cleared, linted against the diagnosis wordlist.`,
+      basis: `${i.diagnosisSurfaceScanned} messages and read-back texts sent while the patient's disclosure was not cleared (judged by the status at send time), linted against the diagnosis wordlist.${i.diagnosisHitKinds?.length ? ` Matched: ${i.diagnosisHitKinds.join(', ')}.` : ''}`,
     },
     {
       key: 'privacy', zeroTarget: true, target: '0', observed: 'Not collected in-app', status: 'not_measured',

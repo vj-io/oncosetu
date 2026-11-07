@@ -16,25 +16,25 @@ export function RuleActions({ ruleId, mode, reviewers }: { ruleId: string; mode:
     const r = await run(ruleId, () => postJson<{ itemsFlipped: number }>(`/api/admin/rules/${ruleId}`,
       mode === 'shadow' ? { mode: 'production', reviewerId, confirm } : { mode: 'shadow' }))
     if (r) {
-      toast({ title: mode === 'shadow' ? 'Rule promoted to production' : 'Rule returned to shadow', description: `${r.itemsFlipped} existing item${r.itemsFlipped === 1 ? '' : 's'} ${mode === 'shadow' ? 'now visible' : 'hidden again'}.`, tone: 'verified' })
+      toast({ title: mode === 'shadow' ? 'Check switched on' : 'Check returned to review', description: `${r.itemsFlipped} existing item${r.itemsFlipped === 1 ? '' : 's'} ${mode === 'shadow' ? 'now shown to staff' : 'hidden again'}.`, tone: 'verified' })
       close()
     }
   }
 
   return (
     <>
-      <Button size="sm" variant={mode === 'shadow' ? 'primary' : 'secondary'} onClick={() => setOpen(true)} aria-label={`${mode === 'shadow' ? 'Mark reviewed' : 'Return to shadow'}: ${ruleId}`}>
-        {mode === 'shadow' ? 'Mark clinician-reviewed' : 'Return to shadow'}
+      <Button size="sm" variant={mode === 'shadow' ? 'primary' : 'secondary'} onClick={() => setOpen(true)} aria-label={`${mode === 'shadow' ? 'Mark reviewed' : 'Return to review'}: ${ruleId}`}>
+        {mode === 'shadow' ? 'Mark as reviewed by a clinician' : 'Return to review'}
       </Button>
       <Dialog open={open} onClose={close}
-        title={mode === 'shadow' ? `Promote ${ruleId} to production` : `Return ${ruleId} to shadow`}
+        title={mode === 'shadow' ? `Switch on ${ruleId}` : `Return ${ruleId} to review`}
         description={mode === 'shadow'
           ? 'Existing items for this rule become visible to staff. The reviewer and time are recorded on the rule and in the audit log.'
           : 'Existing items for this rule are hidden again (logged, not shown). Nothing is deleted.'}
         footer={<>
           <Button variant="ghost" onClick={close}>Cancel</Button>
           <Button onClick={submit} loading={busy === ruleId} disabled={mode === 'shadow' && (!reviewerId || !confirm)}>
-            {mode === 'shadow' ? 'Record review and promote' : 'Return to shadow'}
+            {mode === 'shadow' ? 'Record review and switch on' : 'Return to review'}
           </Button>
         </>}>
         {mode === 'shadow' ? (

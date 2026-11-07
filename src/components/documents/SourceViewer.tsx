@@ -14,7 +14,7 @@ export type ViewerEvent = {
 }
 export type ViewerPage = { pageNo: number; text: string; words: { c: number; s: number; e: number }[] | null; lowConfidence: boolean; ocrConfidence: number | null }
 
-const METHOD: Record<string, string> = { text_layer: 'PDF text layer', ocr_llm: 'OCR', manual: 'Keyed by staff', structured_map: 'Structured', asr: 'Speech' }
+const METHOD: Record<string, string> = { text_layer: 'Typed PDF', ocr_llm: 'Read from a photo: check the numbers', manual: 'Entered by staff', structured_map: 'From a health record', asr: 'From speech' }
 
 function spanConfidence(page: ViewerPage | undefined, s: number, e: number): number | null {
   const ws = (page?.words ?? []).filter((w) => w.s < e && w.e > s)
@@ -174,7 +174,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                 footer={
                   <span className="flex flex-wrap items-center gap-1.5">
                     <Chip kicker="Source" tone="setu">Document</Chip>
-                    <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}{e.flags.rule_based ? ' · rule-based' : e.flags.llm || (e.extractionMethod === 'ocr_llm' && !e.flags.rule_based) ? ' · LLM' : ''}</Chip>
+                    <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}</Chip>
                     {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
                     {ev && !withdrawn && (
                       <button type="button" onClick={() => pick(e.id)} className="ml-auto inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">

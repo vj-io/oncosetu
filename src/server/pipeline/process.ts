@@ -6,7 +6,7 @@ import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { withOrg, type Tx } from '@/db'
 import { aiRuns, documentFiles, documentPages, documents, events, evidence, patientAliases, patients, verifications } from '@/db/schema'
 import { sha256Hex } from '@/core/hash'
-import type { PatientIdentity } from '@/core/identity'
+import { decideIdentity, type PatientIdentity } from '@/core/identity'
 import { writeAudit } from '@/server/audit'
 import { decryptBytes, decryptField } from '@/server/crypto'
 import { storeFile } from '@/server/files'
@@ -16,7 +16,6 @@ import { llmExtractor, type AiRunRecord } from '@/server/ai/extract'
 import { aiAllowed } from '@/server/ai/provider'
 import { classify, extractCandidates, gateAndDate, identify, injectionReport, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
-import type { SniffedMime } from './safety'
 import { textSimilarity } from './safety'
 import { readPages, type PageRead } from './text'
 
@@ -100,10 +99,12 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   const flags: Record<string, unknown> = { ...doc.flags }
   for (const k of ['password_required', 'password_incorrect', 'unreadable_reason', 'injection', 'language_unsupported', 'mixed_document', 'gate', 'extraction', 'consent_withdrawn']) delete flags[k]
 
+  if ((doc.flags.file as { storedOnly?: boolean } | undefined)?.storedOnly) return processStored(orgId, doc, flags)
+
   // ── text ──
   await consentStillActive(orgId, documentId, patientId)
   await setStage(orgId, documentId, 'text')
-  const read = await readPages(new Uint8Array(bytes), doc.mime as SniffedMime, opts.password)
+  const read = await readPages(new Uint8Array(bytes), doc.mime, opts.password)
   if (read.kind !== 'pages') {
     if (read.kind === 'needs_password') {
       flags.password_required = true
@@ -197,6 +198,32 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   await setStage(orgId, documentId, 'completeness', { flags })
   const review = classified.handwritten || classified.languageUnsupported || injection.flagged || !!doc.nearDupOf || !!flags.near_duplicate || pages.some((p) => p.lowConfidence)
   await finish(orgId, documentId, patientId, review ? 'needs_review' : 'done', flags, { events: counts.created, rejected: gate.rejected.length })
+}
+
+/**
+ * Imaging, ECG and video files are stored and shown, never read: no text, no OCR, no facts. The only check is who the file
+ * says it belongs to. A DICOM header carries a name, sex and age (or birth date): they go through the same identity
+ * decision as a report header, and a mismatch is held for a person exactly like a wrong-patient report. A file with
+ * no identity in it (video, NIfTI, most ECG exports) is held until a person attaches it.
+ */
+async function processStored(orgId: string, doc: typeof documents.$inferSelect, flags: Record<string, unknown>) {
+  const { id: documentId, patientId } = doc
+  await consentStillActive(orgId, documentId, patientId)
+  await setStage(orgId, documentId, 'identity')
+  const img = flags.imaging as { patientName?: string | null; patientSex?: string | null; patientAge?: string | null; patientDob?: string | null; studyDate?: string | null; institution?: string | null } | undefined
+  const decision = await withOrg(orgId, async (tx) => {
+    const d = decideIdentity(await patientIdentity(tx, patientId), { name: img?.patientName ?? null, sex: img?.patientSex ?? null, age: img?.patientAge ?? null, dob: img?.patientDob ?? null }, img?.studyDate ?? null)
+    const keep = doc.attachState === 'attached' || doc.attachState === 'rejected' || doc.attachState === 'detached'
+    const attachState = keep ? doc.attachState : d.result === 'match' ? 'auto' : 'pending_decision'
+    await tx.update(documents).set({
+      identityResult: d.result, identityDetails: { ...d, header: img ? Object.fromEntries(([['name', img.patientName], ['sex', img.patientSex === 'F' ? 'Female' : img.patientSex === 'M' ? 'Male' : img.patientSex], ['age', img.patientAge], ['dob', img.patientDob], ['reportDate', img.studyDate]] as const).filter(([, v]) => v).map(([k, v]) => [k, { value: v }])) : {} }, attachState,
+      documentDate: img?.studyDate ?? doc.documentDate, institutionName: img?.institution ?? doc.institutionName, docType: 'other', pages: 0, updatedAt: new Date(),
+    }).where(eq(documents.id, documentId))
+    return { d, attachState }
+  })
+  flags.extraction = { method: 'none' }
+  await setStage(orgId, documentId, 'completeness', { flags })
+  await finish(orgId, documentId, patientId, decision.attachState === 'pending_decision' ? 'needs_review' : 'done', flags, { stored: 1, identity: decision.d.result })
 }
 
 async function finish(orgId: string, documentId: string, patientId: string, status: 'done' | 'needs_review', flags: Record<string, unknown>, details: Record<string, string | number>) {

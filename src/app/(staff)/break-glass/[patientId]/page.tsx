@@ -19,7 +19,7 @@ export default async function BreakGlassPage({ params }: { params: Promise<{ pat
   if (!exists) notFound()
   return (
     <section className="mx-auto grid max-w-2xl gap-6">
-      <SectionHeader as="h1" kicker={`Break-glass · ACC. ${accession(patientId)}`} title="Open this record without consent" />
+      <SectionHeader as="h1" kicker={`Emergency access · record code ${accession(patientId)}`} title="Open this record without consent" />
       <Notice tone="conflict" title="This is logged and the patient is told">
         Access lasts {BREAK_GLASS_HOURS} hours. The reason you give is saved with your name, the administrator can see it, and the patient or their primary contact receives a neutral message.
       </Notice>

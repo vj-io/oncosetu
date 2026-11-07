@@ -45,7 +45,7 @@ test('V01-E2E-02 register a synthetic patient with consent per purpose; QR card 
   const p = await registerPatient(desk, { base: 'returning', purposes })
   const [consent] = await consentsOf(p.id)
   expect(consent).toMatchObject({ action: 'grant', method: 'desk_assisted', noticeVersion: CONSENT_NOTICE_VERSION })
-  expect(consent.purposes).toEqual(purposes)
+  expect(consent.purposes).toEqual({ ...purposes, team: false }) // the tumour-board purpose (7 Nov) is stored as off when not asked
 
   // The card code is opaque: 128 random bits, no patient data in it.
   expect(p.token).toMatch(/^[A-Z2-7]{26}$/)

@@ -1,4 +1,6 @@
 import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
+import { ConsentSignPanel } from '@/components/registration/ConsentSignPanel'
+import { IdCheckPanel } from '@/components/registration/IdCheckPanel'
 import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
 import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
 import { Badge, EmptyState, Frame, Table } from '@/components/ui'
@@ -7,11 +9,14 @@ import { now } from '@/server/clock'
 import { inboundEmailView } from '@/server/inbound/staff'
 import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
+import { describeAction, describeTarget } from '@/core/doctor/audit-words'
 import { patientOwnTarget } from '@/server/registration/contact'
+import { loadIdRecord } from '@/server/privacy/privacy'
+import { listSignedConsents } from '@/server/privacy/sign'
 import { withPatientAccess } from '@/server/registration/page'
 
 const STAMP = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
-const PURPOSE_LABEL = { store: 'Store and organise', ai: 'AI services', share: 'Share', abdm: 'ABDM pull', metrics: 'Anonymised metrics' } as const
+const PURPOSE_LABEL = { store: 'Care at this hospital', ai: 'AI-assisted reading', share: 'Second opinion (share)', abdm: 'ABDM pull', metrics: 'Anonymised metrics', team: 'Team case discussion' } as const
 
 function Section({ id, title, description, children }: { id: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -30,17 +35,19 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
   const d = await withPatientAccess(id, async (tx, s) => {
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [current, history, links, log, canCode, drop] = await Promise.all([
+    const [current, history, links, log, canCode, drop, idRecord, signed] = await Promise.all([
       activeConsent(tx, id),
       tx.select().from(consents).where(eq(consents.patientId, id)).orderBy(desc(consents.recordedAt), desc(consents.id)),
       tx.select({ id: shareLinks.id }).from(shareLinks).where(and(eq(shareLinks.patientId, id), isNull(shareLinks.revokedAt), gt(shareLinks.expiresAt, await now(s.orgId)))),
       accessLog(tx, id),
       patientOwnTarget(tx, id),
       inboundEmailView(tx, id),
+      loadIdRecord(tx, id),
+      listSignedConsents(tx, id),
     ])
     const witnesses = [...new Set(history.map((h) => h.witnessedBy).filter((x): x is string => !!x))]
     const names = witnesses.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, witnesses)) : []
-    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
+    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, idRecord, signed, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
   })
   if (!d) return null
   const { patient: p, current } = d
@@ -60,7 +67,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
                 ))}
               </ul>
               <p className="text-sm text-muted">Notice {current.noticeVersion} · {current.language === 'hi' ? 'Hindi' : 'English'} · recorded {STAMP.format(current.recordedAt)} · {d.activeLinks} active share link{d.activeLinks === 1 ? '' : 's'}</p>
-              {!current.purposes.ai && <p className="text-sm text-muted">AI processing is declined: this patient is in manual mode and nothing is sent to an AI provider.</p>}
+              {!current.purposes.ai && <p className="text-sm text-muted">AI-assisted reading: declined. Documents are read by the rule library only.</p>}
               <ConsentActions patientId={id} current={current.purposes} language={p.preferredLanguage} />
             </div>
           </Frame>
@@ -88,6 +95,17 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
           contacts={d.drop.contacts.map((c) => ({ ...c, verifiedAt: c.verifiedAt.toISOString() }))}
           caregivers={p.caregivers.map(({ id: cid, name, relation, active }) => ({ id: cid, name, relation, active }))}
         />
+      </Section>
+
+      <Section id="signed-h" title="Signed consent form" description="The patient, guardian or caregiver signs on screen with you as witness. A signed PDF is kept with the documents and can be printed.">
+        <ConsentSignPanel
+          patientId={id} language={p.preferredLanguage} minor={p.minor} hasConsent={!!current} withdrawn={!current && d.history[0]?.action === 'withdraw'}
+          defaultName={p.name} signed={d.signed.map((x) => ({ id: x.id, action: x.action, signer: x.signer, relation: x.relation, method: x.method, signedAt: x.signedAt }))}
+        />
+      </Section>
+
+      <Section id="idcheck-h" title="ID check (optional)" description="Record that you looked at an ID. Only the last 4 characters are kept, never the full number.">
+        <IdCheckPanel patientId={id} record={d.idRecord} />
       </Section>
 
       <Section id="disclosure-h" title="Disclosure status" description="Controls the wording of everything the patient and family see. Clinician only; every change is audited.">
@@ -124,25 +142,24 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
         )}
       </Section>
 
-      <Section id="access-h" title="Access log" description="Who viewed or exported what, and every attempt to open a share link. The patient sees the same list.">
+      <Section id="access-h" title="Who looked at this file" description="Who viewed or exported what, and every attempt to open a share link. The patient sees the same list.">
         {d.log.events.length === 0 && d.log.shareViews.length === 0 ? <EmptyState title="Nothing has been viewed or exported yet" /> : (
           <div className="grid gap-6">
             {d.log.events.length > 0 && (
               <Table caption="Staff and system access">
-                <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
+                <thead><tr><th>When</th><th>Who</th><th>What they did</th></tr></thead>
                 <tbody>{d.log.events.map((e) => (
                   <tr key={e.seq}>
                     <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(e.at)}</td>
                     <td>{e.actorName ?? (e.actorRole === 'system' ? 'System' : 'Patient side')} <Badge>{e.actorRole}</Badge></td>
-                    <td className="font-mono text-xs">{e.action}</td>
-                    <td className="font-mono text-xs">{e.targetType ?? '—'}</td>
+                    <td className="text-sm">{describeAction(e.action)}<span className="text-muted"> · {describeTarget(e.targetType)}</span></td>
                   </tr>
                 ))}</tbody>
               </Table>
             )}
             {d.log.shareViews.length > 0 && (
               <Table caption="Share-link views">
-                <thead><tr><th>When</th><th>Link</th><th>Outcome</th></tr></thead>
+                <thead><tr><th>When</th><th>Share link</th><th>What happened</th></tr></thead>
                 <tbody>{d.log.shareViews.map((v) => (
                   <tr key={v.id}>
                     <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(v.at)}</td>

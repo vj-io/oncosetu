@@ -4,23 +4,13 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { LogOut, Menu, Smartphone } from "lucide-react";
+import { ChevronDown, Compass, LogOut, Menu, Smartphone } from "lucide-react";
+import { navFor, roleHome, type StaffRole } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
+import { Tour, startTour } from "./Tour";
 
-export type StaffRole = "desk" | "records" | "clinician" | "org_admin" | "auditor";
-
-const CLINICAL: StaffRole[] = ["desk", "records", "clinician"];
-const NAV: { href: string; label: string; roles: StaffRole[] }[] = [
-  { href: "/desk", label: "Desk", roles: CLINICAL },
-  { href: "/patients", label: "Patients", roles: CLINICAL },
-  { href: "/records", label: "Records queue", roles: ["records", "clinician"] },
-  { href: "/capture", label: "Capture", roles: CLINICAL },
-  { href: "/measure", label: "Measure", roles: ["clinician"] },
-  { href: "/admin/metrics", label: "Metrics", roles: ["clinician"] },
-  { href: "/admin/duplicates", label: "Duplicates", roles: ["records"] },
-  { href: "/admin", label: "Admin", roles: ["org_admin", "auditor"] },
-];
-const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records", clinician: "Clinician", org_admin: "Admin", auditor: "Audit" };
+export type { StaffRole };
+const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records", clinician: "Clinician", org_admin: "Administrator", auditor: "Auditor" };
 
 export type StaffShellProps = {
   user: { name: string; role: StaffRole; orgName: string };
@@ -34,8 +24,8 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
   const [navOpen, setNavOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const nav = NAV.filter((n) => n.roles.includes(user.role));
-  const home = nav[0]?.href ?? "/desk";
+  const nav = navFor(user.role);
+  const home = roleHome(user.role);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   async function signOut() {
@@ -58,7 +48,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
         <div className="relative z-40 bg-obsidian text-gallery">
           <div className="mx-auto flex min-h-11 max-w-gallery items-center justify-between gap-3 pl-4 sm:pl-8">
             <p className="font-mono text-[11px] tracking-[0.14em] uppercase">
-              Demo · synthetic data<span className="hidden sm:inline"> · messages are simulated unless an SMS provider is configured</span>
+              Demo · synthetic data
             </p>
             <button
               type="button"
@@ -79,7 +69,6 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           </button>
           <Link href={home} className="flex shrink-0 items-baseline gap-3">
             <Wordmark />
-            <span className="hidden font-mono text-[11px] tracking-[0.16em] whitespace-nowrap text-faint uppercase sm:inline lg:hidden xl:inline">{ROLE_LABEL[user.role]}</span>
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">
             <ul className="flex items-center gap-1">
@@ -99,19 +88,33 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
               ))}
             </ul>
           </nav>
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden items-center gap-3 text-right md:flex">
-              <div className="grid leading-tight whitespace-nowrap lg:max-xl:hidden">
-                <span className="text-sm text-ink">{user.name}</span>
-                <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase" title={user.orgName}>
-                  {ROLE_LABEL[user.role]}
+          <div className="ml-auto flex items-center gap-2">
+            {(user.role === "clinician" || user.role === "records") && (
+              <Button variant="secondary" size="md" onClick={startTour} icon={<Compass aria-hidden />} className="hidden md:inline-flex">
+                Take the 2-minute tour
+              </Button>
+            )}
+            <details className="group relative">
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden" aria-label="Your menu">
+                <Avatar name={user.name} size="sm" />
+                <span className="hidden text-left leading-tight whitespace-nowrap md:grid xl:max-2xl:hidden">
+                  <span className="text-sm text-ink">{user.name}</span>
+                  <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase" title={user.orgName}>{ROLE_LABEL[user.role]}</span>
                 </span>
+                <ChevronDown aria-hidden className="size-4 text-faint group-open:rotate-180" />
+              </summary>
+              <div className="absolute right-0 z-50 mt-1 grid w-64 border border-rule bg-matte py-1 shadow-frame">
+                <p className="border-b border-rule px-4 py-2 text-sm"><span className="block text-ink">{user.name}</span><span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">{ROLE_LABEL[user.role]} · {user.orgName}</span></p>
+                {(user.role === "clinician" || user.role === "records") && (
+                  <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
+                    <Compass aria-hidden className="size-4" />Take the 2-minute tour
+                  </button>
+                )}
+                <button type="button" onClick={signOut} disabled={signingOut} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
+                  <LogOut aria-hidden className="size-4" />Sign out
+                </button>
               </div>
-              <Avatar name={user.name} size="sm" />
-            </div>
-            <Button variant="ghost" size="md" onClick={signOut} loading={signingOut} icon={<LogOut aria-hidden />} className="-mr-2 px-3" aria-label="Sign out">
-              <span className="hidden sm:inline">Sign out</span>
-            </Button>
+            </details>
           </div>
         </div>
       </header>
@@ -125,7 +128,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
 
       <footer className="border-t border-rule">
         <p className="mx-auto max-w-gallery px-4 py-5 font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase sm:px-8">
-          Document index, not a clinical summary · Every displayed fact links to a verbatim source quote
+          A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document
         </p>
       </footer>
 
@@ -158,8 +161,10 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
         </div>
       </Dialog>
 
+      <Tour />
+
       {demo && (
-        <Dialog open={phoneOpen} onClose={() => setPhoneOpen(false)} placement="right" title="Demo phone" description="SMS and WhatsApp messages this server recorded. The badge on each one says whether it was simulated or handed to a provider.">
+        <Dialog open={phoneOpen} onClose={() => setPhoneOpen(false)} placement="right" title="Demo phone" description="The text messages and WhatsApp messages this demo sent. Each one says whether it was only simulated.">
           <DemoOutbox />
         </Dialog>
       )}

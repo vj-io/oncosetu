@@ -1,8 +1,10 @@
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { assertDeviceActive } from '@/server/devices/check'
 import { HttpError, route } from '@/server/http'
 import { assertPatientAccess } from '@/server/patients'
-import { ingestDocument, scheduleProcessing, type IntakeRoute } from '@/server/pipeline/ingest'
+import { scheduleProcessing, type IntakeRoute } from '@/server/pipeline/ingest'
+import { ingestUpload } from '@/server/pipeline/upload'
 import { listDocuments } from '@/server/pipeline/queries'
 import { patientIdParam } from '@/server/registration/http'
 
@@ -25,13 +27,15 @@ export const POST = route({ auth: 'staff', roles: ['desk', 'records', 'clinician
     clientFileId: ctx.form.get('clientFileId') || undefined, intakeRoute: ctx.form.get('intakeRoute') || undefined,
     encounterId: ctx.form.get('encounterId') || undefined, clientCapturedAt: ctx.form.get('clientCapturedAt') || undefined,
   })
-  const res = await ingestDocument(ctx.db, {
+  const up = await ingestUpload(ctx.db, {
     orgId: ctx.session.orgId, patientId, uploadedBy: { kind: 'staff', id: ctx.session.staffId }, intakeRoute: m.intakeRoute as IntakeRoute,
     clientFileId: m.clientFileId, encounterId: m.encounterId, clientCapturedAt: m.clientCapturedAt ? new Date(m.clientCapturedAt) : null, fileName: file.name, mime: file.type, bytes: new Uint8Array(await file.arrayBuffer()),
     audit: ctx.audit,
   })
-  if (res.status === 'queued' && !res.duplicateOf && !res.idempotent) scheduleProcessing(res.documentId, ctx.session.orgId)
-  return res
+  if (up.rejected) return NextResponse.json({ error: { code: up.rejected.code, message: up.rejected.message } }, { status: up.rejected.status })
+  for (const r of up.documents) if (r.status === 'queued' && !r.duplicateOf && !r.idempotent) scheduleProcessing(r.documentId, ctx.session.orgId)
+  // a single file keeps the old response shape; a ZIP also lists what was skipped
+  return up.expandedZip ? { documents: up.documents, skipped: up.skipped } : { ...up.documents[0], skipped: up.skipped }
 })
 
 /** Document index + onboarding progress (polled by the documents screen). */

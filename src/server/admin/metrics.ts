@@ -1,14 +1,14 @@
 // FR-ADM-03: §16 KPIs, computed from the real tables on every request. Aggregates only: no patient fields leave here.
-import { and, eq, inArray, isNotNull, ne, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import {
-  documentPages, documents, encounters, events, evidence, missingRecords, outbox, patientStatements, patients, recordRequests, snapshots,
+  auditLog, documentPages, documents, encounters, events, evidence, missingRecords, outbox, patientStatements, patients, recordRequests, snapshots,
 } from '@/db/schema'
 import { lintText } from '@/core/copy'
 import { RADAR_RULES } from '@/core/radar/rules'
 import { EXTRACTABLE_EVENT_TYPES } from '@/core/types'
 import {
-  correctionRates, disclosurePrevalence, documentCensus, previsitCompletion, provenance, radarMetrics, requestFulfilment, safetyKpis,
+  correctionRates, disclosureAt, disclosurePrevalence, documentCensus, previsitCompletion, provenance, radarMetrics, requestFulfilment, safetyKpis,
   type MissingRow,
 } from './metrics-compute'
 import { loadQa } from './qa'
@@ -54,19 +54,31 @@ export async function loadMetrics(tx: Tx) {
   const [{ n: wrongPatient }] = await tx.select({ n: sql<number>`count(*)::int` }).from(documents)
     .where(and(inArray(documents.identityResult, ['mismatch', 'insufficient']), eq(documents.attachState, 'auto')))
 
-  // Patient-facing text that reached a patient whose disclosure is not cleared (FR-CON-07).
-  const surfaces = [
-    ...(await tx.select({ t: outbox.body }).from(outbox).innerJoin(patients, eq(patients.id, outbox.patientId)).where(ne(patients.disclosureStatus, 'cleared'))),
-    ...(await tx.select({ t: patientStatements.readbackText }).from(patientStatements).innerJoin(patients, eq(patients.id, patientStatements.patientId))
-      .where(and(ne(patients.disclosureStatus, 'cleared'), isNotNull(patientStatements.readbackText)))),
-  ].flatMap((r) => (r.t ? [r.t] : []))
+  // Patient-facing text sent while the patient's disclosure was not cleared (FR-CON-07), judged by the status at send time.
+  const discRows = await tx.select({ id: patients.id, d: patients.disclosureStatus }).from(patients)
+  const currentDisc = new Map(discRows.map((r) => [r.id, r.d as string]))
+  const changeRows = await tx.select({ at: auditLog.at, patientId: auditLog.targetId, details: auditLog.details }).from(auditLog).where(eq(auditLog.action, 'patient.disclosure_changed'))
+  const changesBy = new Map<string, { at: Date; from: string; to: string }[]>()
+  for (const c of changeRows) {
+    const d = c.details as { from?: string; to?: string }
+    if (c.patientId && d.from && d.to) changesBy.set(c.patientId, [...(changesBy.get(c.patientId) ?? []), { at: c.at, from: d.from, to: d.to }])
+  }
+  const wasNotCleared = (patientId: string | null, at: Date) =>
+    !!patientId && currentDisc.has(patientId) && disclosureAt(currentDisc.get(patientId)!, changesBy.get(patientId) ?? [], at) !== 'cleared'
+  const outRows = await tx.select({ t: outbox.body, k: outbox.templateKey, p: outbox.patientId, at: outbox.createdAt }).from(outbox)
+  const readRows = await tx.select({ t: patientStatements.readbackText, p: patientStatements.patientId, at: patientStatements.createdAt }).from(patientStatements).where(isNotNull(patientStatements.readbackText))
+  const surfaces: { t: string; k: string }[] = [
+    ...outRows.filter((r) => wasNotCleared(r.p, r.at)).map((r) => ({ t: r.t, k: r.k })),
+    ...readRows.filter((r) => wasNotCleared(r.p, r.at)).map((r) => ({ t: r.t ?? '', k: 'read-back' })),
+  ].filter((r) => r.t)
+  const hits = surfaces.filter((x) => lintText(x.t, ['diagnosis']).length > 0)
 
   const qa = await loadQa(tx)
   const safety = safetyKpis({
     wrongPatientAutoAttached: wrongPatient, unsupportedFacts: prov.unsupported, qa,
     radarWordingHits: RADAR_RULES.reduce((n, r) => n + lintText(r.wording.en, ['radar']).length + lintText(r.wording.hi, ['radar']).length, 0),
     radarTemplates: RADAR_RULES.length * 2,
-    diagnosisWordHits: surfaces.filter((t) => lintText(t, ['diagnosis']).length > 0).length, diagnosisSurfaceScanned: surfaces.length,
+    diagnosisWordHits: hits.length, diagnosisSurfaceScanned: surfaces.length, diagnosisHitKinds: [...new Set(hits.map((h) => h.k))],
   })
   return { prov, corrections, radar, fulfilment, previsit, disclosure, census, safety, qa, eventsTotal: evRows.length }
 }

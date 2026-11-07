@@ -29,7 +29,7 @@ export function ImagingViewer({ documentId, details, canView }: { documentId: st
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={i} src={`/api/documents/${documentId}/preview?frame=${i}`} alt={`Preview picture of ${details.label}, image ${i + 1} of ${slices}`}
-              className="max-h-[32rem] w-auto max-w-full object-contain" onError={() => setFailed("Preview not available for this compression — file stored")}
+              className="h-[26rem] max-h-[32rem] w-auto max-w-full object-contain" onError={() => setFailed("Preview not available for this compression — file stored")}
             />
           ) : (
             <p className="flex items-center gap-2 px-4 py-10 text-center text-sm text-gallery"><ScanLine aria-hidden className="size-5" />{failed ?? "Preview not available — file stored"}</p>

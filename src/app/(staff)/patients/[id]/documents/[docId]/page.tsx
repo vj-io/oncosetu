@@ -42,7 +42,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const doc = d.doc
   if (doc.intakeRoute === 'abdm') return <AbdmDocument patientId={id} documentId={doc.id} focusEventId={event ?? null} /> // FHIR source, not pages
   const imgFlags = doc.flags.imaging as { studyLabel?: string; modalityLabel?: string } | undefined
-  const title = imgFlags ? (imgFlags.studyLabel ?? imgFlags.modalityLabel ?? 'Imaging file') : doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
+  const fileLabel = (doc.flags.file as { label?: string; storedOnly?: boolean } | undefined)
+  const title = imgFlags ? (imgFlags.studyLabel ?? imgFlags.modalityLabel ?? 'Imaging file') : fileLabel?.storedOnly ? `${fileLabel.label} file` : doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
   const b = statusBadge(d.status)
   const header = ((doc.identityDetails as { header?: Header } | null)?.header ?? {}) as Header
   const idDetails = (doc.identityDetails ?? {}) as { reasons?: string[]; notes?: string[]; score?: number }
@@ -155,7 +156,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             : doc.mime.startsWith('video/')
               ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
               : <Notice tone="shadow" icon={<ScanText />} title={fileInfo?.note ?? 'File — stored, not read'}>The file is kept exactly as it arrived. Open the original to view it with the right program.</Notice>}
-          <p className="text-sm font-medium" data-testid="stored-note">{fileInfo?.note}</p>
+          {!(doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study') && <p className="text-sm font-medium" data-testid="stored-note">{fileInfo?.note}</p>}
         </section>
       )}
 

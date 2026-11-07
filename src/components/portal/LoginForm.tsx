@@ -80,7 +80,10 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
     for (let i = 0; i < 8 && !digits; i++) {
       const r = await fetch(`/api/demo/outbox?phone=${encodeURIComponent(p.phone)}`, { cache: "no-store" }).catch(() => null);
       const body = (await r?.json().catch(() => null)) as { messages?: { body: string; templateKey: string }[] } | null;
-      digits = body?.messages?.find((m) => m.templateKey === "auth.otp")?.body.match(/(\d{6})/)?.[1] ?? "";
+      for (const m of body?.messages ?? []) {
+        const hit = m.templateKey === "auth.otp" ? /[0-9]{6}/.exec(m.body) : null;
+        if (hit) { digits = hit[0]; break; }
+      }
       if (!digits) await new Promise((ok) => setTimeout(ok, 300));
     }
     if (!digits) { setDemoState({ key: p.key, msg: dm(lang, "failed") }); return; }

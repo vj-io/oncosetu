@@ -1,17 +1,14 @@
 {
   "version": 1,
-  "about": "Hand-authored gold for the HELD-OUT documents in data/eval/heldout (written from the document definitions in scripts/demo-docs/heldout-docs.ts, same rules as data/eval/gold.json). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions and discharge medication lists: one entry per medication. A study or specimen the document only refers to is listed when the document gives it its own date or says its report is awaited. Courses of treatment with a start and an end (radiotherapy) carry no date in the gold (the event date is ambiguous). Bills carry no clinical events. Handwritten prescriptions list none (never auto-extracted). `identity` is the expected header decision against the patient in patients.json (a handwritten header is `insufficient` and held, as in gold.json); `held` = the document must not reach the record without a person's decision.",
+  "about": "Held document salma__03: its protocol line is labelled although the record is not attached. Revised 7 Nov 2026 (oncologist audit): quote-only facts for stage, margins, marker and mismatch-repair result rows, imaging and pathologist impressions, addendum text and the regimen line were labelled by reading each document (a regimen already on its cycle record is not a separate fact); the urea cream on returning__06 was missing from the gold. Hand-authored gold for the HELD-OUT documents in data/eval/heldout (written from the document definitions in scripts/demo-docs/heldout-docs.ts, same rules as data/eval/gold.json). One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions and discharge medication lists: one entry per medication. A study or specimen the document only refers to is listed when the document gives it its own date or says its report is awaited. Courses of treatment with a start and an end (radiotherapy) carry no date in the gold (the event date is ambiguous). Bills carry no clinical events. Handwritten prescriptions list none (never auto-extracted). `identity` is the expected header decision against the patient in patients.json (a handwritten header is `insufficient` and held, as in gold.json); `held` = the document must not reach the record without a person's decision.",
   "docs": {
     "geeta__01-ct-abdomen-pelvis.pdf": {
       "patientKey": "geeta",
       "docType": "imaging_report",
       "identity": "match",
       "events": [
-        {
-          "type": "imaging_report_documented",
-          "date": "2026-02-03",
-          "match": "CT"
-        }
+        { "type": "imaging_report_documented", "date": "2026-02-03", "match": "CT" },
+        { "type": "impression_documented", "match": "Right adnexal" }
       ]
     },
     "geeta__02-surgical-pathology.pdf": {
@@ -84,11 +81,8 @@
       "docType": "chemo_daycare_record",
       "identity": "match",
       "events": [
-        {
-          "type": "chemotherapy_session_documented",
-          "date": "2026-03-20",
-          "match": "Cycle 1"
-        }
+        { "type": "chemotherapy_session_documented", "date": "2026-03-20", "match": "Cycle 1" },
+        { "type": "regimen_documented", "match": "Paclitaxel + Carboplatin" }
       ]
     },
     "harpreet__01-prostate-biopsy-histopathology.pdf": {
@@ -118,11 +112,8 @@
       "docType": "consult_note",
       "identity": "match",
       "events": [
-        {
-          "type": "consultation_documented",
-          "date": "2026-04-14",
-          "match": "Sethi"
-        }
+        { "type": "consultation_documented", "date": "2026-04-14", "match": "Sethi" },
+        { "type": "impression_documented", "match": "Carcinoma prostate" }
       ]
     },
     "harpreet__04-radiotherapy-summary.pdf": {
@@ -152,11 +143,8 @@
       "docType": "imaging_report",
       "identity": "match",
       "events": [
-        {
-          "type": "imaging_report_documented",
-          "date": "2026-05-12",
-          "match": "MRI"
-        }
+        { "type": "imaging_report_documented", "date": "2026-05-12", "match": "MRI" },
+        { "type": "impression_documented", "match": "Mid-rectal growth" }
       ]
     },
     "anil__03-operation-notes.pdf": {
@@ -207,11 +195,8 @@
       "docType": "imaging_report",
       "identity": "match",
       "events": [
-        {
-          "type": "imaging_report_documented",
-          "date": "2026-03-11",
-          "match": "X-RAY"
-        }
+        { "type": "imaging_report_documented", "date": "2026-03-11", "match": "X-RAY" },
+        { "type": "impression_documented", "match": "Right upper zone opacity" }
       ]
     },
     "parvati__02-egfr-molecular-report.pdf": {
@@ -219,14 +204,10 @@
       "docType": "ihc_molecular_report",
       "identity": "match",
       "events": [
-        {
-          "type": "molecular_test_documented",
-          "date": "2026-04-02"
-        },
-        {
-          "type": "report_pending_documented",
-          "match": "ALK"
-        }
+        { "type": "molecular_test_documented", "date": "2026-04-02" },
+        { "type": "report_pending_documented", "match": "ALK" },
+        { "type": "marker_results_documented", "match": "EGFR exon 19" },
+        { "type": "marker_results_documented", "match": "L858R" }
       ]
     },
     "parvati__03-cbc-esr-photo.jpg": {
@@ -264,10 +245,11 @@
       "docType": "ihc_molecular_report",
       "identity": "match",
       "events": [
-        {
-          "type": "molecular_test_documented",
-          "date": "2026-03-12"
-        }
+        { "type": "molecular_test_documented", "date": "2026-03-12" },
+        { "type": "marker_results_documented", "match": "ER (clone" },
+        { "type": "marker_results_documented", "match": "PR (clone" },
+        { "type": "marker_results_documented", "match": "HER2 (clone" },
+        { "type": "marker_results_documented", "match": "Ki-67" }
       ]
     },
     "salma__03-chemo-cycle2.pdf": {
@@ -275,11 +257,8 @@
       "docType": "chemo_daycare_record",
       "identity": "match",
       "events": [
-        {
-          "type": "chemotherapy_session_documented",
-          "date": "2026-04-28",
-          "match": "Cycle 2"
-        }
+        { "type": "chemotherapy_session_documented", "date": "2026-04-28", "match": "Cycle 2" },
+        { "type": "regimen_documented", "match": "AC (doxorubicin" }
       ]
     },
     "salma__04-prescription-bilingual.jpg": {
@@ -351,10 +330,8 @@
       "docType": "pathology_report",
       "identity": "match",
       "events": [
-        {
-          "type": "pathology_report_documented",
-          "date": "2026-05-20"
-        }
+        { "type": "pathology_report_documented", "date": "2026-05-20" },
+        { "type": "impression_documented", "match": "INVASIVE SQUAMOUS" }
       ]
     },
     "ritu__02-cbc-wrong-patient.pdf": {
@@ -433,11 +410,8 @@
       "docType": "imaging_report",
       "identity": "match",
       "events": [
-        {
-          "type": "imaging_report_documented",
-          "date": "2026-01-19",
-          "match": "PET"
-        }
+        { "type": "imaging_report_documented", "date": "2026-01-19", "match": "PET" },
+        { "type": "impression_documented", "match": "FDG-avid" }
       ]
     },
     "joseph__02-ihc-lymphoma-panel.pdf": {
@@ -445,10 +419,10 @@
       "docType": "ihc_molecular_report",
       "identity": "match",
       "events": [
-        {
-          "type": "molecular_test_documented",
-          "date": "2026-01-28"
-        }
+        { "type": "molecular_test_documented", "date": "2026-01-28" },
+        { "type": "marker_results_documented", "match": "CD20" },
+        { "type": "marker_results_documented", "match": "Ki-67" },
+        { "type": "impression_documented", "match": "diffuse large B-cell" }
       ]
     },
     "joseph__03-chemo-r-chop-cycle3.pdf": {

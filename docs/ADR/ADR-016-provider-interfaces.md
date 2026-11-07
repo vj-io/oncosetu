@@ -1,6 +1,6 @@
-# ADR-016: Provider interfaces for intake channels and OCR
+# ADR-016: Provider interfaces for intake channels, OCR and speech
 
-Status: accepted for the prototype · 8 Nov 2026 · Requirements: FR-ING-09, FR-DOC-02 (PRD §6, §8)
+Status: accepted for the prototype · 8 Nov 2026 · Requirements: FR-ING-09, FR-DOC-02, FR-VOX-03 (PRD §6, §8)
 
 ## Context
 
@@ -52,6 +52,18 @@ the handwriting classifier, and the low-confidence flag.
 A cloud document AI added later needs a selection point (an env var, like `llmProvider()`), and because page images
 would leave the system it must be gated exactly like the LLM path: the org's AI flag, the patient's `ai` consent purpose,
 and an India-region endpoint (PRD §6.8 data residency). Pages it reads record its own name and version.
+
+### `AsrProvider` (`src/server/voice/provider.ts`)
+
+```ts
+type AsrProvider = { name: string; model: string; transcribe(audio: Blob, lang: Lang, keyterms?: readonly string[]): Promise<string> }
+```
+
+`asr` is Sarvam (`saaras:v4`; codemix for Hindi, translit for Hinglish) with keyterms: the patient's own medicines and
+hospitals from their record, then the formulary. The browser's Web Speech recogniser is the no-key fallback; it runs in
+the browser, so it is recorded by name (`browser-webspeech`) rather than implemented on the server. Statements, kept
+recordings (`voice_clips`) and the audit row carry the provider and model that heard the answer. A new provider is only
+used for real patients after its drug-name error rate is measured (`scripts/eval-asr.ts`, then shadow-phase clips).
 
 ## Consequences
 

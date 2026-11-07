@@ -6,7 +6,6 @@ import { PATIENT_TABS } from '@/components/shell'
 import { Badge, BrassSeal, ButtonLink, EmptyFrame, Frame, KeyValue, Placard, ProgressMeter, SectionHeader } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
 import { tabAllowed } from '@/lib/patient-tabs'
-import type { StaffRole } from '@/lib/staff-nav'
 import { loadOverview } from '@/server/registration/overview'
 import { withPatientAccess } from '@/server/registration/page'
 
@@ -15,9 +14,10 @@ const ENCOUNTER = { onboarding: 'First visit (onboarding)', returning: 'Returnin
 
 export default async function OverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  let role: StaffRole = 'clinician'
-  const o = await withPatientAccess(id, (tx, s) => { role = s.role; return loadOverview(tx, id) })
-  if (!o) return null // denied or missing: the workspace layout shows why
+  const got = await withPatientAccess(id, async (tx, s) => ({ o: await loadOverview(tx, id), role: s.role }))
+  if (!got) return null // denied or missing: the workspace layout shows why
+  const { o, role } = got
+  if (!o) return null
   const p = o.patient
   const done = o.steps.filter((s) => s.done).length
   const links = PATIENT_TABS.filter(([k]) => k !== 'overview' && tabAllowed(k, role))

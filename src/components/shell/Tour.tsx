@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight, Compass, X } from "lucide-react";
 import { Button } from "@/components/ui";
 import { parseTourState, TOUR_EVENT, TOUR_KEY, usableSteps, type TourPatients, type TourState } from "@/core/doctor/tour";
 
+/** The data-tour name of a step, as a CSS selector. "held-card" is the first card inside the held group. */
+const selectorFor = (target: string) => (target === 'held-card' ? '[data-tour="held"] ul > li' : `[data-tour="${target}"]`);
 const RING = ["outline", "outline-4", "outline-offset-4", "outline-brass", "transition-[outline]"];
 
 async function findPatient(name: string): Promise<string | null> {
@@ -78,7 +80,7 @@ export function Tour() {
   useEffect(() => {
     if (!step?.target) return;
     const t = setTimeout(() => {
-      const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) ?? (step.fallback ? document.querySelector<HTMLElement>(`[data-tour="${step.fallback}"]`) : null);
+      const el = document.querySelector<HTMLElement>(selectorFor(step.target ?? "")) ?? (step.fallback ? document.querySelector<HTMLElement>(selectorFor(step.fallback)) : null);
       if (el) {
         el.classList.add(...RING);
         el.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -86,7 +88,7 @@ export function Tour() {
     }, 400);
     return () => {
       clearTimeout(t);
-      document.querySelectorAll<HTMLElement>(`[data-tour]`).forEach((el) => el.classList.remove(...RING));
+      document.querySelectorAll<HTMLElement>(`[data-tour], [data-tour="held"] ul > li`).forEach((el) => el.classList.remove(...RING));
     };
   }, [step, pathname]);
 

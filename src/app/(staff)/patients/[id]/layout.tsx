@@ -10,6 +10,7 @@ import { documents, events, missingRecords } from '@/db/schema'
 import { accession, istDate } from '@/server/admin/format'
 import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
+import { writeAudit } from '@/server/audit'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
 
@@ -22,6 +23,8 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     } catch (e) {
       if (e instanceof HttpError && e.status === 410) return { erasedAt: (await loadErasure(tx, id))?.completedAt ?? null } // J8 tombstone
       if (e instanceof HttpError && e.status === 403) {
+        // Make refusals visible on the admin "Blocked and held" panel (ids and codes only).
+        await writeAudit(tx, { orgId: session.orgId, actorId: session.staffId, actorRole: session.role, action: 'access.refused', targetType: 'patient', targetId: id, details: { reason: e.code } })
         const er = e.code === 'consent_required' ? await erasureContext(tx, id) : null // J8: the denial screen carries the erasure action
         return { denied: e.code, erasure: er }
       }

@@ -9,6 +9,7 @@ import { now } from '@/server/clock'
 import { inboundEmailView } from '@/server/inbound/staff'
 import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
+import { accessPhrase } from '@/server/registration/access-words'
 import { patientOwnTarget } from '@/server/registration/contact'
 import { loadIdRecord } from '@/server/privacy/privacy'
 import { listSignedConsents } from '@/server/privacy/sign'
@@ -141,25 +142,24 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
         )}
       </Section>
 
-      <Section id="access-h" title="Access log" description="Who viewed or exported what, and every attempt to open a share link. The patient sees the same list.">
+      <Section id="access-h" title="Who looked at this file" description="Who viewed or exported what, and every attempt to open a share link. The patient sees the same list.">
         {d.log.events.length === 0 && d.log.shareViews.length === 0 ? <EmptyState title="Nothing has been viewed or exported yet" /> : (
           <div className="grid gap-6">
             {d.log.events.length > 0 && (
               <Table caption="Staff and system access">
-                <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Target</th></tr></thead>
+                <thead><tr><th>When</th><th>Who</th><th>What they did</th></tr></thead>
                 <tbody>{d.log.events.map((e) => (
                   <tr key={e.seq}>
                     <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(e.at)}</td>
                     <td>{e.actorName ?? (e.actorRole === 'system' ? 'System' : 'Patient side')} <Badge>{e.actorRole}</Badge></td>
-                    <td className="font-mono text-xs">{e.action}</td>
-                    <td className="font-mono text-xs">{e.targetType ?? '—'}</td>
+                    <td className="text-sm">{accessPhrase(e.action, e.targetType)}</td>
                   </tr>
                 ))}</tbody>
               </Table>
             )}
             {d.log.shareViews.length > 0 && (
               <Table caption="Share-link views">
-                <thead><tr><th>When</th><th>Link</th><th>Outcome</th></tr></thead>
+                <thead><tr><th>When</th><th>Share link</th><th>What happened</th></tr></thead>
                 <tbody>{d.log.shareViews.map((v) => (
                   <tr key={v.id}>
                     <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(v.at)}</td>

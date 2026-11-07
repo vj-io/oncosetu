@@ -247,18 +247,18 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         </section>
       </div>
 
-      {/* Manual mode (FR-EXT-07) */}
-      {attached && doc.status !== 'quarantined' && !live && (
+      {/* Manual correction (FR-EXT-07) */}
+      {attached && !storedOnly && doc.status !== 'quarantined' && !live && (
         <section aria-labelledby="manual-h" className="grid gap-4">
-          <h2 id="manual-h" className="ds-kicker border-b border-rule pb-2">Manual mode · works with no AI provider</h2>
+          <h2 id="manual-h" className="ds-kicker border-b border-rule pb-2">Correct or add details by hand</h2>
           <div className="grid gap-8 lg:grid-cols-2">
             <div className="grid content-start gap-3">
-              <h3 className="text-lg">Tag the document</h3>
+              <h3 className="text-lg">Document type, date and hospital</h3>
               <TagForm documentId={doc.id} handwritten={!!doc.handwritten} initial={{ docType: doc.docType, documentDate: doc.documentDate, institution: doc.institutionName }} />
             </div>
             <div className="grid content-start gap-3">
-              <h3 className="text-lg">Add a fact by quote</h3>
-              {pageNos.length ? <ManualEventForm documentId={doc.id} pages={pageNos} /> : <p className="text-[15px] text-muted">This document is image-only: facts cannot be quoted, so only tags are allowed.</p>}
+              <h3 className="text-lg">Add a fact from the page</h3>
+              {pageNos.length ? <ManualEventForm documentId={doc.id} pages={pageNos} /> : <p className="text-[15px] text-muted">This document is a picture only, so facts cannot be quoted from it. You can still set its type, date and hospital.</p>}
             </div>
           </div>
         </section>

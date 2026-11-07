@@ -6,8 +6,8 @@ import { loadPatient } from '@/server/patients'
 import { listDocuments } from '@/server/pipeline/queries'
 import { withPatientAccess } from '@/server/registration/page'
 
-export default async function DocumentsPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params
+export default async function DocumentsPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ demo?: string }> }) {
+  const [{ id }, sp] = await Promise.all([params, searchParams])
   const data = await withPatientAccess(id, async (tx, session) => {
     const [patient, docs] = await Promise.all([loadPatient(tx, id), listDocuments(tx, id)])
     return { patient, docs, role: session.role }
@@ -23,7 +23,7 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
       <DocumentsBoard
         patientId={id}
         patientName={data.patient.name}
-        demo={isDemo()}
+        demo={isDemo() && sp.demo === '1'} // sample-document tools: demo mode and ?demo=1 only, never for a doctor browsing normally
         initial={data.docs}
         canDecide={data.role === 'records' || data.role === 'clinician'}
       />

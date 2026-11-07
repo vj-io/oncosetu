@@ -197,7 +197,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
                   <li key={s.file}>
                     <button type="button" onClick={() => fromSamples([s.file])} className="flex w-full items-start gap-2 border border-rule bg-matte px-3 py-2 text-left text-sm hover:border-ink hover:bg-spotlight">
                       {s.kind === 'image' || s.kind === 'dicom' || s.kind === 'zip' ? <FileImage aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" /> : <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />}
-                      <span className="grid min-w-0"><span className="truncate">{s.title}</span><span className="truncate font-mono text-[11px] text-faint">{s.demoStep}</span></span>
+                      <span className="grid min-w-0"><span className="truncate">{s.title}</span></span>
                     </button>
                   </li>
                 ))}

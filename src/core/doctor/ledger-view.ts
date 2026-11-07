@@ -2,8 +2,9 @@
 
 export type SaidLike = { id: string; question: string; transcript: string; medicines: string[]; scans: string[]; institution: string | null }
 
-const PLAIN_NO = /^\s*(no|none|nothing|nope|nahi|nahin|नहीं|कुछ नहीं)\b[\s.!,]*$/i
-const NO_LIST = /^\s*(no|none|nothing|nope|nahi|nahin|नहीं|कुछ नहीं)\b/i
+// \b does not work for Devanagari, so the end of the word is "not followed by a letter or mark".
+const PLAIN_NO = /^\s*(?:no|none|nothing|nope|nahi|nahin|नहीं|कुछ नहीं)(?![\p{L}\p{M}])[\s.!,]*$/iu
+const NO_LIST = /^\s*(?:no|none|nothing|nope|nahi|nahin|नहीं|कुछ नहीं)(?![\p{L}\p{M}])/iu
 
 const lower = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
 

@@ -15,6 +15,7 @@ export type DicomMeta = {
   patientId: string | null
   patientSex: string | null
   patientAge: string | null
+  patientDob: string | null
   studyUid: string | null
   seriesUid: string | null
   sopClass: string | null
@@ -85,7 +86,7 @@ export function parseDicomHeader(bytes: Uint8Array): { ds: DataSet; meta: DicomM
   const meta: DicomMeta = {
     modality, modalityLabel: modalityWord(modality, sop), studyDate: dicomDate(str(ds, 'x00080020')), bodyPart: str(ds, 'x00180015'),
     institution: str(ds, 'x00080080'), studyDescription: desc, patientName: dicomName(str(ds, 'x00100010')), patientId: str(ds, 'x00100020'),
-    patientSex: str(ds, 'x00100040'), patientAge: dicomAge(str(ds, 'x00101010')), studyUid: str(ds, 'x0020000d'), seriesUid: str(ds, 'x0020000e'),
+    patientSex: str(ds, 'x00100040'), patientAge: dicomAge(str(ds, 'x00101010')), patientDob: dicomDate(str(ds, 'x00100030')), studyUid: str(ds, 'x0020000d'), seriesUid: str(ds, 'x0020000e'),
     sopClass: sop, instanceNumber: ds.intString('x00200013') ?? null, frames, rows: ds.uint16('x00280010') ?? null, cols: ds.uint16('x00280011') ?? null,
     transferSyntax: str(ds, 'x00020010'), synthetic: /synthetic/i.test(`${desc ?? ''} ${str(ds, 'x00100010') ?? ''} ${str(ds, 'x00080080') ?? ''}`),
   }

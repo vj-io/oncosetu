@@ -6,6 +6,7 @@ import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
+import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
 import { Badge, Frame, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
@@ -40,7 +41,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const { detail: d, patient } = data
   const doc = d.doc
   if (doc.intakeRoute === 'abdm') return <AbdmDocument patientId={id} documentId={doc.id} focusEventId={event ?? null} /> // FHIR source, not pages
-  const title = doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
+  const imgFlags = doc.flags.imaging as { studyLabel?: string; modalityLabel?: string } | undefined
+  const title = imgFlags ? (imgFlags.studyLabel ?? imgFlags.modalityLabel ?? 'Imaging file') : doc.docType ? staffDocLabel(doc.docType as DocType) : doc.status === 'quarantined' ? 'Quarantined file' : 'Document'
   const b = statusBadge(d.status)
   const header = ((doc.identityDetails as { header?: Header } | null)?.header ?? {}) as Header
   const idDetails = (doc.identityDetails ?? {}) as { reasons?: string[]; notes?: string[]; score?: number }
@@ -52,6 +54,9 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
+  const fileInfo = flags.file as { kind?: string; category?: string; label?: string; storedOnly?: boolean; note?: string; previewNote?: string } | undefined
+  const imaging = flags.imaging as (ImagingDetails & { modalityLabel?: string; studyLabel?: string }) | undefined
+  const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
   const pageNos = d.pages.filter((p) => p.text.trim()).map((p) => p.pageNo)
@@ -59,12 +64,12 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   return (
     <div className="grid gap-10 py-8 [&>*]:min-w-0">
       <Link href={`/patients/${id}/documents`} className="inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
-        <ArrowLeft aria-hidden className="size-4" /> Document index
+        <ArrowLeft aria-hidden className="size-4" /> All documents
       </Link>
 
       <SectionHeader
         as="h2"
-        kicker={`Source viewer · ACC. ${shortId(doc.id)}`}
+        kicker={`Document · ACC. ${shortId(doc.id)}`}
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
         description={`${doc.documentDate ? `Document date ${fmtDate(doc.documentDate)}` : 'No document date found'} · received ${fmtDateTime(doc.receivedAt.toISOString())}${doc.pages ? ` · ${doc.pages} page${doc.pages > 1 ? 's' : ''}` : ''}`}
         actions={
@@ -88,9 +93,9 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </Notice>
         )}
         {injection && (
-          <Notice tone="conflict" icon={<ShieldAlert />} title={`Hidden instructions removed before extraction${injection.patterns.length ? ` · ${injection.patterns.join(', ').replace(/_/g, ' ')}` : ''}`}>
+          <Notice tone="conflict" icon={<ShieldAlert />} title={`Hidden text removed before reading${injection.patterns.length ? ` · ${injection.patterns.join(', ').replace(/_/g, ' ')}` : ''}`}>
             {injection.hiddenChars > 0 ? `${injection.hiddenChars} characters of invisible text (white or under 2 pt) on page ${injection.hiddenPages.join(', ')} were stripped. ` : 'Instruction-like wording was found in the visible text. '}
-            The model has no tools and no write access; nothing in a document can verify an item or change a status, and every fact still needs a verbatim quote from the visible text.
+            Nothing written inside a document can confirm a fact or change anything, and every fact still needs its exact words from the visible text.
             {hidden.length > 0 && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm underline underline-offset-4">Show the removed text</summary>
@@ -137,26 +142,35 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
       </div>
 
+      {/* Scans, ECG, video: stored and shown, never read */}
+      {storedOnly && !quarantine && (
+        <section aria-labelledby="stored-h" className="grid gap-4">
+          <h2 id="stored-h" className="ds-kicker">{fileInfo?.label ?? 'File'} · stored, not read</h2>
+          {doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study'
+            ? (imaging
+              ? <ImagingViewer documentId={doc.id} details={imaging} canView />
+              : <Notice tone="shadow" icon={<ScanText />} title="Imaging file — stored, not read">{fileInfo?.previewNote ?? 'The header could not be read. The file is stored as it came.'}</Notice>)
+            : doc.mime.startsWith('video/')
+              ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
+              : <Notice tone="shadow" icon={<ScanText />} title={fileInfo?.note ?? 'File — stored, not read'}>The file is kept exactly as it arrived. Open the original to view it with the right program.</Notice>}
+          <p className="text-sm font-medium" data-testid="stored-note">{fileInfo?.note}</p>
+        </section>
+      )}
+
       {/* Evidence: facts on exhibit beside the lit source text */}
-      {attached && (
+      {attached && !storedOnly && (
         <div className="grid gap-4">
           <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3">
             <p className="text-[15px]">
               {gate ? (
                 <>
-                  <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} passed the evidence gate</span>
+                  <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} found, each with its quote</span>
                   {gate.rejected > 0
-                    ? <span className="text-madder-ink"> · {gate.rejected} proposed fact{gate.rejected > 1 ? 's' : ''} rejected — quote not found in source{Object.keys(gate.reasons).some((r) => r !== 'quote_not_found') ? ` (${Object.entries(gate.reasons).map(([r, n]) => `${r.replace(/_/g, ' ')} ${n}`).join(', ')})` : ''}</span>
-                    : <span className="text-muted"> · 0 rejected</span>}
+                    ? <span className="text-madder-ink"> · {gate.rejected} possible fact{gate.rejected > 1 ? 's' : ''} not shown because no matching quote was found</span>
+                    : <span className="text-muted"> · none left out</span>}
                 </>
               ) : <span className="text-muted">No automatic extraction for this file.</span>}
             </p>
-            {d.coverage && (
-              <p className="max-w-xl text-sm text-muted">
-                <span className="ds-kicker mr-1">Coverage</span>
-                Extraction recall for this document class ({title.toLowerCase()}) in evaluation: <span className="font-mono text-ink">{d.coverage.recall.toFixed(2)}</span> ({d.coverage.gold} gold facts) — review the source for anything not listed.
-              </p>
-            )}
           </div>
           <SourceViewer
             documentId={doc.id}
@@ -175,10 +189,10 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
 
       <div className="grid gap-8 lg:grid-cols-2 [&>*]:min-w-0">
         {/* Original */}
-        {d.original && doc.status !== 'quarantined' && (
+        {d.original && doc.status !== 'quarantined' && !storedOnly && (
           <section aria-labelledby="orig-h" className="grid content-start gap-3 [&>*]:min-w-0">
-            <h2 id="orig-h" className="ds-kicker">Original file · immutable, decrypted on request</h2>
-            <Frame matte caption={`${doc.mime} · ${(doc.sizeBytes / 1024).toFixed(0)} KB · sha256 ${doc.sha256.slice(0, 12)}…`}>
+            <h2 id="orig-h" className="ds-kicker">Original file</h2>
+            <Frame matte caption={`${fileInfo?.label ?? 'File'} · ${doc.sizeBytes > 1048576 ? (doc.sizeBytes / 1048576).toFixed(1) + ' MB' : (doc.sizeBytes / 1024).toFixed(0) + ' KB'}`}>
               {doc.mime === 'application/pdf' ? (
                 <div className="max-h-[40rem] overflow-y-auto"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
               ) : (

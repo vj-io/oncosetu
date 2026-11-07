@@ -2,7 +2,7 @@
 import type { Status } from '@/components/ui'
 
 export const STAGE_KEYS = ['received', 'text', 'classified', 'identity', 'extracted', 'gate', 'completeness'] as const
-export const STAGE_LABELS = ['Received', 'Text', 'Classified', 'Identity', 'Extracted', 'Evidence gate', 'Completeness'] as const
+export const STAGE_LABELS = ['Received', 'Reading', 'Sorting', 'Patient match', 'Facts', 'Quote check', 'Checklist'] as const
 
 export type StageState = 'done' | 'active' | 'pending' | 'failed' | 'waiting'
 
@@ -54,6 +54,7 @@ export const FLAG_LABEL: Record<string, string> = {
 export const PRIORITY_GROUPS: { title: string; types: string[] }[] = [
   { title: 'Pathology & molecular', types: ['pathology_report', 'ihc_molecular_report'] },
   { title: 'Imaging reports', types: ['imaging_report'] },
+  { title: 'Scans, ECG and video', types: [] },
   { title: 'Discharge & procedure summaries', types: ['discharge_summary', 'procedure_note'] },
   { title: 'Treatment records', types: ['chemo_daycare_record', 'radiotherapy_summary', 'consult_note'] },
   { title: 'Prescriptions', types: ['prescription_printed', 'prescription_handwritten'] },

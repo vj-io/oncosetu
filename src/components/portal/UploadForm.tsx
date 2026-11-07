@@ -5,18 +5,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Camera, CircleCheck, FileText, Images, LoaderCircle, RotateCw, X } from "lucide-react";
+import { ONE_SHOT_BYTES } from "@/core/limits";
+import { capFor, needsChunks, uploadChunked } from "@/lib/chunked-upload";
 import { tp } from "@/i18n/patient";
 import { ErrorNote, PButton, PLink } from "./ui";
 
-const MAX_BYTES = 4 * 1024 * 1024; // Vercel's request body limit is 4.5 MB
+const MAX_BYTES = ONE_SHOT_BYTES; // a request body is capped at 4.5 MB; bigger files go in chunks
 const MAX_SIDE = 2400;
-const OK_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "application/pdf"]);
-const BY_EXT: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic", heif: "image/heif", pdf: "application/pdf" };
+const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]);
+// The server sniffs every file by its content; this only stops obvious mistakes. DICOM files often have no extension at all.
+const BAD_EXT = new Set(["exe", "dll", "bat", "cmd", "msi", "js", "html", "htm", "svg", "apk", "sh", "scr", "com", "jar"]);
 
 type State = "waiting" | "preparing" | "uploading" | "done" | "duplicate" | "failed" | "tooLarge" | "badType";
 type Item = { id: string; file: File; clientFileId: string; state: State; pct: number; blob?: Blob; name: string };
 
-const typeOf = (f: File) => f.type || BY_EXT[f.name.split(".").pop()?.toLowerCase() ?? ""] || "";
+const typeOf = (f: File) => f.type || "";
+const extOf = (f: File) => (f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "");
 
 /** Photos become JPEG ≤ 2400px (EXIF rotation applied, metadata dropped) and ≤ 4 MB; PDFs are sent as they are. */
 async function toJpeg(file: File): Promise<Blob> {
@@ -80,25 +84,27 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
       const next = itemsRef.current.find((i) => i.state === "waiting");
       if (!next) break;
       const type = typeOf(next.file);
-      if (!OK_TYPES.has(type)) { patch(next.id, { state: "badType" }); continue; }
+      if (BAD_EXT.has(extOf(next.file))) { patch(next.id, { state: "badType" }); continue; }
       patch(next.id, { state: "preparing" });
       let blob: Blob | undefined = next.blob;
       let name = next.file.name;
       if (!blob) {
-        if (type.startsWith("image/")) {
+        if (PHOTO_TYPES.has(type)) {
           try {
             blob = await toJpeg(next.file);
             name = `${name.replace(/\.[^.]+$/, "") || "photo"}.jpg`;
           } catch {
-            blob = next.file.size <= MAX_BYTES ? next.file : undefined; // e.g. HEIC the browser cannot decode: send as is
+            blob = next.file; // e.g. HEIC the browser cannot decode: send as is (the server converts it)
           }
         } else blob = next.file;
-        if (!blob || blob.size > MAX_BYTES) { patch(next.id, { state: "tooLarge" }); continue; }
+        if (!blob || blob.size > capFor(next.file.name)) { patch(next.id, { state: "tooLarge" }); continue; }
         patch(next.id, { blob, name });
       } else name = next.name;
       patch(next.id, { state: "uploading", pct: 0 });
       try {
-        const res = await send(blob, name, next.clientFileId, (pct) => patch(next.id, { pct }));
+        const res = needsChunks(blob.size)
+          ? await uploadChunked("/api/p/uploads", blob, name, (pct) => patch(next.id, { pct }))
+          : await send(blob, name, next.clientFileId, (pct) => patch(next.id, { pct }));
         if (res.status === 200) patch(next.id, { state: res.duplicate ? "duplicate" : "done", pct: 100 });
         else if (res.status === 401) { router.replace(`/p/login?lang=${lang}`); break; }
         else if (res.status === 403) { setPaused(true); patch(next.id, { state: "failed" }); }
@@ -149,7 +155,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
           {tp(lang, "chooseFiles")}
         </PButton>
         <input ref={cam} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
-        <input ref={pick} type="file" accept="image/*,application/pdf" multiple className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
+        <input ref={pick} type="file" multiple className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
       </div>
       <p className="text-[15px] text-muted">{tp(lang, "uploadKeepNote")}</p>
 

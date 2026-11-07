@@ -16,9 +16,9 @@ export default async function DocumentsPage({ params }: { params: Promise<{ id: 
   return (
     <div className="grid gap-8 py-8">
       <SectionHeader
-        kicker="Documents · intake and evidence"
-        title="Document index"
-        description="Every fact on this record comes from a document and carries the exact quote that supports it. Files are checked, read, matched to the patient and gated before anything reaches the timeline."
+        kicker="Documents"
+        title="Documents"
+        description="Everything sent for this patient. Facts on the record come from the written reports, each with the exact words they were taken from. Scans, ECGs and videos are kept and shown, not read."
       />
       <DocumentsBoard
         patientId={id}

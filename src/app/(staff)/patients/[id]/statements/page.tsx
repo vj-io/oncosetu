@@ -58,6 +58,11 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
         description="What the patient or a family member told us before the visit, in their own words. It always stays marked “patient said”: it is never treated as backed by a document."
       />
       {canSend && <SendVisitLink patientId={id} recipient={recipient} />}
+      {canSend && (
+        <p className="text-sm text-muted">
+          Or at the desk: open the <a href="/p/login?station=1" target="_blank" rel="noopener" className="text-ink underline decoration-brass underline-offset-4">desk station</a> on the clinic tablet (not on this computer: signing a patient in signs staff out of that browser). The patient signs in with the code sent to their phone, answers, and the tablet signs out by itself.
+        </p>
+      )}
 
       {groups.length === 0 ? (
         <EmptyState icon={<MessageCircle />} title="No answers yet" description="Send the pre-visit link, or ask the patient to open it on their phone." />

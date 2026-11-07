@@ -43,10 +43,12 @@ function submittable(a: Answers): Answers {
 }
 
 export function VisitFlow({
-  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered,
+  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered, station = false,
 }: {
   /** sarvam: the server can transcribe (SARVAM_API_KEY set), so record audio instead of using the browser's recogniser */
   lang: Lang; canVoice: boolean; canSpeak: boolean; sarvam: boolean; currentYear: number; lastAnswered: string | null;
+  /** On the shared desk-station tablet (FR-VOX-02): sign out by itself once the answers are saved. */
+  station?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("questions");
   const [step, setStep] = useState(0);
@@ -172,7 +174,7 @@ export function VisitFlow({
       if (res.status === 401) {
         // The session ended while the questions were open: sign in again, then come back here.
         const chosen = new URLSearchParams(window.location.search).get("lang");
-        window.location.assign(`/p/login?next=/p/visit${chosen === "hi" || chosen === "en" || chosen === "hinglish" ? `&lang=${chosen}` : ""}`);
+        window.location.assign(station ? "/p/login?station=1" : `/p/login?next=/p/visit${chosen === "hi" || chosen === "en" || chosen === "hinglish" ? `&lang=${chosen}` : ""}`);
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
@@ -276,10 +278,14 @@ export function VisitFlow({
           {tp(lang, confirmedSave ? "savedTitle" : "savedUnconfirmed")}
         </h2>
         {confirmedSave && <p className="text-[17px]">{tp(lang, "savedText")}</p>}
-        <div className="flex flex-wrap gap-3">
-          <PLink href={`/p?lang=${lang}`} variant="secondary">{tp(lang, "backHome")}</PLink>
-          <PLink href={`/p/upload?lang=${lang}`} variant="ghost">{tp(lang, "cardUploadTitle")}</PLink>
-        </div>
+        {station ? (
+          <StationSignOut lang={lang} />
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <PLink href={`/p?lang=${lang}`} variant="secondary">{tp(lang, "backHome")}</PLink>
+            <PLink href={`/p/upload?lang=${lang}`} variant="ghost">{tp(lang, "cardUploadTitle")}</PLink>
+          </div>
+        )}
       </div>
     );
   }
@@ -366,5 +372,26 @@ export function VisitFlow({
         <PButton big onClick={next} className="sm:order-last">{tp(lang, "next")}</PButton>
       </div>
     </section>
+  );
+}
+
+/** Desk station: count down, then end the session and return the tablet to the station sign-in for the next person. */
+function StationSignOut({ lang }: { lang: Lang }) {
+  const [left, setLeft] = useState(15);
+  const out = useRef(false);
+  useEffect(() => {
+    const t = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (left > 0 || out.current) return;
+    out.current = true;
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.assign("/p/login?station=1"));
+  }, [left]);
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <p className="text-[17px]" aria-live="polite">{tp(lang, "stationSignOut", { n: String(left) })}</p>
+      <PButton variant="secondary" onClick={() => setLeft(0)}>{tp(lang, "stationDoneNow")}</PButton>
+    </div>
   );
 }

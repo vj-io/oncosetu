@@ -7,10 +7,11 @@ import { withOrg } from '@/db'
 import { patientStatements } from '@/db/schema'
 import { tp } from '@/i18n/patient'
 import { now } from '@/server/clock'
-import { loadPortal, type PortalSearch } from '@/server/portal/context'
+import { loadPortal } from '@/server/portal/context'
 
-export default async function VisitPage({ searchParams }: { searchParams: PortalSearch }) {
+export default async function VisitPage({ searchParams }: { searchParams: Promise<{ lang?: string | string[]; station?: string | string[] }> }) {
   const ctx = await loadPortal(searchParams)
+  const station = (await searchParams).station === '1'
   const { lang } = ctx
   const [last] = await withOrg(ctx.session.orgId, (tx) =>
     tx.select({ at: patientStatements.createdAt }).from(patientStatements)
@@ -29,6 +30,7 @@ export default async function VisitPage({ searchParams }: { searchParams: Portal
         sarvam={!!process.env.SARVAM_API_KEY}
         currentYear={year}
         lastAnswered={last ? formatDateIN(istDate(last.at.toISOString()), lang) : null}
+        station={station}
       />
     </PortalFrame>
   )

@@ -12,7 +12,7 @@ import { ErrorNote, PButton, PField, PInput } from "./ui";
 const MAX_TRIES = 5; // the server locks the phone for 15 minutes after 5 wrong codes; its answers stay uniform
 
 /** `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for. */
-export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; after: string }) {
+export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; demo: boolean; after: string; station?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<"phone" | "code">("phone");
   const [phone, setPhone] = useState("");
@@ -50,7 +50,7 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
     if (tries >= MAX_TRIES) return setError(tp(lang, "tooManyTries"));
     setBusy(true);
     setError(null);
-    const res = await post("/api/auth/patient/otp/verify", { phone, code });
+    const res = await post("/api/auth/patient/otp/verify", station ? { phone, code, station } : { phone, code });
     if (!res) return setBusy(false);
     if (res.ok) {
       router.replace(after); // no ?lang= unless chosen: the patient's own language applies after sign-in

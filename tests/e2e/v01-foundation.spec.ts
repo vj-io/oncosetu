@@ -1,5 +1,6 @@
 // V01-E2E-01..09 (PRD §13, v0.1 Foundation). Everything runs in the Ganga org with synthetic patients.
 import { CONSENT_NOTICE_VERSION } from '../../src/i18n/consent'
+import { describeAction } from '../../src/core/doctor/audit-words'
 import { createHash } from 'node:crypto'
 import { ALL_PURPOSES, Api, anonymous, demoDoc, demoPatient, freshPhone, portalLogin, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc, waitForSms } from './helpers/api'
 import { closeEncounters, consentsOf, documentsOf, smsAbout, smsTo } from './helpers/db'
@@ -240,11 +241,11 @@ test('V01-E2E-08 the patient audit tab lists the actions; audit rows hold ids on
 
   const page = await ui('records')
   await page.goto(`/patients/${p.id}/audit`)
-  await expect(page.getByText('Audit trail for this patient')).toBeVisible()
-  await expect(page.getByText(/Chain intact/)).toBeVisible()
+  await expect(page.getByText('Everything that happened to this record')).toBeVisible()
+  await expect(page.getByText(/Log intact/)).toBeVisible()
   const table = page.getByRole('table')
   for (const action of ['patient.registered', 'consent.recorded', 'patient.token_issued', 'desk.lookup', 'document.upload', 'document.duplicate_upload', 'document.quarantined', 'document.view']) {
-    await expect(table.getByText(action, { exact: true }).first(), action).toBeVisible()
+    await expect(table.getByText(describeAction(action), { exact: true }).first(), action).toBeVisible() // the tab shows plain words, not codes
   }
 
   const csv = await admin.get('/api/admin/audit.csv')

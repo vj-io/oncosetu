@@ -258,6 +258,7 @@ Environment variables (names and purpose only; the repository ships no key gener
 | `BACKUP_RETENTION_DAYS` | Optional, default 35. Older backups are deleted after each successful backup; the 7 newest always stay |
 | `ANTHROPIC_API_KEY` | Optional. LLM via Anthropic |
 | `AI_ENABLED`, `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Optional. LLM via Vercel AI Gateway |
+| `SARVAM_API_KEY` | Optional. Sarvam speech-to-text (`saaras:v3`) for voice answers on `/p/visit` when the organisation's voice flag is on; unset → the browser's own speech recognition |
 | `E2E_PASSWORD` | Optional. Password for the E2E staff that `seed-base.ts` creates |
 | `BASE_URL`, `PW_CHANNEL`, `E2E_SHOT_DIR` | Optional. E2E runner settings |
 

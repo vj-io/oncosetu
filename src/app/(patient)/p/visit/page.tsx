@@ -26,6 +26,7 @@ export default async function VisitPage({ searchParams }: { searchParams: Portal
         canVoice={ctx.flags.voice}
         // Spoken read-back needs the org flag AND a cleared disclosure (FR-CON-07, V05-E2E-08); otherwise the control is not rendered at all.
         canSpeak={ctx.flags.tts && ctx.disclosure === 'cleared'}
+        sarvam={!!process.env.SARVAM_API_KEY}
         currentYear={year}
         lastAnswered={last ? formatDateIN(istDate(last.at.toISOString()), lang) : null}
       />

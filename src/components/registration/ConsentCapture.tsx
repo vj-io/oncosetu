@@ -3,14 +3,14 @@
 import { useId, useState } from "react";
 import clsx from "clsx";
 import { Printer, Send } from "lucide-react";
-import { Badge, Button, Checkbox, Field, Input, LanguageToggle, Switch, type Lang } from "@/components/ui";
+import { Badge, Button, Checkbox, Field, Input, LanguageToggle, Switch } from "@/components/ui";
 import { htmlLang } from "@/core/copy";
-import { CONSENT_NOTICE_VERSION, consentCopy, type ConsentPurposeKey } from "@/i18n/consent";
+import { CONSENT_LANGS, CONSENT_NOTICE_VERSION, consentCopy, type ConsentLang, type ConsentPurposeKey } from "@/i18n/consent";
 import { Notice, PRINT_CSS } from "./Notice";
 import { WRAP } from "./style";
 
 export type Purposes = Record<ConsentPurposeKey, boolean>;
-export type ConsentValue = { purposes: Purposes; language: Lang; method: "otp" | "witnessed"; code: string; attest: boolean };
+export type ConsentValue = { purposes: Purposes; language: ConsentLang; method: "otp" | "witnessed"; code: string; attest: boolean };
 
 export const DEFAULT_CONSENT: ConsentValue = {
   purposes: { store: true, ai: false, share: false, abdm: false, metrics: false },
@@ -29,10 +29,13 @@ export function consentConfirm(v: ConsentValue): { method: "otp"; code: string }
   return v.attest ? { method: "witnessed", attest: true } : null;
 }
 
-export const consentBody = (v: ConsentValue) => ({ purposes: v.purposes, language: v.language, noticeVersion: CONSENT_NOTICE_VERSION });
+/** Only the five notice purposes: a re-consent starts from the stored row, whose "team" purpose the desk never sends (the API refuses it). */
+export const consentBody = (v: ConsentValue) => ({
+  purposes: Object.fromEntries(PURPOSES.map((k) => [k, v.purposes[k]])) as Purposes, language: v.language, noticeVersion: CONSENT_NOTICE_VERSION,
+});
 
 /**
- * The consent screen: plain-language notice (English and Hindi, versioned), five separate toggles, and either an OTP to
+ * The consent screen: plain-language notice (English, Hindi, Hinglish, Marathi; versioned), five separate toggles, and either an OTP to
  * the primary contact or an in-person witnessed acknowledgement with a printable notice (FR-CON-01, FR-CON-06).
  */
 export function ConsentCapture({
@@ -58,10 +61,10 @@ export function ConsentCapture({
       <style>{PRINT_CSS}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="ds-kicker">Notice · {CONSENT_NOTICE_VERSION}</p>
-        <LanguageToggle value={lang} onChange={(l) => set({ language: l })} />
+        <LanguageToggle value={lang} onChange={(l) => set({ language: l })} langs={CONSENT_LANGS} />
       </div>
 
-      <div lang={htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", lang === "hi" && "font-deva")}>
+      <div lang={lang === "mr" ? "mr" : htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", (lang === "hi" || lang === "mr") && "font-deva")}>
         <h3 className="text-2xl leading-snug tracking-[-0.02em]">{consentCopy.title[lang]}</h3>
         <p className="max-w-2xl text-[17px] leading-relaxed">{consentCopy.intro[lang]}</p>
         <ul className="grid divide-y divide-rule border-y border-rule">
@@ -98,9 +101,10 @@ export function ConsentCapture({
         canSendCode={canSendCode}
         contactHint={contactHint}
         printable
+        printLabel={lang === "mr" ? "Print notice (English, हिन्दी and मराठी)" : undefined}
       />
 
-      <PrintableNotice />
+      <PrintableNotice extra={lang === "mr" ? "mr" : undefined} />
     </div>
   );
 }
@@ -120,6 +124,7 @@ export function ConfirmStep<T extends ConfirmState>({
   contactHint,
   witnessText = "I witnessed this. The notice was handed over or read aloud in a language they understand, and the patient or caregiver acknowledged it in person.",
   printable = false,
+  printLabel = "Print notice (English and हिन्दी)",
 }: {
   value: T;
   onChange: (v: T) => void;
@@ -128,6 +133,7 @@ export function ConfirmStep<T extends ConfirmState>({
   contactHint: string;
   witnessText?: string;
   printable?: boolean;
+  printLabel?: string;
 }) {
   const id = useId();
   const [sent, setSent] = useState(false);
@@ -175,7 +181,7 @@ export function ConfirmStep<T extends ConfirmState>({
           {printable && (
             <div>
               <Button variant="secondary" className={WRAP} icon={<Printer aria-hidden />} onClick={() => window.print()}>
-                Print notice (English and हिन्दी)
+                {printLabel}
               </Button>
             </div>
           )}
@@ -185,11 +191,11 @@ export function ConfirmStep<T extends ConfirmState>({
   );
 }
 
-/** Both languages on paper, with space for the acknowledgement. Invisible on screen. */
-function PrintableNotice() {
+/** English and Hindi on paper (plus Marathi when it was chosen), with space for the acknowledgement. Invisible on screen. */
+function PrintableNotice({ extra }: { extra?: "mr" }) {
   return (
     <div className="print-area hidden text-[12pt] leading-snug print:block">
-      {(["en", "hi"] as const).map((lang) => (
+      {(["en", "hi", ...(extra ? [extra] : [])] as const).map((lang) => (
         <section key={lang} lang={lang} className="mb-8 break-inside-avoid">
           <h2 className="text-[16pt] font-semibold">{consentCopy.title[lang]}</h2>
           <p className="mt-2">{consentCopy.intro[lang]}</p>

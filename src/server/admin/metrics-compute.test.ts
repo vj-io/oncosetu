@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   disclosureAt,
-  correctionRates, disclosurePrevalence, documentCensus, median, previsitCompletion, provenance, radarMetrics,
+  clinicianReviewTime, correctionRates, disclosurePrevalence, documentCensus, median, previsitCompletion, provenance, radarMetrics,
   requestFulfilment, safetyKpis, type MissingRow,
 } from './metrics-compute'
 
@@ -77,6 +77,40 @@ describe('radarMetrics', () => {
   it('counts requested from linked requests or state', () => {
     const r = radarMetrics([item({ hasRequest: true, state: 'closed' }), item({ state: 'requested' }), item({})], snaps)
     expect(r.requested).toBe(2)
+  })
+})
+
+describe('clinicianReviewTime', () => {
+  const P = 'p1', Q = 'p2'
+  const row = (action: string, at: string, targetId: string, details: Record<string, unknown> = {}, actorRole = 'clinician') =>
+    ({ action, at: d(`2026-03-02T${at}Z`), targetId, details, actorRole })
+  it('takes minutes from the first clinician ledger view in the visit to its seal, median per visit type', () => {
+    const r = clinicianReviewTime([
+      row('ledger.view', '08:00:00', P), // before the visit started: ignored
+      row('encounter.started', '09:00:00', 'e1', { patientId: P, type: 'returning' }, 'desk'),
+      row('ledger.view', '09:01:00', P, {}, 'records'), // not a clinician
+      row('ledger.view', '09:10:00', P),
+      row('ledger.view', '09:11:00', P), // a later view does not restart the clock
+      row('snapshot.seal', '09:12:30', 's1', { patientId: P, encounterId: 'e1' }), // 2.5 min
+      row('ledger.view', '09:20:00', P), // after the seal: ignored
+      row('encounter.started', '10:00:00', 'e2', { patientId: Q, type: 'returning' }, 'desk'),
+      row('ledger.view', '10:00:00', Q),
+      row('snapshot.seal', '10:04:30', 's2', { patientId: Q, encounterId: 'e2' }), // 4.5 min
+      row('encounter.started', '11:00:00', 'e3', { patientId: Q, type: 'onboarding' }, 'desk'),
+      row('ledger.view', '11:00:00', Q),
+      row('snapshot.seal', '11:20:00', 's3', { patientId: Q, encounterId: 'e3' }), // 20 min, first visit
+    ])
+    expect(r.returning).toEqual({ medianMinutes: 3.5, visits: 2 })
+    expect(r.firstVisit).toEqual({ medianMinutes: 20, visits: 1 })
+  })
+  it('skips visits without a seal or without a clinician view, and has no median when none count', () => {
+    const r = clinicianReviewTime([
+      row('encounter.started', '09:00:00', 'e1', { patientId: P, type: 'returning' }, 'desk'),
+      row('ledger.view', '09:10:00', P), // never sealed
+      row('encounter.started', '10:00:00', 'e2', { patientId: Q, type: 'returning' }, 'desk'),
+      row('snapshot.seal', '10:05:00', 's2', { patientId: Q, encounterId: 'e2' }), // sealed without a ledger view
+    ])
+    expect(r.returning).toEqual({ medianMinutes: null, visits: 0 })
   })
 })
 

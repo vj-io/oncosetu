@@ -7,6 +7,7 @@ import { ConflictCard } from '@/components/ledger/ConflictCard'
 import { LedgerItem } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
 import { mergeNoAnswers } from '@/core/doctor/ledger-view'
+import { writeAudit } from '@/server/audit'
 import { now } from '@/server/clock'
 import type { LedgerView } from '@/server/ledger/core'
 import { loadLedger } from '@/server/ledger/record'
@@ -84,7 +85,12 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   if (!UUID.test(id)) notFound()
   const session = await requireStaff()
   if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
-  const v = await withPatientAccess(id, async (tx, s) => loadLedger(tx, id, s, now(s.orgId)))
+  const v = await withPatientAccess(id, async (tx, s) => {
+    const v = await loadLedger(tx, id, s, now(s.orgId))
+    // Start of the clinician review-time KPI (PRD §16.1, /admin/metrics); ids only.
+    await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'ledger.view', targetType: 'patient', targetId: id, details: { mode: v.mode } })
+    return v
+  })
   if (!v) return null // the workspace layout explains the denial
 
   const items = Object.values(v.events).flat()

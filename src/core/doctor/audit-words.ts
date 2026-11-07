@@ -18,6 +18,7 @@ const WORDS: Record<string, string> = {
   'event.edit': 'A fact was corrected (original kept)',
   'event.dispute': 'A fact was disputed',
   'conflict.resolve': 'A disagreement between two sources was settled',
+  'ledger.view': 'Opened what is new since the last visit',
   'snapshot.seal': 'Visit sealed',
   'share.create': 'Share link created',
   'share.revoke': 'Share link switched off',

@@ -5,21 +5,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { LogOut, Menu, Smartphone } from "lucide-react";
+import { navFor, roleHome, type StaffRole } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
 
-export type StaffRole = "desk" | "records" | "clinician" | "org_admin" | "auditor";
-
-const CLINICAL: StaffRole[] = ["desk", "records", "clinician"];
-const NAV: { href: string; label: string; roles: StaffRole[] }[] = [
-  { href: "/desk", label: "Desk", roles: CLINICAL },
-  { href: "/patients", label: "Patients", roles: CLINICAL },
-  { href: "/records", label: "Records queue", roles: ["records", "clinician"] },
-  { href: "/capture", label: "Capture", roles: CLINICAL },
-  { href: "/measure", label: "Measure", roles: ["clinician"] },
-  { href: "/admin/metrics", label: "Metrics", roles: ["clinician"] },
-  { href: "/admin/duplicates", label: "Duplicates", roles: ["records"] },
-  { href: "/admin", label: "Admin", roles: ["org_admin", "auditor"] },
-];
+export type { StaffRole };
 const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records", clinician: "Clinician", org_admin: "Admin", auditor: "Audit" };
 
 export type StaffShellProps = {
@@ -34,8 +23,8 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
   const [navOpen, setNavOpen] = useState(false);
   const [phoneOpen, setPhoneOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const nav = NAV.filter((n) => n.roles.includes(user.role));
-  const home = nav[0]?.href ?? "/desk";
+  const nav = navFor(user.role);
+  const home = roleHome(user.role);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   async function signOut() {

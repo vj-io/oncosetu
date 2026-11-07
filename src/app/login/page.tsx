@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
+import { roleHome } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Field, Frame, Input, Placard, Spotlight, Wordmark } from "@/components/ui";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
@@ -61,7 +62,7 @@ export default function StaffLoginPage() {
       if (res.ok) {
         // Each role starts on its own work list: a clinician on Patients, records staff on the records queue.
         const role = ((await res.json().catch(() => null)) as { staff?: { role?: string } } | null)?.staff?.role;
-        router.push(role === "clinician" ? "/patients" : role === "records" ? "/records" : "/desk");
+        router.push(roleHome(role));
         return;
       }
       const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;

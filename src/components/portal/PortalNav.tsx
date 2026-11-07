@@ -67,7 +67,7 @@ export function PortalNav({
         href={`${it.href}${it.query}`}
         aria-current={active ? "page" : undefined}
         className={clsx(
-          "inline-flex h-11 items-center border-b-2 px-2 text-[15px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px] lg:px-2.5",
+          "inline-flex h-11 items-center border-b-2 px-2 text-[16px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px] lg:px-2.5",
           active ? "border-ink text-ink" : "border-transparent text-muted hover:border-rule hover:text-ink",
           extra,
         )}
@@ -78,7 +78,7 @@ export function PortalNav({
   };
 
   const signOutBtn = (
-    <button type="button" onClick={out} disabled={busy} className="inline-flex h-11 items-center gap-2 px-2.5 text-[15px] whitespace-nowrap text-muted hover:text-ink disabled:opacity-60">
+    <button type="button" onClick={out} disabled={busy} className="inline-flex h-11 items-center gap-2 px-2.5 text-[16px] whitespace-nowrap text-muted hover:text-ink disabled:opacity-60">
       <LogOut aria-hidden className="size-4" />
       {busy ? signingOut : signOut}
     </button>
@@ -90,7 +90,7 @@ export function PortalNav({
       <div className="flex items-center justify-between md:hidden">
         <button
           type="button" aria-expanded={mobile} aria-controls="portal-menu" onClick={() => setMobile(!mobile)}
-          className="inline-flex h-11 items-center gap-2 px-2.5 text-[15px]"
+          className="inline-flex h-11 items-center gap-2 px-2.5 text-[16px]"
         >
           {mobile ? <X aria-hidden className="size-4" /> : <Menu aria-hidden className="size-4" />}
           {menuLabel}
@@ -110,7 +110,7 @@ export function PortalNav({
           <button
             ref={menuBtn} type="button" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)}
             className={clsx(
-              "inline-flex h-11 items-center gap-1.5 border-b-2 px-2.5 text-[15px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px]",
+              "inline-flex h-11 items-center gap-1.5 border-b-2 px-2.5 text-[16px] whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px]",
               groupActive ? "border-ink text-ink" : "border-transparent text-muted hover:border-rule hover:text-ink",
             )}
           >
@@ -123,7 +123,7 @@ export function PortalNav({
                 <li key={it.href}>
                   <Link
                     href={`${it.href}${it.query}`} aria-current={isActive(pathname, it.href) ? "page" : undefined}
-                    className={clsx("flex min-h-11 items-center px-4 text-[15px] hover:bg-alcove", isActive(pathname, it.href) ? "font-medium text-ink" : "text-muted hover:text-ink")}
+                    className={clsx("flex min-h-11 items-center px-4 text-[16px] hover:bg-alcove", isActive(pathname, it.href) ? "font-medium text-ink" : "text-muted hover:text-ink")}
                   >
                     {it.label}
                   </Link>

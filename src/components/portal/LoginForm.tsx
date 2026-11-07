@@ -110,15 +110,15 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
       {demo && (
         <section aria-labelledby="demo-accounts" data-testid="demo-accounts" className="grid gap-3 border border-rule bg-surface px-5 py-5">
           <h2 id="demo-accounts" className="text-lg">{dm(lang, "title")}</h2>
-          <p className="text-[15px] text-muted">{dm(lang, "hint")}</p>
+          <p className="text-[16px] text-muted">{dm(lang, "hint")}</p>
           <ul className="grid gap-2">
             {DEMO_PEOPLE.map((p) => (
               <li key={p.key}>
-                <button type="button" onClick={() => demoSignIn(p)} data-testid={`demo-${p.key}`} className="flex min-h-12 w-full items-center justify-between gap-3 border border-control bg-matte px-4 py-2 text-left text-[15px] hover:border-ink hover:bg-spotlight">
+                <button type="button" onClick={() => demoSignIn(p)} data-testid={`demo-${p.key}`} className="flex min-h-12 w-full items-center justify-between gap-3 border border-control bg-matte px-4 py-2 text-left text-[16px] hover:border-ink hover:bg-spotlight">
                   <span>{dm(lang, p.key)}</span>
                   <span className="shrink-0 font-mono text-[12px] text-muted">{p.phone}</span>
                 </button>
-                {demoState?.key === p.key && <p role="status" className="mt-1 text-[15px] text-muted">{demoState.msg}</p>}
+                {demoState?.key === p.key && <p role="status" className="mt-1 text-[16px] text-muted">{demoState.msg}</p>}
               </li>
             ))}
           </ul>
@@ -137,10 +137,10 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
           </form>
         ) : (
           <form method="post" onSubmit={verify} className="grid gap-5" noValidate>
-            <p role="status" className="text-[15px] text-muted">
+            <p role="status" className="text-[16px] text-muted">
               {tp(lang, "codeSent")}
             </p>
-            <p data-testid="code-not-arrived" className="text-[15px] text-muted">{tp(lang, "codeNotArrived")}</p>
+            <p data-testid="code-not-arrived" className="text-[16px] text-muted">{tp(lang, "codeNotArrived")}</p>
             <PField label={tp(lang, "codeLabel")} hint={tp(lang, "codeHint")}>
               <PInput
                 big
@@ -160,10 +160,10 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
               {tp(lang, "signIn")}
             </PButton>
             <div className="flex flex-wrap gap-x-6">
-              <button type="button" onClick={() => sendCode()} disabled={busy} className="h-11 text-[15px] underline underline-offset-4 disabled:opacity-60">
+              <button type="button" onClick={() => sendCode()} disabled={busy} className="h-11 text-[16px] underline underline-offset-4 disabled:opacity-60">
                 {tp(lang, "resendCode")}
               </button>
-              <button type="button" onClick={() => { setStep("phone"); setError(null); setTries(0); }} className="h-11 text-[15px] underline underline-offset-4">
+              <button type="button" onClick={() => { setStep("phone"); setError(null); setTries(0); }} className="h-11 text-[16px] underline underline-offset-4">
                 {tp(lang, "changeNumber")}
               </button>
             </div>
@@ -173,13 +173,13 @@ export function LoginForm({ lang, demo, after }: { lang: Lang; demo: boolean; af
 
       {demo && (
         <details className="border border-dashed border-control bg-alcove px-5 py-3">
-          <summary className="flex min-h-12 cursor-pointer items-center text-[15px] font-medium">{tp(lang, "demoSummary")}</summary>
-          <p className="mt-2 text-sm text-muted">{tp(lang, "demoHelp")}</p>
+          <summary className="flex min-h-12 cursor-pointer items-center text-[16px] font-medium">{tp(lang, "demoSummary")}</summary>
+          <p className="mt-2 text-[16px] text-muted">{tp(lang, "demoHelp")}</p>
           <PButton variant="secondary" className="mt-3" onClick={showDemo} loading={demoBusy} disabled={phone.replace(/\D/g, "").length < 10}>
             {tp(lang, "demoShow")}
           </PButton>
           {demoText && (
-            <p role="status" className="mt-3 border border-rule bg-matte px-3 py-2 font-mono text-[15px] break-words">
+            <p role="status" className="mt-3 border border-rule bg-matte px-3 py-2 font-mono text-[16px] break-words">
               {demoText}
             </p>
           )}

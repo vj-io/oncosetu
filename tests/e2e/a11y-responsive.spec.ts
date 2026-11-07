@@ -1,10 +1,19 @@
-// Key pages at a 375 px phone width: no horizontal overflow and no console errors.
+// Key pages at a 375 px phone width: no horizontal overflow, no console errors and no automated WCAG 2.2 AA violations (axe-core).
+import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { portalLogin, registerPatient, uploadAndWait } from './helpers/api'
 import { createShare, seal } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
 
 const PHONE = { viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true }
+const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
+
+/** axe-core over the page as it is now (NFR-A11Y). Automated rules only: a manual audit is still needed for the rest of WCAG. */
+async function axe(page: Page, label: string) {
+  const { violations } = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze()
+  if (violations.length) await test.info().attach(`axe ${label}`, { body: JSON.stringify(violations, null, 2), contentType: 'application/json' })
+  expect.soft(violations.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`), `${label}: axe WCAG 2.2 AA`).toEqual([])
+}
 
 /** Opens `path`, waits for the page to settle, and reports overflow and console errors for it. */
 async function check(page: Page, errors: string[], label: string, path: string, ready: RegExp | string = 'main') {
@@ -16,6 +25,7 @@ async function check(page: Page, errors: string[], label: string, path: string, 
   const m = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }))
   expect.soft(m.scrollWidth, `${label}: horizontal overflow (scrollWidth ${m.scrollWidth} > ${m.innerWidth})`).toBeLessThanOrEqual(m.innerWidth)
   expect.soft([...errors], `${label}: console errors`).toEqual([])
+  await axe(page, label)
 }
 
 function watch(page: Page, errors: string[]) {
@@ -26,7 +36,7 @@ function watch(page: Page, errors: string[]) {
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`))
 }
 
-test('a11y/responsive: the key staff, portal and share pages fit a 375 px phone and log no console errors', async ({ staff, browser }) => {
+test('a11y/responsive: the key staff, portal and share pages fit a 375 px phone, log no console errors and pass axe WCAG 2.2 AA', async ({ staff, browser }) => {
   test.setTimeout(480_000)
   const records = await staff('records'), clinician = await staff('clinician')
   const p = await registerPatient(records, { base: 'hero', primaryContact: 'patient' })
@@ -49,18 +59,21 @@ test('a11y/responsive: the key staff, portal and share pages fit a 375 px phone 
   const m = await pub.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }))
   expect.soft(m.scrollWidth, '/s/[id] opened: horizontal overflow').toBeLessThanOrEqual(m.innerWidth)
   expect.soft([...errors], '/s/[id]: console errors').toEqual([])
+  await axe(pub, '/s/[id] opened')
+  await check(pub, errors, '/p/login', '/p/login')
   await anon.close()
 
   // Staff pages.
   const staffCtx = await records.browserContext(browser, PHONE)
   const sp = await staffCtx.newPage()
   watch(sp, errors)
-  for (const tab of ['overview', 'documents', 'ledger', 'completeness']) await check(sp, errors, `/patients/[id]/${tab}`, `/patients/${p.id}/${tab}`)
+  for (const tab of ['overview', 'documents', 'ledger', 'completeness', 'consent']) await check(sp, errors, `/patients/[id]/${tab}`, `/patients/${p.id}/${tab}`)
   await staffCtx.close()
   const deskCtx = await (await staff('desk')).browserContext(browser, PHONE)
   const dp = await deskCtx.newPage()
   watch(dp, errors)
   await check(dp, errors, '/desk', '/desk')
+  await check(dp, errors, '/patients/new', '/patients/new')
   await deskCtx.close()
 
   // Patient portal.
@@ -70,5 +83,6 @@ test('a11y/responsive: the key staff, portal and share pages fit a 375 px phone 
   watch(pp, errors)
   await check(pp, errors, '/p', '/p?lang=en')
   await check(pp, errors, '/p?lang=hi', '/p?lang=hi')
+  for (const path of ['/p/consent', '/p/upload', '/p/visit']) await check(pp, errors, path, `${path}?lang=en`)
   await pctx.close()
 })

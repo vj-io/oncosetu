@@ -15,7 +15,7 @@ export function DisputeDocument({ lang, documentId, flagged }: { lang: Lang; doc
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (flagged) return <p role="status" className="text-[15px] text-muted">{tp(lang, "disputeFlagged")}</p>;
+  if (flagged) return <p role="status" className="text-[16px] text-muted">{tp(lang, "disputeFlagged")}</p>;
 
   async function send() {
     if (!reason) return;
@@ -34,7 +34,7 @@ export function DisputeDocument({ lang, documentId, flagged }: { lang: Lang; doc
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center text-[15px] underline underline-offset-4">
+      <button type="button" onClick={() => setOpen(true)} className="inline-flex min-h-11 items-center text-[16px] underline underline-offset-4">
         {tp(lang, "disputeButton")}
       </button>
     );

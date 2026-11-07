@@ -47,7 +47,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
                   <FileText aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                   <div className="grid min-w-0 flex-1 gap-0.5">
                     <span className="text-[17px]">{d.label}</span>
-                    <span className="text-[15px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
+                    <span className="text-[16px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
                     <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
                   </div>
                 </Frame>
@@ -77,7 +77,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
                   <CalendarDays aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                   <div className="grid min-w-0 flex-1 gap-0.5">
                     <span className="text-[17px]">{d.text}</span>
-                    {d.source && <span className="text-[15px] text-muted">{d.source}</span>}
+                    {d.source && <span className="text-[16px] text-muted">{d.source}</span>}
                   </div>
                 </Frame>
               </li>

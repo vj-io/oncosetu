@@ -139,7 +139,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
   return (
     <div className="mt-8 grid gap-6">
       {paused && (
-        <div role="note" className="grid gap-3 border border-amber bg-amber-tint px-4 py-4 text-[15px] text-amber-ink">
+        <div role="note" className="grid gap-3 border border-amber bg-amber-tint px-4 py-4 text-[16px] text-amber-ink">
           <p>{tp(lang, "uploadPaused")}</p>
           <PLink href={`/p/consent?lang=${lang}`} variant="secondary" big className="w-full sm:w-auto">
             {tp(lang, "goToConsent")}
@@ -157,7 +157,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
         <input ref={cam} type="file" accept="image/*" capture="environment" className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
         <input ref={pick} type="file" multiple className="sr-only" tabIndex={-1} aria-hidden onChange={(e) => { add(e.target.files); e.target.value = ""; }} />
       </div>
-      <p className="text-[15px] text-muted">{tp(lang, "uploadKeepNote")}</p>
+      <p className="text-[16px] text-muted">{tp(lang, "uploadKeepNote")}</p>
 
       {error && <ErrorNote>{error}</ErrorNote>}
 
@@ -167,14 +167,14 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
             <li key={i.id} className="grid gap-2 border border-rule bg-surface px-4 py-3">
               <div className="flex items-start gap-3">
                 <FileText aria-hidden className="mt-0.5 size-5 shrink-0 text-faint" />
-                <span className="min-w-0 flex-1 break-words text-[15px]">{i.file.name}</span>
+                <span className="min-w-0 flex-1 break-words text-[16px]">{i.file.name}</span>
                 {(i.state === "failed" || i.state === "tooLarge" || i.state === "badType" || i.state === "done" || i.state === "duplicate") && (
                   <button type="button" onClick={() => remove(i.id)} aria-label={tp(lang, "remove")} className="-m-2 grid size-11 shrink-0 place-items-center hover:bg-spotlight">
                     <X aria-hidden className="size-4" />
                   </button>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[15px]" aria-live="polite">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[16px]" aria-live="polite">
                 {i.state === "waiting" && <span className="text-muted">{tp(lang, "fileWaiting")}</span>}
                 {i.state === "preparing" && <span className="inline-flex items-center gap-2 text-muted"><LoaderCircle aria-hidden className="ds-spin size-4" />{tp(lang, "filePreparing")}</span>}
                 {i.state === "uploading" && <span className="text-muted">{tp(lang, "fileUploading", { pct: i.pct })}</span>}
@@ -200,7 +200,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
         </ul>
       )}
 
-      {busy && <p role="status" className="text-[15px] text-muted">{tp(lang, "uploadSending")}</p>}
+      {busy && <p role="status" className="text-[16px] text-muted">{tp(lang, "uploadSending")}</p>}
       {!busy && received && (
         <div role="status" className="grid gap-3 border border-sage bg-sage-tint px-4 py-4">
           <p className="flex items-start gap-2 text-[17px] text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tp(lang, "uploadReceived")}</p>

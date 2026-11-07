@@ -181,7 +181,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
               <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files · 50 MB per file, 200 MB per ZIP.</p>
               <p className="text-sm text-muted">OncoSetu keeps the scan and reads the written report; it doesn’t interpret images.</p>
             </div>
-            <input ref={input} type="file" multiple className="sr-only" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
+            <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
             <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>Choose files</Button>
           </div>
 

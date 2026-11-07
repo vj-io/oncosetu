@@ -39,7 +39,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
 
         <div>
           <h2 className="text-xl">{tv(lang, 'purposesTitle')}</h2>
-          <p className="mt-1 max-w-prose text-[15px] text-muted">{tv(lang, 'purposesIntro')}</p>
+          <p className="mt-1 max-w-prose text-[16px] text-muted">{tv(lang, 'purposesIntro')}</p>
           <ConsentPanel
             lang={lang}
             initial={view.purposes}
@@ -63,8 +63,8 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
             <li>{tv(lang, 'rightErase')}</li>
             <li>{tv(lang, 'rightGrievance')}</li>
           </ul>
-          <p className="font-mono text-[15px]" data-testid="grievance">{tv(lang, 'grievanceOfficer')}</p>
-          <p className="text-[15px] text-muted">{tv(lang, 'grievanceBlank')}</p>
+          <p className="font-mono text-[16px]" data-testid="grievance">{tv(lang, 'grievanceOfficer')}</p>
+          <p className="text-[16px] text-muted">{tv(lang, 'grievanceBlank')}</p>
         </section>
 
         <section aria-labelledby="id-h" className="grid gap-2 border border-rule bg-surface px-5 py-5">
@@ -74,12 +74,12 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
               ? tv(lang, 'idRecorded', { type: ID_TYPE_LABEL[privacy.idRecord.idType][lang], masked: privacy.idRecord.masked, by: privacy.idRecord.verifiedBy, date: formatDateTimeIN(new Date(privacy.idRecord.verifiedAt), lang) })
               : tv(lang, 'idNone')}
           </p>
-          <p className="text-[15px] text-muted">{tv(lang, 'idNote')}</p>
+          <p className="text-[16px] text-muted">{tv(lang, 'idNote')}</p>
         </section>
 
         <section aria-labelledby="future-h" className="grid gap-2 border border-dashed border-rule px-5 py-4">
           <h2 id="future-h" className="text-lg">{tv(lang, 'futureTitle')}</h2>
-          <p className="text-[15px] text-muted">{tv(lang, 'futureText')}</p>
+          <p className="text-[16px] text-muted">{tv(lang, 'futureText')}</p>
         </section>
       </div>
       <p className="sr-only">{tp(lang, 'consentTitle')}</p>

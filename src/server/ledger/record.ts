@@ -106,7 +106,11 @@ export async function loadTimeline(tx: Tx, patientId: string, now: Date, asOf: s
   }
   const rows = await loadRecordRows(tx, patientId)
   const { record, rowById } = assembleRecord(rows)
-  const conflicts = new Set(diffLedger(null, record, now.toISOString()).conflicts.filter((c) => !isResolved(c, rowById)).flatMap((c) => [c.a.id, c.b.id]))
+  const ledger = diffLedger(null, record, now.toISOString())
+  const conflicts = new Set(ledger.conflicts.filter((c) => !isResolved(c, rowById)).flatMap((c) => [c.a.id, c.b.id]))
+  // The live timeline shows each real event once; the copies stay listed under "Duplicates hidden" on What's new. Sealed copies are never touched.
+  const hidden = new Set(ledger.duplicates_suppressed.ids)
+  const shown = { ...record, events: record.events.filter((e) => !hidden.has(e.id)) }
   const quoteByHash = new Map(rows.evidence.filter((x) => x.quoteSha256 && x.quote).map((x) => [x.quoteSha256!, x.quote!]))
-  return { view: buildTimeline(buildSnapshot(record, now.toISOString()), { quoteByHash, conflicts }, filters), asOf: null, snapshots: snaps }
+  return { view: buildTimeline(buildSnapshot(shown, now.toISOString()), { quoteByHash, conflicts }, filters), asOf: null, snapshots: snaps }
 }

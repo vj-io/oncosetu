@@ -19,8 +19,10 @@ export type ConsentRowInput = {
 }
 
 export async function insertConsent(tx: Tx, c: ConsentRowInput): Promise<string> {
+  // The desk steps do not show the "team discussion" purpose: an update keeps whatever the patient chose, it never resets it.
+  const team = c.action === 'withdraw' ? false : (c.purposes.team ?? !!(await activeConsent(tx, c.patientId))?.purposes.team)
   const [row] = await tx.insert(consents).values({
-    orgId: c.orgId, patientId: c.patientId, action: c.action, purposes: c.purposes, actorType: c.actorType, actorId: c.actorId,
+    orgId: c.orgId, patientId: c.patientId, action: c.action, purposes: { ...c.purposes, team }, actorType: c.actorType, actorId: c.actorId,
     method: c.method, witnessedBy: c.witnessedBy ?? null, noticeVersion: c.noticeVersion, language: c.language,
   }).returning({ id: consents.id })
   return row.id

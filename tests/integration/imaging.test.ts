@@ -57,6 +57,8 @@ describe('imaging intake', () => {
     const r = await ingest(dcm, 'chest.dcm')
     const d = await load(r.documents[0].documentId)
     expect(d).toMatchObject({ mime: 'application/dicom', identityResult: 'match', attachState: 'auto', status: 'done' })
+    // the identity table shows what the header says, so the match is visibly justified
+    expect((d.identityDetails as { header: Record<string, { value: string }> }).header).toMatchObject({ name: { value: 'Sunita Deshmukh' }, sex: { value: 'Female' }, age: { value: '51 Y' } })
     expect(d.flags.file).toMatchObject({ kind: 'dicom', category: 'scan', storedOnly: true, note: 'Imaging file — stored, not read' })
     expect(d.flags.imaging).toMatchObject({ modalityLabel: 'X-ray', studyDate: '2026-03-20' })
     const ev = await owner`select count(*)::int as n from events where document_id = ${d.id}`
@@ -68,6 +70,7 @@ describe('imaging intake', () => {
     const dcm = await c.syn.buildSyntheticDicom({ modality: 'CT', patientName: 'Kulkarni^Rajesh', sex: 'M', age: '062Y', studyUid: '1.2.3.2', size: 48 })
     const d = await load((await ingest(dcm, 'wrong.dcm')).documents[0].documentId)
     expect(d).toMatchObject({ identityResult: 'mismatch', attachState: 'pending_decision', status: 'needs_review' })
+    expect((d.identityDetails as { header: Record<string, { value: string }> }).header.name.value).toBe('Rajesh Kulkarni') // the mismatching name is shown
   }, 60_000)
 
   it('holds a DICOM whose sex disagrees with the record even if the name is close', async () => {

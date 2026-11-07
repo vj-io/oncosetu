@@ -63,14 +63,10 @@ export function ConsentPanel({
     setBusy(null);
   }
 
-  async function withdraw() {
-    setBusy("withdraw");
-    if (await post("/api/p/consent", { withdraw: true, lang })) {
-      setPurposes({ store: false, ai: false, share: false, abdm: false, metrics: false, team: false });
-      setNote({ kind: "withdrawn", text: tp(lang, "withdrawDone") });
-      setUpdated(formatDateTimeIN(new Date(), lang));
-    }
-    setBusy(null);
+  /** Withdrawal is always signed: the button takes the person to the signature step, which records the withdrawal and the signed PDF together. */
+  function withdraw() {
+    window.dispatchEvent(new CustomEvent("consent:sign-withdraw"));
+    document.getElementById("sign-h")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   /** J8: only offered once permission is withdrawn. The server answers with the date the records become eligible for removal. */

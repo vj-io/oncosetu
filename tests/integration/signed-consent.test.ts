@@ -90,3 +90,18 @@ describe('signed consent', () => {
     }).catch((e) => { if (e.message !== 'rollback') throw e })
   })
 })
+
+describe('desk consent keeps the team purpose', () => {
+  it('a desk update without the team purpose does not reset it; a withdrawal clears it', async () => {
+    const { db } = await imp()
+    const { insertConsent } = await import('../../src/server/registration/consent')
+    const [s] = await owner`select id from staff where org_id = ${ORG_NARMADA_ID} and role = 'desk' limit 1`
+    const row = (action: 'grant' | 'update' | 'withdraw', purposes: object) => db.withOrg(ORG_NARMADA_ID, (tx) => insertConsent(tx, { orgId: ORG_NARMADA_ID, patientId: minor, action, purposes: purposes as never, actorType: 'staff', actorId: s.id, method: 'desk_assisted', witnessedBy: s.id, noticeVersion: 'v1', language: 'en' }))
+    await row('grant', { store: true, ai: false, share: false, abdm: false, metrics: false, team: true })
+    await row('update', { store: true, ai: true, share: false, abdm: false, metrics: false }) // the desk form has no team switch
+    const last = async () => (await owner`select purposes from consents where patient_id = ${minor} order by recorded_at desc, id desc limit 1`)[0].purposes
+    expect((await last()).team).toBe(true)
+    await row('withdraw', { store: false, ai: false, share: false, abdm: false, metrics: false })
+    expect((await last()).team).toBe(false)
+  })
+})

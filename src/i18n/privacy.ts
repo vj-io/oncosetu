@@ -115,6 +115,7 @@ export const privacyCopy = {
   signButton: { en: 'Sign and save', hi: 'हस्ताक्षर करें और सहेजें', hinglish: 'Sign karein aur save karein' },
   signWithdrawButton: { en: 'Sign a withdrawal of all consent', hi: 'सारी सहमति वापस लेने पर हस्ताक्षर करें', hinglish: 'Saari consent wapas lene par sign karein' },
   signDone: { en: 'Signed and saved. A copy is kept with your documents.', hi: 'हस्ताक्षर हो गए और सहेज लिए गए। एक प्रति आपके दस्तावेज़ों के साथ रखी गई है।', hinglish: 'Sign ho gaya aur save ho gaya. Ek copy aapke documents ke saath rakhi gayi hai.' },
+  signWithdrawBanner: { en: 'You are withdrawing your permission. Sign below to confirm. Nothing changes until you sign.', hi: 'आप अपनी अनुमति वापस ले रहे हैं। पुष्टि के लिए नीचे हस्ताक्षर करें। हस्ताक्षर करने तक कुछ नहीं बदलता।', hinglish: 'Aap apni permission wapas le rahe hain. Confirm karne ke liye neeche sign karein. Sign karne tak kuch nahi badalta.' },
   signedList: { en: 'Signed forms', hi: 'हस्ताक्षरित फ़ॉर्म', hinglish: 'Signed forms' },
   signedNone: { en: 'Nothing signed yet.', hi: 'अभी कुछ हस्ताक्षरित नहीं है।', hinglish: 'Abhi kuch signed nahi hai.' },
   viewPdf: { en: 'Open or print (PDF)', hi: 'खोलें या प्रिंट करें (PDF)', hinglish: 'Kholein ya print karein (PDF)' },

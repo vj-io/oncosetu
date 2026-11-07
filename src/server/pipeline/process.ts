@@ -216,7 +216,7 @@ async function processStored(orgId: string, doc: typeof documents.$inferSelect, 
     const keep = doc.attachState === 'attached' || doc.attachState === 'rejected' || doc.attachState === 'detached'
     const attachState = keep ? doc.attachState : d.result === 'match' ? 'auto' : 'pending_decision'
     await tx.update(documents).set({
-      identityResult: d.result, identityDetails: { ...d, header: img ? { name: img.patientName ?? null, sex: img.patientSex ?? null, age: img.patientAge ?? null } : {} }, attachState,
+      identityResult: d.result, identityDetails: { ...d, header: img ? Object.fromEntries(([['name', img.patientName], ['sex', img.patientSex === 'F' ? 'Female' : img.patientSex === 'M' ? 'Male' : img.patientSex], ['age', img.patientAge], ['dob', img.patientDob], ['reportDate', img.studyDate]] as const).filter(([, v]) => v).map(([k, v]) => [k, { value: v }])) : {} }, attachState,
       documentDate: img?.studyDate ?? doc.documentDate, institutionName: img?.institution ?? doc.institutionName, docType: 'other', pages: 0, updatedAt: new Date(),
     }).where(eq(documents.id, documentId))
     return { d, attachState }

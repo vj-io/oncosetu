@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CircleCheck, FileText } from "lucide-react";
 import { SignaturePad } from "@/components/consent/SignaturePad";
@@ -24,6 +24,12 @@ export function SignConsent({ lang, purposes, relation, defaultName, signed }: {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const none = !purposes.store;
+  const [withdrawMode, setWithdrawMode] = useState(false);
+  useEffect(() => {
+    const on = () => setWithdrawMode(true); // the Withdraw button above leads here
+    window.addEventListener("consent:sign-withdraw", on);
+    return () => window.removeEventListener("consent:sign-withdraw", on);
+  }, []);
 
   async function sign(withdraw: boolean) {
     setBusy(withdraw ? "withdraw" : "sign"); setError(null); setDone(false);
@@ -47,6 +53,7 @@ export function SignConsent({ lang, purposes, relation, defaultName, signed }: {
     <section aria-labelledby="sign-h" className="grid gap-4 border border-rule bg-surface px-5 py-5" data-testid="sign-consent">
       <h2 id="sign-h" className="text-xl">{tv(lang, "signTitle")}</h2>
       <p className="text-[17px] text-muted">{tv(lang, "signIntro")}</p>
+      {withdrawMode && <p role="status" data-testid="withdraw-banner" className="border border-madder bg-madder-tint px-4 py-3 text-[17px] text-madder-ink">{tv(lang, "signWithdrawBanner")}</p>}
       <p className="text-[15px]">{tv(lang, "signAs", { who: tv(lang, `who_${relation}` as "who_self") })}</p>
       <PField label={tv(lang, "signName")}>
         <PInput big value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="sign-name" />
@@ -64,8 +71,8 @@ export function SignConsent({ lang, purposes, relation, defaultName, signed }: {
       {error && <ErrorNote>{error}</ErrorNote>}
       {done && <p role="status" className="flex items-start gap-2 border border-sage bg-sage-tint px-4 py-3 text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "signDone")}</p>}
       <div className="flex flex-wrap gap-3">
-        <PButton big loading={busy === "sign"} disabled={!ready || busy !== null || none} onClick={() => sign(false)} data-testid="sign-save">{tv(lang, "signButton")}</PButton>
-        <PButton big variant="secondary" loading={busy === "withdraw"} disabled={!ready || busy !== null} onClick={() => sign(true)}>{tv(lang, "signWithdrawButton")}</PButton>
+        {!withdrawMode && <PButton big loading={busy === "sign"} disabled={!ready || busy !== null || none} onClick={() => sign(false)} data-testid="sign-save">{tv(lang, "signButton")}</PButton>}
+        <PButton big variant={withdrawMode ? "danger" : "secondary"} loading={busy === "withdraw"} disabled={!ready || busy !== null} onClick={() => sign(true)} data-testid="sign-withdraw">{tv(lang, "signWithdrawButton")}</PButton>
       </div>
       <div>
         <h3 className="text-lg">{tv(lang, "signedList")}</h3>

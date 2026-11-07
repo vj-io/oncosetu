@@ -41,7 +41,6 @@ export function ImagingViewer({ documentId, details, canView }: { documentId: st
             <input type="range" min={0} max={slices - 1} value={i} onChange={(e) => { setFailed(null); setI(Number(e.target.value)); }} aria-label="Scroll through the images" data-testid="slice-slider" />
           </label>
         )}
-        <p className="text-sm font-medium" data-testid="imaging-note">Imaging file — stored, not read</p>
         <p className="text-sm text-muted">This is a picture of the file. OncoSetu does not interpret images and shows no findings.</p>
       </div>
       <dl className="grid content-start gap-2 border border-rule bg-surface p-4 text-[15px]">

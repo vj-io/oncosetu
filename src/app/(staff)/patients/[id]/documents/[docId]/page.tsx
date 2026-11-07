@@ -146,17 +146,16 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
       {/* Scans, ECG, video: stored and shown, never read */}
       {storedOnly && !quarantine && (
         <section aria-labelledby="stored-h" className="grid gap-4">
-          <h2 id="stored-h" className="ds-kicker">{fileInfo?.label ?? 'File'} · stored, not read</h2>
+          <h2 id="stored-h" className="text-lg font-medium" data-testid="stored-note">{fileInfo?.note ?? 'File — stored, not read'}</h2>
           {doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study'
             ? (imaging
               ? <ImagingViewer documentId={doc.id} details={imaging} canView />
-              : <Notice tone="shadow" icon={<ScanText />} title="Imaging file — stored, not read">{fileInfo?.previewNote ?? 'The header could not be read. The file is stored as it came.'}</Notice>)
+              : <Notice tone="shadow" icon={<ScanText />} title="The header could not be read">{fileInfo?.previewNote ?? 'The file is stored as it came.'}</Notice>)
             : doc.mime === 'application/pdf'
               ? <div className="max-h-[40rem] overflow-y-auto border border-rule"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
             : doc.mime.startsWith('video/')
               ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
-              : <Notice tone="shadow" icon={<ScanText />} title={fileInfo?.note ?? 'File — stored, not read'}>The file is kept exactly as it arrived. Open the original to view it with the right program.</Notice>}
-          {!(doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study') && <p className="text-sm font-medium" data-testid="stored-note">{fileInfo?.note}</p>}
+              : <Notice tone="shadow" icon={<ScanText />} title="Kept exactly as it arrived">Open the original to view it with the right program.</Notice>}
         </section>
       )}
 

@@ -51,11 +51,11 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
   await expect(rec.getByRole('heading', { name: 'Everything on file so far' })).toBeVisible()
-  const bulkButton = rec.getByRole('button', { name: /Verify opened items \(\d+\)/ })
+  const bulkButton = rec.getByRole('button', { name: /Mark opened items as checked \(\d+\)/ })
   const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
   expect(eligible).toBeGreaterThan(0)
   await bulkButton.click()
-  await rec.getByRole('dialog').getByRole('button', { name: `Verify ${eligible}` }).click()
+  await rec.getByRole('dialog').getByRole('button', { name: `Mark ${eligible} as checked` }).click()
   await expect(rec.getByText(`${eligible} verified`)).toBeVisible()
   const evs = (await eventsOf(p.id)).filter((e) => !e.withdrawnAt)
   const verified = evs.filter((e) => e.verificationStatus === 'verified_matches_source').length
@@ -65,12 +65,12 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   // The clinician sees the document index with provenance and seals S0 with partial verification.
   const clin = await ui('clinician')
   await clin.goto(`/patients/${p.id}/ledger`)
-  await expect(clin.getByText('Unsealed')).toBeVisible()
+  await expect(clin.getByText(/No visit has been sealed yet/)).toBeVisible()
   await expect(clin.getByText(/Verified · matches source/).first()).toBeVisible()
-  await expect(clin.getByText(/Not yet verified/).first()).toBeVisible()
-  await clin.getByRole('button', { name: 'Seal snapshot S0' }).click()
-  await clin.getByRole('dialog').getByRole('button', { name: 'Press the seal' }).click()
-  await expect(clin.getByRole('dialog').getByText('Snapshot S0 sealed')).toBeVisible()
+  await expect(clin.getByText(/^Unverified$/).first()).toBeVisible()
+  await clin.getByRole('button', { name: 'Seal this visit' }).click()
+  await clin.getByRole('dialog').getByRole('button', { name: 'Seal it' }).click()
+  await expect(clin.getByRole('dialog', { name: 'Visit sealed' })).toBeVisible()
   const [s0] = await snapshotsOf(p.id)
   expect(s0.seq).toBe(0)
   const counts = JSON.parse(s0.canonicalJson) as { verified: unknown[]; unverified: unknown[]; documents: unknown[] }
@@ -169,7 +169,10 @@ test('V03-E2E-03 a 2024 report uploaded after S0 is "Newly received older record
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Older papers that arrived late')).toBe(1)
+  // every fact from the late report (its report line and the impression copied for staff) is listed as arrived late
+  const fromLate = (await eventsOf(p.id)).filter((e) => e.documentId === late.documentId && !e.withdrawnAt)
+  expect(fromLate.length).toBeGreaterThan(0)
+  expect(await count(page, 'Older papers that arrived late')).toBe(fromLate.length)
   expect(await count(page, 'New since the last visit')).toBe(0)
   await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Mammography')
   await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Older paper that arrived late')

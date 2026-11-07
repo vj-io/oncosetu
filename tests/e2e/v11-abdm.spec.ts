@@ -85,8 +85,8 @@ test('V11 J6 ABDM: request → patient approves → structured events in ledger 
   // The clinician's ledger lists them as newly received older records, labelled as ABDM structured.
   const cl = await ui('clinician')
   await cl.goto(`/patients/${p.id}/ledger`)
-  expect(await count(cl, 'Newly received older records')).toBe(7)
-  const older = sectionOf(cl, 'Newly received older records')
+  expect(await count(cl, 'Older papers that arrived late')).toBe(7)
+  const older = sectionOf(cl, 'Older papers that arrived late')
   await expect(older).toContainText('ABDM record · Structured')
   await expect(older).toContainText('Wide local excision, left breast')
   // Its source link opens the FHIR source view on that resource (and logs the view, FR-VER-03).

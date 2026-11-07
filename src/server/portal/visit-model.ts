@@ -127,7 +127,8 @@ export function buildReadback(answers: Answers, lang: Lang): Readback {
       d = details(q, a, lang)
       key = d ? `rb_${q}_yes` : `rb_${q}_yes_plain`
     } else key = `rb_${q}_${a.yn}`
-    lines.push({ q, text: tp(lang, key as PatientKey, { details: d }) })
+    // the sentence supplies its own full stop: "…subah shaam." from voice typing must not read "…subah shaam.."
+    lines.push({ q, text: tp(lang, key as PatientKey, { details: d.replace(/[\s.।!?]+$/u, '') }) })
   }
   return { intro: tp(lang, 'reviewIntro'), lines }
 }

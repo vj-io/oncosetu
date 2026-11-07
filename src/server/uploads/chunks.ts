@@ -3,10 +3,10 @@
 // bytes to the normal upload path. Resumable: a session reports which chunks it already has, and a chunk can be re-sent.
 // Chunks are deleted as soon as the file is assembled (or the session is aborted or expired).
 import { createHash } from 'node:crypto'
-import { and, asc, eq, lt } from 'drizzle-orm'
+import { and, asc, eq, lt, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { uploadChunks, uploadSessions } from '@/db/schema'
-import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
+import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, STORAGE_BUDGET_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
 import { decryptBytes, encryptBytes, encryptField } from '../crypto'
 import { HttpError } from '../http'
 
@@ -29,6 +29,9 @@ export function checkStart(i: Pick<StartInput, 'fileName' | 'totalSize' | 'total
 export async function startUpload(tx: Tx, i: StartInput): Promise<{ id: string; chunkBytes: number }> {
   const c = checkStart(i)
   if (!c.ok) throw new HttpError(c.code === 'file_too_large' ? 413 : 400, c.code, c.message)
+  // Files are stored in the database twice while uploading (chunks, then the file), so refuse before the quota is reached.
+  const [{ used }] = await tx.execute<{ used: string }>(sql`select pg_database_size(current_database())::text as used`)
+  if (Number(used) + 2 * i.totalSize > STORAGE_BUDGET_BYTES) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
   const [row] = await tx.insert(uploadSessions).values({
     orgId: i.orgId, patientId: i.patientId, uploaderKind: i.uploader.kind, uploaderId: i.uploader.id, fileNameEnc: encryptField(i.fileName.slice(0, 200)),
     totalSize: i.totalSize, totalChunks: i.totalChunks, sha256: i.sha256, intakeRoute: i.intakeRoute, encounterId: i.encounterId ?? null,

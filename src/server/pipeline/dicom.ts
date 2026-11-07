@@ -2,6 +2,7 @@
 // as a picture; we do not interpret the picture. Pure over bytes.
 import dicomParser, { type DataSet } from 'dicom-parser'
 import sharp from 'sharp'
+import { MAX_PREVIEW_PIXELS } from '@/core/limits'
 
 export type DicomMeta = {
   modality: string | null
@@ -157,6 +158,9 @@ async function renderEcgWaveform(ds: DataSet): Promise<Preview | null> {
   return { ok: true, png: await sharp(Buffer.from(svg)).png().toBuffer(), frames: 1, frame: 0, windowed: false }
 }
 
+/** The header's size drives every preview buffer: a picture too big to draw is refused before gigabytes are allocated for it. */
+export const tooBigToDraw = (rows: number, cols: number, samples: number) => rows * cols * samples > MAX_PREVIEW_PIXELS
+
 /** Renders one frame as a PNG (window/level from the header when present). Never throws: unsupported files return a plain note. */
 export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): Promise<Preview> {
   let ds: DataSet
@@ -175,6 +179,7 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
   const photometric = str(ds, 'x00280004') ?? 'MONOCHROME2'
   const bps = alloc > 8 ? 2 : 1
   const px = rows * cols
+  if (tooBigToDraw(rows, cols, ds.uint16('x00280002') ?? 1)) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
   try {
     if (JPEG_BASELINE.has(ts)) {
       const frag = el.fragments?.length === frames ? dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, frame, 1)

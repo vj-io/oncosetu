@@ -1,7 +1,7 @@
 import { zipSync, strToU8 } from 'fflate'
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { modalityWord, readDicomMeta, renderDicomFrame, studyLabel } from './dicom'
+import { modalityWord, readDicomMeta, renderDicomFrame, studyLabel, tooBigToDraw } from './dicom'
 import { buildSyntheticDicom } from './dicom-synthetic'
 import { CATEGORY_LABEL, isStoredOnly, sniffFile, storedNote } from './filetypes'
 
@@ -82,6 +82,17 @@ describe('DICOM header and preview', () => {
     if (p.ok) expect((await sharp(p.png).metadata())).toMatchObject({ format: 'png', width: 64, height: 64 })
     expect(await renderDicomFrame(d, 0)).toMatchObject({ ok: true, frame: 0 })
     expect(await renderDicomFrame(d, 99)).toMatchObject({ ok: true, frame: 4 })
+  })
+  it('refuses to draw a header that claims a huge picture instead of allocating for it (decompression bomb)', async () => {
+    expect(tooBigToDraw(4096, 4096, 1)).toBe(false)
+    expect(tooBigToDraw(4096, 4096, 3)).toBe(true)
+    expect(tooBigToDraw(40000, 40000, 1)).toBe(true) // would be 3.2 GB for 16-bit RLE output, 6.4 GB as floats
+    const d = await buildSyntheticDicom({ modality: 'PT', patientName: 'A^B', studyUid: '1.2.7', size: 48, rle: true })
+    for (const tag of [[0x28, 0x00, 0x10, 0x00], [0x28, 0x00, 0x11, 0x00]]) { // Rows, Columns (US)
+      const at = d.indexOf(Buffer.from([...tag, 0x55, 0x53, 0x02, 0x00]))
+      d.writeUInt16LE(40000, at + 8)
+    }
+    expect(await renderDicomFrame(d)).toMatchObject({ ok: false, reason: 'compression' })
   })
   it('decodes RLE-compressed files to the same picture as the uncompressed one', async () => {
     const raw = await renderDicomFrame(await buildSyntheticDicom({ modality: 'PT', patientName: 'A^B', studyUid: '1.2.6', size: 48 }))

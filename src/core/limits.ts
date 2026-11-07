@@ -13,6 +13,10 @@ export const MAX_ZIP_RATIO = 200
 export const CHUNK_BYTES = 3.5 * MB
 /** Largest single plain request body for the old one-shot upload. */
 export const ONE_SHOT_BYTES = 4 * MB
+/** Database storage an upload may fill up to (files live in Postgres; Neon's free plan stops writes at 512 MB). */
+export const STORAGE_BUDGET_BYTES = Number(process.env.STORAGE_BUDGET_MB ?? 450) * MB
+/** Largest picture the DICOM preview will draw (4096 x 4096); bigger headers get the "file stored" note instead. */
+export const MAX_PREVIEW_PIXELS = 4096 * 4096
 /** A started chunked upload expires after this long. */
 export const UPLOAD_SESSION_HOURS = 6
 

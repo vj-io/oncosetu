@@ -5,6 +5,7 @@ const WORDS: Record<string, string> = {
   'document.upload': 'Document added',
   'document.duplicate_upload': 'Same file uploaded again (not added twice)',
   'document.quarantined': 'File set aside as unsafe or unsupported',
+  'document.sanitised': 'Scripts or attached files removed from a PDF; the clean copy was kept',
   'document.processed': 'Document read by the system',
   'document.unreadable': 'Document could not be read',
   'document.identity_decision': 'A person decided whose document it is',

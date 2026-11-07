@@ -1,10 +1,10 @@
 // V01-E2E-01..09 (PRD §13, v0.1 Foundation). Everything runs in the Ganga org with synthetic patients.
 import { CONSENT_NOTICE_VERSION } from '../../src/i18n/consent'
 import { createHash } from 'node:crypto'
-import { Api, anonymous, demoDoc, demoPatient, freshPhone, portalLogin, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc, waitForSms } from './helpers/api'
+import { ALL_PURPOSES, Api, anonymous, demoDoc, demoPatient, freshPhone, portalLogin, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc, waitForSms } from './helpers/api'
 import { closeEncounters, consentsOf, documentsOf, smsAbout, smsTo } from './helpers/db'
 import { EMAIL, PASSWORD } from './helpers/env'
-import { createShare, javascriptPdf, parseCsv, seal } from './helpers/flows'
+import { createShare, parseCsv, seal, unparseableJavascriptPdf, withActiveContent } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
 import { diagnosisHits } from './helpers/text'
 import { totpFor, wrongTotpFor } from './helpers/totp'
@@ -135,13 +135,28 @@ test('V01-E2E-04 upload 3 PDFs + 2 images, retrieve them; a duplicate is linked,
   expect((await records.get(`/api/patients/${p.id}/documents`)).body.rows).toHaveLength(5)
 })
 
-test('V01-E2E-05 a PDF with JavaScript is quarantined and never served or processed', async ({ staff }) => {
+test('V01-E2E-05 a PDF with JavaScript or an embedded file is stripped and the clean copy kept; one that cannot be cleaned is quarantined', async ({ staff }) => {
   const records = await staff('records')
-  const p = await registerPatient(records, { base: 'returning' })
-  const bad = javascriptPdf()
+  const p = await registerPatient(records, { base: 'returning', purposes: { ...ALL_PURPOSES, ai: false } }) // rules only: no LLM call
+  // FR-ING-08: the active content is removed; the clean copy is what is stored, processed and served.
+  const hostile = await withActiveContent(demoDoc('returning__01-discharge-summary.pdf').buffer)
+  const clean = await uploadFile(records, p.id, { name: 'discharge.pdf', buffer: hostile })
+  expect(clean.status).toBe('queued')
+  const done = await waitDoc(records, clean.documentId)
+  expect(done.status).not.toBe('quarantined')
+  expect(done.events).toBeGreaterThan(0)
+  const [kept] = await documentsOf(p.id)
+  expect((kept.flags as { sanitised?: { removed: string[] } }).sanitised?.removed).toEqual(expect.arrayContaining(['pdf_JavaScript', 'pdf_EmbeddedFile', 'pdf_OpenAction']))
+  const served = await (await records.ctx.get(`/api/documents/${clean.documentId}/file`)).body()
+  expect(served.subarray(0, 5).toString('latin1')).toBe('%PDF-')
+  for (const s of ['/JavaScript', '/JS', '/OpenAction', '/EmbeddedFile', 'payload.exe']) expect(served.toString('latin1'), s).not.toContain(s)
+  const again = await uploadFile(records, p.id, { name: 'discharge-again.pdf', buffer: hostile })
+  expect(again.duplicateOf).toBe(clean.documentId) // sanitising is deterministic, so a re-upload still dedupes
+
+  const bad = unparseableJavascriptPdf()
   const up = await uploadFile(records, p.id, { name: 'invoice.pdf', buffer: bad })
   expect(up.status).toBe('quarantined')
-  const [doc] = await documentsOf(p.id)
+  const doc = (await documentsOf(p.id)).find((d) => d.id === up.documentId)!
   expect(doc.status).toBe('quarantined')
   expect((doc.flags as { quarantine?: { reasons: string[] } }).quarantine?.reasons).toEqual(expect.arrayContaining(['pdf_JavaScript']))
   // Kept encrypted, but not openable and not processed.
@@ -220,7 +235,7 @@ test('V01-E2E-08 the patient audit tab lists the actions; audit rows hold ids on
   await desk.post('/api/desk/lookup', { mode: 'token', value: p.token })
   const first = await uploadAndWait(records, p.id, 'returning__01-discharge-summary.pdf')
   await uploadDemo(records, p.id, 'returning__01-discharge-summary.pdf') // duplicate
-  const js = await uploadFile(records, p.id, { name: 'scan.pdf', buffer: javascriptPdf() })
+  const js = await uploadFile(records, p.id, { name: 'scan.pdf', buffer: unparseableJavascriptPdf() })
   await records.get(`/api/documents/${first.documentId}/file`) // viewing a document is an action too
 
   const page = await ui('records')

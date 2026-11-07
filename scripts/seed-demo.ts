@@ -473,7 +473,7 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
 
   // share link: opens with the passcode on both origins and decrypts with the fragment key
   console.log('\n── SHARE LINK (fulfilled patient, passcode ' + SHARE_PASSCODE + ', 7 days)')
-  for (const origin of BASE.includes('localhost') ? [BASE] : [BASE, DEPLOYED]) // a local run never touches the live site {
+  for (const origin of BASE.includes('localhost') ? [BASE] : [BASE, DEPLOYED]) { // a local run never touches the live site
     const url = `${origin}/s/${out.shareId}#${out.shareKey}`
     try {
       const o = await new Client('viewer', origin).post(`/api/shares/${out.shareId}/open`, { passcode: SHARE_PASSCODE })

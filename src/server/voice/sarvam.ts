@@ -43,11 +43,15 @@ const keyOrThrow = () => {
   return key
 }
 
-/** Sarvam's keyterm rules: up to 50 terms, each at most 64 characters, one term per item, no duplicates. */
+/**
+ * Sarvam's keyterm rules: up to 50 terms, each at most 64 characters, one term per item, no duplicates. An item with a
+ * comma or semicolon is refused with a 400 for the whole request (checked live: "City Care Hospital, Nagpur"), so such a
+ * name becomes its parts.
+ */
 export function cleanKeyterms(terms: readonly string[]): string[] {
   const seen = new Set<string>()
   const out: string[] = []
-  for (const raw of terms) {
+  for (const raw of terms.flatMap((t) => t.split(/[,;]/))) {
     const t = raw.replace(/\s+/g, ' ').trim()
     if (!t || t.length > MAX_KEYTERM_CHARS || seen.has(t.toLowerCase())) continue
     seen.add(t.toLowerCase())

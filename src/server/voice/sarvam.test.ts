@@ -103,6 +103,10 @@ describe('cleanKeyterms', () => {
     expect(cleanKeyterms(['  Tab  Capecitabine ', 'TAB CAPECITABINE', '', 'y'.repeat(64)])).toEqual(['Tab Capecitabine', 'y'.repeat(64)])
     expect(cleanKeyterms(Array.from({ length: 80 }, (_, i) => `drug${i}`))).toHaveLength(MAX_KEYTERMS)
   })
+
+  it('splits a name with a comma or semicolon into its parts (Sarvam refuses the whole request otherwise)', () => {
+    expect(cleanKeyterms(['City Care Hospital, Nagpur', 'Tata Memorial; Mumbai', 'Nagpur'])).toEqual(['City Care Hospital', 'Nagpur', 'Tata Memorial', 'Mumbai'])
+  })
 })
 
 describe('speak (Sarvam Bulbul)', () => {

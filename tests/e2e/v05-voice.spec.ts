@@ -27,7 +27,12 @@ test.beforeAll(async () => {
     req.on('end', () => {
       seen.push({ path: req.url ?? '', key: req.headers['api-subscription-key'] as string | undefined, body: Buffer.concat(chunks), type: req.headers['content-type'] })
       res.setHeader('content-type', 'application/json')
-      if (req.url === '/speech-to-text') return res.end(JSON.stringify({ request_id: 'stub', transcript: 'Tab Capecitabine 500', language_code: 'en-IN' }))
+      if (req.url === '/speech-to-text') {
+        // As Sarvam does (checked live): a keyterm with a comma or semicolon fails the whole request.
+        const kt = /name="keyterms"\r\n\r\n(.*)\r\n/.exec(Buffer.concat(chunks).toString('latin1'))?.[1]
+        if (kt && (JSON.parse(kt) as string[]).some((t) => /[,;]/.test(t))) { res.statusCode = 400; return res.end('{"error":{"code":"invalid_request_error"}}') }
+        return res.end(JSON.stringify({ request_id: 'stub', transcript: 'Tab Capecitabine 500', language_code: 'en-IN' }))
+      }
       if (req.url === '/text-to-speech') return res.end(JSON.stringify({ request_id: 'stub', audios: [WAV.toString('base64')] }))
       res.statusCode = 404
       res.end('{}')
@@ -52,6 +57,9 @@ test('V05-E2E-08 spoken answers keep their recording; spoken read-back only when
     await setFlags({ ...before, voice: true, tts: true })
     const patient = await portalLogin(cleared.phone!)
 
+    // An earlier answer names a hospital with a comma: it becomes keyterms, and Sarvam refuses an item with a comma.
+    expect((await patient.post('/api/p/statements', { answers: { ...NO, other_hospital: { yn: 'yes', place: 'City Care Hospital, Nagpur' } }, lang: 'en', confirmation: 'confirmed' })).ok).toBe(true)
+
     // Voice typing: the audio goes to Sarvam with the formulary as keyterms; the recording is kept and its id returned.
     const audio = Buffer.from('synthetic-webm-bytes-for-e2e')
     const res = await patient.ctx.post('/api/p/voice/transcribe', { multipart: { lang: 'en', seconds: '3', audio: { name: 'answer.webm', mimeType: 'audio/webm', buffer: audio } } })
@@ -63,11 +71,12 @@ test('V05-E2E-08 spoken answers keep their recording; spoken read-back only when
     const sttBody = stt.body.toString('latin1')
     expect(sttBody).toContain('saaras:v4')
     expect(sttBody).toContain('"Capecitabine"') // keyterms JSON
+    expect(sttBody).toContain('"City Care Hospital","Nagpur"') // split at the comma
 
     // The confirmed answer becomes a statement that names Sarvam and keeps the recording.
     const answers: Answers = { ...NO, new_medicines: { yn: 'yes', names: 'Tab Capecitabine 500', voice: true, clips: [t.body.clipId] } }
     expect((await patient.post('/api/p/statements', { answers, lang: 'en', confirmation: 'confirmed' })).ok).toBe(true)
-    const st = (await statementsOf(cleared.id)).find((s) => s.questionId === 'new_medicines')!
+    const st = (await statementsOf(cleared.id)).find((s) => s.audioId === t.body.clipId)!
     expect(st).toMatchObject({ asrProvider: 'sarvam', asrModel: 'saaras:v4', audioId: t.body.clipId, confirmation: 'confirmed' })
 
     // Staff with clinical roles can play it back (the same bytes, decrypted); the desk cannot.

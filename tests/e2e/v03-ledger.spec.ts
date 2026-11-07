@@ -1,4 +1,7 @@
 // V03-E2E-01..07 (PRD §13, v0.3 Timeline, Change Ledger, structured capture, onboarding). Tests marked @clock move the org clock and run alone.
+import type { Snapshot } from '../../src/core/ledger'
+import { STAFF_ONLY_EVENT_TYPES } from '../../src/core/types'
+import { verifySnapshotFile } from '../../src/server/ledger/export'
 import { buildReadback, type Answers } from '../../src/server/portal/visit-model'
 import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploadDemo, waitDoc } from './helpers/api'
 import { documentsOf, eventsOf, snapshotsOf, statementsOf } from './helpers/db'
@@ -266,4 +269,49 @@ test('V03-E2E-07 a sealed snapshot verifies publicly: hash and signature valid (
   expect(page.status()).toBe(200)
   expect(await viewer.get('/api/snapshots/00000000-0000-7000-8000-000000000000/verify').then((x) => x.status())).toBe(404)
   // Tamper evidence (one changed byte breaks the hash and the signature): src/server/ledger/ledger.test.ts "seal ... tamper (FR-LED-01, V03-E2E-07)".
+})
+
+test('FR-PAS-05 the printable passport: sealed index with hash, key and a QR to the check; no staff-only line; the sealed file verifies offline', async ({ staff, ui, anon }) => {
+  const records = await staff('records'), clinician = await staff('clinician'), desk = await staff('desk')
+  const p = await registerPatient(records, { base: 'hero' }) // disclosure unknown
+  await uploadAndWait(records, p.id, 'hero__02-chemo-daycare-cycle4.pdf') // a day-care visit plus a regimen line (staff-only)
+  const sealed = await seal(clinician, p.id)
+  const snap = JSON.parse((await snapshotsOf(p.id))[0].canonicalJson) as Snapshot
+  const all = [...snap.verified, ...snap.unverified]
+  const staffOnly = all.filter((e) => STAFF_ONLY_EVENT_TYPES.has(e.eventType))
+  expect(staffOnly.length, 'the sealed record holds a staff-only line').toBeGreaterThan(0)
+
+  const clin = await ui('clinician')
+  await clin.goto(`/patients/${p.id}/ledger`)
+  await expect(clin.getByRole('link', { name: 'Print the passport' })).toHaveAttribute('href', `/print/passport/${sealed.snapshotId}`)
+
+  // The desk prints it for the patient: the share link's index, the seal and the QR to the public check.
+  const page = await ui('desk')
+  await page.goto(`/print/passport/${sealed.snapshotId}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
+  await expect(page.locator('section[aria-labelledby="items-h"] ol > li')).toHaveCount(all.length - staffOnly.length)
+  await expect(page.getByRole('img', { name: 'Verify seal' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Download the sealed file/ })).toHaveCount(0) // the desk is not offered the sealed file
+  const text = await page.locator('article').innerText()
+  for (const s of [sealed.sha256, sealed.snapshotId, `Signed with Ed25519 key ${sealed.keyId}`, `/verify/${sealed.snapshotId}`]) expect(text).toContain(s)
+  expect(text).toMatch(/Sealed on \d{1,2} \w{3} \d{4}, \d{2}:\d{2} IST/)
+  expect(diagnosisHits(text)).toEqual([])
+  expect(text).not.toMatch(/onco/i)
+  for (const e of staffOnly) {
+    for (const [k, v] of Object.entries(e.fields)) if (typeof v === 'string' && k !== 'institution_name' && k !== 'event_date_text') expect(text).not.toContain(v)
+  }
+
+  // The sealed file: records officers and clinicians only; it checks out offline against GET /api/keys, a changed byte does not.
+  expect((await desk.get(`/api/snapshots/${sealed.snapshotId}`)).status).toBe(403)
+  const viewer = await anon()
+  expect((await viewer.get(`/api/snapshots/${sealed.snapshotId}`)).status()).toBe(401)
+  const clinPassport = await ui('clinician')
+  await clinPassport.goto(`/print/passport/${sealed.snapshotId}`)
+  await expect(clinPassport.getByRole('link', { name: /Download the sealed file/ })).toHaveAttribute('href', `/api/snapshots/${sealed.snapshotId}`)
+  const file = await clinician.get(`/api/snapshots/${sealed.snapshotId}`)
+  expect(file.status).toBe(200)
+  const { keys } = await (await viewer.get('/api/keys')).json()
+  expect(verifySnapshotFile(file.body, keys)).toMatchObject({ ok: true, hashMatches: true, signatureValid: true, sha256: sealed.sha256 })
+  const flip = (id: string) => id.slice(0, -1) + (id.endsWith('0') ? '1' : '0')
+  expect(verifySnapshotFile({ ...file.body, snapshot: { ...file.body.snapshot, patientId: flip(file.body.snapshot.patientId) } }, keys).ok).toBe(false)
 })

@@ -1,7 +1,9 @@
-// V02-E2E-01,03,04,05,06,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: either no LLM is
+// V02-E2E-01,03,04,05,06,07,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: either no LLM is
 // configured, or one is and the Ganga org's AI flag is off (so the suite never spends the shared free-tier quota).
-import { documentsOf, eventsOf, evidenceOf } from './helpers/db'
-import { Api, demoDoc, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
+import { formatDateIN } from '../../src/core/copy'
+import { swappedReading } from '../../src/core/dates'
+import { documentsOf, eventsOf, evidenceOf, verificationsOf } from './helpers/db'
+import { Api, demoDoc, registerPatient, until, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
 import { parseCsv } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
 
@@ -158,6 +160,47 @@ test('V02-E2E-06 no LLM configured: the journey completes in manual mode, keyed 
   const sealed = await clinician.post(`/api/patients/${p.id}/seal`)
   expect(sealed.ok).toBe(true)
   expect(sealed.body.counts.verified).toBeGreaterThanOrEqual(1)
+})
+
+test('V02-E2E-07 an ambiguous date shows both readings until a clinician picks one; the pick is an edit, original kept', async ({ staff, ui }) => {
+  const records = await staff('records')
+  const p = await registerPatient(records, { base: 'hero' })
+  // "05/06/2026" with no day-first date anywhere on the page, and both readings before the day it arrived.
+  const up = await uploadAndWait(records, p.id, 'hero__02-chemo-daycare-cycle4.pdf')
+  const amb = (await eventsOf(p.id)).find((e) => e.documentId === up.documentId && e.dateFlags.includes('date_ambiguous'))!
+  expect(amb, 'an item whose day and month could be swapped').toBeTruthy()
+  const other = swappedReading(amb.eventDate!)!
+  const both = `${formatDateIN(amb.eventDate)} or ${formatDateIN(other)}`
+
+  // Every staff view shows both readings; the desk (no verification role) cannot pick.
+  const desk = await ui('desk')
+  await desk.goto(`/patients/${p.id}/ledger`)
+  await expect(desk.locator(`#item-${amb.id} > summary`)).toContainText(both)
+  await expect(desk.getByRole('group', { name: 'Pick the date' })).toHaveCount(0)
+
+  const page = await ui('clinician')
+  await page.goto(`/patients/${p.id}/ledger`)
+  const item = page.locator(`#item-${amb.id}`)
+  await expect(item.locator('summary')).toContainText(both)
+  await item.locator('summary').click()
+  await expect(item.getByText('Day and month could be swapped').first()).toBeVisible()
+  await item.getByRole('group', { name: 'Pick the date' }).getByRole('button', { name: formatDateIN(other) }).click()
+
+  // Recorded through the verification path: a new version (status edited) with the chosen date and no flag; the original is kept.
+  const next = await until(async () => (await eventsOf(p.id)).find((e) => e.supersedesId === amb.id))
+  expect(next).toMatchObject({ eventDate: other, datePrecision: 'day', dateFlags: [], verificationStatus: 'edited', version: amb.version + 1 })
+  expect(next.flags).not.toHaveProperty('date_ambiguous')
+  expect((await eventsOf(p.id)).find((e) => e.id === amb.id)).toMatchObject({ eventDate: amb.eventDate })
+  const [v] = await verificationsOf(next.id)
+  expect(v).toMatchObject({ action: 'edit', toStatus: 'edited', role: 'clinician', actorKind: 'staff' })
+  expect(v.reason).toContain(formatDateIN(other))
+
+  // After the pick the chosen date shows alone and the flag is gone.
+  const picked = page.locator(`#item-${next.id} > summary`)
+  await expect(picked).toContainText(formatDateIN(other))
+  await expect(picked).not.toContainText(formatDateIN(amb.eventDate)) // the other reading is gone (Playwright trims ' or ' to 'or')
+  await expect(picked).not.toContainText('Day and month could be swapped')
+  await expect(page.locator(`#item-${amb.id}`)).toHaveCount(0)
 })
 
 test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is excluded from verify-all', async ({ staff, ui }) => {

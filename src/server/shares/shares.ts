@@ -47,14 +47,17 @@ function assertScopeAllowed(session: Session, scope: ShareScope) {
 export type SignedSharePayload = SharePayload & { snapshotId: string; issuedAt: string; sig: ShareSig }
 
 /**
- * Payload for the latest SEALED snapshot, signed with the sealing key (S2c: the viewer trusts nothing a creator could
- * have edited). 409 no_snapshot; 403 quotes_not_allowed unless disclosure is cleared (and, for staff, records/clinician).
+ * Payload for the latest SEALED snapshot (or `snapshotId`, one of this patient's: the printable passport), signed with the
+ * sealing key (S2c: the viewer trusts nothing a creator could have edited). 409 no_snapshot; 403 quotes_not_allowed unless
+ * disclosure is cleared (and, for staff, records/clinician).
  */
-export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareScope, session: Session): Promise<SignedSharePayload> {
+export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareScope, session: Session, snapshotId?: string): Promise<SignedSharePayload> {
   assertScopeAllowed(session, scope)
   const [p] = await tx.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, patientId))
   if (!p) throw new HttpError(404, 'not_found', 'Not found')
-  const snap = await latestSnapshot(tx, patientId)
+  const snap = snapshotId
+    ? (await tx.select().from(snapshots).where(and(eq(snapshots.id, snapshotId), eq(snapshots.patientId, patientId))))[0] ?? null
+    : await latestSnapshot(tx, patientId)
   if (!snap) throw new HttpError(409, 'no_snapshot', 'There is no sealed record to share yet')
   const snapshot = JSON.parse(snap.canonicalJson) as Snapshot
 

@@ -1,7 +1,7 @@
 // Ledger read model + verification rules (FR-LED-02..07, FR-VER-01..03, FR-TML-01..04, FR-ONB-01).
 // Pure and server-only (imports core/ledger → node:crypto): DB rows in, serialisable view models out.
 import { formatDateIN, patientDocLabel, staffDocLabel } from '@/core/copy'
-import { parseDate } from '@/core/dates'
+import { parseDate, swappedReading } from '@/core/dates'
 import {
   buildSnapshot, bulkVerifyEligible, diffLedger, ONBOARDING_PRIORITY,
   type LedgerConflict, type LedgerEventItem, type LedgerRecord, type MissingLike, type Snapshot, type SnapshotEvent,
@@ -82,6 +82,14 @@ const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TY
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
 const fieldText = (v: FieldValue | unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v))
 const day = (iso: string | null, precision: CoreEvent['datePrecision'] = 'day') => formatDateIN(iso, 'en', precision)
+/** Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null. */
+const readingsOf = (iso: string | null, flags: readonly EventFlag[]) => {
+  const other = iso && flags.includes('date_ambiguous') ? swappedReading(iso) : null
+  return other ? [iso!, other].map((d) => ({ iso: d, label: day(d) })) : null
+}
+/** "12 Mar 2026", or "12 Mar 2026 or 3 Dec 2026" until someone picks the reading. */
+const eventDay = (iso: string, precision: CoreEvent['datePrecision'], flags: readonly EventFlag[]) =>
+  readingsOf(iso, flags)?.map((r) => r.label).join(' or ') ?? day(iso, precision)
 
 export function headline(fields: Record<string, FieldValue>): string | null {
   const cycle = fields.cycle_number !== undefined ? `Cycle ${fields.cycle_number}` : null
@@ -296,7 +304,11 @@ export type ItemView = {
   headline: string | null; status: VerificationStatus; statusLabel: string; flags: EventFlag[]; tier: Tier; version: number
   previousId: string | null; fields: FieldView[]; sources: SourceView[]
   who: { actorName: string | null; role: string | null; at: string | null; action: string | null }
-  when: { event: string; eventIso: string | null; dateFrom: 'event' | 'document' | null; document: string | null; received: string }
+  when: {
+    event: string; eventIso: string | null; dateFrom: 'event' | 'document' | null; document: string | null; received: string
+    /** Day and month could be swapped: both readings, for one-click picking through the edit path. */
+    readings: { iso: string; label: string }[] | null
+  }
   provenance: { sourceType: string; method: string; docType: DocType | null; institution: string | null }
   viewedSource: boolean
   /** Amended items: what this replaces (the earlier report, or the earlier version of this item). */
@@ -382,8 +394,9 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       sources: headlinesOnly ? [] : sourcesOf(rows.patientId, e, docLabel),
       who: { actorName: v?.actorName ?? null, role: v?.role ?? null, at: v ? day(v.at.toISOString()) : null, action: v?.action ?? null },
       when: {
-        event: e.eventDate ? day(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+        event: e.eventDate ? eventDay(e.eventDate, e.datePrecision, flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
         eventIso: e.eventDate ?? e.documentDate, dateFrom, document: e.documentDate ? day(e.documentDate) : null, received: day(e.receivedAt),
+        readings: readingsOf(e.eventDate, flags),
       },
       provenance: { sourceType: e.sourceType, method: e.extractionMethod, docType: isDocType(dt) ? dt : null, institution: e.documentId ? docById.get(e.documentId)?.institutionName ?? null : null },
       viewedSource: !!viewedByMe?.has(e.id) || (!!e.supersedesId && !!viewedByMe?.has(e.supersedesId)),
@@ -520,7 +533,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     return {
       id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headline(fields), status: e.verificationStatus, label: e.label,
       flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
-      dateLabel: e.eventDate ? day(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+      dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision, e.flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
       dateFrom: e.eventDate ? 'event' : e.documentDate ? 'document' : null, docType: d?.docType ?? null, docLabel,
       institution: d?.institution ?? (typeof fields.institution_name === 'string' ? fields.institution_name : null), sourceType: e.sourceType,
       sources: e.evidence.map((v) => ({

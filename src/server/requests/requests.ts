@@ -18,7 +18,7 @@ import { primaryContactTarget } from '../registration/contact'
 import { sessionRole, type Session } from '../session'
 import { requestMissingIds, settleRequests } from '../radar-ui/completeness'
 import type { L2 } from '../radar-ui/wording'
-import { guardFree, requestDocLabel, type RequestDocKey } from './letter'
+import { guardFree, neutralName, requestDocLabel, type RequestDocKey } from './letter'
 import { reminderPlan } from './reminders'
 
 type Ctx = {
@@ -91,7 +91,7 @@ export async function refreshRequests(tx: Tx, orgId: string, patientId: string):
         orgId, patientId, toPhone: to.phone, channel: 'sms', templateKey: `request.${plan.send}`, lang,
         body: tr(lang, plan.send, {
           brand: brandFor(disclosure),
-          institution: guardFree(r.institution, disclosure) ?? tr(lang, 'reminderInstitutionFallback'),
+          institution: neutralName(r.institution, disclosure) ?? tr(lang, 'reminderInstitutionFallback'),
           date: formatDateIN(istDate(r.sentAt!.toISOString()), lang),
         }),
       })

@@ -4,17 +4,19 @@ import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import QRCode from 'qrcode'
-import { eq } from 'drizzle-orm'
+import { eq, inArray } from 'drizzle-orm'
 import { PrintSheet } from '@/components/requests/PrintSheet'
 import { istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { withOrg } from '@/db'
-import { recordRequests } from '@/db/schema'
+import { missingRecords, recordRequests } from '@/db/schema'
 import { tr } from '@/i18n/requests'
 import { writeAudit } from '@/server/audit'
 import { now } from '@/server/clock'
 import { HttpError } from '@/server/http'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
+import { requestMissingIds } from '@/server/radar-ui/completeness'
+import { groupedCycles } from '@/server/radar-ui/wording'
 import { buildLetter } from '@/server/requests/letter'
 import { getSession, sessionRole } from '@/server/session'
 
@@ -43,14 +45,17 @@ export default async function RequestLetterPage({ params, searchParams }: { para
       orgId: s.orgId, actorId: s.kind === 'staff' ? s.staffId : s.caregiverId ?? s.patientId, actorRole: sessionRole(s),
       action: 'request.letter_print', targetType: 'record_request', targetId: r.id, details: { patientId: r.patientId, lang },
     })
-    return { r, p, today: istDate((await now(s.orgId)).toISOString()) }
+    const ids = requestMissingIds(r)
+    const grouped = ids.length ? await tx.select({ g: missingRecords.grouped }).from(missingRecords).where(inArray(missingRecords.id, ids)) : []
+    const cycles = [...new Set(grouped.flatMap((m) => groupedCycles(m.g)))].sort((a, b) => a - b)
+    return { r, p, cycles, today: istDate((await now(s.orgId)).toISOString()) }
   })
   if (!data) notFound()
-  const { r, p, today } = data
+  const { r, p, today, cycles } = data
   const l = buildLetter({
     lang, disclosure: p.disclosure, requestId: r.id, patient: { name: p.name, dob: p.dob }, institution: r.institution,
     institutionPatientId: typeof r.letterPayload?.institutionPatientId === 'string' ? r.letterPayload.institutionPatientId : null,
-    documents: r.documents, dateRange: r.dateRange ?? null, today,
+    documents: r.documents, dateRange: r.dateRange ?? null, today, cycles,
   })
   const h = await headers()
   const origin = `${h.get('x-forwarded-proto') ?? 'http'}://${h.get('x-forwarded-host') ?? h.get('host')}`

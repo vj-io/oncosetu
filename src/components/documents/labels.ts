@@ -55,6 +55,7 @@ export const PRIORITY_GROUPS: { title: string; types: string[] }[] = [
   { title: 'Pathology & molecular', types: ['pathology_report', 'ihc_molecular_report'] },
   { title: 'Imaging reports', types: ['imaging_report'] },
   { title: 'Scans, ECG and video', types: [] },
+  { title: 'Signed consent forms', types: [] },
   { title: 'Discharge & procedure summaries', types: ['discharge_summary', 'procedure_note'] },
   { title: 'Treatment records', types: ['chemo_daycare_record', 'radiotherapy_summary', 'consult_note'] },
   { title: 'Prescriptions', types: ['prescription_printed', 'prescription_handwritten'] },

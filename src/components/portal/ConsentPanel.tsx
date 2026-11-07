@@ -42,6 +42,7 @@ export function ConsentPanel({
       });
       if (res.status === 401) { router.replace(`/p/login?lang=${lang}`); return false; }
       if (!res.ok) throw new Error(String(res.status));
+      router.refresh();
       return true;
     } catch {
       setError(tp(lang, "genericError"));

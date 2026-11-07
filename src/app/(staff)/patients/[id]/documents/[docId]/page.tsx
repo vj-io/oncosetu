@@ -150,6 +150,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             ? (imaging
               ? <ImagingViewer documentId={doc.id} details={imaging} canView />
               : <Notice tone="shadow" icon={<ScanText />} title="Imaging file — stored, not read">{fileInfo?.previewNote ?? 'The header could not be read. The file is stored as it came.'}</Notice>)
+            : doc.mime === 'application/pdf'
+              ? <div className="max-h-[40rem] overflow-y-auto border border-rule"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
             : doc.mime.startsWith('video/')
               ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
               : <Notice tone="shadow" icon={<ScanText />} title={fileInfo?.note ?? 'File — stored, not read'}>The file is kept exactly as it arrived. Open the original to view it with the right program.</Notice>}

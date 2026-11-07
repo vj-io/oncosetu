@@ -87,7 +87,8 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   useEffect(() => {
     if (!demo) return
     ;(async () => {
-      const [patients, manifest] = await Promise.all([fetch('/demo-docs/patients.json').then((r) => r.json()), fetch('/demo-docs/manifest.json').then((r) => r.json())])
+      const [patients, manifest0, imaging] = await Promise.all([fetch('/demo-docs/patients.json').then((r) => r.json()), fetch('/demo-docs/manifest.json').then((r) => r.json()), fetch('/demo-docs/imaging-manifest.json').then((r) => (r.ok ? r.json() : [])).catch(() => [])])
+      const manifest = [...(manifest0 as unknown[]), ...(imaging as unknown[])]
       const me = norm(patientName)
       const p = (patients as { patientKey: string; fullName: string; aliases: string[]; demo: Record<string, string[]> }[])
         .find((x) => [x.fullName, ...x.aliases].some((n) => norm(n) === me))
@@ -143,9 +144,10 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing'), [data.rows])
   const groups = useMemo(() => {
     const rest = data.rows.filter((r) => !held.includes(r))
-    const stored = rest.filter((r) => r.file?.storedOnly)
+    const forms = rest.filter((r) => r.file?.label === 'Consent')
+    const stored = rest.filter((r) => r.file?.storedOnly && !forms.includes(r))
     const text = rest.filter((r) => !r.file?.storedOnly)
-    return PRIORITY_GROUPS.map((g) => ({ ...g, rows: g.title.startsWith('Scans') ? stored : text.filter((r) => g.types.includes(r.docType ?? 'other') || (g.title.startsWith('Other') && !r.docType)) })).filter((g) => g.rows.length)
+    return PRIORITY_GROUPS.map((g) => ({ ...g, rows: g.title.startsWith('Scans') ? stored : g.title.startsWith('Signed consent') ? forms : text.filter((r) => g.types.includes(r.docType ?? 'other') || (g.title.startsWith('Other') && !r.docType)) })).filter((g) => g.rows.length)
   }, [data.rows, held])
   const p = data.progress
 
@@ -194,7 +196,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
                 {samples.items.map((s) => (
                   <li key={s.file}>
                     <button type="button" onClick={() => fromSamples([s.file])} className="flex w-full items-start gap-2 border border-rule bg-matte px-3 py-2 text-left text-sm hover:border-ink hover:bg-spotlight">
-                      {s.kind === 'image' ? <FileImage aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" /> : <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />}
+                      {s.kind === 'image' || s.kind === 'dicom' || s.kind === 'zip' ? <FileImage aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" /> : <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />}
                       <span className="grid min-w-0"><span className="truncate">{s.title}</span><span className="truncate font-mono text-[11px] text-faint">{s.demoStep}</span></span>
                     </button>
                   </li>

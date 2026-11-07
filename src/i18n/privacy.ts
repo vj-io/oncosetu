@@ -95,6 +95,32 @@ export const privacyCopy = {
   note2: { en: 'The front desk opens a file only after your code or a witnessed check at the visit.', hi: 'फ्रंट डेस्क फ़ाइल तभी खोलता है जब विज़िट पर आपका कोड दिया गया हो या गवाह के सामने जाँच हुई हो।', hinglish: 'Front desk file tabhi kholta hai jab visit par aapka code diya gaya ho ya witnessed check hua ho.' },
   note3: { en: 'Administrators open a file only through break-glass access. Auditors never open patient files; they see the audit log and counts.', hi: 'प्रशासक फ़ाइल सिर्फ़ ब्रेक-ग्लास पहुँच से खोलते हैं। ऑडिटर मरीज़ की फ़ाइल कभी नहीं खोलते; वे ऑडिट लॉग और गिनती देखते हैं।', hinglish: 'Administrators file sirf break-glass access se kholte hain. Auditors patient file kabhi nahi kholte; woh audit log aur counts dekhte hain.' },
   note4: { en: 'A share link shows only what you chose to share, read-only, until it expires or you switch it off.', hi: 'शेयर लिंक सिर्फ़ वही दिखाता है जो आपने साझा करना चुना, सिर्फ़-पढ़ने के लिए, जब तक वह समाप्त न हो या आप उसे बंद न करें।', hinglish: 'Share link sirf wahi dikhata hai jo aapne share karna chuna, read-only, jab tak woh expire na ho ya aap use band na karein.' },
+  // ── signing ──
+  signTitle: { en: 'Sign the consent form', hi: 'सहमति फ़ॉर्म पर हस्ताक्षर करें', hinglish: 'Consent form par sign karein' },
+  signIntro: {
+    en: 'Sign to confirm the choices above. You get a signed copy (PDF) that is kept with your documents. You can print it.',
+    hi: 'ऊपर के विकल्पों की पुष्टि के लिए हस्ताक्षर करें। आपको हस्ताक्षरित प्रति (PDF) मिलती है जो आपके दस्तावेज़ों के साथ रखी जाती है। आप इसे प्रिंट कर सकते हैं।',
+    hinglish: 'Upar ke choices confirm karne ke liye sign karein. Aapko signed copy (PDF) milti hai jo aapke documents ke saath rakhi jaati hai. Aap ise print kar sakte hain.',
+  },
+  signName: { en: 'Your full name', hi: 'आपका पूरा नाम', hinglish: 'Aapka poora naam' },
+  signAs: { en: 'Signing as: {who}', hi: 'हस्ताक्षरकर्ता: {who}', hinglish: 'Sign kar rahe hain: {who}' },
+  who_self: { en: 'the patient', hi: 'मरीज़ स्वयं', hinglish: 'patient khud' },
+  who_guardian: { en: 'parent or guardian of the patient', hi: 'मरीज़ के माता-पिता या अभिभावक', hinglish: 'patient ke parent ya guardian' },
+  who_caregiver: { en: 'caregiver acting for the patient', hi: 'मरीज़ की ओर से देखभालकर्ता', hinglish: 'patient ki taraf se caregiver' },
+  signDraw: { en: 'Draw signature', hi: 'हस्ताक्षर बनाएँ', hinglish: 'Signature banayein' },
+  signType: { en: 'Type my name', hi: 'मेरा नाम टाइप करें', hinglish: 'Mera naam type karein' },
+  signClear: { en: 'Clear', hi: 'मिटाएँ', hinglish: 'Mitayein' },
+  signHint: { en: 'Draw with your finger or the mouse inside the box.', hi: 'बॉक्स के अंदर उँगली या माउस से बनाएँ।', hinglish: 'Box ke andar ungli ya mouse se banayein.' },
+  signTyped: { en: 'Typing your name counts as your signature.', hi: 'नाम टाइप करना आपका हस्ताक्षर माना जाता है।', hinglish: 'Naam type karna aapka signature maana jaata hai.' },
+  signButton: { en: 'Sign and save', hi: 'हस्ताक्षर करें और सहेजें', hinglish: 'Sign karein aur save karein' },
+  signWithdrawButton: { en: 'Sign a withdrawal of all consent', hi: 'सारी सहमति वापस लेने पर हस्ताक्षर करें', hinglish: 'Saari consent wapas lene par sign karein' },
+  signDone: { en: 'Signed and saved. A copy is kept with your documents.', hi: 'हस्ताक्षर हो गए और सहेज लिए गए। एक प्रति आपके दस्तावेज़ों के साथ रखी गई है।', hinglish: 'Sign ho gaya aur save ho gaya. Ek copy aapke documents ke saath rakhi gayi hai.' },
+  signedList: { en: 'Signed forms', hi: 'हस्ताक्षरित फ़ॉर्म', hinglish: 'Signed forms' },
+  signedNone: { en: 'Nothing signed yet.', hi: 'अभी कुछ हस्ताक्षरित नहीं है।', hinglish: 'Abhi kuch signed nahi hai.' },
+  viewPdf: { en: 'Open or print (PDF)', hi: 'खोलें या प्रिंट करें (PDF)', hinglish: 'Kholein ya print karein (PDF)' },
+  signedGrant: { en: 'Consent form', hi: 'सहमति फ़ॉर्म', hinglish: 'Consent form' },
+  signedWithdraw: { en: 'Withdrawal of consent', hi: 'सहमति की वापसी', hinglish: 'Consent ki wapsi' },
+  signedBy: { en: 'signed by {name} on {date}', hi: '{name} ने {date} को हस्ताक्षर किए', hinglish: '{name} ne {date} ko sign kiya' },
 } as const satisfies Record<string, T>
 
 export type PrivacyKey = keyof typeof privacyCopy

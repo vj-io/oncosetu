@@ -66,7 +66,7 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
   const im = d.flags.imaging as (Record<string, unknown> & { modalityLabel: string; modalities?: string[] }) | undefined
   const gate = d.flags.gate as { rejected?: number } | undefined
   return {
-    id: d.id, title: im ? String(im.studyLabel ?? im.modalityLabel) : d.docType ? staffDocLabel(d.docType as DocType) : d.status === 'quarantined' ? 'Quarantined file' : 'Document',
+    id: d.id, title: d.flags.consentForm ? ((d.flags.consentForm as { action?: string }).action === 'withdraw' ? 'Signed withdrawal of consent' : 'Signed consent form') : im ? String(im.studyLabel ?? im.modalityLabel) : d.docType ? staffDocLabel(d.docType as DocType) : d.status === 'quarantined' ? 'Quarantined file' : 'Document',
     docType: d.docType, institution: d.institutionName, documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), pages: d.pages,
     status: displayStatus(d), stage: d.stage, stages: stageStates(d), identity: d.identityResult,
     identityReasons: ((d.identityDetails?.reasons as string[] | undefined) ?? []), attachState: d.attachState,

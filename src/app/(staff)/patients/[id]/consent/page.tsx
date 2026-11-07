@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
+import { ConsentSignPanel } from '@/components/registration/ConsentSignPanel'
 import { IdCheckPanel } from '@/components/registration/IdCheckPanel'
 import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
 import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
@@ -10,6 +11,7 @@ import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
 import { patientOwnTarget } from '@/server/registration/contact'
 import { loadIdRecord } from '@/server/privacy/privacy'
+import { listSignedConsents } from '@/server/privacy/sign'
 import { withPatientAccess } from '@/server/registration/page'
 
 const STAMP = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
@@ -32,7 +34,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
   const d = await withPatientAccess(id, async (tx, s) => {
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [current, history, links, log, canCode, drop, idRecord] = await Promise.all([
+    const [current, history, links, log, canCode, drop, idRecord, signed] = await Promise.all([
       activeConsent(tx, id),
       tx.select().from(consents).where(eq(consents.patientId, id)).orderBy(desc(consents.recordedAt), desc(consents.id)),
       tx.select({ id: shareLinks.id }).from(shareLinks).where(and(eq(shareLinks.patientId, id), isNull(shareLinks.revokedAt), gt(shareLinks.expiresAt, await now(s.orgId)))),
@@ -40,10 +42,11 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
       patientOwnTarget(tx, id),
       inboundEmailView(tx, id),
       loadIdRecord(tx, id),
+      listSignedConsents(tx, id),
     ])
     const witnesses = [...new Set(history.map((h) => h.witnessedBy).filter((x): x is string => !!x))]
     const names = witnesses.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, witnesses)) : []
-    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, idRecord, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
+    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, idRecord, signed, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
   })
   if (!d) return null
   const { patient: p, current } = d
@@ -90,6 +93,13 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
           patientId={id} configured={!!d.drop.domain} address={d.drop.address} canManage={role === 'desk' || role === 'records' || role === 'clinician'}
           contacts={d.drop.contacts.map((c) => ({ ...c, verifiedAt: c.verifiedAt.toISOString() }))}
           caregivers={p.caregivers.map(({ id: cid, name, relation, active }) => ({ id: cid, name, relation, active }))}
+        />
+      </Section>
+
+      <Section id="signed-h" title="Signed consent form" description="The patient, guardian or caregiver signs on screen with you as witness. A signed PDF is kept with the documents and can be printed.">
+        <ConsentSignPanel
+          patientId={id} language={p.preferredLanguage} minor={p.minor} hasConsent={!!current} withdrawn={!current && d.history[0]?.action === 'withdraw'}
+          defaultName={p.name} signed={d.signed.map((x) => ({ id: x.id, action: x.action, signer: x.signer, relation: x.relation, method: x.method, signedAt: x.signedAt }))}
         />
       </Section>
 

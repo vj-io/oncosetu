@@ -761,6 +761,7 @@ export const RLS_TABLES = [
   'abdm_consent_requests', 'abdm_transfers', // 0009
   'privacy_acknowledgements', 'id_verifications', // 0014
   'upload_sessions', 'upload_chunks', // 0015
+  'signed_consents', // 0016
 ] as const
 
 // ── privacy, ID and chunked uploads (0014, 0015) ─────────────────────────────
@@ -816,3 +817,20 @@ export const uploadChunks = pgTable('upload_chunks', {
   size: integer('size').notNull(),
   createdAt: createdAt(),
 }, (t) => [uniqueIndex('upload_chunks_session_idx_uq').on(t.sessionId, t.idx)])
+
+export const signedConsents = pgTable('signed_consents', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  consentId: uuid('consent_id').references(() => consents.id),
+  action: text('action').$type<'grant' | 'update' | 'withdraw'>().notNull(),
+  formVersion: text('form_version').notNull(),
+  signerNameEnc: text('signer_name_enc'),
+  signerRelation: text('signer_relation').$type<'self' | 'guardian' | 'caregiver'>().notNull(),
+  method: text('method').$type<'drawn' | 'typed'>().notNull(),
+  witnessStaffId: uuid('witness_staff_id').references(() => staff.id),
+  signedAt: tsz('signed_at').notNull().defaultNow(),
+  language: text('language').notNull(),
+  purposes: jsonb('purposes').$type<ConsentPurposes>().notNull(),
+  documentId: uuid('document_id').references(() => documents.id, { onDelete: 'set null' }),
+}, (t) => [index('signed_consents_patient_idx').on(t.patientId, t.signedAt)])

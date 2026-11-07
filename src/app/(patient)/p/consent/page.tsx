@@ -1,6 +1,7 @@
 import { ConsentPanel } from '@/components/portal/ConsentPanel'
 import { PortalFrame } from '@/components/portal/PortalFrame'
 import { PrivacyNotice } from '@/components/portal/PrivacyNotice'
+import { SignConsent } from '@/components/portal/SignConsent'
 import { Kicker } from '@/components/portal/ui'
 import { withOrg } from '@/db'
 import { ID_TYPE_LABEL } from '@/core/idcheck'
@@ -11,11 +12,16 @@ import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadConsentView } from '@/server/portal/consent'
 import { formatDateTimeIN } from '@/server/portal/summary'
 import { loadPrivacyView } from '@/server/privacy/privacy'
+import { listSignedConsents } from '@/server/privacy/sign'
+import { caregivers } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 export default async function ConsentPage({ searchParams }: { searchParams: PortalSearch }) {
   const ctx = await loadPortal(searchParams)
   const { lang } = ctx
-  const { view, erasure, privacy } = await withOrg(ctx.session.orgId, async (tx) => ({
+  const { view, erasure, privacy, signed, guardian } = await withOrg(ctx.session.orgId, async (tx) => ({
+    signed: await listSignedConsents(tx, ctx.session.patientId),
+    guardian: ctx.session.caregiverId ? !!(await tx.select({ g: caregivers.isGuardian }).from(caregivers).where(eq(caregivers.id, ctx.session.caregiverId)))[0]?.g : false,
     view: await loadConsentView(tx, ctx.session.patientId), erasure: await loadErasure(tx, ctx.session.patientId),
     privacy: await loadPrivacyView(tx, ctx.session.patientId, ctx.actor.id),
   }))
@@ -43,6 +49,11 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
             lastUpdated={view.recordedAt ? formatDateTimeIN(view.recordedAt, lang) : null}
           />
         </div>
+
+        <SignConsent
+          lang={lang} purposes={view.purposes} relation={ctx.session.kind === 'patient' ? 'self' : guardian ? 'guardian' : 'caregiver'} defaultName={ctx.session.displayName}
+          signed={signed.map((x) => ({ id: x.id, action: x.action, signer: x.signer, signedAt: x.signedAt, dateText: formatDateTimeIN(new Date(x.signedAt), lang) }))}
+        />
 
         <section aria-labelledby="rights-h" className="grid gap-3 border border-rule bg-surface px-5 py-5">
           <h2 id="rights-h" className="text-xl">{tv(lang, 'rightsTitle')}</h2>

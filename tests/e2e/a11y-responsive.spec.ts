@@ -10,6 +10,8 @@ const WCAG_22_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 /** axe-core over the page as it is now (NFR-A11Y). Automated rules only: a manual audit is still needed for the rest of WCAG. */
 async function axe(page: Page, label: string) {
+  // Jump entrance animations to their end (infinite ones excepted): text caught mid-fade reads as a contrast failure.
+  await page.evaluate(() => { for (const a of document.getAnimations()) if (a.effect?.getComputedTiming().endTime !== Infinity) a.finish() })
   const { violations } = await new AxeBuilder({ page }).withTags(WCAG_22_AA).analyze()
   if (violations.length) await test.info().attach(`axe ${label}`, { body: JSON.stringify(violations, null, 2), contentType: 'application/json' })
   expect.soft(violations.map((v) => `${v.id}: ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')}`), `${label}: axe WCAG 2.2 AA`).toEqual([])

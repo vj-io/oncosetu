@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  disclosureAt,
   correctionRates, disclosurePrevalence, documentCensus, median, previsitCompletion, provenance, radarMetrics,
   requestFulfilment, safetyKpis, type MissingRow,
 } from './metrics-compute'
@@ -148,5 +149,17 @@ describe('safetyKpis', () => {
   it('judges the QA disagreement rate against 1%', () => {
     expect(by({ ...base, qa: { reviewed: 200, disagree: 1 } }).qa_mismatch.status).toBe('on_target')
     expect(by({ ...base, qa: { reviewed: 20, disagree: 1 } }).qa_mismatch.status).toBe('breach')
+  })
+})
+
+describe('disclosureAt', () => {
+  const at = (s: string) => new Date(s)
+  it('uses the current status when nothing changed after the message', () => {
+    expect(disclosureAt('unknown', [], at('2026-01-01'))).toBe('unknown')
+  })
+  it('judges a message by the status before a later change', () => {
+    const ch = [{ at: at('2026-03-01'), from: 'cleared', to: 'unknown' }]
+    expect(disclosureAt('unknown', ch, at('2026-02-01'))).toBe('cleared')
+    expect(disclosureAt('unknown', ch, at('2026-04-01'))).toBe('unknown')
   })
 })

@@ -185,15 +185,20 @@ export function ShareViewer({ id }: { id: string }) {
                 <SectionHeader title={<span id="docs-h">{t('docsTitle')}</span>} />
                 {p.documents.length ? (
                   <ul className="grid gap-2">
-                    {p.documents.map((d) => (
+                    {p.documents.map((d, i) => {
+                      // Several papers of the same kind look identical in a list: number them so each can be told apart.
+                      const same = p.documents.filter((x) => inLang(x.label, lang) === inLang(d.label, lang))
+                      const nth = same.length > 1 ? ` (${same.indexOf(d) + 1} of ${same.length})` : ''
+                      return (
                       <li key={d.id} className="flex items-start gap-3 border-b border-rule pb-2 last:border-b-0">
                         <FileText aria-hidden className="mt-1 size-4 shrink-0 text-faint" />
                         <span className="grid gap-0.5">
-                          <span>{inLang(d.label, lang)}</span>
+                          <span>{inLang(d.label, lang)}{nth}</span>
                           <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
                         </span>
                       </li>
-                    ))}
+                      )
+                    })}
                   </ul>
                 ) : <p className="text-muted">{t('docsEmpty')}</p>}
               </section>

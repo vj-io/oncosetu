@@ -41,7 +41,7 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
       expect(text).not.toContain('Regional')
       expect(p.items.every((i) => !i.quote)).toBe(true)
       expect(p.brand).toBe('Setu Records')
-      expect(p.notice.en).toBe('This summary contains only records provided to Setu Records.')
+      expect(p.notice.en).toBe('This is a list of records provided to Setu Records, not a clinical summary.')
     }
   })
 

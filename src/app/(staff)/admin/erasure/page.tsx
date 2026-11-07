@@ -25,7 +25,7 @@ export default async function ErasurePage() {
   return (
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Retention" title="Erasure requests"
-        description="Requests recorded after a patient withdrew consent (PRD §6.3 J8, §10.5). Access stopped when consent was withdrawn. A request becomes eligible once the retention period in Settings has run from the request and 3 years have passed since the last encounter; a daily job then erases it, or execute it here. Patients are shown by accession code only." />
+        description="Requests recorded after a patient withdrew consent . Access stopped when consent was withdrawn. A request becomes eligible once the retention period in Settings has run from the request and 3 years have passed since the last encounter; a daily job then erases it, or execute it here. Patients are shown by accession code only." />
       {rows.length > 0 && <div><RunDueErasures count={due} /></div>}
       {rows.length === 0 ? <EmptyState title="No erasure requests" description="A request appears here when a patient, a caregiver, or records staff on the patient's request records one after consent is withdrawn." /> : (
         <Table caption="Erasure requests">

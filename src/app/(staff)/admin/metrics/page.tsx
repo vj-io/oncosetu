@@ -26,7 +26,7 @@ export default async function MetricsPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Metrics (PRD §16)" title="Metrics and safety targets"
+      <SectionHeader as="h1" kicker="Admin · Metrics" title="How it is working, and the safety targets"
         description="Computed from the live tables on every load. Each ratio shows its numerator and denominator; a dash means there is no denominator yet, never zero." />
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Headline metrics">
@@ -36,7 +36,7 @@ export default async function MetricsPage() {
         <li><Stat label="Not-cleared disclosure" value={pctText(disclosure.nonCleared)} detail={`${disclosure.nonCleared.num} of ${disclosure.total} active patients: disclosure not cleared`} /></li>
       </ul>
 
-      <Block kicker="§16.2" title="Safety KPIs" note="Reviewed weekly in the pilot; any non-zero S0 metric pauses the pilot. Zero targets are outlined; a target that is not measured here says so instead of showing a number.">
+      <Block kicker="Safety" title="Safety targets" note="Reviewed weekly in the pilot; any safety target that is not zero pauses the pilot. Zero targets are outlined; a target that is not measured here says so instead of showing a number.">
         <Table caption="Safety KPIs">
           <thead><tr><th>KPI</th><th>Target</th><th>Observed</th><th>Status</th><th>How it is measured</th></tr></thead>
           <tbody>
@@ -56,7 +56,7 @@ export default async function MetricsPage() {
       <EvalReport />
 
       <div className="grid gap-8 lg:grid-cols-2">
-        <Block kicker="§16.1" title="Provenance" note="A live event is supported by at least one evidence row (document quote or patient statement) or is itself a patient statement. Withdrawn and rejected events are left out.">
+        <Block kicker="Where facts come from" title="Every fact has its words" note="Each live fact is backed by at least one quote from a document or a patient statement, or is itself a patient statement. Withdrawn and rejected facts are left out.">
           <StackedBar label="Live events by support" segments={[
             { label: 'Supported', value: prov.coverage.num, tone: 'verified' },
             { label: 'Unsupported', value: prov.unsupported, tone: 'conflict' },
@@ -66,7 +66,7 @@ export default async function MetricsPage() {
           )}
         </Block>
 
-        <Block kicker="§16.1" title="Correction rate by document type" note="Edited or rejected items over every machine-extracted item a person has verified, edited or rejected.">
+        <Block kicker="Corrections" title="How often a person had to correct the software" note="Items a person edited or rejected, out of every software-read item a person has checked, edited or rejected.">
           {corrections.byType.length === 0 ? <EmptyState title="No verified items yet" description="The rate appears once people verify extracted items." className="py-8" /> : (
             <>
               <BarRows label="Correction rate by document type" rows={corrections.byType.map((r) => ({
@@ -77,21 +77,21 @@ export default async function MetricsPage() {
           )}
         </Block>
 
-        <Block kicker="FR-RAD-06" title="Missing-record Radar" note="Production items only; shadow items are counted separately and never shown to staff. Closure counts an item received or closed before the next sealed snapshot of that patient.">
-          <BarRows label="Radar funnel" rows={[
+        <Block kicker="Missing papers" title="Missing-papers checks" note="Items from checks in use only; items from checks still under review are counted separately and never shown to staff. Closed counts an item that arrived or was closed before the patient’s next sealed visit.">
+          <BarRows label="Missing papers: noticed to closed" rows={[
             { label: 'Detected', text: 'Detected', value: radar.detected, of: Math.max(radar.detected, 1), value_text: String(radar.detected), tone: 'neutral' },
             { label: 'Requested', text: 'Requested', value: radar.requested, of: Math.max(radar.detected, 1), value_text: String(radar.requested), tone: 'setu' },
             { label: 'Received', text: 'Received', value: radar.received, of: Math.max(radar.detected, 1), value_text: String(radar.received), tone: 'unverified' },
             { label: 'Closed', text: 'Closed', value: radar.closed, of: Math.max(radar.detected, 1), value_text: String(radar.closed), tone: 'verified' },
           ]} />
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
-            <dt className="text-muted">Closed before next sealed snapshot</dt><dd className="tabular-nums">{pctText(radar.closure)} ({radar.closure.num} of {radar.closure.den})</dd>
-            <dt className="text-muted">Awaiting a sealed snapshot</dt><dd className="tabular-nums">{radar.awaitingSnapshot}</dd>
-            <dt className="text-muted">Shadow-mode hits (not shown)</dt><dd className="tabular-nums">{radar.shadow}</dd>
+            <dt className="text-muted">Closed before the next sealed visit</dt><dd className="tabular-nums">{pctText(radar.closure)} ({radar.closure.num} of {radar.closure.den})</dd>
+            <dt className="text-muted">Waiting for the visit to be sealed</dt><dd className="tabular-nums">{radar.awaitingSnapshot}</dd>
+            <dt className="text-muted">Hits from checks still under review (not shown)</dt><dd className="tabular-nums">{radar.shadow}</dd>
           </dl>
         </Block>
 
-        <Block kicker="FR-REQ-06" title="Request fulfilment" note="Sent requests only. Days run from the sent date to the date the document arrived and was matched.">
+        <Block kicker="Requests" title="How quickly requests are answered" note="Sent requests only. Days run from the sent date to the date the document arrived and was matched.">
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
             <dt className="text-muted">Fulfilment rate</dt><dd className="tabular-nums">{pctText(f.rate)} ({f.fulfilled} of {f.sent} sent)</dd>
             <dt className="text-muted">Median days to fulfilment</dt><dd className="tabular-nums">{daysText(f.medianDays)}</dd>
@@ -107,7 +107,7 @@ export default async function MetricsPage() {
           <p className="text-sm text-faint">Institution type is not captured: a request records the institution as free text, so all requests fall under “Not recorded”.</p>
         </Block>
 
-        <Block kicker="§16.4 · K3" title="Document census" note="Pages of non-duplicate documents. Printed, handwritten and image-only are exclusive; low confidence overlaps them.">
+        <Block kicker="Documents" title="What kinds of pages arrive" note="Pages of non-duplicate documents. Printed, handwritten and image-only are exclusive; low confidence overlaps them.">
           <StackedBar label="Pages by class" segments={[
             { label: 'Printed text', value: census.printed, tone: 'setu' },
             { label: 'Handwritten', value: census.handwritten, tone: 'patient' },
@@ -116,7 +116,7 @@ export default async function MetricsPage() {
           <p className="font-mono text-sm text-muted">Low OCR confidence: {census.lowConfidence} of {census.total} pages ({pctText({ num: census.lowConfidence, den: census.total })})</p>
         </Block>
 
-        <Block kicker="§16.4" title="Disclosure status" note="Active patients by disclosure status. Not cleared and unknown both count as not cleared.">
+        <Block kicker="Patients" title="Whether the diagnosis may be discussed" note="Active patients by this setting. “Do not discuss” and “not yet recorded” are both treated as “do not discuss”.">
           <StackedBar label="Patients by disclosure status" segments={[
             { label: 'Cleared', value: disclosure.cleared, tone: 'verified' },
             { label: 'Not cleared', value: disclosure.notCleared, tone: 'unverified' },
@@ -125,7 +125,7 @@ export default async function MetricsPage() {
         </Block>
       </div>
 
-      <Block kicker="FR-VER-04" title="Verification sampling QA"
+      <Block kicker="Second look" title="A second person re-checks a sample"
         note={`A reproducible 5% sample of records-verified items per ISO week (the lowest SHA-256 of "qa-v1:" plus the verification id) goes to a second reviewer who is not the verifier. ${qa.eligible} records-verified item${qa.eligible === 1 ? '' : 's'} so far.`}>
         <p className="font-mono text-sm" role="status">
           Disagreement rate: {qa.rate == null ? '—' : `${(qa.rate * 100).toFixed(1).replace(/\.0$/, '')}% (${qa.disagree} of ${qa.reviewed} reviewed)`}

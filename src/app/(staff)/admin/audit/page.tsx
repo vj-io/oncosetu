@@ -30,7 +30,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   return (
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Audit" title="Audit log"
-        description="Append-only and hash-chained per organisation. Entries carry ids and enums only, never names, quotes or file contents. Times are India time."
+        description="A tamper-proof log: entries are only ever added, and each is linked to the one before it, so any edit would show. Entries carry ids and categories only, never names, quotes or file contents. Times are India time."
         actions={<ButtonLink href={`/api/admin/audit.csv${qs({}) ? `?${qs({})}` : ''}`} variant="secondary" icon={<Download aria-hidden />} prefetch={false}>Export CSV</ButtonLink>} />
 
       <VerifyChain />

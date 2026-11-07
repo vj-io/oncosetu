@@ -15,11 +15,11 @@ export default async function RulesPage() {
   const prod = rules.filter((r) => r.mode === 'production').length
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Missing-Record Radar" title="Rule library"
-        description={`${rules.length} rules. ${prod} in production, ${rules.length - prod} in shadow: shadow rules run and log hits but nothing is shown to staff (FR-RAD-05).`} />
+      <SectionHeader as="h1" kicker="Admin · Missing papers" title="The checks that notice missing papers"
+        description={`${rules.length} missing-papers checks. ${prod} in use, ${rules.length - prod} still under review: those run quietly, but nothing they find is shown to staff until a clinician has reviewed them.`} />
       <p className="flex max-w-3xl items-start gap-3 border border-l-[3px] border-rule border-l-setu bg-setu-tint px-4 py-3 text-[15px]">
         <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-setu-ink" />
-        <span><strong className="font-medium">ADR-002.</strong> Rule wording is document completeness only: whether a document is in the file, never what care a patient needs. Promoting a rule records the reviewing clinician and the time.</span>
+        <span><strong className="font-medium">Wording rule.</strong> The wording is document completeness only: whether a document is in the file, never what care a patient needs. Promoting a rule records the reviewing clinician and the time.</span>
       </p>
       <ul className="grid gap-5">
         {rules.map((r) => {
@@ -30,7 +30,7 @@ export default async function RulesPage() {
                 <div className="grid gap-1">
                   <p className="font-mono text-base tracking-[0.06em]">{r.rule.id} <span className="text-faint">· v{r.rule.version}</span></p>
                   <div className="flex flex-wrap gap-2 pt-1">
-                    {r.mode === 'production' ? <Badge tone="verified" icon={<ShieldCheck />}>Production</Badge> : <StatusBadge status="shadow_mode" />}
+                    {r.mode === 'production' ? <Badge tone="verified" icon={<ShieldCheck />}>In use</Badge> : <StatusBadge status="shadow_mode" label="Under review" />}
                     {r.wordingHits === 0 ? <Badge tone="neutral">Copy lint clean</Badge> : <Badge tone="conflict" icon={<CircleAlert />}>{r.wordingHits} banned term{r.wordingHits === 1 ? '' : 's'} in wording</Badge>}
                   </div>
                 </div>
@@ -45,7 +45,7 @@ export default async function RulesPage() {
                 { label: 'Review', value: r.mode === 'production' && r.reviewedBy ? `Reviewed by ${r.reviewedBy} on ${istDateTime(r.reviewedAt)}` : r.reviewedBy ? `Last reviewed by ${r.reviewedBy} on ${istDateTime(r.reviewedAt)}; now back in shadow` : 'Not clinician-reviewed' },
               ]} />
               <footer className="flex flex-wrap gap-x-8 gap-y-1 border-t border-rule pt-3 font-mono text-sm tabular-nums">
-                <span>Shadow hits <strong className="font-medium">{r.shadowHits}</strong></span>
+                <span>Hits while under review <strong className="font-medium">{r.shadowHits}</strong></span>
                 <span>Production items <strong className="font-medium">{r.productionItems}</strong></span>
               </footer>
             </li>

@@ -13,8 +13,8 @@ export default async function BreakGlassPage() {
   const active = rows.filter((r) => r.active)
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Access review (FR-ID-10)" title="Break-glass access"
-        description="Clinician access to a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Patients are shown by accession code only." />
+      <SectionHeader as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
+        description="Clinician access to a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Patients are shown by record code only." />
       {rows.length === 0 ? <EmptyState title="No break-glass grants" description="Nobody has used break-glass access in this organisation." /> : (
         <>
           <p className="font-mono text-sm text-muted" role="status">{active.length} active now · {rows.length} shown</p>

@@ -45,9 +45,9 @@ export function EvalReport() {
   const ocr = R.ocr
   const classes = Object.entries(R.heldout?.recallByClass ?? {}).filter(([, v]) => v.gold > 0)
   return (
-    <Block kicker="§9.5 · FR-DOC-02 · FR-EXT-08" title="Extraction evaluation (synthetic documents)"
+    <Block kicker="Reading accuracy" title="How accurately documents are read (synthetic documents)"
       note={<>Offline runs of the same pipeline code over synthetic documents, not live data. Tuned: the 20 demo documents the rule library was developed on (optimistic). Held-out: 40 documents written after the rules were frozen. Its first blind run found one handwritten page auto-extracted, since fixed; that run is kept in <code>data/eval/heldout-blind-run.json</code>. Rules run {R.generatedAt.slice(0, 10)}, AI-assisted run {H.generatedAt.slice(0, 10)}. Regenerate with <code>scripts/eval.ts</code>.</>}>
-      <Table caption="Evaluation against PRD §9.5 thresholds">
+      <Table caption="Results against the targets we set">
         <thead><tr><th>Metric</th><th>Target</th>{cols.map((c) => <th key={c.label}>{c.label}</th>)}</tr></thead>
         <tbody>
           {ROWS.map((row) => (

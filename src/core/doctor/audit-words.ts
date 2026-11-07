@@ -19,6 +19,8 @@ const WORDS: Record<string, string> = {
   'event.dispute': 'A fact was disputed',
   'conflict.resolve': 'A disagreement between two sources was settled',
   'snapshot.seal': 'Visit sealed',
+  'snapshot.passport_print': 'Passport printed',
+  'snapshot.download': 'Sealed visit downloaded for an offline check',
   'share.create': 'Share link created',
   'share.revoke': 'Share link switched off',
   'share.payload': 'Share link prepared',

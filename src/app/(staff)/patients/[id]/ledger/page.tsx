@@ -56,6 +56,7 @@ function SealPlaque({ v, patientId }: { v: LedgerView; patientId: string }) {
         <p className="flex flex-wrap items-center gap-x-4 text-sm">
           <Link href={`/verify/${s.id}`} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Check the seal<ArrowUpRight aria-hidden className="size-3.5" /></Link>
           <Link href={`/patients/${patientId}/timeline?asOf=${s.id}`} className="text-setu-ink underline decoration-brass underline-offset-4">See the record as it was then</Link>
+          <Link href={`/print/passport/${s.id}`} target="_blank" className="text-setu-ink underline decoration-brass underline-offset-4">Print the passport</Link>
           <InfoTip>{EXPLAIN.seal}</InfoTip>
         </p>
       </div>

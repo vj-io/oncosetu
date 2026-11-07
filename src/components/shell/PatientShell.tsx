@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import clsx from "clsx";
 import { LanguageToggle, Spotlight, Wordmark, type Lang } from "@/components/ui";
 import { htmlLang } from "@/core/copy";
@@ -12,11 +13,14 @@ export function PatientShell({
   brand,
   lang,
   displayName,
+  homeHref = "/p",
   children,
 }: {
   brand: "OncoSetu" | "Setu Records";
   lang: Lang;
   displayName: string;
+  /** Where the brand mark goes: the portal home when signed in, /p/login when signed out. */
+  homeHref?: string;
   children: ReactNode;
 }) {
   return (
@@ -26,7 +30,7 @@ export function PatientShell({
       </a>
       <header className="relative z-10 border-b border-rule bg-gallery">
         <div className="mx-auto flex min-h-16 max-w-reading flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
-          <Wordmark brand={brand} />
+          <Link href={homeHref} aria-label={brand} className="inline-flex h-11 items-center"><Wordmark brand={brand} /></Link>
           <div className="ml-auto flex items-center gap-4">
             {displayName && (
               <p className="hidden text-right leading-tight min-[420px]:grid">

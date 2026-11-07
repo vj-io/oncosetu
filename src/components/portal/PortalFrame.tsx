@@ -24,7 +24,7 @@ export function PortalFrame({ ctx, children }: { ctx: PortalCtx; children: React
   const { lang } = ctx;
   const items: NavItem[] = PAGES.map(([href, key]) => ({ href, label: tp(lang, key), query: `?lang=${lang}` }));
   return (
-    <PatientShell brand={ctx.brand} lang={lang} displayName={ctx.session.displayName}>
+    <PatientShell brand={ctx.brand} lang={lang} displayName={ctx.session.displayName} homeHref={`/p?lang=${lang}`}>
       <PortalNav items={items} label={tp(lang, "navLabel")} signOut={tp(lang, "signOut")} signingOut={tp(lang, "signingOut")} lang={lang} />
       {ctx.session.kind === "caregiver" && (
         <p role="note" className="mb-8 border border-l-[3px] border-violet border-l-violet bg-violet-tint px-4 py-3 text-[15px] text-violet-ink">

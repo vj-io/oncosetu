@@ -128,9 +128,9 @@ export default function StaffLoginPage() {
             </form>
           </Frame>
           <p className="mt-6 text-[15px] text-muted">
-            Patient or caregiver?{" "}
+            Patient or family?{" "}
             <Link href="/p/login" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">
-              Use the patient portal
+              Sign in here
             </Link>
           </p>
         </div>

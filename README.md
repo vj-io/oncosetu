@@ -165,14 +165,16 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 - Reports: `data/eval/report.json` (rules, 5 November 2026) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026, before the 5 November extractor changes: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
 - Only event types that a set's gold labels at all are scored. The types added on 5 and 6 November (allergy statements, follow-up dates, lab result rows, diagnosis sections, history sentences) are still not labelled: they are counted, pass the hard gates, and are scored once someone labels them. The six types added on 7 November are labelled and scored.
 
-| PRD §9.5 metric | Target | Tuned · rules | Held-out · rules | Held-out · rules + Gemini |
-|---|---|---|---|---|
-| Unsupported facts reaching the record | 0 | 0 | 0 | 0 |
-| Handwritten pages auto-extracted | 0 | 0 | 0 | 0 |
-| Event precision | ≥ 0.95 | 0.983 | 0.935 | 0.907 |
-| Event recall (omission) | ≥ 0.85 | 0.973 | 0.760 | 0.734 |
-| Classification macro-F1 | ≥ 0.85 | 0.947 | 0.983 | 0.983 |
-| Identity decision as expected | held, never wrong | 20 / 20 | 27 / 40 | 27 / 40 |
+| PRD §9.5 metric | Target | Tuned · rules | Held-out · rules, untouched labels | Held-out · rules, after adding oncology fact types (rules tuned using some of these documents) | Held-out · rules + Gemini (4 Nov, older) |
+|---|---|---|---|---|---|
+| Unsupported facts reaching the record | 0 | 0 | 0 | 0 | 0 |
+| Handwritten pages auto-extracted | 0 | 0 | 0 | 0 | 0 |
+| Event precision | ≥ 0.95 | 0.983 | 0.915 | 0.935 | 0.907 |
+| Event recall (omission) | ≥ 0.85 | 0.973 | 0.709 | 0.760 | 0.734 |
+| Classification macro-F1 | ≥ 0.85 | 0.947 | 0.983 | 0.983 | 0.983 |
+| Identity decision as expected | held, never wrong | 20 / 20 | 27 / 40 | 27 / 40 | 27 / 40 |
+
+How to read the held-out columns. **Untouched labels** (79 facts) scores only the labels that existed before the oncology fact types were added: stage, marker results, margins, impression, addendum and regimen are left out on both sides, so this column is the honest held-out figure. **After adding oncology fact types** (96 facts) includes the 17 new labels; the rules for those six types were tuned using some of these held-out documents, so that column is optimistic and is not a blind result. `scripts/eval.ts` writes both: the main numbers include the new types and `untouchedLabels` holds the other figures, and the admin evaluation panel shows both columns with these same labels. The tuned column is optimistic as always (the rules were developed on those documents; on its labels before the new types it scores 0.976 / 0.963).
 
 The rules + Gemini column is the 4 November run, before the 7 November changes, and has not been re-run (no provider key in this build): tuned set precision 0.952, recall 0.981; held-out precision 0.907, recall 0.734. The two rules columns are the 7 November run.
 
@@ -183,7 +185,7 @@ The rules + Gemini column is the 4 November run, before the 7 November changes, 
 | Tuned (20 documents) | 0.950 | 0.983 | 0.943 | 0.973 |
 | Held-out (40 documents) | 0.911 | 0.935 | 0.658 | 0.760 |
 
-With the old gold labels only (the new types left unscored) the same code gives tuned 0.951 / 0.962 and held-out 0.915 / 0.709, so most of the held-out recall gain is the prescription, date and follow-up fixes, and the rest is the new types now being labelled. The new types were hand-labelled by reading each document, and the held-out labels were written after the held-out rules had been frozen for the older types but not for the new ones: the new rules were tuned on the held-out documents that carry those lines (markers, impressions, regimen). Treat the held-out gain on those types as optimistic. Hard gates on both sets: unsupported facts reaching the record 0, handwritten pages auto-extracted 0.
+On the labels that existed before the new types (the `untouchedLabels` figures in `report.json`) the same code gives held-out precision 0.915 and recall 0.709 (tuned 0.976 / 0.963), so most of the held-out recall gain is the prescription, date and follow-up fixes, and the rest is the new types now being labelled. The new types were hand-labelled by reading each document, and the held-out labels were written after the held-out rules had been frozen for the older types but not for the new ones: the new rules were tuned on the held-out documents that carry those lines (markers, impressions, regimen). Treat the held-out gain on those types as optimistic. Hard gates on both sets: unsupported facts reaching the record 0, handwritten pages auto-extracted 0.
 
 **5 November changes (mentor review).** Quotes are now whole sentences, joined across wrapped lines: a fact never starts mid-sentence. Before, the CT fact quoted "drug allergies. CT thorax …", which reads as if the patient had allergies when the page says "No known drug allergies". That moved the rules numbers from tuned 0.949 / 0.962 and held-out 0.889 / 0.646 to the figures above. Two tuned gold labels were revised (`about` in `gold.json` says why). One tuned fact is now missed: "Specimen sent for histopathology" had only ever been matched by accident, through the old line-long quote of the IHC fact.
 

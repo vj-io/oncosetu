@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { CircleCheck, CircleX } from 'lucide-react'
 import { BrassSeal, Frame, KeyValue, LanguageToggle, Spotlight, Wordmark } from '@/components/ui'
@@ -41,7 +40,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
         </div>
         <div className="grid justify-items-center gap-4 text-center">
           {intact ? (
-            <BrassSeal animate code={v.sha256Stored} label={`S${v.seq} intact`} ringText={t('ring')} size={168} />
+            <BrassSeal animate code={v.sha256Stored} label="Intact" ringText={t('ring')} size={168} />
           ) : (
             <span aria-hidden className="grid size-[168px] place-items-center rounded-full border-2 border-dashed border-madder bg-madder-tint font-mono text-xs tracking-[0.16em] text-madder-ink uppercase">{t('brokenBadge')}</span>
           )}
@@ -56,7 +55,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
             { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },
             { label: t('sealed'), value: <span className="font-mono text-[13px] break-all">{v.sha256Stored}</span> },
             { label: t('now'), value: <span className="font-mono text-[13px] break-all">{v.sha256Recomputed}</span> },
-            { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <Link href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</Link></span> },
+            { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</a></span> },
             ...(v.counts ? [{ label: t('contents'), value: <span className="font-mono text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
           ]} />
         </Frame>

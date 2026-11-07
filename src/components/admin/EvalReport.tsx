@@ -11,15 +11,20 @@ type ClassRecall = Record<string, { recall: number | null; gold: number }>
 type SetReport = {
   precision: number | null; recall: number | null; gates: Gates; recallByClass: ClassRecall
   identity: { correct: number; total: number }; classification: { macroF1?: number }
+  untouchedLabels?: { precision: number | null; recall: number | null }
 }
 type Report = SetReport & { generatedAt: string; heldout?: SetReport; ocr?: { cer: number; maxCer: number; pagesScored: number } }
 
 const R = rules as unknown as Report
 const H = hybrid as unknown as Report
+// Held-out is shown twice on purpose. The first column scores only the labels written before the oncology fact types existed.
+// The second adds the new types, whose rules were tuned using some of the held-out documents, so it is optimistic.
+const untouched = (r: SetReport | undefined): SetReport | undefined => (r?.untouchedLabels ? { ...r, precision: r.untouchedLabels.precision, recall: r.untouchedLabels.recall } : r)
 const cols: { label: string; r: SetReport | undefined }[] = [
   { label: 'Tuned · rules', r: R },
-  { label: 'Held-out · rules', r: R.heldout },
-  { label: 'Held-out · rules + AI-assisted', r: H.heldout },
+  { label: 'Held-out · rules (untouched labels)', r: untouched(R.heldout) },
+  { label: 'Held-out · rules, after adding oncology fact types (rules tuned using some of these documents)', r: R.heldout },
+  { label: 'Held-out · rules + AI-assisted (4 Nov run, before the oncology types)', r: H.heldout },
 ]
 const num = (n: number | null | undefined) => (n == null ? '—' : n.toFixed(3))
 const ROWS: { label: string; target: string; value: (r: SetReport) => string; ok: (r: SetReport) => boolean | null }[] = [
@@ -46,7 +51,7 @@ export function EvalReport() {
   const classes = Object.entries(R.heldout?.recallByClass ?? {}).filter(([, v]) => v.gold > 0)
   return (
     <Block kicker="Reading accuracy" title="How accurately documents are read (synthetic documents)"
-      note={<>Offline runs of the same pipeline code over synthetic documents, not live data. Tuned: the 20 demo documents the rule library was developed on (optimistic). Held-out: 40 documents written after the rules were frozen. Its first blind run found one handwritten page auto-extracted, since fixed; that run is kept in <code>data/eval/heldout-blind-run.json</code>. Rules run {R.generatedAt.slice(0, 10)}, AI-assisted run {H.generatedAt.slice(0, 10)}. Regenerate with <code>scripts/eval.ts</code>.</>}>
+      note={<>Offline runs of the same pipeline code over synthetic documents, not live data. Tuned: the 20 demo documents the rule library was developed on (optimistic). Held-out: 40 documents written after the rules were frozen; the “untouched labels” column scores only the labels written then, and the next column adds the oncology fact types (stage, marker results, margins, impression, addendum, regimen), whose rules were tuned using some of these documents, so treat that column as optimistic. Its first blind run found one handwritten page auto-extracted, since fixed; that run is kept in <code>data/eval/heldout-blind-run.json</code>. Rules run {R.generatedAt.slice(0, 10)}, AI-assisted run {H.generatedAt.slice(0, 10)}. Regenerate with <code>scripts/eval.ts</code>.</>}>
       <Table caption="Results against the targets we set">
         <thead><tr><th>Metric</th><th>Target</th>{cols.map((c) => <th key={c.label}>{c.label}</th>)}</tr></thead>
         <tbody>

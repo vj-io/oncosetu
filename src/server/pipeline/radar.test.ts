@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RadarItem, RadarOutput } from '@/core/radar'
-import { needsRunner, stageStates } from './queries'
+import { minutesLeft, needsRunner, stageStates } from './queries'
 import { planRadarMerge, rowKey } from './radar'
 
 const P = 'patient-1'
@@ -75,5 +75,19 @@ describe('processing state machine helpers', () => {
     expect(planRadarMerge(P, [r], out([], [{ dedupeKey: 'k1', documentId: 'doc-9' }]), evs, none)).toEqual([])
     const [op] = planRadarMerge(P, [r], out([item('k1')]), evs, none)
     expect(op.op === 'update' && (op.set.matchWindow as Record<string, unknown>).rejectedDocumentIds).toEqual(['doc-9'])
+  })
+})
+
+describe('minutesLeft (FR-ONB-02 estimate)', () => {
+  it('is queued pages × median recent per-page time, rounded up to whole minutes', () => {
+    // per-page: 20 s, 30 s, 90 s → median 30 s; 7 pages × 30 s = 3.5 min → 4
+    const recent = [{ pages: 3, ms: 60_000 }, { pages: 2, ms: 60_000 }, { pages: 1, ms: 90_000 }]
+    expect(minutesLeft(7, recent)).toBe(4)
+    expect(minutesLeft(1, [{ pages: 10, ms: 10_000 }])).toBe(1) // under a minute still says "about 1 min"
+  })
+  it('has no estimate with nothing queued or no usable history', () => {
+    expect(minutesLeft(0, [{ pages: 1, ms: 30_000 }])).toBeNull()
+    expect(minutesLeft(5, [])).toBeNull()
+    expect(minutesLeft(5, [{ pages: 0, ms: 30_000 }, { pages: 2, ms: -5 }])).toBeNull() // stored-only files and clock skew are ignored
   })
 })

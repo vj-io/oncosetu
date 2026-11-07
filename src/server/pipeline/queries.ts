@@ -1,10 +1,11 @@
 // Read models for the documents screens and the status route. Must run inside withOrg + after access checks.
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
+import { auditLog, documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
+import { median } from '../admin/metrics-compute'
 import { STAGES, STALE_LOCK_MINUTES, type Stage } from './process'
 
 /** FR-ONB-01 backlog order: pathology/molecular → imaging → discharge/procedure → treatment → prescriptions → labs → other. */
@@ -86,6 +87,34 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
   }
 }
 
+/**
+ * FR-ONB-02 "about N min left": pages still queued × the median per-page time of recently processed documents.
+ * null when nothing is queued or there is no history yet. A page count not known yet (not read) counts as one page.
+ */
+// ponytail: assumes documents run one after another, so it over-estimates when runners overlap; fine for a hint.
+export function minutesLeft(queuedPages: number, recent: readonly { pages: number; ms: number }[]): number | null {
+  const perPage = median(recent.filter((r) => r.pages > 0 && r.ms >= 0).map((r) => r.ms / r.pages))
+  return queuedPages > 0 && perPage != null ? Math.max(1, Math.ceil((queuedPages * perPage) / 60_000)) : null
+}
+
+/**
+ * The org's last `limit` processed documents: pages and ms from the row being created (upload) to its
+ * `document.processed` audit row. Both clocks are real time (received_at may run on the demo clock).
+ */
+// ponytail: a reprocessed document's later run counts from the first upload; the median absorbs the odd one.
+export async function recentProcessing(tx: Tx, limit = 50) {
+  const done = await tx.select({ id: auditLog.targetId, at: auditLog.at }).from(auditLog)
+    .where(eq(auditLog.action, 'document.processed')).orderBy(desc(auditLog.seq)).limit(limit)
+  const ids = done.flatMap((r) => (r.id ? [r.id] : []))
+  if (!ids.length) return []
+  const docs = new Map((await tx.select({ id: documents.id, pages: documents.pages, createdAt: documents.createdAt }).from(documents)
+    .where(inArray(documents.id, ids))).map((d) => [d.id, d]))
+  return done.flatMap((r) => {
+    const d = r.id ? docs.get(r.id) : undefined
+    return d?.pages ? [{ pages: d.pages, ms: +r.at - +d.createdAt }] : []
+  })
+}
+
 /** Document index in onboarding priority order, plus the progress meter numbers (FR-ONB-01/02). */
 export async function listDocuments(tx: Tx, patientId: string) {
   const docs = await tx.select().from(documents).where(eq(documents.patientId, patientId)).orderBy(desc(documents.receivedAt))
@@ -109,12 +138,14 @@ export async function listDocuments(tx: Tx, patientId: string) {
     const c = counts.get(d.id)
     return (c && c.events > 0 && c.verified === c.events) || (d.handwritten && d.manualTags.includes('doc_type'))
   })
+  const queued = live.filter((d) => d.status === 'queued' || d.status === 'processing')
   const progress = {
     documents: live.length,
     pagesReceived: live.reduce((a, d) => a + pagesOf(d), 0),
     pagesProcessed: processed.reduce((a, d) => a + pagesOf(d), 0),
     pagesVerified: verifiedDocs.reduce((a, d) => a + pagesOf(d), 0),
-    inQueue: live.filter((d) => d.status === 'queued' || d.status === 'processing').length,
+    inQueue: queued.length,
+    minutesLeft: queued.length ? minutesLeft(queued.reduce((a, d) => a + pagesOf(d), 0), await recentProcessing(tx)) : null,
     awaitingDecision: live.filter((d) => d.attachState === 'pending_decision' && (d.status === 'needs_review' || d.status === 'done')).length,
   }
   return { rows, progress }

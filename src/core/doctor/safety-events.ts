@@ -17,7 +17,7 @@ export const SAFETY_META: Record<SafetyKind, { label: string; tone: SafetyTone; 
   no_consent: { label: 'Refused: no consent or ID check', tone: 'conflict', explain: 'A record was not opened because the patient had not consented or had not been verified.' },
   break_glass: { label: 'Emergency access used', tone: 'conflict', explain: 'A clinician opened a record without consent, giving a reason. The patient is told and the reason is kept.' },
   share_refused: { label: 'Share link refused', tone: 'unverified', explain: 'Someone opened a share link with the wrong passcode, after it expired, or after it was switched off.' },
-  sms_limit: { label: 'Code limit reached', tone: 'unverified', explain: 'A phone asked for too many verification codes, so no further code was sent for a while.' },
+  sms_limit: { label: 'SMS code limit reached', tone: 'unverified', explain: 'A phone asked for too many verification codes, so no further code was sent for a while.' },
   id_number_rejected: { label: 'Full ID number rejected', tone: 'unverified', explain: 'A full government ID number was typed where it must not be stored, and was refused.' },
   upload_rejected: { label: 'Upload rejected (unsafe or unsupported file)', tone: 'unverified', explain: 'A file was refused because it looked unsafe or was in a format the system cannot read.' },
   duplicate_upload: { label: 'Duplicate upload', tone: 'neutral', explain: 'The same file was uploaded twice. The copy was recognised and not added again.' },
@@ -87,7 +87,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
     case 'desk.verify_failed': return d.reason === 'locked' ? mk('sms_limit', 'Too many wrong codes were typed, so this phone is paused for a while.') : null
     case 'identity.full_id_rejected': return mk('id_number_rejected', 'A full ID number was refused. Only the last four digits may be kept.')
     case 'document.upload_rejected': return mk('upload_rejected', REJECT_WORDS[String(d.reason ?? '')] ?? 'The file was refused and nothing was kept.')
-    case 'document.quarantined': return mk('upload_rejected', 'The file looked unsafe or unsupported and was set aside. It was never opened.')
+    case 'document.quarantined': return mk('upload_rejected', 'Unsafe file blocked (quarantined): it was set aside and never opened.')
     case 'inbound.email_rejected': return mk('upload_rejected', 'An emailed attachment was refused.', 'The system')
     case 'document.unreadable': return mk('upload_rejected', 'The file could not be read, so it was not processed.', 'The system')
     case 'document.duplicate_upload': return mk('duplicate_upload', 'The same file was already on record, so no second copy was added.')

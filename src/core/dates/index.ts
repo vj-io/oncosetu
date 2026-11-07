@@ -19,6 +19,11 @@ export interface DateOptions {
   now?: string | Date
   /** Explicit anchor date (`YYYY-MM-DD`) from the same document; enables relative expressions and year-less dates. */
   anchor?: string | null
+  /**
+   * The same document writes a numeric date whose first number is above 12 (e.g. 22/01/2026), so it counts day first:
+   * every numeric date in it is read DD/MM and none is flagged ambiguous (see `usesDayFirst`).
+   */
+  dayFirst?: boolean
 }
 
 export interface DateSpan {
@@ -200,6 +205,17 @@ function scan(text: string, includeParseOnly: boolean): Hit[] {
   return out
 }
 
+/**
+ * True when the text has a numeric date that can only be day first (a first number above 12 with a valid month second,
+ * such as 22/01/2026). Indian records are day first throughout, so one such date settles the others in the same document.
+ */
+export function usesDayFirst(text: string): boolean {
+  for (const m of toAsciiDigits(text).matchAll(/(?<![\d/.-])(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})(?!\d|[/.-]\d)/g)) {
+    if (+m[1] > 12 && +m[1] <= 31 && +m[2] >= 1 && +m[2] <= 12) return true
+  }
+  return false
+}
+
 /** All date-like spans in `text` (absolute and relative), with offsets into the original string. */
 export function findDates(text: string): DateSpan[] {
   return scan(text, false).map(({ raw, start, end, kind }) => ({ raw, start, end, kind }))
@@ -259,7 +275,7 @@ function resolve(parts: Parts, raw: string, opts: DateOptions): ParsedDate {
       if (y === null) return unknown(raw)
       const dm = valid(y, parts.b, parts.a) ? isoOf(y, parts.b, parts.a) : null // DD/MM (India default)
       const md = valid(y, parts.a, parts.b) ? isoOf(y, parts.a, parts.b) : null // MM/DD
-      if (dm && md && dm !== md) return { iso: dm, precision: 'day', flags: ['date_ambiguous'], raw, alternatives: [md] }
+      if (dm && md && dm !== md) return opts.dayFirst ? { iso: dm, precision: 'day', flags: [], raw } : { iso: dm, precision: 'day', flags: ['date_ambiguous'], raw, alternatives: [md] }
       const iso = dm ?? md
       return iso ? { iso, precision: 'day', flags: [], raw } : unknown(raw)
     }

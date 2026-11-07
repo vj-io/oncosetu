@@ -38,7 +38,9 @@ export const eventType = pgEnum('event_type', [
   'imaging_report_documented', 'lab_report_documented', 'prescription_documented',
   'chemotherapy_session_documented', 'radiotherapy_documented', 'admission_documented',
   'discharge_documented', 'consultation_documented', 'referral_documented', 'report_pending_documented',
-  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'diagnosis_documented', 'history_documented', 'patient_statement',
+  'allergy_documented', 'follow_up_documented', 'lab_results_documented', 'diagnosis_documented', 'history_documented',
+  'stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented', 'addendum_documented', 'regimen_documented',
+  'patient_statement',
 ])
 export const datePrecision = pgEnum('date_precision', ['day', 'month', 'year', 'unknown'])
 export const sourceType = pgEnum('source_type', [

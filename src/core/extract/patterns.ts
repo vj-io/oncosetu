@@ -4,6 +4,7 @@
 import { findDates } from '../dates'
 import type { Candidate } from '../gate'
 import type { DocType } from '../types'
+import { detectInjection } from './injection'
 import { parseHeader, type LabelledSpan, type ParsedHeader } from './header'
 
 export interface ExtractPage {
@@ -94,7 +95,30 @@ const HISTORY = /^(?:no\s+)?(?:k\/c\/o\b|known\s+(?!(?:drug|food)\b|allerg)|h\/o
 const RESULT_ROW = /^[\s•*-]*([\p{L}][\p{L}\p{M}\d ()/.,'+-]{1,44}?)\s*[:\-–]?\s+[<>]?\s*\d[\d,]*(?:\.\d+)?(?:\s*[HL*](?![\p{L}]))?\s*(?:g\/dl|gm\/dl|gm?%|mg\/dl|mg\/l|mmol\/l|meq\/l|[iu]u\/l|u\/l|iu\/ml|ng\/ml|pg\/ml|[µu]g\/l|[µu]iu\/ml|fl|pg|%|\/\s?cu\.?\s?mm|\/\s?cumm|\/\s?[µu]l|\/\s?mm3|lakhs?|million|x\s?10|sec(?:onds)?|mm\/(?:1st\s+)?hr?)(?![\p{L}])/iu
 const RESULT_DOCS: ReadonlySet<DocType> = new Set(['lab_report', 'discharge_summary', 'chemo_daycare_record', 'consult_note', 'procedure_note'])
 
-const MED_LINE = /^\s*(?:\d{1,2}[.)]\s*)?(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syr|Syrup|Susp|Oint|Gel|Drops?|Sachet|Neb)\.?\s+([A-Za-z][\w+-]*(?:\s+(?!(?:OD|BD|BID|TDS|TID|QID|HS|SOS|PRN|STAT|x|X|for|after|before|daily|once|twice|thrice|morning|night|with|mg|ml|mcg|g|IU|units?)\b)[A-Za-z][\w+-]*){0,2})/u
+const MED_LINE = /^\s*(?:\d{1,2}(?:[.)]|\s*\t)\s*)?(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syr|Syrup|Susp|Oint|Gel|Drops?|Sachet|Neb)\.?\s+([A-Za-z][\w+-]*(?:\s+(?!(?:OD|BD|BID|TDS|TID|QID|HS|SOS|PRN|STAT|x|X|for|after|before|daily|once|twice|thrice|morning|night|with|mg|ml|mcg|g|IU|units?)\b)[A-Za-z][\w+-]*){0,2})/u
+// A numbered table row whose first cell names the medicine without Tab./Cap./Inj. ("5 <tab>Urea 10% emollient cream <tab>Apply on ...").
+// The whole first cell is the name, as written; header rows ("# <tab>Medicine") and rows with no letters never match.
+const MED_ROW = /^\s*\d{1,2}\s*\t\s*([\p{L}][^\t\n]{2,70}?)\s*(?:\t|$)/u
+const NOT_A_MEDICINE = /^(?:medicine|drug|name|sr\.?\s*no|dose|duration|instructions?)\b/i
+
+// Quote-only oncology lines: each is a sentence or table row copied word for word. Nothing is derived from them.
+const STAGE_TOKEN = /(?<![\p{L}\d])(?:[yra]{0,2}[pc]T(?:[0-4]|X|is)[a-d]?(?:\s*[yra]{0,2}[pc]?N(?:[0-3]|X)[a-c]?)?(?:\s*[pc]?M(?:[01]|X)[a-d]?)?|T(?:[0-4]|X|is)[a-d]?\s*N(?:[0-3]|X)[a-c]?(?:\s*M(?:[01]|X))?|[pc]N(?:[0-3]|X)[a-c]?(?:\s*[pc]?M(?:[01]|X))?|[pc]M(?:[01]|X)|FIGO\s+stage\s*(?:[0-4]|[IV]{1,3})[A-C]?\d?|[Ss]tage\s*(?:[0-4]|[IV]{1,3})[A-C]?|TNM)(?![\p{L}\d])/gu
+const MARGIN = /(?<![p{L}])margins?(?![p{L}])/iu
+const MARKER_START = /^\s*(?:(?:Estrogen|Oestrogen)\s+receptor|Progesterone\s+receptor|HER-?2(?:\/neu)?|Ki-?67|ER|PR|MLH1|PMS2|MSH2|MSH6|MSI)(?![\p{L}\d])/iu
+const MMR_PROTEIN = /^\s*(?:MLH1|PMS2|MSH2|MSH6)(?![\p{L}\d])/u
+const MARKER_RESULT = /POSITIVE|NEGATIVE|DETECTED|Detected|Not detected|Positive|Negative|Equivocal|EQUIVOCAL|Score\s*\d|\d\s*%|[Rr]etained|[Ll]oss\b|[Ll]ost\b|[Ii]ntact|[Pp]roficient|[Dd]eficient|MSI-?(?:H|L)|\bMSS\b/u
+const MARKER_NARRATIVE = /(?:evaluated|reported\s+separately|performed\s+on|sent\s+for|as\s+per|guidelines|will\s+be\s+reported)/i
+const MMR_STATUS = /\b(?:pMMR|dMMR|MSI-?H|MSI-?L|MSS)\b|mismatch\s+repair\s+(?:proficient|deficient)/iu
+const LABEL_NEXT = /^[\p{Lu}][\p{L}\s/().-]{1,40}:/u
+const ADDENDUM_TITLE = /^\s*(?:ADDENDUM|AMENDED|CORRIGENDUM|SUPPLEMENTARY)(?:\s+REPORT)?\s*$/
+const ADDENDUM_CHANGE = /(?:diagnosis|report|findings?)[^.]{0,80}?\b(?:unchanged|revised|amended|modified|corrected|changed)\b/i
+const IMPRESSION_HEAD = /^\s*(?:impression|conclusion|opinion)\s*:?\s*$/i
+const IMPRESSION_INLINE = /^\s*(?:impression|conclusion)\s*[:\-–]\s*(\S[\s\S]*)$/i
+// A results table in an IHC / molecular report: "Marker <tab> Result ..." or "Gene region <tab> Result".
+const TABLE_HEAD = /^\s*(?:Marker|Gene(?:\s+region)?|Antibody|Test|Parameter)\b[^\t]*\t.*\b(?:Result|Status)\b/i
+const IMPRESSION_DOCS: ReadonlySet<DocType> = new Set(['imaging_report', 'pathology_report', 'consult_note'])
+const SIGNATURE = /^\s*(?:Dr\.?\s|Reg\.|Consultant\b|Reported\s+by|Computer|Verified|\*{2,}|\+\s*End)/i
+const REGIMEN_PART = /(?<![\p{L}])(Regimen|Protocol)(?:\s*:\s*|[ ]*\t\s*)/iu
 
 const TITLES: Partial<Record<DocType, RegExp>> = {
   pathology_report: /(?<![\p{L}])(?:histopatholog\w*(?:\s+(?:report|examination))?|surgical\s+pathology(?:\s+report)?|biopsy\s+report|cytology\s+report|HPE\s+report|pathology\s+report|frozen\s+section(?:\s+report)?|cytopathology(?:\s+report)?)(?![\p{L}])/iu,
@@ -107,6 +131,7 @@ const TITLES: Partial<Record<DocType, RegExp>> = {
 
 // "Tab. Thyroxine", "Dr. Meera", "Reg. No.", initials, list numbers ("1. Tab."): a full stop that does not end a sentence.
 const ABBREV = /(?:(?:^|[^\p{L}])(?:Dr|Drs|Mr|Mrs|Ms|Smt|Shri|Sh|Prof|Tab|Cap|Inj|Syp|Syr|No|Nos|Reg|Hosp|Dt|St|Sr|Jr|Pvt|Ltd|Co|vs|approx|Ref|Wt|Ht|\p{Lu})|(?:^|[^\p{L}\d])\d{1,2})\.$/u
+const DATE_INTRO = /(?:^|[^\p{L}])(?:on|dated|dt\.?|date|from|since|till|until|upto|w\.e\.f\.?|by|before|after|of)\s*[:\-–]?\s*$/iu
 const SENTENCE_END = /[.;!?]\s+(?=[\p{Lu}(•"“])/gu
 
 /**
@@ -120,7 +145,11 @@ function segments(page: ExtractPage): Seg[] {
   for (const l of lines) {
     const prev = blocks.at(-1)
     const text = page.text.slice(l.start, l.end)
-    if (prev && /^\s*\p{Ll}/u.test(text) && !/[.:;!?]\s*$/.test(page.text.slice(prev.start, prev.end))) {
+    const before = prev ? page.text.slice(prev.start, prev.end) : ''
+    // A line that starts in lower case continues the sentence; so does a date on the next line when the sentence ends
+    // on a word that introduces one ("... wide local excision done on" / "12/03/2026").
+    const dateNext = DATE_INTRO.test(before) && /^\s*(?:\d{1,2}[\s/.-]|\d{4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s.,])/i.test(text)
+    if (prev && (dateNext || (/^\s*\p{Ll}/u.test(text) && !/[.:;!?]\s*$/.test(before)))) {
       prev.end = l.end
       prev.lines.push(l)
     } else blocks.push({ start: l.start, end: l.end, lines: [l] })
@@ -149,6 +178,17 @@ function segments(page: ExtractPage): Seg[] {
   return out
 }
 
+/** Lines of a page with their offsets (blank lines included, so a blank line can end a block). */
+function lineSpans(text: string) {
+  const out: { start: number; end: number; text: string }[] = []
+  let at = 0
+  for (const t of text.split('\n')) {
+    out.push({ start: at, end: at + t.length, text: t })
+    at += t.length + 1
+  }
+  return out
+}
+
 const absDates = (s: string) => findDates(s).filter((d) => d.kind === 'absolute')
 
 /** Date immediately after `offset` in `text` (only separators in between). */
@@ -166,6 +206,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
   const first = [...pages].sort((a, b) => a.pageNo - b.pageNo)[0]
   const out: Candidate[] = []
   const seen = new Set<string>()
+  const chemoRegimenSegs = new Set<number>() // lines whose regimen text already sits on a cycle event
   const headerLineEnd = first.text.split('\n').slice(0, HEADER_LINES).join('\n').length
   const institution = header.institution && header.institution.end <= headerLineEnd ? header.institution.value : undefined
 
@@ -244,6 +285,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
           const cycle = m[1] ?? m[2] ?? m[4]
           const regimen = REGIMEN_LABEL.exec(t)?.[1] ?? t.match(REGIMEN_CODES)?.[0] ?? t.match(DRUG_NAMES)?.[0]
           add('chemotherapy_session_documented', page, seg.start, seg.end, { cycle_number: cycle, regimen_text: regimen, event_date_text: absDates(t)[0]?.raw })
+          if (regimen) chemoRegimenSegs.add(seg.start)
         }
       }
 
@@ -280,7 +322,8 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
 
       // Follow-up dates already written down: the text before the date names what is due
       const fu = FOLLOW_UP.exec(t)
-      const due = fu && !FOLLOW_UP_PAST.test(t) ? dates.find((d) => d.start > fu.index) : undefined
+      // "was / done" before the date means it already happened ("Dressing was done on ..."); after it ("... done one day before") it does not.
+      const due = fu ? dates.find((d) => d.start > fu.index && !FOLLOW_UP_PAST.test(t.slice(fu.index, d.start))) : undefined
       if (fu && due) {
         const what = t.slice(fu.index, due.start).replace(FOLLOW_UP_TAIL, '')
         add('follow_up_documented', page, seg.start, seg.end, { appointment_text: (what.length <= 80 ? what : fu[0]).replace(/\s+/g, ' '), event_date_text: due.raw })
@@ -289,6 +332,143 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       // History statements ("Known hypothyroidism on …"), word for word; a diagnosis paragraph already holds its own
       if (!inDx.has(seg) && HISTORY.test(t)) add('history_documented', page, seg.start, seg.end, { history_text: t.replace(/\s+/g, ' ') })
     })
+
+    // ---- Quote-only oncology lines (stage, margins, marker rows, addendum, impression, regimen) ----
+    const addendumDoc = page.text.split('\n').slice(0, HEADER_LINES).some((l) => ADDENDUM_TITLE.test(l))
+
+    // Text that tries to give the software orders is never turned into a fact: the quote-only lines below skip it.
+    const clean = segs.filter((s) => !detectInjection(s.text).flagged)
+
+    // Stage as written: the TNM / stage words themselves (the whole sentence when the words alone are too short for a quote)
+    for (const seg of clean) {
+      const groups: { a: number; z: number }[] = []
+      for (const m of seg.text.matchAll(STAGE_TOKEN)) {
+        const [a, z] = [m.index!, m.index! + m[0].length]
+        const last = groups.at(-1)
+        if (last && /^[\s,;/-]{0,3}$/.test(seg.text.slice(last.z, a))) last.z = z
+        else groups.push({ a, z })
+      }
+      for (const g of groups) {
+        const [qa, qz] = g.z - g.a >= 8 ? [seg.start + g.a, seg.start + g.z] : [seg.start, seg.end]
+        add('stage_documented', page, qa, qz, { section_text: page.text.slice(qa, qz).replace(/\s+/g, ' ') })
+      }
+    }
+
+    // Margins as written: the sentence that names the margin
+    for (const seg of clean) {
+      if (!MARGIN.test(seg.text) || HEADING_LINE.test(seg.text)) continue
+      let from = 0
+      for (const part of seg.text.split(/(?<=[.;!?])\s+/)) {
+        const at = seg.text.indexOf(part, from)
+        from = at + part.length
+        if (MARGIN.test(part)) add('margins_documented', page, seg.start + at, seg.start + from, { margins_text: part.replace(/\s+/g, ' ') })
+      }
+    }
+
+    // Marker result rows (ER, PR, HER2, Ki-67, MMR proteins): each row is one quote; adjacent MMR protein rows share one
+    const ls = lineSpans(page.text)
+    {
+      const rows: { start: number; end: number; mmr: boolean }[] = []
+      for (let i = 0; i < ls.length; i++) {
+        if (!MARKER_START.test(ls[i].text)) continue
+        let k = i
+        while (k < ls.length - 1 && k - i < 5) {
+          const next = ls[k + 1].text
+          if (/[.]\s*$/.test(ls[k].text) || !next.trim() || MARKER_START.test(next) || LABEL_NEXT.test(next) || SIGNATURE.test(next)) break
+          k++
+        }
+        const [start, end] = [ls[i].start, ls[k].end]
+        const text = page.text.slice(start, end)
+        i = k
+        if (detectInjection(text).flagged) continue
+        if (!MARKER_RESULT.test(text) || MARKER_NARRATIVE.test(text) || text.length > MAX_QUOTE) continue
+        rows.push({ start, end, mmr: MMR_PROTEIN.test(text) })
+      }
+      // A results table: each line with a result is a row; consecutive rows of the table share one quote (up to the quote cap)
+      if (docType === 'ihc_molecular_report') {
+        const th = ls.findIndex((l) => TABLE_HEAD.test(l.text))
+        if (th >= 0) {
+          const taken = (a: number, z: number) => rows.some((r) => a < r.end && z > r.start)
+          let run: { start: number; end: number; mmr: boolean } | null = null
+          const flushRun = () => {
+            if (run) rows.push(run)
+            run = null
+          }
+          for (let k = th + 1; k < ls.length; k++) {
+            let z = k
+            while (z + 1 < ls.length && /^\s*\p{Ll}/u.test(ls[z + 1].text)) z++ // wrapped cell continues on a lower-case line
+            const text = page.text.slice(ls[k].start, ls[z].end)
+            if (!ls[k].text.trim() || !/\t/.test(ls[k].text) || LABEL_NEXT.test(ls[k].text) || !MARKER_RESULT.test(text) || MARKER_NARRATIVE.test(text)) {
+              flushRun()
+              if (!ls[k].text.trim() || !/\t/.test(ls[k].text)) break
+              continue
+            }
+            if (taken(ls[k].start, ls[z].end)) {
+              flushRun()
+            } else if (run && ls[z].end - run.start <= MAX_QUOTE) run.end = ls[z].end
+            else {
+              flushRun()
+              run = { start: ls[k].start, end: ls[z].end, mmr: false }
+            }
+            k = z
+          }
+          flushRun()
+        }
+      }
+      const merged: typeof rows = []
+      for (const r of rows.sort((a, b) => a.start - b.start)) {
+        const last = merged.at(-1)
+        if (last && last.mmr && r.mmr && /^\s*$/.test(page.text.slice(last.end, r.start)) && r.end - last.start <= MAX_QUOTE) last.end = r.end
+        else merged.push({ ...r })
+      }
+      for (const r of merged) add('marker_results_documented', page, r.start, r.end, { marker_text: page.text.slice(r.start, r.end).replace(/\s+/g, ' ') })
+    }
+
+    // Addendum: what the addendum says about the original report, and its stated mismatch-repair interpretation
+    if (addendumDoc) {
+      clean.forEach((seg, i) => {
+        if (ADDENDUM_TITLE.test(seg.text)) {
+          const body = segs[i + 1]
+          if (body && !/^(?:Marker|Patient|Addendum to)/i.test(body.text)) add('addendum_documented', page, body.start, body.end, { addendum_text: body.text.replace(/\s+/g, ' ') })
+        } else if (ADDENDUM_CHANGE.test(seg.text) && !/^\s*(?:Addendum|Original)/i.test(seg.text)) {
+          add('addendum_documented', page, seg.start, seg.end, { addendum_text: seg.text.replace(/\s+/g, ' ') })
+        }
+        if (/^\s*Interpretation\s*:/i.test(seg.text) && MMR_STATUS.test(seg.text)) add('marker_results_documented', page, seg.start, seg.end, { marker_text: seg.text.replace(/\s+/g, ' ') })
+      })
+    } else if (docType === 'ihc_molecular_report') {
+      // The pathologist's own "Interpretation:" sentence, word for word
+      for (const seg of clean) if (/^\s*Interpretation\s*:\s*\S/i.test(seg.text)) add('impression_documented', page, seg.start, seg.end, { section_text: seg.text.replace(/^\s*Interpretation\s*:\s*/i, '').replace(/\s+/g, ' ') })
+    }
+
+    // Imaging impression: the report's own impression block, word for word
+    if (IMPRESSION_DOCS.has(docType)) {
+      ls.forEach((l, i) => {
+        const inline = IMPRESSION_INLINE.exec(l.text)
+        const head = IMPRESSION_HEAD.test(l.text)
+        if (!inline && !head) return
+        let last = i
+        for (let k = i + 1; k < ls.length && k - i <= 8; k++) {
+          const t = ls[k].text
+          if (!t.trim() || SIGNATURE.test(t) || (t.trim().length < 12 && !/[.:;]\s*$/.test(t)) || ls[k].end - l.start > MAX_QUOTE) break
+          last = k
+        }
+        if (head && last === i) return
+        if (detectInjection(page.text.slice(l.start, ls[last].end)).flagged) return
+        const bodyStart = head ? ls[i + 1].start : l.start + l.text.length - inline![1].length
+        add('impression_documented', page, l.start, ls[last].end, { section_text: page.text.slice(bodyStart, ls[last].end).replace(/\s+/g, ' ') })
+      })
+    }
+
+    // Regimen line as written ("Regimen: CAPOX ...", "Protocol: R-CHOP, every 21 days") when no cycle line already carries it
+    for (const seg of clean) {
+      const m = REGIMEN_PART.exec(seg.text)
+      if (!m || chemoRegimenSegs.has(seg.start)) continue
+      const rest = seg.text.slice(m.index + m[0].length)
+      const cut = rest.search(/\t\s*[\p{Lu}][\p{L}\s/().-]{1,30}:/u)
+      const value = (cut < 0 ? rest : rest.slice(0, cut)).replace(/\s+/g, ' ').trim()
+      if (value.length < 2) continue
+      add('regimen_documented', page, seg.start + m.index, seg.start + m.index + m[0].length + (cut < 0 ? rest.length : cut), { regimen_text: value })
+    }
 
     // Lab result rows, grouped into quotes of consecutive rows: the values are shown as printed, never interpreted
     if (RESULT_DOCS.has(docType)) {
@@ -320,10 +500,12 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       }
       for (const seg of segs) {
         const m = MED_LINE.exec(seg.text)
-        if (!m) flush()
+        const row = m ? null : MED_ROW.exec(seg.text)
+        const name = m ? m[1] : row && !NOT_A_MEDICINE.test(row[1]) ? row[1] : null
+        if (!name) flush()
         else {
           if (block.length && seg.end - block[0].seg.start > MAX_QUOTE) flush()
-          block.push({ seg, name: m[1] })
+          block.push({ seg, name })
         }
       }
       flush()

@@ -5,7 +5,7 @@ import { PreVisitLinkButton } from '@/components/registration/PreVisitLinkButton
 import { PATIENT_TABS } from '@/components/shell'
 import { FirstLook } from '@/components/doctor/FirstLook'
 import { OncologyFacts } from '@/components/doctor/OncologyFacts'
-import { Badge, BrassSeal, ButtonLink, EmptyFrame, EXPLAIN, Explainer, Frame, KeyValue, Placard, ProgressMeter, SectionHeader } from '@/components/ui'
+import { Badge, BrassSeal, ButtonLink, EmptyFrame, EXPLAIN, Explainer, KeyValue, Placard, ProgressMeter, SectionHeader } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
 import { tabAllowed } from '@/lib/patient-tabs'
 import { loadDoctorOverview } from '@/server/registration/doctor-overview'

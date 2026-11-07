@@ -1,9 +1,10 @@
 // Read model for the clinician "First look" card and the oncology fact strip on the patient overview.
 // Reads existing facts only (ledger, completeness checklist, held documents). Run inside withPatientAccess.
-import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, events, missingRecords, snapshots } from '@/db/schema'
 import { buildFirstLook, classifyHeld, type FirstLookRow, type HeldDoc } from '@/core/doctor/first-look'
+import { countNewSinceSeal, parseSealedCopy } from '@/core/doctor/new-since-seal'
 import { dropDateOnlyImaging, oncologyView, type OncologyView } from '@/core/doctor/oncology'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { staffDocLabel } from '@/core/copy'
@@ -27,13 +28,25 @@ export async function patientGlances(tx: Tx, ids: string[]): Promise<Map<string,
   for (const r of docs) out.get(r.id)!.documents = r.n
   for (const r of miss) out.get(r.id)!.notInFile = r.n
   for (const r of seals) out.get(r.id)!.lastSealed = new Date(r.at)
-  const idList = sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)
-  const fresh = await tx.execute<{ patient_id: string; n: number }>(sql`
-    select e.patient_id, count(*) filter (where s.sealed is null or e.received_at > s.sealed)::int as n
-    from events e left join (select patient_id, max(sealed_at) as sealed from snapshots group by patient_id) s on s.patient_id = e.patient_id
-    where e.patient_id in (${idList}) and e.withdrawn_at is null and e.event_type <> 'patient_statement'
-    group by e.patient_id`)
-  for (const r of fresh) out.get(r.patient_id)!.newSinceSeal = r.n
+  const fresh = await newSinceSealCounts(tx, ids)
+  for (const [id, n] of fresh) out.get(id)!.newSinceSeal = n
+  return out
+}
+
+/** Items not in the last sealed copy, per patient (an item is new when its id is not in the seal; dates are not compared). */
+export async function newSinceSealCounts(tx: Tx, ids: string[]): Promise<Map<string, number>> {
+  const out = new Map<string, number>(ids.map((id) => [id, 0]))
+  if (!ids.length) return out
+  const [evs, seals] = await Promise.all([
+    tx.select({ id: events.id, patientId: events.patientId }).from(events)
+      .where(and(inArray(events.patientId, ids), isNull(events.withdrawnAt), ne(events.eventType, 'patient_statement'))),
+    tx.selectDistinctOn([snapshots.patientId], { patientId: snapshots.patientId, json: snapshots.canonicalJson }).from(snapshots)
+      .where(inArray(snapshots.patientId, ids)).orderBy(snapshots.patientId, desc(snapshots.seq)),
+  ])
+  const sealed = new Map(seals.map((r) => [r.patientId, parseSealedCopy(r.json)]))
+  const byPatient = new Map<string, string[]>()
+  for (const e of evs) byPatient.set(e.patientId, [...(byPatient.get(e.patientId) ?? []), e.id])
+  for (const id of ids) out.set(id, countNewSinceSeal(byPatient.get(id) ?? [], sealed.get(id) ?? null))
   return out
 }
 
@@ -41,10 +54,7 @@ export async function patientGlances(tx: Tx, ids: string[]): Promise<Map<string,
 export async function sealFreshness(tx: Tx, patientId: string): Promise<{ sealedLabel: string | null; newer: number }> {
   const prev = await latestSnapshot(tx, patientId)
   if (!prev) return { sealedLabel: null, newer: 0 }
-  const sealed = prev.row.sealedAt
-  const [r] = await tx.select({ n: sql<number>`count(*)::int` }).from(events)
-    .where(and(eq(events.patientId, patientId), isNull(events.withdrawnAt), ne(events.eventType, 'patient_statement'), gt(events.receivedAt, sealed)))
-  return { sealedLabel: prev.summary.sealedLabel.split(',')[0], newer: r?.n ?? 0 }
+  return { sealedLabel: prev.summary.sealedLabel.split(',')[0], newer: (await newSinceSealCounts(tx, [patientId])).get(patientId) ?? 0 }
 }
 
 export type DoctorOverview = { firstLook: FirstLookRow[]; oncology: OncologyView }

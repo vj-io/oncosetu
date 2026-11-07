@@ -24,7 +24,7 @@ const link = 'font-mono text-[11px] tracking-[0.12em] uppercase text-setu-ink un
 
 /** Cross-patient work queue for records staff (FR-ONB-01, FR-VER-02). Administrative priority by document type only. */
 export default async function RecordsQueuePage() {
-  const session = await requireStaff(['records', 'clinician'])
+  const session = await requireStaff(['records'])
   const { rows, withoutConsent, buckets } = await withOrg(session.orgId, (tx) => loadRecordsQueue(tx))
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0)
   const unverified = sum((r) => r.unverified.reduce((a, b) => a + b, 0))

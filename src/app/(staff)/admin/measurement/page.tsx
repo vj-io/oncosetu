@@ -14,7 +14,7 @@ import { requireStaff } from '@/server/session'
 export const metadata = { title: 'Measurement study · Admin · OncoSetu' }
 
 const REASON: Record<string, string> = { unavailable: 'Earlier result unavailable', quality: 'Poor quality', clinical_need: 'Clinical need' }
-const PHASE: Record<string, string> = { baseline: 'Baseline', shadow: 'Shadow', live: 'Live' }
+const PHASE: Record<string, string> = { baseline: 'Baseline', shadow: 'Trial run', live: 'Live' }
 
 export default async function MeasurementPage() {
   const s = await requireStaff(sectionRoles('measurement'))

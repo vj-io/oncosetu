@@ -1,16 +1,17 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, gt, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, count, eq, inArray, ne } from 'drizzle-orm'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import { RecordErasure } from '@/components/erasure/RecordErasure'
-import { documents, events, missingRecords, snapshots } from '@/db/schema'
+import { documents, missingRecords } from '@/db/schema'
 import { accession, istDate } from '@/server/admin/format'
 import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
 import { writeAudit } from '@/server/audit'
+import { newSinceSealCounts } from '@/server/registration/doctor-overview'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
 
@@ -32,16 +33,12 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     }
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [[docs], [open], [changed]] = await Promise.all([
+    const [[docs], [open], changed] = await Promise.all([
       tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'))), // filed documents only, so the badge matches the list
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
-      // The "What's new" badge counts items that arrived after the last sealed visit (all items if none is sealed yet), not unverified items.
-      tx.select({ n: count() }).from(events).where(and(
-        eq(events.patientId, id), isNull(events.withdrawnAt),
-        gt(events.receivedAt, sql`coalesce((select max(${snapshots.sealedAt}) from ${snapshots} where ${snapshots.patientId} = ${id}), 'epoch'::timestamptz)`),
-      )),
+      newSinceSealCounts(tx, [id]),
     ])
-    return { patient, counts: { documents: docs.n, completeness: open.n, ledger: changed.n } }
+    return { patient, counts: { documents: docs.n, completeness: open.n, ledger: changed.get(id) ?? 0 } }
   }).catch((e) => {
     if (e instanceof HttpError && e.status === 404) return null
     throw e

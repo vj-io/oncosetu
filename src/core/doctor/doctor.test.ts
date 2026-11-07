@@ -121,3 +121,21 @@ describe('date-only imaging', () => {
     expect(v.treatment).toHaveLength(2)
   })
 })
+
+describe('noisy pathology rows', () => {
+  const row = (id: string, type: EventType, quote: string, doc = 'cccccccc-cccc-cccc-cccc-cccccccccccc'): FactItem =>
+    item(id, type, { sources: [{ docLabel: 'Histopathology report', pageNo: 1, quote, href: `/patients/p/documents/${doc}?event=${id}` }] })
+  it('hides date-only and heading-only rows when the document says something', async () => {
+    const { oncologyView, isDateOnlyQuote } = await import('./oncology')
+    expect(isDateOnlyQuote('Date Reported: 22/01/2026')).toBe(true)
+    expect(isDateOnlyQuote('Addendum Date: 30/01/2026')).toBe(true)
+    expect(isDateOnlyQuote('Wide local excision done on 12/03/2026')).toBe(false)
+    const v = oncologyView([row('a', 'pathology_report_documented', 'HISTOPATHOLOGY'), row('b', 'pathology_report_documented', 'Date Reported: 22/01/2026'), row('c', 'margins_documented', 'Margins are free of tumour.')])
+    expect(v.diagnosis).toHaveLength(0)
+    expect(v.margins).toHaveLength(1)
+  })
+  it('keeps a row that is the only fact of its document', async () => {
+    const { oncologyView } = await import('./oncology')
+    expect(oncologyView([row('a', 'pathology_report_documented', 'HISTOPATHOLOGY')]).diagnosis).toHaveLength(1)
+  })
+})

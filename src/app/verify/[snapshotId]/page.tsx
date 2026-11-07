@@ -53,11 +53,16 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
           <KeyValue items={[
             { label: t('hash'), value: <Check ok={v.hashMatches} yes={t('hashOk')} no={t('hashBad')} /> },
             { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },
+            ...(v.counts ? [{ label: t('contents'), value: <span className="font-mono text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
+          ]} />
+          <details className="mt-4 border-t border-rule pt-3">
+            <summary className="cursor-pointer text-sm text-muted">Technical details</summary>
+            <div className="mt-3"><KeyValue items={[
             { label: t('sealed'), value: <span className="font-mono text-[13px] break-all">{v.sha256Stored}</span> },
             { label: t('now'), value: <span className="font-mono text-[13px] break-all">{v.sha256Recomputed}</span> },
             { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</a></span> },
-            ...(v.counts ? [{ label: t('contents'), value: <span className="font-mono text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
-          ]} />
+          ]} /></div>
+          </details>
         </Frame>
         <p className="text-center text-sm text-faint">{t('footer')}</p>
       </main>

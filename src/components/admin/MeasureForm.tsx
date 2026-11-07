@@ -51,7 +51,7 @@ export function MeasureForm({ encounters, today }: { encounters: EncounterOption
     <form className="grid gap-6" onSubmit={(e) => { e.preventDefault(); if (ready) submit() }}>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Consultation date"><Input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} required /></Field>
-        <Field label="Study phase"><Select value={phase} onChange={(e) => setPhase(e.target.value)}><option value="baseline">Baseline</option><option value="shadow">Shadow</option><option value="live">Live</option></Select></Field>
+        <Field label="Study phase"><Select value={phase} onChange={(e) => setPhase(e.target.value)}><option value="baseline">Baseline</option><option value="shadow">Trial run</option><option value="live">Live</option></Select></Field>
         <Field label="Encounter" hint="Link by id only. No patient details are stored on this form." optional>
           <Select value={encounterId} onChange={(e) => pickEncounter(e.target.value)}>
             <option value="">Not linked</option>

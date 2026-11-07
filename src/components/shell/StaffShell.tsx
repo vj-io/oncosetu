@@ -69,7 +69,6 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           </button>
           <Link href={home} className="flex shrink-0 items-baseline gap-3">
             <Wordmark />
-            <span className="hidden font-mono text-[11px] tracking-[0.16em] whitespace-nowrap text-faint uppercase sm:inline lg:hidden xl:inline">{ROLE_LABEL[user.role]}</span>
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">
             <ul className="flex items-center gap-1">

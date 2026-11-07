@@ -11,6 +11,8 @@ export type TourStep = {
   path: string | null
   /** data-tour attribute of the element to ring on that page (optional). */
   target?: string
+  /** Ring this instead when the first target is not on the page. */
+  fallback?: string
   patient: 'sunita' | 'khan'
 }
 
@@ -21,7 +23,7 @@ export function tourSteps(p: TourPatients): TourStep[] {
   return [
     { id: 'held', patient: 'sunita', title: 'A wrong-patient report is held', path: at(p.sunita, 'documents'), target: 'held', text: 'Sunita’s file holds a report that belongs to another patient. It is held, not filed, and nothing from it entered her record.' },
     { id: 'quote', patient: 'sunita', title: 'Every fact opens the exact words', path: at(p.sunita, 'documents'), target: 'documents', text: 'Open the discharge summary and click a fact. The original page opens with that sentence highlighted. Nothing is shown without its words.' },
-    { id: 'missing', patient: 'sunita', title: 'Papers that are not in file', path: at(p.sunita, 'completeness'), target: 'missing', text: 'The discharge summary mentions a histopathology report that is not in the file. One click makes a request letter for it.' },
+    { id: 'missing', patient: 'sunita', title: 'Papers that are not in file', path: at(p.sunita, 'completeness'), target: 'missing-histopath', fallback: 'missing', text: 'The discharge summary mentions a histopathology report that is not in the file. One click makes a request letter for it.' },
     { id: 'letter', patient: 'sunita', title: 'A letter you can print', path: at(p.sunita, 'requests'), target: 'letter', text: 'Open a request and choose the letter. It prints in English or Hindi, addressed to the other hospital’s records department.' },
     { id: 'whatsnew', patient: 'khan', title: 'What changed since the last visit', path: at(p.khan, 'overview'), target: 'first-look', text: 'For Mr Khan the First look card says what is new since the visit sealed on 16 February, what is missing and what a person still has to check.' },
     { id: 'seal', patient: 'khan', title: 'Anyone can check the record is unchanged', path: at(p.khan, 'ledger'), target: 'seal', text: 'Open “Check the seal”. The public page confirms this record has not changed since it was sealed.' },

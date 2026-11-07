@@ -104,7 +104,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
       prefill={{ missingIds: [it.id], institution: t?.institution ?? undefined, documents: it.expectedTypes, dateRange: { from, to } }} />
   )
   return (
-    <article id={`m-${it.id}`} data-tour="missing" className="grid scroll-mt-32 gap-4 border-b border-rule pb-8 last:border-b-0">
+    <article id={`m-${it.id}`} data-tour={it.expectedTypes.includes('pathology_report') ? 'missing-histopath' : 'missing'} className="grid scroll-mt-32 gap-4 border-b border-rule pb-8 last:border-b-0">
       {OPEN.includes(it.state) ? (
         <EmptyFrame animate delay={Math.min(index * 60, 400)} title={title} status={it.state} action={actions}
           detail={it.state === 'received' ? 'A paper that may close this item has arrived. It stays open until a person confirms the match or sets it aside.' : undefined} />

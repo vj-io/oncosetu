@@ -26,7 +26,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
       <SectionHeader
         as="h1" kicker="Patients" title="Patients"
         description={desk ? 'The desk sees initials only. Open a record through Desk lookup, which checks who the person is first.' : 'Search by name, phone number, hospital number or record code. Each row shows what needs a look before the visit.'}
-        actions={<><TourButton /><ButtonLink href="/patients/new">Register a patient</ButtonLink></>}
+        actions={<>{!desk && <TourButton />}<ButtonLink href="/patients/new">Register a patient</ButtonLink></>}
       />
       <form role="search" className="flex flex-wrap gap-2" action="/patients">
         <label className="sr-only" htmlFor="q">Search patients</label>

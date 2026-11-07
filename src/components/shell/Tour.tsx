@@ -78,7 +78,7 @@ export function Tour() {
   useEffect(() => {
     if (!step?.target) return;
     const t = setTimeout(() => {
-      const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`);
+      const el = document.querySelector<HTMLElement>(`[data-tour="${step.target}"]`) ?? (step.fallback ? document.querySelector<HTMLElement>(`[data-tour="${step.fallback}"]`) : null);
       if (el) {
         el.classList.add(...RING);
         el.scrollIntoView({ block: "center", behavior: "smooth" });

@@ -4,6 +4,7 @@ import { Button, ButtonLink, EmptyState, Field, Input, SectionHeader, Select, Ta
 import { VerifyChain } from '@/components/admin/VerifyChain'
 import { withOrg } from '@/db'
 import { auditFacets, queryAudit, type AuditFilter } from '@/server/admin/audit-view'
+import { describeAction, describeTarget } from '@/core/doctor/audit-words'
 import { istDateTime, shortId } from '@/server/admin/format'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
@@ -36,9 +37,9 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
       <VerifyChain />
 
       <form method="get" className="grid gap-4 border border-rule bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5" aria-label="Audit filters">
-        <Field label="Actor"><Select name="actor" defaultValue={f.actorId ?? ''}><option value="">Anyone</option>{facets.people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role}</option>)}</Select></Field>
-        <Field label="Action"><Select name="action" defaultValue={f.action ?? ''}><option value="">Any action</option>{facets.actions.map((a) => <option key={a} value={a}>{a}</option>)}</Select></Field>
-        <Field label="Target type"><Select name="type" defaultValue={f.targetType ?? ''}><option value="">Any target</option>{facets.targetTypes.map((a) => <option key={a} value={a}>{a}</option>)}</Select></Field>
+        <Field label="Who"><Select name="actor" defaultValue={f.actorId ?? ''}><option value="">Anyone</option>{facets.people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role}</option>)}</Select></Field>
+        <Field label="What happened"><Select name="action" defaultValue={f.action ?? ''}><option value="">Any action</option>{facets.actions.map((a) => <option key={a} value={a}>{describeAction(a)}</option>)}</Select></Field>
+        <Field label="About"><Select name="type" defaultValue={f.targetType ?? ''}><option value="">Any target</option>{facets.targetTypes.map((a) => <option key={a} value={a}>{describeTarget(a)}</option>)}</Select></Field>
         <Field label="From"><Input type="date" name="from" defaultValue={f.from ?? ''} /></Field>
         <Field label="To"><Input type="date" name="to" defaultValue={f.to ?? ''} /></Field>
         <div className="flex flex-wrap gap-2 sm:col-span-2 lg:col-span-5">
@@ -51,15 +52,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         <>
           <p className="font-mono text-sm text-muted" role="status">{result.total.toLocaleString('en-IN')} entries · page {Math.min(page, result.pages)} of {result.pages}</p>
           <Table caption="Audit entries, newest first">
-            <thead><tr><th>Seq</th><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th><th>Hash</th></tr></thead>
+            <thead><tr><th>No.</th><th>When</th><th>Who</th><th>What happened</th><th>About</th><th>Details (codes only)</th><th>Fingerprint</th></tr></thead>
             <tbody>
               {result.rows.map((r) => (
                 <tr key={r.id}>
                   <td className="font-mono text-[13px] tabular-nums">{r.seq}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
                   <td><span className="block">{r.actorId ? (names.get(r.actorId) ?? <span className="font-mono text-[13px]">{shortId(r.actorId)}</span>) : 'System'}</span><span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{r.actorRole}</span></td>
-                  <td className="font-mono text-[13px]">{r.action}</td>
-                  <td className="font-mono text-[13px]">{r.targetType ?? '—'}{r.targetId && <span className="block text-faint" title={r.targetId}>{shortId(r.targetId)}</span>}</td>
+                  <td className="text-[14px]">{describeAction(r.action)}</td>
+                  <td className="text-[14px]">{describeTarget(r.targetType)}{r.targetId && <span className="block text-faint" title={r.targetId}>{shortId(r.targetId)}</span>}</td>
                   <td className="max-w-64 font-mono text-[12px] break-all text-muted">{Object.keys(r.details).length ? JSON.stringify(r.details) : '—'}</td>
                   <td className="font-mono text-[12px] text-faint" title={r.hash}>{r.hash.slice(0, 8)}</td>
                 </tr>

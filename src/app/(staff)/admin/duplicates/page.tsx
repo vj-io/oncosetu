@@ -17,7 +17,7 @@ export default async function DuplicatesPage() {
   const view = (v: (typeof candidates)[number]['a']) => ({ id: v.id, accession: v.accession, initials: v.initials, mrn: v.mrn, created: istDate(v.createdAt), documents: v.documents, events: v.events })
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Identity (E-ID-06)" title="Duplicate patients"
+      <SectionHeader as="h1" kicker="Admin · Identity" title="Duplicate patients"
         description="A merge needs two different staff members: one requests it, another approves. Both approvals are written to the audit log." />
       <DuplicatesPanel meId={s.staffId}
         candidates={candidates.map((c) => ({ key: `${c.a.id}|${c.b.id}`, reasons: c.reasons, confidence: c.confidence, a: view(c.a), b: view(c.b), suggestedSurvivor: c.suggestedSurvivor }))}

@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { EmptyState, SectionHeader, Table } from '@/components/ui'
 import { MeasureForm } from '@/components/admin/MeasureForm'
 import { withOrg } from '@/db'
@@ -18,10 +17,10 @@ export default async function MeasurePage() {
   const { encs, mine } = await withOrg(s.orgId, async (tx) => ({ encs: await recentEncounters(tx), mine: await myRecentForms(tx, s.staffId) }))
   return (
     <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Measure · 60-second consultation form" title="Record this consultation"
-        description="Answer after the consultation. The form carries no patient details: it can be linked to an encounter by its id only. These answers feed the baseline measurement study."
-        actions={<Link href="/admin/metrics" className="text-sm underline">View metrics</Link>} />
-      <MeasureForm today={istToday()} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `ENC ${shortId(e.id)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
+      <SectionHeader as="h1" kicker="Study form · takes about a minute" title="Record this consultation"
+        description="Answer after the consultation. The form carries no patient details: it is linked to the visit by a code only. These answers feed the measurement study of how missing papers affect consultations."
+        />
+      <MeasureForm today={istToday()} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `Visit ${shortId(e.id)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
       <section aria-labelledby="mine-h" className="grid gap-3">
         <h2 id="mine-h" className="text-xl tracking-[-0.02em]">Your recent forms</h2>
         {mine.length === 0 ? <EmptyState title="Nothing recorded yet" className="py-8" /> : (

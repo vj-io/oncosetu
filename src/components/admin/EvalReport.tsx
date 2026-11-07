@@ -22,7 +22,7 @@ const H = hybrid as unknown as Report
 const untouched = (r: SetReport | undefined): SetReport | undefined => (r?.untouchedLabels ? { ...r, precision: r.untouchedLabels.precision, recall: r.untouchedLabels.recall } : r)
 const cols: { label: string; r: SetReport | undefined }[] = [
   { label: 'Tuned · rules', r: R },
-  { label: 'Held-out · rules (untouched labels)', r: untouched(R.heldout) },
+  { label: 'Held-out (documents written after the rules were fixed) · rules, untouched labels', r: untouched(R.heldout) },
   { label: 'Held-out · rules, after adding oncology fact types (rules tuned using some of these documents)', r: R.heldout },
   { label: 'Held-out · rules + AI-assisted (4 Nov run, before the oncology types)', r: H.heldout },
 ]
@@ -60,7 +60,7 @@ export function EvalReport() {
           ))}
           {ocr && (
             <tr>
-              <td>OCR character error rate, printed image pages ({ocr.pagesScored})</td><td className="font-mono text-[13px]">≤ 5%</td>
+              <td>Photo-reading error rate: share of characters misread, printed photographed pages ({ocr.pagesScored})</td><td className="font-mono text-[13px]">≤ 5%</td>
               <td colSpan={3} className="font-mono text-[15px] tabular-nums">
                 {(ocr.cer * 100).toFixed(1)}% mean · {(ocr.maxCer * 100).toFixed(1)}% worst <Badge tone={ocr.cer <= 0.05 ? 'verified' : 'unverified'}>{ocr.cer <= 0.05 ? 'Meets' : 'Misses'}</Badge>
               </td>

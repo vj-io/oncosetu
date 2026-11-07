@@ -126,7 +126,7 @@ export default async function MetricsPage() {
       </div>
 
       <Block kicker="Second look" title="A second person re-checks a sample"
-        note={`A reproducible 5% sample of records-verified items per ISO week (the lowest SHA-256 of "qa-v1:" plus the verification id) goes to a second reviewer who is not the verifier. ${qa.eligible} records-verified item${qa.eligible === 1 ? '' : 's'} so far.`}>
+        note={`A fixed, repeatable 5% sample of the items records staff checked each week goes to a second reviewer who is not the person who checked them. ${qa.eligible} records-verified item${qa.eligible === 1 ? '' : 's'} so far.`}>
         <p className="font-mono text-sm" role="status">
           Disagreement rate: {qa.rate == null ? '—' : `${(qa.rate * 100).toFixed(1).replace(/\.0$/, '')}% (${qa.disagree} of ${qa.reviewed} reviewed)`}
         </p>

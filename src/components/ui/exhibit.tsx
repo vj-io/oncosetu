@@ -181,7 +181,7 @@ const SEAL_EDGE = Array.from({ length: 240 }, (_, i) => {
 export function BrassSeal({
   code,
   label = "Sealed",
-  ringText = "Snapshot sealed · SHA-256 · Snapshot sealed · SHA-256 ·",
+  ringText = "Visit sealed · record locked · Visit sealed · record locked ·",
   size = 112,
   animate = false,
   delay,

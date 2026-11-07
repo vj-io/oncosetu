@@ -188,13 +188,14 @@ export function ShareViewer({ id }: { id: string }) {
                     {p.documents.map((d) => {
                       // Several papers of the same kind look identical in a list: number them so each can be told apart.
                       const same = p.documents.filter((x) => inLang(x.label, lang) === inLang(d.label, lang))
+                      const firstItem = same.length > 1 ? p.items.find((it) => it.source.documentId === d.id && inLang(it.label, lang) !== inLang(d.label, lang)) : undefined // only when the list would otherwise repeat
                       const nth = same.length > 1 ? ` (${same.indexOf(d) + 1} of ${same.length})` : ''
                       return (
                       <li key={d.id} className="flex items-start gap-3 border-b border-rule pb-2 last:border-b-0">
                         <FileText aria-hidden className="mt-1 size-4 shrink-0 text-faint" />
                         <span className="grid gap-0.5">
                           <span>{inLang(d.label, lang)}{nth}</span>
-                          <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
+                          <span className="text-[14px] text-muted">{[d.date ? formatDateIN(d.date, lang) : null, d.institution, firstItem ? `${inLang(firstItem.label, lang)}${firstItem.date ? ` ${formatDateIN(firstItem.date, lang, firstItem.precision)}` : ''}` : null, t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })].filter(Boolean).join(' · ')}</span>
                         </span>
                       </li>
                       )

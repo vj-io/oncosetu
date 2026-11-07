@@ -61,15 +61,32 @@ const TREATMENT: ReadonlySet<EventType> = new Set<EventType>([
   'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented', 'imaging_report_documented', 'impression_documented', 'regimen_documented',
 ])
 
-/** A quote that is only a date line ("Report Date: 18/11/2024", "Date of Scan: 20/02/2026"): it tells a doctor nothing. */
-export const isDateOnlyQuote = (q: string | null | undefined) => !!q && /^\s*(?:report\s+date|date\s+of\s+(?:scan|report)|date|dated)?\s*[:\-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\s*$/i.test(q)
+const LABEL_WORDS = new Set(['report', 'reported', 'date', 'of', 'scan', 'addendum', 'dated', 'collected', 'received', 'issued', 'on', 'reporting', 'printed', 'amended'])
+const DATE_RE = /\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}/
+
+/** A quote that is only a date line ("Report Date: 18/11/2024", "Date Reported: 22/01/2026", "Addendum Date: 30/01/2026"): it tells a doctor nothing. */
+export function isDateOnlyQuote(q: string | null | undefined): boolean {
+  if (!q || !DATE_RE.test(q)) return false
+  const rest = q.replace(DATE_RE, ' ').toLowerCase().split(/[^a-z]+/).filter(Boolean)
+  return rest.length <= 4 && rest.every((w) => LABEL_WORDS.has(w))
+}
+
+/** A bare heading as the whole quote ("HISTOPATHOLOGY"): nothing is said about the patient. */
+export const isHeadingOnlyQuote = (q: string | null | undefined) => !!q && /^\s*[A-Za-z][A-Za-z-]{2,30}\s*$/.test(q)
 
 const docOf = (i: { sources: { href: string | null }[] }) => i.sources.map((s) => /\/documents\/([0-9a-f-]{36})/i.exec(s.href ?? '')?.[1]).find(Boolean) ?? null
+const NOISY_TYPES: ReadonlySet<EventType> = new Set<EventType>(['imaging_report_documented', 'pathology_report_documented', 'molecular_test_documented'])
 
-/** Drops an imaging fact whose quote is only a date when the same document also gives an impression: the impression row says more. */
-export function dropDateOnlyImaging<T extends { eventType: EventType; sources: { href: string | null; quote: string }[] }>(items: readonly T[]): T[] {
-  const withImpression = new Set(items.filter((i) => i.eventType === 'impression_documented').map(docOf).filter(Boolean))
-  return items.filter((i) => !(i.eventType === 'imaging_report_documented' && i.sources.length > 0 && i.sources.every((s) => isDateOnlyQuote(s.quote)) && withImpression.has(docOf(i))))
+type Noisy = { eventType: EventType; sources: { href: string | null; quote: string }[] }
+const isNoise = (i: Noisy) => NOISY_TYPES.has(i.eventType) && i.sources.length > 0 && i.sources.every((s) => isDateOnlyQuote(s.quote) || isHeadingOnlyQuote(s.quote))
+
+/**
+ * Drops an imaging, pathology or test fact whose quote is only a date or a bare heading when the same document has a fact that says
+ * something (an impression, margins, a marker result...). If it is the document's only fact it stays, so the document is not invisible.
+ */
+export function dropDateOnlyImaging<T extends Noisy>(items: readonly T[]): T[] {
+  const useful = new Set(items.filter((i) => !isNoise(i)).map(docOf).filter(Boolean))
+  return items.filter((i) => !(isNoise(i) && useful.has(docOf(i))))
 }
 
 const firstQuote = (i: FactItem) => i.sources.find((s) => s.quote)

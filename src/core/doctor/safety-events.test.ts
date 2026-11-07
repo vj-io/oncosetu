@@ -28,6 +28,12 @@ describe('describeSafety', () => {
     expect(describeSafety(audit('desk.otp_requested', { outcome: 'locked' }))?.kind).toBe('sms_limit')
     expect(describeSafety(audit('desk.otp_requested', { outcome: 'sent' }))).toBeNull()
   })
+  it('maps a signed withdrawal and a blocked sign-in code', () => {
+    expect(describeSafety(audit('consent.sign_withdraw', {}, { actorRole: 'patient' }))?.kind).toBe('consent_withdrawn')
+    expect(describeSafety(audit('consent.withdraw', {}, { actorRole: 'patient' }))?.kind).toBe('consent_withdrawn')
+    expect(describeSafety(audit('auth.otp_limited', { outcome: 'locked' }, { actorRole: 'patient' }))?.kind).toBe('sms_limit')
+    expect(describeSafety(audit('auth.otp_blocked', { reason: 'limit' }, { actorRole: 'patient' }))?.kind).toBe('sms_limit')
+  })
   it('maps uploads, duplicates, consent and erasure', () => {
     expect(describeSafety(audit('document.quarantined'))?.kind).toBe('upload_rejected')
     const rej = describeSafety(audit('document.upload_rejected', { reason: 'zip_bomb' }))

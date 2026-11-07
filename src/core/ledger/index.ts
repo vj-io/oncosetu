@@ -213,17 +213,17 @@ const contains = (a: string, b: string) => !!a && !!b && (a === b || ` ${a} `.in
 
 /**
  * The same real-world event written twice with different wording: a procedure on the same day where one name contains the
- * other ("Right hemicolectomy" / "hemicolectomy"), or the same chemotherapy cycle on the same day where one record also
- * names the regimen and the other does not. Different dates, or names that do not contain each other, are never merged.
+ * other ("Right hemicolectomy" / "hemicolectomy"), the same chemotherapy cycle on the same day however the regimen is worded,
+ * or the same scan named "CT" and "CT thorax". Different dates, or names that do not contain each other, are never merged.
  */
 export function sameEvent(a: CoreEvent, b: CoreEvent): boolean {
   if (a.eventType !== b.eventType || !a.eventDate || a.eventDate !== b.eventDate) return false
   if (a.eventType === 'procedure_documented') return contains(norm(fieldStr(a.fields.procedure_text)), norm(fieldStr(b.fields.procedure_text)))
   if (a.eventType === 'chemotherapy_session_documented') {
     if (a.fields.cycle_number === undefined || norm(fieldStr(a.fields.cycle_number)) !== norm(fieldStr(b.fields.cycle_number))) return false
-    const ra = norm(fieldStr(a.fields.regimen_text)), rb = norm(fieldStr(b.fields.regimen_text))
-    return !ra || !rb || contains(ra, rb)
+    return true // the same cycle cannot happen twice on one day, so differently worded records of it are one event
   }
+  if (a.eventType === 'imaging_report_documented') return contains(norm(fieldStr(a.fields.test_name)), norm(fieldStr(b.fields.test_name)))
   return false
 }
 

@@ -56,7 +56,7 @@ export type LlmStatus = { on: boolean; provider: LlmProvider['provider'] | null;
 /** For UI: plain "AI-assisted reading: on/off" (no model or provider names). Optionally per org. */
 export function llmStatus(orgFlagOn = true): LlmStatus {
   const p = llmProvider()
-  if (!p) return { on: false, provider: null, model: null, label: 'AI-assisted reading: off' }
+  if (!p) return { on: false, provider: null, model: null, label: orgFlagOn ? 'AI-assisted reading: switched on, but no reading service is connected on this server, so fixed rules are used' : 'AI-assisted reading: off' }
   if (!orgFlagOn) return { on: false, provider: p.provider, model: p.modelId, label: 'AI-assisted reading: off' }
   return { on: true, provider: p.provider, model: p.modelId, label: 'AI-assisted reading: on' }
 }

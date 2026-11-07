@@ -81,6 +81,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
     }
     case 'break_glass.granted': return mk('break_glass', r.reason ? `Reason given: “${r.reason}”` : 'A reason was recorded.')
     case 'share.locked': return mk('share_refused', 'The link was locked: too many wrong passcodes.', 'Someone with the link')
+    case 'auth.otp_blocked': case 'auth.otp_limited': return mk('sms_limit', 'No sign-in code was sent: this phone has reached its limit of codes for now.')
     case 'desk.otp_requested': case 'consent.otp_requested':
       return d.outcome === 'locked' ? mk('sms_limit', 'No new code was sent: this phone has reached its limit. Use in-person witnessed check-in instead.') : null
     case 'desk.verify_failed': return d.reason === 'locked' ? mk('sms_limit', 'Too many wrong codes were typed, so this phone is paused for a while.') : null
@@ -90,7 +91,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
     case 'inbound.email_rejected': return mk('upload_rejected', 'An emailed attachment was refused.', 'The system')
     case 'document.unreadable': return mk('upload_rejected', 'The file could not be read, so it was not processed.', 'The system')
     case 'document.duplicate_upload': return mk('duplicate_upload', 'The same file was already on record, so no second copy was added.')
-    case 'consent.withdrawn': return mk('consent_withdrawn', 'Access and share links for this patient have stopped.')
+    case 'consent.withdrawn': case 'consent.sign_withdraw': case 'consent.withdraw': return mk('consent_withdrawn', 'Access and share links for this patient have stopped.')
     case 'erasure.executed': return mk('erasure_done', 'The patient’s records were removed. The audit trail remains.', 'The system')
     default: return null
   }
@@ -100,7 +101,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
 export const SAFETY_AUDIT_ACTIONS = [
   'access.refused', 'break_glass.granted', 'share.locked', 'desk.otp_requested', 'consent.otp_requested', 'desk.verify_failed',
   'identity.full_id_rejected', 'document.upload_rejected', 'document.quarantined', 'inbound.email_rejected', 'document.unreadable', 'document.duplicate_upload',
-  'consent.withdrawn', 'erasure.executed',
+  'consent.withdrawn', 'consent.sign_withdraw', 'consent.withdraw', 'auth.otp_blocked', 'auth.otp_limited', 'erasure.executed',
 ] as const
 
 export function tally(events: readonly Pick<SafetyEvent, 'kind'>[]): Record<SafetyKind, number> {

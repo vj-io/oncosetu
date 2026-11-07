@@ -305,7 +305,12 @@ describe('same event written twice with different wording', () => {
     expect(ids([ev('a', 'chemotherapy_session_documented', { cycle_number: 1 }, '2026-02-10', 'd2'), ev('b', 'chemotherapy_session_documented', { cycle_number: 2 }, '2026-02-10', 'd2')])).toEqual(['a', 'b'])
     expect(ids([ev('a', 'procedure_documented', { procedure_text: 'wide local excision' }, '2026-01-20', 'd1'), ev('b', 'procedure_documented', { procedure_text: 'sentinel node biopsy' }, '2026-01-20', 'd1')])).toEqual(['a', 'b'])
   })
-  it('keeps two different regimens for the same cycle and day', () => {
-    expect(ids([ev('a', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'Capecitabine' }, '2026-02-10', 'd2'), ev('b', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'Oxaliplatin' }, '2026-02-10', 'd2')])).toEqual(['a', 'b'])
+  it('merges the same cycle on the same day even when the regimen is worded differently', () => {
+    expect(ids([ev('a', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'Capecitabine' }, '2026-02-10', 'd2'), ev('b', 'chemotherapy_session_documented', { cycle_number: 1, regimen_text: 'CAPOX regimen', event_date_text: '10/02/2026' }, '2026-02-10', 'd2')])).toHaveLength(1)
+  })
+  it('merges "CT" with "CT thorax" on the same day but not different scans', () => {
+    const e = (id: string, name: string) => ev(id, 'imaging_report_documented', { test_name: name }, '2026-02-20', 'd1')
+    expect(ids([e('a', 'CT'), e('b', 'CT thorax')])).toEqual(['b'])
+    expect(ids([e('a', 'CT thorax'), e('b', 'PET-CT')])).toEqual(['a', 'b'])
   })
 })

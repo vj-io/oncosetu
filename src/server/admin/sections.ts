@@ -7,7 +7,7 @@ export const SECTIONS = {
   rules: { href: '/admin/rules', label: 'Rule library', roles: ['org_admin'] },
   audit: { href: '/admin/audit', label: 'Activity log', roles: ['org_admin', 'auditor'] },
   safety: { href: '/admin/safety', label: 'Blocked and held', roles: ['org_admin', 'auditor'] },
-  metrics: { href: '/admin/metrics', label: 'Metrics', roles: ['org_admin', 'auditor', 'clinician'] },
+  metrics: { href: '/admin/metrics', label: 'Metrics', roles: ['org_admin', 'auditor'] },
   measurement: { href: '/admin/measurement', label: 'Measurement study', roles: ['org_admin', 'auditor', 'clinician'] },
   devices: { href: '/admin/devices', label: 'Devices', roles: ['org_admin'] },
   erasure: { href: '/admin/erasure', label: 'Erasure requests', roles: ['org_admin'] },

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { HttpError, route } from '@/server/http'
 import { NO_PURPOSES, recordConsent } from '@/server/portal/consent'
 
-const purposes = z.object({ store: z.boolean(), ai: z.boolean(), share: z.boolean(), abdm: z.boolean(), metrics: z.boolean() })
+const purposes = z.object({ store: z.boolean(), ai: z.boolean(), share: z.boolean(), abdm: z.boolean(), metrics: z.boolean(), team: z.boolean().optional() })
 
 export const POST = route({
   auth: 'patient',

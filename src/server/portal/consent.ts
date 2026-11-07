@@ -9,8 +9,8 @@ import { cancelOpenErasure } from '../erasure/erasure'
 import { activeConsent } from '../patients'
 import { revokeAllShares } from './shares'
 
-export const PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics'] as const
-export const NO_PURPOSES: ConsentPurposes = { store: false, ai: false, share: false, abdm: false, metrics: false }
+export const PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics', 'team'] as const
+export const NO_PURPOSES: ConsentPurposes = { store: false, ai: false, share: false, abdm: false, metrics: false, team: false }
 
 export type ConsentView = {
   purposes: ConsentPurposes

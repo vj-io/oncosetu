@@ -126,7 +126,7 @@ export type RequestState = (typeof REQUEST_STATES)[number]
 export const DISCLOSURES = ['cleared', 'not_cleared', 'unknown'] as const
 export type Disclosure = (typeof DISCLOSURES)[number]
 
-export const CONSENT_PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics'] as const
+export const CONSENT_PURPOSES = ['store', 'ai', 'share', 'abdm', 'metrics', 'team'] as const
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number]
 
 export type Lang = 'en' | 'hi' | 'hinglish'

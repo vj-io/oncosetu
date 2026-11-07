@@ -1,4 +1,5 @@
 import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
+import { IdCheckPanel } from '@/components/registration/IdCheckPanel'
 import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
 import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
 import { Badge, EmptyState, Frame, Table } from '@/components/ui'
@@ -8,10 +9,11 @@ import { inboundEmailView } from '@/server/inbound/staff'
 import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
 import { patientOwnTarget } from '@/server/registration/contact'
+import { loadIdRecord } from '@/server/privacy/privacy'
 import { withPatientAccess } from '@/server/registration/page'
 
 const STAMP = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
-const PURPOSE_LABEL = { store: 'Store and organise', ai: 'AI services', share: 'Share', abdm: 'ABDM pull', metrics: 'Anonymised metrics' } as const
+const PURPOSE_LABEL = { store: 'Care at this hospital', ai: 'AI-assisted reading', share: 'Second opinion (share)', abdm: 'ABDM pull', metrics: 'Anonymised metrics', team: 'Team case discussion' } as const
 
 function Section({ id, title, description, children }: { id: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -30,17 +32,18 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
   const d = await withPatientAccess(id, async (tx, s) => {
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [current, history, links, log, canCode, drop] = await Promise.all([
+    const [current, history, links, log, canCode, drop, idRecord] = await Promise.all([
       activeConsent(tx, id),
       tx.select().from(consents).where(eq(consents.patientId, id)).orderBy(desc(consents.recordedAt), desc(consents.id)),
       tx.select({ id: shareLinks.id }).from(shareLinks).where(and(eq(shareLinks.patientId, id), isNull(shareLinks.revokedAt), gt(shareLinks.expiresAt, await now(s.orgId)))),
       accessLog(tx, id),
       patientOwnTarget(tx, id),
       inboundEmailView(tx, id),
+      loadIdRecord(tx, id),
     ])
     const witnesses = [...new Set(history.map((h) => h.witnessedBy).filter((x): x is string => !!x))]
     const names = witnesses.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, witnesses)) : []
-    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
+    return { patient, current, history, activeLinks: links.length, log, canCode: !!canCode, drop, idRecord, witness: new Map(names.map((n) => [n.id, n.name])), role: s.role }
   })
   if (!d) return null
   const { patient: p, current } = d
@@ -88,6 +91,10 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
           contacts={d.drop.contacts.map((c) => ({ ...c, verifiedAt: c.verifiedAt.toISOString() }))}
           caregivers={p.caregivers.map(({ id: cid, name, relation, active }) => ({ id: cid, name, relation, active }))}
         />
+      </Section>
+
+      <Section id="idcheck-h" title="ID check (optional)" description="Record that you looked at an ID. Only the last 4 characters are kept, never the full number.">
+        <IdCheckPanel patientId={id} record={d.idRecord} />
       </Section>
 
       <Section id="disclosure-h" title="Disclosure status" description="Controls the wording of everything the patient and family see. Clinician only; every change is audited.">

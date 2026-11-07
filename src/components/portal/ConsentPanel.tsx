@@ -51,7 +51,7 @@ export function ConsentPanel({
 
   async function toggle(key: (typeof PURPOSES)[number], on: boolean) {
     // turning "keep my papers" off means there is nothing to keep: everything goes off, as with the withdraw button
-    const next = key === "store" && !on ? { store: false, ai: false, share: false, abdm: false, metrics: false } : { ...purposes, [key]: on };
+    const next = key === "store" && !on ? { store: false, ai: false, share: false, abdm: false, metrics: false, team: false } : { ...purposes, [key]: on };
     const prev = purposes;
     setPurposes(next);
     setBusy(key);
@@ -65,7 +65,7 @@ export function ConsentPanel({
   async function withdraw() {
     setBusy("withdraw");
     if (await post("/api/p/consent", { withdraw: true, lang })) {
-      setPurposes({ store: false, ai: false, share: false, abdm: false, metrics: false });
+      setPurposes({ store: false, ai: false, share: false, abdm: false, metrics: false, team: false });
       setNote({ kind: "withdrawn", text: tp(lang, "withdrawDone") });
       setUpdated(formatDateTimeIN(new Date(), lang));
     }

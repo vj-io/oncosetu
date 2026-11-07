@@ -3,7 +3,7 @@
 // bytes to the normal upload path. Resumable: a session reports which chunks it already has, and a chunk can be re-sent.
 // Chunks are deleted as soon as the file is assembled (or the session is aborted or expired).
 import { createHash } from 'node:crypto'
-import { and, asc, eq, lt, sql } from 'drizzle-orm'
+import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { uploadChunks, uploadSessions } from '@/db/schema'
 import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, STORAGE_BUDGET_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
@@ -56,7 +56,8 @@ export async function putChunk(tx: Tx, a: { sessionId: string; patientId: string
   const { bytes, dekWrapped } = encryptBytes(Buffer.from(a.bytes))
   await tx.insert(uploadChunks).values({ orgId: a.orgId, sessionId: s.id, idx: a.idx, bytesEnc: bytes, dekWrapped, size: a.bytes.length })
     .onConflictDoUpdate({ target: [uploadChunks.sessionId, uploadChunks.idx], set: { bytesEnc: bytes, dekWrapped, size: a.bytes.length } }) // re-sending a chunk replaces it
-  return { received: (await tx.select({ idx: uploadChunks.idx }).from(uploadChunks).where(eq(uploadChunks.sessionId, s.id))).length }
+  const [{ n }] = await tx.select({ n: count() }).from(uploadChunks).where(eq(uploadChunks.sessionId, s.id))
+  return { received: n }
 }
 
 /** Chunk numbers already stored, so an interrupted upload can carry on. */

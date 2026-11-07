@@ -253,6 +253,8 @@ async function reset() {
     await tx.execute(sql`alter table snapshots disable trigger snapshots_append_only`)
     await tx.execute(sql`delete from sessions where org_id = ${N} and kind <> 'staff'`)
     await tx.execute(sql`delete from sessions where org_id = any(${pgArr(residue)}::uuid[])`)
+    // any session still pointing at a person being removed (whatever org or kind it was stamped with)
+    await tx.execute(sql`delete from sessions where caregiver_id in (select id from caregivers where org_id = any(${pgArr(wiped)}::uuid[])) or patient_id in (select id from patients where org_id = any(${pgArr(wiped)}::uuid[]))`)
     for (const t of ORG_TABLES) await tx.execute(sql`delete from ${sql.identifier(t)} where org_id = any(${pgArr(wiped)}::uuid[])`)
     await tx.execute(sql`delete from otp_challenges where phone_hmac = any(${pgArr(phones)}::text[])`)
     if (residue.length) {

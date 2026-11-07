@@ -22,6 +22,7 @@ export default async function SettingsPage() {
         <p className="text-muted">{llm.label}. Only for patients who consented; every result still passes the same evidence check and a person verifies it.</p>
         {usage && <KeyValue items={[{ label: 'Daily limit', value: `${usage.today} of ${usage.limits.rpd} used` }]} />}
       </section>
+      <p className="text-[15px] text-muted"><a className="underline underline-offset-4" href="/security">Security & compliance</a>: what is built against HIPAA safeguards, the DPDP Act and ABDM, and what is planned.</p>
       <SettingsForm flags={st.flags} retentionDays={st.retentionDays} minRetentionDays={MIN_RETENTION_DAYS} demo={st.demo} demoOffsetDays={Math.round(st.demoClockOffsetS / DAY_S)} />
     </div>
   )

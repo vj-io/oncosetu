@@ -133,6 +133,9 @@ export default function StaffLoginPage() {
               Sign in here
             </Link>
           </p>
+          <p className="mt-2 text-[15px] text-muted">
+            <Link href="/security" className="inline-flex min-h-11 items-center underline decoration-brass underline-offset-4 hover:decoration-ink">Security & compliance</Link>
+          </p>
         </div>
 
         <aside aria-labelledby="demo-accounts" className="lg:pt-24">

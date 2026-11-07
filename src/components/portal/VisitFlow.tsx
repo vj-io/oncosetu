@@ -223,12 +223,12 @@ export function VisitFlow({
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <button
           type="button" onClick={() => speak(id, field)} aria-pressed={listening === id}
-          className="inline-flex min-h-12 items-center gap-2 border border-ink px-4 text-[15px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery"
+          className="inline-flex min-h-12 items-center gap-2 border border-ink px-4 text-[16px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery"
         >
           {listening === id ? <Square aria-hidden className="size-4" /> : <Mic aria-hidden className="size-4" />}
           {tp(lang, listening === id ? "voiceStop" : "voiceStart")}
         </button>
-        <span className="text-[15px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, "voiceLabel")}</span>
+        <span className="text-[16px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, "voiceLabel")}</span>
       </div>
     ) : null;
 
@@ -308,7 +308,7 @@ export function VisitFlow({
         {canSpeak && (
           <PButton variant="secondary" icon={<Volume2 />} loading={reading === "loading"} onClick={read} className="w-full sm:w-auto">{tp(lang, "readAloud")}</PButton>
         )}
-        <p className="text-[15px] text-muted">{tp(lang, "reviewHelp")}</p>
+        <p className="text-[16px] text-muted">{tp(lang, "reviewHelp")}</p>
         {error && <ErrorNote>{error}</ErrorNote>}
         <div className="grid gap-3 sm:grid-cols-2">
           <PButton big loading={saving} onClick={() => save(edited ? "corrected" : "confirmed")}>{saving ? tp(lang, "saving") : tp(lang, "confirmYes")}</PButton>
@@ -322,9 +322,9 @@ export function VisitFlow({
   const choices = q.id === "anything_else" ? (["yes", "no"] as const) : (["yes", "no", "unsure"] as const);
   return (
     <section aria-labelledby="qh" className="mt-8 grid gap-5">
-      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[15px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
+      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[16px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
       <div className="grid gap-2">
-        <p className="text-[15px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: QUESTIONS.length })}</p>
+        <p className="text-[16px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: QUESTIONS.length })}</p>
         <div aria-hidden className="h-2 border border-rule bg-alcove">
           <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }} />
         </div>
@@ -365,7 +365,7 @@ export function VisitFlow({
         </div>
       )}
 
-      {voiceMsg && <p role="status" className="text-[15px] text-muted">{voiceMsg}</p>}
+      {voiceMsg && <p role="status" className="text-[16px] text-muted">{voiceMsg}</p>}
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="grid gap-3 sm:grid-cols-2">
         {step > 0 ? <PButton variant="secondary" onClick={() => { setError(null); setStep(step - 1); }}>{tp(lang, "back")}</PButton> : <span />}

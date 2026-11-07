@@ -11,7 +11,7 @@ export function LookingItem({ text, note }: { text: string; note?: string | null
       </div>
       <div className="min-w-0 flex-1 pt-1">
         <p className="text-[17px] leading-snug">{text}</p>
-        {note && <p className="mt-1 text-[15px] text-muted">{note}</p>}
+        {note && <p className="mt-1 text-[16px] text-muted">{note}</p>}
       </div>
     </article>
   );

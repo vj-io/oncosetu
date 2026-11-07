@@ -72,12 +72,12 @@ export function PField({ label, hint, error, children, className }: { label: Rea
       </label>
       {cloneElement(children, { id, "aria-describedby": described, "aria-invalid": error ? true : undefined })}
       {hint && (
-        <p id={hintId} className="text-[15px] text-muted">
+        <p id={hintId} className="text-[16px] text-muted">
           {hint}
         </p>
       )}
       {error && (
-        <p id={errId} className="flex items-start gap-1.5 text-[15px] text-madder-ink">
+        <p id={errId} className="flex items-start gap-1.5 text-[16px] text-madder-ink">
           <CircleAlert aria-hidden className="mt-1 size-4 shrink-0" />
           {error}
         </p>
@@ -88,7 +88,7 @@ export function PField({ label, hint, error, children, className }: { label: Rea
 
 export function ErrorNote({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="flex items-start gap-2 border border-madder bg-madder-tint px-4 py-3 text-[15px] text-madder-ink">
+    <p role="alert" className="flex items-start gap-2 border border-madder bg-madder-tint px-4 py-3 text-[16px] text-madder-ink">
       <CircleAlert aria-hidden className="mt-1 size-4 shrink-0" />
       {children}
     </p>

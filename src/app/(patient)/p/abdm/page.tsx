@@ -25,7 +25,7 @@ export default async function AbdmPage({ searchParams }: { searchParams: PortalS
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{ta(lang, 'kicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{ta(lang, 'title')}</h1>
-      <p data-testid="abdm-planned" className="mt-3 inline-flex border border-amber bg-amber-tint px-3 py-1.5 text-[15px] text-amber-ink">{ta(lang, 'planned')}</p>
+      <p data-testid="abdm-planned" className="mt-3 inline-flex border border-amber bg-amber-tint px-3 py-1.5 text-[16px] text-amber-ink">{ta(lang, 'planned')}</p>
       <p className="mt-3 max-w-prose text-muted">{ta(lang, 'intro')}</p>
       <AbdmConsentCards lang={lang} requests={requests} />
     </PortalFrame>

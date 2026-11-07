@@ -1,5 +1,5 @@
 // V01-E2E-01..09 (PRD §13, v0.1 Foundation). Everything runs in the Ganga org with synthetic patients.
-import { CONSENT_NOTICE_VERSION } from '../../src/i18n/consent'
+import { CONSENT_NOTICE_VERSION, consentCopy } from '../../src/i18n/consent'
 import { describeAction } from '../../src/core/doctor/audit-words'
 import { createHash } from 'node:crypto'
 import { ALL_PURPOSES, Api, anonymous, demoDoc, demoPatient, freshPhone, portalLogin, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc, waitForSms } from './helpers/api'
@@ -70,6 +70,24 @@ test('V01-E2E-02 register a synthetic patient with consent per purpose; QR card 
   const fresh = await desk.post('/api/desk/lookup', { mode: 'token', value: shown })
   expect(fresh.body.status).toBe('ok')
   expect(fresh.body.results).toHaveLength(1)
+})
+
+test('FR-CON-01 the consent notice in Marathi: language switch, lang="mr", the five purposes; the consent row records mr', async ({ staff, ui }) => {
+  const p = await registerPatient(await staff('records'), { base: 'returning' })
+  const page = await ui('records')
+  await page.goto(`/patients/${p.id}/consent`)
+  await page.getByRole('button', { name: 'Change purposes or re-confirm' }).click()
+  await page.getByRole('button', { name: 'मराठी' }).click()
+  const notice = page.locator('[lang="mr"]').filter({ has: page.getByRole('heading', { name: consentCopy.title.mr }) })
+  await expect(notice).toBeVisible()
+  await expect(notice.getByRole('switch')).toHaveCount(5)
+  for (const k of ['store', 'ai', 'share', 'abdm', 'metrics'] as const) await expect(notice.getByRole('switch', { name: consentCopy[k].label.mr })).toBeVisible()
+  await expect(notice.getByText(consentCopy.withdraw.mr)).toBeVisible()
+  await page.getByText('In person, witnessed').click()
+  await page.getByRole('checkbox', { name: /I witnessed this/ }).check()
+  await page.getByRole('button', { name: 'Save consent' }).click()
+  await expect(page.getByText(/Notice consent-notice\.v\d+ · Marathi ·/)).toBeVisible()
+  expect((await consentsOf(p.id)).at(-1)).toMatchObject({ action: 'update', language: 'mr', noticeVersion: CONSENT_NOTICE_VERSION })
 })
 
 test('V01-E2E-03 a scan shows initials and "verification required"; an OTP opens the record', async ({ staff, ui }) => {

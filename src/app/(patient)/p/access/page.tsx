@@ -24,11 +24,11 @@ export default async function AccessPage({ searchParams }: { searchParams: Porta
             {log.map((e) => (
               <li key={e.id} className="grid gap-0.5 px-4 py-3">
                 <span className="text-[17px] leading-snug">{e.text}</span>
-                <span className="text-[15px] text-muted">{e.at}</span>
+                <span className="text-[16px] text-muted">{e.at}</span>
               </li>
             ))}
           </ol>
-          <p className="mt-4 text-[15px] text-muted">{tp(lang, 'accessNote')}</p>
+          <p className="mt-4 text-[16px] text-muted">{tp(lang, 'accessNote')}</p>
         </>
       )}
     </PortalFrame>

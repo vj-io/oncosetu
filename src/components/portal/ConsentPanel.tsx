@@ -115,10 +115,10 @@ export function ConsentPanel({
               <label className="flex min-h-16 cursor-pointer items-center gap-4 px-4 py-4">
                 <span className="grid min-w-0 flex-1 gap-0.5">
                   <span className="text-[17px] leading-snug font-medium">{tp(lang, `p_${key}` as PatientKey)}</span>
-                  <span className="text-[15px] text-muted">{tp(lang, `p_${key}_d` as PatientKey)}</span>
+                  <span className="text-[16px] text-muted">{tp(lang, `p_${key}_d` as PatientKey)}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2.5">
-                  <span aria-hidden className="w-10 text-right text-[15px] text-muted">{tp(lang, purposes[key] ? "on" : "off")}</span>
+                  <span aria-hidden className="w-10 text-right text-[16px] text-muted">{tp(lang, purposes[key] ? "on" : "off")}</span>
                   <input
                     type="checkbox" role="switch" className="peer sr-only" checked={purposes[key]} disabled={busy !== null || (key !== "store" && !purposes.store)}
                     onChange={(e) => toggle(key, e.target.checked)}
@@ -134,7 +134,7 @@ export function ConsentPanel({
             </li>
           ))}
         </ul>
-        <p className="pt-2 text-[15px] text-muted">{updated ? tp(lang, "consentLastUpdated", { date: updated }) : tp(lang, "consentNoneOnRecord")}</p>
+        <p className="pt-2 text-[16px] text-muted">{updated ? tp(lang, "consentLastUpdated", { date: updated }) : tp(lang, "consentNoneOnRecord")}</p>
       </section>
 
       <section aria-labelledby="wd" className="grid gap-3 border border-rule bg-surface px-5 py-5">
@@ -153,7 +153,7 @@ export function ConsentPanel({
               <p role="status" className="text-[17px]">
                 {tp(lang, `erasure_${erasure.state}` as PatientKey, { date: formatDateIN(istDate(erasure.completedAt ?? erasure.eligibleAfter), lang) })}
               </p>
-              {erasure.state !== "completed" && <p className="text-[15px] text-muted">{tp(lang, "erasureUndo")}</p>}
+              {erasure.state !== "completed" && <p className="text-[16px] text-muted">{tp(lang, "erasureUndo")}</p>}
             </>
           ) : (
             <>
@@ -177,18 +177,18 @@ export function ConsentPanel({
               <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <span className="grid min-w-0 flex-1">
                   <span className="text-[17px]">{c.name}</span>
-                  <span className="text-[15px] text-muted">{c.relation}</span>
+                  <span className="text-[16px] text-muted">{c.relation}</span>
                 </span>
                 {c.active ? (
                   isPatient && <PButton variant="secondary" loading={busy === c.id} disabled={busy !== null} onClick={() => revoke(c.id)}>{tp(lang, "cgRevoke")}</PButton>
                 ) : (
-                  <span className="text-[15px] text-muted">{tp(lang, "cgInactive")}</span>
+                  <span className="text-[16px] text-muted">{tp(lang, "cgInactive")}</span>
                 )}
               </li>
             ))}
           </ul>
         )}
-        {!isPatient && <p className="text-[15px] text-muted">{tp(lang, "cgOnlyPatient")}</p>}
+        {!isPatient && <p className="text-[16px] text-muted">{tp(lang, "cgOnlyPatient")}</p>}
       </section>
     </div>
   );

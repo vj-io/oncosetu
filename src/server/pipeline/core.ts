@@ -3,7 +3,7 @@
 import {
   classifyDocument, detectInjection, extractPatterns, parseHeader, type Extraction, type LabelledSpan, type ParsedHeader, type Span,
 } from '@/core/extract'
-import { daysBetween, findDates, parseDate, type ParsedDate } from '@/core/dates'
+import { daysBetween, findDates, parseDate, usesDayFirst, type ParsedDate } from '@/core/dates'
 import { runGate, type Candidate, type GateEvidence, type GatePage, type GateResult } from '@/core/gate'
 import { decideIdentity, type IdentityDecision, type PatientIdentity } from '@/core/identity'
 import type { DocType, EventFlag, EventType, ExtractionMethod } from '@/core/types'
@@ -287,7 +287,8 @@ const DOC_DATED: ReadonlySet<string> = new Set([
   'pathology_report_documented', 'molecular_test_documented', 'imaging_report_documented', 'lab_report_documented',
   'prescription_documented', 'consultation_documented', 'report_pending_documented', 'referral_documented',
   'chemotherapy_session_documented', 'allergy_documented', 'lab_results_documented', 'diagnosis_documented',
-  'history_documented',
+  'history_documented', 'stage_documented', 'marker_results_documented', 'margins_documented', 'impression_documented',
+  'addendum_documented', 'regimen_documented',
 ])
 
 /** One fact per document: the same type + key (cycle, date, test, procedure) found twice keeps the dated, earliest quote. */
@@ -301,6 +302,10 @@ function dedupeKey(d: DraftEvent): string {
     case 'prescription_documented': case 'lab_results_documented': return `${d.eventType}|${d.evidence.charStart}`
     case 'follow_up_documented': return `fu|${s('appointment_text')}|${d.eventDate}`
     case 'diagnosis_documented': case 'history_documented': return `${d.eventType}|${s('section_text')}${s('history_text')}`
+    // Quote-only oncology lines: one fact per distinct line of the document.
+    case 'stage_documented': case 'marker_results_documented': case 'margins_documented': case 'impression_documented':
+    case 'addendum_documented': case 'regimen_documented':
+      return `${d.eventType}|${d.evidence.pageNo}|${d.evidence.charStart}`
     default: return `${d.eventType}|${s('test_name')}|${d.eventDate}`
   }
 }
@@ -313,15 +318,25 @@ export function gateAndDate(
   const gate = runGate(candidates, gatePages)
   const received = receivedAt.toISOString().slice(0, 10)
   const doc = ident.documentDate && ident.documentDate.precision !== 'unknown' ? ident.documentDate : null
+  // Indian records are day first. One date such as 22/01/2026 in the document settles every other numeric date in it.
+  const dayFirst = c.usable.some((p) => usesDayFirst(p.text))
   const all = gate.accepted.map(({ candidate, evidence, flags }): DraftEvent => {
     const page = c.usable.find((p) => p.pageNo === evidence.pageNo)!
     const fields = { ...candidate.fields }
     // The stored date is always re-derived from raw text in the quote (an ISO event_date passed the gate only
     // because a raw date in the quote parses to it).
     const raw = typeof fields.event_date_text === 'string' ? fields.event_date_text : null
-    const rawInQuote = raw ?? (fields.event_date ? findDates(evidence.quote).find((d) => d.kind === 'absolute')?.raw ?? null : null)
+    const ruleBased = method === 'rules' || candidate.origin === 'rules'
+    // A model often leaves the date field empty although the quote carries one ("Next visit: 02/06/2026 ..."). When the
+    // quote holds exactly one date, that date is the item's own date; several dates stay undecided (the document date applies).
+    const quoteDates = findDates(evidence.quote).filter((d) => d.kind === 'absolute')
+    const rawInQuote = raw ?? (fields.event_date ? quoteDates[0]?.raw ?? null : !ruleBased && quoteDates.length === 1 ? quoteDates[0].raw : null)
     delete fields.event_date
-    const parsed = rawInQuote ? parseDate(rawInQuote, { now: receivedAt, anchor: doc?.iso ?? null }) : null
+    const parsed = rawInQuote ? parseDate(rawInQuote, { now: receivedAt, anchor: doc?.iso ?? null, dayFirst }) : null
+    // Read the other way (month first) the date would lie after the day this reached us: the day-first reading is the only possible one.
+    if (parsed?.flags.includes('date_ambiguous') && parsed.iso && parsed.iso <= received && candidate.event_type !== 'follow_up_documented' && (parsed.alternatives ?? []).every((a) => a > received)) {
+      parsed.flags = parsed.flags.filter((f) => f !== 'date_ambiguous')
+    }
     const out: DraftEvent['flags'] = {}
     for (const f of flags) out[f] = true
     let eventDate = parsed?.iso ?? null
@@ -342,7 +357,7 @@ export function gateAndDate(
     // image, one by one (binding_uncertain blocks bulk verify).
     if (candidate.event_type === 'lab_results_documented' && page.source === 'ocr') out.binding_uncertain = true
     if (page.source === 'ocr') out.ocr = true
-    if (method === 'rules' || candidate.origin === 'rules') out.rule_based = true
+    if (ruleBased) out.rule_based = true
     else out.llm = true
     return {
       eventType: candidate.event_type as EventType, fields, eventDate, datePrecision: precision, dateFlags, documentDate: doc?.iso ?? null,

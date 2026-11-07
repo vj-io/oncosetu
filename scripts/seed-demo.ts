@@ -138,6 +138,9 @@ async function register(desk: Client, s: Spec): Promise<{ id: string; encounterI
 }
 
 async function deskCheckIn(desk: Client, s: Spec, patientId: string): Promise<{ encounterId: string; encounterType: string }> {
+  // The seed's own codes for this phone (registration, portal sign-in) and any sign-in on the live demo meanwhile count
+  // towards the 3-per-10-minutes budget; clear them so the check-in code can be sent.
+  await adminDb.execute(sql`delete from otp_challenges where phone_hmac = ${phoneHmac(contactPhone(s))}`)
   await desk.post('/api/desk/verify/start', { patientId })
   return desk.post('/api/desk/verify/code', { patientId, code: await codeFor(contactPhone(s), 'desk.otp') })
 }
@@ -265,7 +268,7 @@ async function reset() {
     await tx.execute(sql`alter table audit_log enable trigger audit_log_append_only`)
     await tx.execute(sql`alter table snapshots enable trigger snapshots_append_only`)
     await tx.insert(orgSettings).values({ orgId: N }).onConflictDoUpdate({
-      target: orgSettings.orgId, set: { flags: { voice: false, tts: false, ai_extraction: true }, demoClockOffsetS: 0, retentionDays: 3650, updatedAt: new Date() },
+      target: orgSettings.orgId, set: { flags: { voice: true, tts: false, ai_extraction: true }, demoClockOffsetS: 0, retentionDays: 3650, updatedAt: new Date() },
     })
     for (const t of ORG_TABLES) {
       const [{ n }] = await tx.execute<{ n: number }>(sql`select count(*)::int n from ${sql.identifier(t)} where org_id = ${N}`)

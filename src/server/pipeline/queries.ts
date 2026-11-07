@@ -87,14 +87,23 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
   }
 }
 
+export type RecentDoc = { pages: number; ms: number; at: number } // `at` = processed time; newest first
+
 /**
  * FR-ONB-02 "about N min left": pages still queued × the median per-page time of recently processed documents.
+ * Documents run side by side, so in a burst the per-page latency (upload → processed) overstates what is left: the
+ * per-page time is capped by the median gap between consecutive completions (throughput), and never goes below one
+ * page's latency. Measured on a 50-page batch: 12 pages queued, latency alone said 7 min, the rest took 75 s.
  * null when nothing is queued or there is no history yet. A page count not known yet (not read) counts as one page.
  */
-// ponytail: assumes documents run one after another, so it over-estimates when runners overlap; fine for a hint.
-export function minutesLeft(queuedPages: number, recent: readonly { pages: number; ms: number }[]): number | null {
-  const perPage = median(recent.filter((r) => r.pages > 0 && r.ms >= 0).map((r) => r.ms / r.pages))
-  return queuedPages > 0 && perPage != null ? Math.max(1, Math.ceil((queuedPages * perPage) / 60_000)) : null
+// ponytail: one org-wide rate; a lone many-page document right after a burst is under-estimated.
+export function minutesLeft(queuedPages: number, recent: readonly RecentDoc[]): number | null {
+  const ok = recent.filter((r) => r.pages > 0 && r.ms >= 0)
+  const latency = median(ok.map((r) => r.ms / r.pages))
+  if (!(queuedPages > 0) || latency == null) return null
+  const gap = median(ok.slice(1).map((r, i) => Math.max(0, ok[i].at - r.at) / ok[i].pages))
+  const ms = Math.max(latency, queuedPages * Math.min(latency, gap ?? latency))
+  return Math.max(1, Math.ceil(ms / 60_000))
 }
 
 /**
@@ -102,7 +111,7 @@ export function minutesLeft(queuedPages: number, recent: readonly { pages: numbe
  * `document.processed` audit row. Both clocks are real time (received_at may run on the demo clock).
  */
 // ponytail: a reprocessed document's later run counts from the first upload; the median absorbs the odd one.
-export async function recentProcessing(tx: Tx, limit = 50) {
+export async function recentProcessing(tx: Tx, limit = 50): Promise<RecentDoc[]> {
   const done = await tx.select({ id: auditLog.targetId, at: auditLog.at }).from(auditLog)
     .where(eq(auditLog.action, 'document.processed')).orderBy(desc(auditLog.seq)).limit(limit)
   const ids = done.flatMap((r) => (r.id ? [r.id] : []))
@@ -111,7 +120,7 @@ export async function recentProcessing(tx: Tx, limit = 50) {
     .where(inArray(documents.id, ids))).map((d) => [d.id, d]))
   return done.flatMap((r) => {
     const d = r.id ? docs.get(r.id) : undefined
-    return d?.pages ? [{ pages: d.pages, ms: +r.at - +d.createdAt }] : []
+    return d?.pages ? [{ pages: d.pages, ms: +r.at - +d.createdAt, at: +r.at }] : []
   })
 }
 

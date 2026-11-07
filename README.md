@@ -51,6 +51,10 @@ The gate does not catch every error. PRD §9.4a sets out what it covers:
 
 The only claim made is that every displayed fact is traceable to a verbatim source quote.
 
+#### Quote-only oncology lines (7 November 2026)
+
+Six event types hold a sentence or table row copied word for word, taken by the rule extractor only (staff-only, clinician tier, like the diagnosis section): `stage_documented` (the TNM or stage words), `marker_results_documented` (ER, PR, HER2, Ki-67, mismatch-repair and other result rows of an IHC or molecular table), `margins_documented` (the sentence that names a margin), `impression_documented` (an impression or interpretation block), `addendum_documented` (what an addendum says about its report) and `regimen_documented` (a "Regimen" or "Protocol" line not already on a cycle record). Allow-listed fields: `section_text` (stage and impression), `marker_text`, `margins_text`, `addendum_text`, `regimen_text`, plus the institution and date fields. The field is called `section_text`, not `stage_text` or `impression_text`, because the gate refuses field names that say stage or impression. The gate is unchanged: the quote must be found verbatim, 8 to 300 characters, and every field value must sit inside it. Nothing is inferred: a document with no such line gets no such fact, and text that tries to give the software orders is skipped. The language model cannot emit these types (the schema leaves out staff-only types).
+
 ### Neutral copy until disclosure is cleared (FR-CON-07)
 
 In published Indian studies, 46–54% of cancer patients were unaware of their diagnosis (see docs/PRD.md §2.4). Patient-facing surfaces therefore default to neutral wording. Unless `disclosure_status` is `cleared`, patient-facing text contains no diagnosis, staging or treatment words and no source quotes, and the brand appears as "Setu Records" instead of "OncoSetu". `unknown` is treated as not cleared. Patient-facing strings live in `src/i18n/*.ts`, and a unit test lints each one (`src/core/copy/copy-lint.test.ts`). Radar wording is administrative only.
@@ -159,18 +163,27 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 - **Tuned set:** the 20 demo documents in `public/demo-docs/` (gold: `data/eval/gold.json`). The rule library was developed on these, so its numbers are optimistic.
 - **Held-out set:** 40 documents in `data/eval/heldout/` (gold: `data/eval/gold-heldout.json`): 10 new patients, about 30 invented institutions, all 13 document types, 3 handwritten prescriptions, Hindi and bilingual pages, photographed pages, 2 wrong-patient headers and 1 prompt-injection line. They were written after the rules were frozen and the rules have not been tuned on them.
 - Reports: `data/eval/report.json` (rules, 5 November 2026) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026, before the 5 November extractor changes: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
-- Only event types that a set's gold labels at all are scored. The types added on 5 and 6 November are not labelled yet: they are counted (allergy statements, follow-up dates, lab result rows, diagnosis sections, history sentences: tuned 5 / 9 / 13 / 9 / 3, held-out 0 / 4 / 8 / 5 / 2), still pass the hard gates, and are scored once someone labels them. Adding the diagnosis and history types left both sets' scores unchanged.
+- Only event types that a set's gold labels at all are scored. The types added on 5 and 6 November (allergy statements, follow-up dates, lab result rows, diagnosis sections, history sentences) are still not labelled: they are counted, pass the hard gates, and are scored once someone labels them. The six types added on 7 November are labelled and scored.
 
 | PRD §9.5 metric | Target | Tuned · rules | Held-out · rules | Held-out · rules + Gemini |
 |---|---|---|---|---|
 | Unsupported facts reaching the record | 0 | 0 | 0 | 0 |
 | Handwritten pages auto-extracted | 0 | 0 | 0 | 0 |
-| Event precision | ≥ 0.95 | 0.950 | 0.911 | 0.907 |
-| Event recall (omission) | ≥ 0.85 | 0.943 | 0.658 | 0.734 |
+| Event precision | ≥ 0.95 | 0.983 | 0.935 | 0.907 |
+| Event recall (omission) | ≥ 0.85 | 0.973 | 0.760 | 0.734 |
 | Classification macro-F1 | ≥ 0.85 | 0.947 | 0.983 | 0.983 |
 | Identity decision as expected | held, never wrong | 20 / 20 | 27 / 40 | 27 / 40 |
 
-The rules + Gemini column on the tuned set is precision 0.952, recall 0.981 (4 November run).
+The rules + Gemini column is the 4 November run, before the 7 November changes, and has not been re-run (no provider key in this build): tuned set precision 0.952, recall 0.981; held-out precision 0.907, recall 0.734. The two rules columns are the 7 November run.
+
+**7 November changes (oncologist audit).** Six quote-only fact types were added for the lines an oncologist looks for first (see "Quote-only oncology lines" under the evidence gate): stage as written, marker result rows, margins, an impression, addendum text and the regimen line. Their gold labels were added the same day (tuned 19 and held-out 17 new gold facts, plus the urea cream line in the tuned set: gold 53 to 73 and 79 to 96), so they are now scored. Three extraction fixes ride in the same run: every numbered line of a printed prescription table is indexed (before, the table was read only when each line began with Tab./Cap./Inj., so the urea cream and, with the numbering as printed in the PDF, the whole table were dropped; the urea cream was also missing from the gold), a date that sits on the line after "... done on" now stays with its sentence, and a next-visit line that says "done one day before" after its date is no longer discarded as a past event. Before / after on the rules path:
+
+| Set | Precision before | Precision after | Recall before | Recall after |
+|---|---|---|---|---|
+| Tuned (20 documents) | 0.950 | 0.983 | 0.943 | 0.973 |
+| Held-out (40 documents) | 0.911 | 0.935 | 0.658 | 0.760 |
+
+With the old gold labels only (the new types left unscored) the same code gives tuned 0.951 / 0.962 and held-out 0.915 / 0.709, so most of the held-out recall gain is the prescription, date and follow-up fixes, and the rest is the new types now being labelled. The new types were hand-labelled by reading each document, and the held-out labels were written after the held-out rules had been frozen for the older types but not for the new ones: the new rules were tuned on the held-out documents that carry those lines (markers, impressions, regimen). Treat the held-out gain on those types as optimistic. Hard gates on both sets: unsupported facts reaching the record 0, handwritten pages auto-extracted 0.
 
 **5 November changes (mentor review).** Quotes are now whole sentences, joined across wrapped lines: a fact never starts mid-sentence. Before, the CT fact quoted "drug allergies. CT thorax …", which reads as if the patient had allergies when the page says "No known drug allergies". That moved the rules numbers from tuned 0.949 / 0.962 and held-out 0.889 / 0.646 to the figures above. Two tuned gold labels were revised (`about` in `gold.json` says why). One tuned fact is now missed: "Specimen sent for histopathology" had only ever been matched by accident, through the old line-long quote of the IHC fact.
 
@@ -181,13 +194,13 @@ Held-out recall by document type (shown to verifiers as the coverage note, FR-EX
 | Type | Gold facts | Rules | Rules + Gemini |
 |---|---|---|---|
 | Discharge summary | 30 | 0.700 | 0.800 |
-| Printed prescription | 16 | 0.813 | 0.813 |
-| Pathology report | 7 | 0.571 | 0.571 |
+| Printed prescription | 16 | 1.000 (was 0.813) | 0.813 (4 Nov) |
+| Pathology report | 8 (was 7) | 0.625 (was 0.571) | 0.571 (4 Nov) |
 | Lab report | 5 | 1.000 | 1.000 |
-| IHC / molecular report | 4 | 0.750 | 0.750 |
-| Imaging report | 4 | 1.000 | 1.000 |
-| Consultation note | 3 | 0.000 | 0.000 |
-| Chemotherapy day-care record | 3 | 0.667 | 0.667 |
+| IHC / molecular report | 13 (was 4) | 0.923 (was 0.750) | 0.750 (4 Nov) |
+| Imaging report | 8 (was 4) | 1.000 | 1.000 (4 Nov) |
+| Consultation note | 4 (was 3) | 0.250 (was 0.000) | 0.000 (4 Nov) |
+| Chemotherapy day-care record | 5 (was 3) | 0.800 (was 0.667) | 0.667 (4 Nov) |
 | Procedure / operative note | 3 | 0.000 | 0.667 |
 | Radiotherapy summary | 2 | 0.000 | 0.000 |
 | Other | 2 | 0.000 | 0.500 |
@@ -322,7 +335,7 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for all ten rules (until 5 Nov 2026 `RAD-IMG-PT-01` stayed in shadow to show the mechanism, which hid the PET-CT a returning patient mentioned from clinicians). The wording still needs review by the team's clinician advisor before any pilot.
 - **Erasure runs after the retention period, in the database.** `erase_patient()` (SECURITY DEFINER) refuses unless the request is due, consent is withdrawn and the org matches; it then deletes 20 tables of patient data in one transaction and leaves a PII-free tombstone, the consent history and the audit trail. A daily Vercel cron runs due requests; admins can run them from `/admin/erasure`. Default retention is 10 years (configurable, minimum 3).
 - **Voice input uses the browser's Web Speech API** behind an organisation flag; no audio is retained and drug-name WER is unmeasured.
-- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini (4 Nov run) and 0.66 with rules alone (target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
+- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini (4 Nov run, not re-run) and 0.76 with rules alone after the 7 Nov changes (0.66 before; target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.
 

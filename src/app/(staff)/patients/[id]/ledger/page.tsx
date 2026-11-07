@@ -115,7 +115,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
           description={initial
             ? 'Everything received so far, each with the words it came from. Check what you can; the first visit can be sealed with some items still unchecked, and they stay marked as unchecked.'
             : 'Each item shows what it is, where it is written, who checked it and when. Grouped by kind of change and ordered by date, never by importance.'}
-          actions={canAct ? <LedgerToolbar patientId={id} eligibleIds={eligible} counts={v.counts} nextSeq={(v.snapshot?.seq ?? -1) + 1} canSeal={session.role === 'clinician'} /> : undefined}
+          actions={canAct ? <LedgerToolbar patientId={id} eligibleIds={eligible} counts={v.counts} canSeal={session.role === 'clinician'} /> : undefined}
         />
         <Explainer>{EXPLAIN.ledger}</Explainer>
         <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(16rem,22rem)]">

@@ -1,10 +1,10 @@
 import { RoleRestricted } from '@/components/shell/RoleRestricted'
-// Records Request Kit, staff tab (FR-REQ-01..05). Letters are printed and given by the patient/caregiver;
+// Requests for missing papers, staff tab. Letters are printed and given by the patient/caregiver;
 // nothing is sent to an institution automatically.
 import { notFound } from 'next/navigation'
 import { RequestBuilder } from '@/components/requests/RequestBuilder'
 import { RequestList } from '@/components/requests/RequestList'
-import { SectionHeader } from '@/components/ui'
+import { EXPLAIN, Explainer, SectionHeader } from '@/components/ui'
 import { can } from '@/server/rbac'
 import { withPatientAccess } from '@/server/registration/page'
 import { requireStaff } from '@/server/session'
@@ -23,12 +23,13 @@ export default async function RequestsPage({ params }: { params: Promise<{ id: s
   return (
     <div className="grid gap-8 py-8">
       <SectionHeader
-        kicker="Records Request Kit"
+        kicker="Asking other hospitals for papers"
         title="Requests to other hospitals"
         description="A letter in English or Hindi for the hospital's Medical Records Department, tracked from the day it is given: a reminder to the patient at 7 days, still open at 21 days with an information sheet. The 72-hour period is the regulation's reference, never a promise."
         actions={can(session.role, 'request.manage') ? <RequestBuilder patientId={id} actor="staff" disclosure="cleared" variant="primary" size="md" /> : undefined}
       />
-      <RequestList patientId={id} actor="staff" />
+      <Explainer>{EXPLAIN.letter}</Explainer>
+      <div data-tour="letter"><RequestList patientId={id} actor="staff" /></div>
     </div>
   )
 }

@@ -16,7 +16,7 @@ export default async function CardPage({ params }: { params: Promise<{ id: strin
   const brand = brandFor(p.d)
   return (
     <section className="grid max-w-2xl grid-cols-[minmax(0,1fr)] gap-6 py-8">
-      <SectionHeader kicker="Identity · card" title="Records card" description="The QR identifies the patient only. It never opens the record: a code sent to the primary contact is always asked for." />
+      <SectionHeader kicker="Identity card" title="Records card" description="The QR code only says who the patient is. It never opens the record: a code sent to the main contact is always asked for." />
       {p.d !== 'cleared' && (
         <Notice title={`The card shows the brand "${brand}"`}>Disclosure is not cleared, so nothing on the card names the service or the hospital in a way that hints at a diagnosis.</Notice>
       )}

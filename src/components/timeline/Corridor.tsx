@@ -16,9 +16,9 @@ function Hung({ i, k }: { i: TimelineItem; k: number }) {
         <header className="flex flex-wrap items-start justify-between gap-2">
           <p className="font-mono text-[12px] tracking-[0.08em] text-muted uppercase">
             {i.dateLabel}
-            {i.dateFrom === 'document' && <span className="normal-case tracking-normal"> · document date</span>}
+            {i.dateFrom === 'document' && <span className="normal-case tracking-normal"> · the document’s own date</span>}
           </p>
-          <StatusBadge status={i.status} />
+          <StatusBadge status={i.status} label={i.status === 'verified_matches_source' ? 'Checked against the page' : i.status === 'unverified' ? 'Not yet checked' : undefined} />
         </header>
         <h4 className="text-lg leading-snug tracking-[-0.015em]">
           {i.typeLabel}
@@ -26,15 +26,15 @@ function Hung({ i, k }: { i: TimelineItem; k: number }) {
         </h4>
         <div className="flex flex-wrap gap-1.5">
           <Chip kicker={i.label} tone={LABEL_TONE[i.label]}>{i.docLabel}{i.institution ? ` · ${i.institution}` : ''}</Chip>
-          {i.conflict && <Badge tone="conflict" icon={<GitCompare />}>Conflict</Badge>}
-          {i.flags.includes('low_confidence') && <StatusBadge status="low_confidence" />}
+          {i.conflict && <Badge tone="conflict" icon={<GitCompare />}>Sources disagree</Badge>}
+          {i.flags.includes('low_confidence') && <Badge tone="unverified">Read from a photo: check the numbers</Badge>}
         </div>
         {s && (
           <div className="grid gap-1">
             {s.quote && <p className="line-clamp-3 border-l-2 border-brass pl-3 font-mono text-[13px] leading-relaxed">“<mark className="ds-quote">{s.quote}</mark>”</p>}
             {s.href && (
-              <Link href={s.href} className="inline-flex w-fit items-center gap-0.5 font-mono text-[11px] tracking-[0.12em] text-setu-ink uppercase underline decoration-brass underline-offset-4">
-                Open source{s.pageNo != null && ` · p.${s.pageNo}`}<ArrowUpRight aria-hidden className="size-3.5" />
+              <Link href={s.href} className="inline-flex w-fit items-center gap-0.5 text-[13px] text-setu-ink underline decoration-brass underline-offset-4">
+                Show the exact words{s.pageNo != null && ` · p.${s.pageNo}`}<ArrowUpRight aria-hidden className="size-3.5" />
               </Link>
             )}
           </div>
@@ -80,7 +80,7 @@ export function Corridor({ view }: { view: TimelineView }) {
         <section aria-labelledby="undated" className="grid gap-4 border-t border-dashed border-control pt-8">
           <div>
             <h2 id="undated" className="text-2xl tracking-[-0.02em]">Undated</h2>
-            <p className="text-[15px] text-muted">No date in the quote and no document date. Kept in their own lane rather than guessed.</p>
+            <p className="text-[15px] text-muted">No date in the words quoted and none on the document. Kept in their own lane rather than guessed.</p>
           </div>
           <ol className="grid gap-x-5 gap-y-2 md:grid-cols-2 xl:grid-cols-3">
             {view.undated.map((i, k) => <Hung key={i.id} i={i} k={k} />)}

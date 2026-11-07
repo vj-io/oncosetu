@@ -54,13 +54,13 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
   return (
     <div className="mt-8 grid gap-8">
       <SectionHeader
-        title="Pre-visit answers"
-        description="What the patient or caregiver told us before the visit, in their own words. Every item stays “patient said”: it is never marked as supported by a document."
+        title="The patient’s own answers"
+        description="What the patient or a family member told us before the visit, in their own words. It always stays marked “patient said”: it is never treated as backed by a document."
       />
       {canSend && <SendVisitLink patientId={id} recipient={recipient} />}
 
       {groups.length === 0 ? (
-        <EmptyState icon={<MessageCircle />} title="No pre-visit answers yet" description="Send the pre-visit link, or ask the patient to open it from their phone." />
+        <EmptyState icon={<MessageCircle />} title="No answers yet" description="Send the pre-visit link, or ask the patient to open it on their phone." />
       ) : (
         <ol className="grid gap-6">
           {groups.map((g) => (

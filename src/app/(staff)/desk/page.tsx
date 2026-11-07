@@ -28,14 +28,14 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
     <section className="grid grid-cols-[minmax(0,1fr)] gap-10">
       <SectionHeader
         as="h1" kicker="Desk · today" title="Front desk"
-        description="Identify the person with the card, phone, MRN or name. The record opens only after a code to the registered contact or an in-person witnessed consent."
+        description="Identify the person with the card, phone, MRN or name. The record opens only after a code is sent to the registered contact, or after consent given in person with a witness."
         actions={<ButtonLink href="/patients/new" variant="secondary">Register a new patient</ButtonLink>}
       />
       <DeskLookup preselected={preselected} />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <h2 className="text-2xl tracking-[-0.025em]">Today&apos;s encounters</h2>
         {today.length === 0 ? (
-          <EmptyState title="No encounters yet today" description="An encounter starts when a patient is verified or newly registered." />
+          <EmptyState title="No visits yet today" description="A visit starts when a patient is identified or newly registered." />
         ) : (
           <Table caption={`${today.length} today`}>
             <thead><tr><th>Time</th><th>Patient</th><th>Visit</th><th>Started by</th><th>Status</th><th className="relative"><span className="sr-only">Open</span></th></tr></thead>

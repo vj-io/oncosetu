@@ -185,7 +185,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <SectionHeader title={<span id="docs-h">{t('docsTitle')}</span>} />
                 {p.documents.length ? (
                   <ul className="grid gap-2">
-                    {p.documents.map((d, i) => {
+                    {p.documents.map((d) => {
                       // Several papers of the same kind look identical in a list: number them so each can be told apart.
                       const same = p.documents.filter((x) => inLang(x.label, lang) === inLang(d.label, lang))
                       const nth = same.length > 1 ? ` (${same.indexOf(d) + 1} of ${same.length})` : ''

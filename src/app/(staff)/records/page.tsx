@@ -33,14 +33,14 @@ export default async function RecordsQueuePage() {
     <div className="grid grid-cols-1 gap-10">
       <SectionHeader
         as="h1"
-        kicker="Records · work queue"
+        kicker="Records · to do"
         title="What is waiting for a person"
-        description="Documents waiting for an identity decision, pages read with low OCR confidence, and unverified items by onboarding priority (pathology and molecular first). Ordered administratively, never by clinical importance."
+        description="Documents waiting for someone to decide whose they are, pages that were hard to read, and items not yet checked, with pathology and molecular reports first. It is a filing order, never a judgement of importance."
       />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Tally icon={<FileQuestion />} n={sum((r) => r.identity)} label="Identity decisions" />
-        <Tally icon={<ScanText />} n={sum((r) => r.lowConfidence)} label="Low-confidence pages" />
-        <Tally icon={<ClipboardCheck />} n={unverified} label="Unverified items" />
+        <Tally icon={<FileQuestion />} n={sum((r) => r.identity)} label="Whose document is it?" />
+        <Tally icon={<ScanText />} n={sum((r) => r.lowConfidence)} label="Hard-to-read pages" />
+        <Tally icon={<ClipboardCheck />} n={unverified} label="Not yet checked" />
       </div>
 
       {rows.length ? (
@@ -48,9 +48,9 @@ export default async function RecordsQueuePage() {
           <thead>
             <tr>
               <th scope="col">Patient</th>
-              <th scope="col">Identity decisions</th>
-              <th scope="col">Low-confidence pages</th>
-              <th scope="col">Unverified, by onboarding priority</th>
+              <th scope="col">Whose document is it?</th>
+              <th scope="col">Hard-to-read pages</th>
+              <th scope="col">Not yet checked, pathology first</th>
               <th scope="col">Open</th>
             </tr>
           </thead>
@@ -59,7 +59,7 @@ export default async function RecordsQueuePage() {
               <tr key={r.patientId}>
                 <td className="min-w-48">
                   <span className="block text-[15px] text-ink">{r.name}</span>
-                  <span className="font-mono text-[12px] whitespace-nowrap text-faint">ACC. {r.accession}</span>
+                  <span className="font-mono text-[12px] whitespace-nowrap text-faint">Record code {r.accession}</span>
                   {r.mrn && <span className="block font-mono text-[12px] break-all text-faint">MRN {r.mrn}</span>}
                 </td>
                 <td>{r.identity ? <Link className={link} href={`/patients/${r.patientId}/documents`}>{r.identity} to decide</Link> : <Num n={0} />}</td>
@@ -71,23 +71,22 @@ export default async function RecordsQueuePage() {
                     </ul>
                   ) : <Num n={0} />}
                 </td>
-                <td><Link className={link} href={`/patients/${r.patientId}/ledger`}>Ledger</Link></td>
+                <td><Link className={link} href={`/patients/${r.patientId}/ledger`}>What’s new</Link></td>
               </tr>
             ))}
           </tbody>
         </Table>
       ) : (
-        <EmptyState icon={<ClipboardCheck />} title="Nothing waiting" description="Every attached document has an identity decision and every item has been verified." />
+        <EmptyState icon={<ClipboardCheck />} title="Nothing waiting" description="Every document has been matched to a patient and every item has been checked." />
       )}
       {withoutConsent > 0 && (
         <p className="text-sm text-muted">{withoutConsent} more {withoutConsent === 1 ? 'patient has' : 'patients have'} open items but no active consent; they are not listed and cannot be opened.</p>
       )}
 
       <Frame className="grid gap-1 border-l-[3px] border-l-setu px-5 py-4">
-        <p className="ds-kicker">Sampling QA · FR-VER-04</p>
+        <p className="ds-kicker">Second look at a sample</p>
         <p className="text-[15px] text-muted">
-          Each week 5% of items verified by records staff are re-sampled for a second review, and the disagreement rate is reported on the{' '}
-          <Link href="/admin/metrics" className="text-setu-ink underline decoration-brass underline-offset-4">admin metrics page</Link> (administrators and auditors).
+          Each week a small sample of what records staff have checked is looked at again by a second person, and how often they disagree is reported to the administrators.
         </p>
       </Frame>
     </div>

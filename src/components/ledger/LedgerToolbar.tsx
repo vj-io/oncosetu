@@ -11,7 +11,7 @@ import { postJson } from './client'
 type Sealed = { snapshotId: string; seq: number; sha256: string; keyId: string; sealedAt: string }
 
 /** "Verify opened items" (FR-LED-05; only items whose source this person opened) and "Seal snapshot" (FR-LED-01, clinicians). */
-export function LedgerToolbar({ patientId, eligibleIds, counts, nextSeq, canSeal }: { patientId: string; eligibleIds: string[]; counts: LedgerView['counts']; nextSeq: number; canSeal: boolean }) {
+export function LedgerToolbar({ patientId, eligibleIds, counts, canSeal }: { patientId: string; eligibleIds: string[]; counts: LedgerView['counts']; canSeal: boolean }) {
   const router = useRouter()
   const { toast } = useToast()
   const [dialog, setDialog] = useState<'bulk' | 'seal' | null>(null)

@@ -49,8 +49,12 @@ export function Tour() {
   }, []);
 
   useEffect(() => {
-    const saved = parseTourState(localStorage.getItem(TOUR_KEY));
-    if (saved?.active) setState(saved);
+    // Read the saved tour after hydration (localStorage does not exist on the server).
+    const t = setTimeout(() => {
+      const saved = parseTourState(localStorage.getItem(TOUR_KEY));
+      if (saved?.active) setState(saved);
+    }, 0);
+    return () => clearTimeout(t);
   }, []);
 
   useEffect(() => {

@@ -70,12 +70,12 @@ test('V04-E2E-02 request letter EN + HI, mark sent, reminder at +7 days (one SMS
   await page.goto(`/print/request/${rid}?lang=hi`)
   await expect(page.locator('html[lang="hi"], [lang="hi"]').first()).toBeAttached()
 
-  // A hospital name that is itself a diagnosis word is left blank on a letter the patient carries (disclosure not cleared).
+  // A hospital name with a diagnosis word keeps only its safe part on a letter the patient carries (disclosure not cleared).
   const guarded = (await records.post('/api/requests', { patientId: p.id, missingIds: [], institution: 'Nirnay Pathology and Onco-Diagnostics', lang: 'en' })).body.id
   await page.goto(`/print/request/${guarded}?lang=en`)
   const blank = await page.locator('body').innerText()
   expect(blank).not.toMatch(/onco/i)
-  expect(blank).toContain('(write the hospital name here)')
+  expect(blank).toContain('Nirnay Pathology')
   expect((await records.post(`/api/requests/${guarded}/withdraw`, {})).ok).toBe(true)
 
   // Mark as given to the hospital: the item moves to "requested".

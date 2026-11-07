@@ -134,9 +134,11 @@ test('V03-E2E-02 returning visit: pre-visit answers, new lab report, ledger "New
   expect(await count(page, 'Patient said')).toBe(5) // one line per answered question, "no" included
   const added = sectionOf(page, 'New since the last visit')
   await expect(added).toContainText('Haematology')
-  await expect(added.getByRole('link', { name: /source/i }).first()).toHaveAttribute('href', new RegExp(`/patients/${p.id}/documents/${docId}\\?event=`))
+  // the source link is inside the item: open the first one
+  await added.locator('details > summary').first().click()
+  await expect(added.getByRole('link', { name: /Show the exact words/ }).first()).toHaveAttribute('href', new RegExp(`/patients/${p.id}/documents/${docId}\\?event=`))
   await expect(sectionOf(page, 'Patient said')).toContainText('Sahyadri Hospital')
-  await expect(sectionOf(page, 'Patient said')).toContainText('Confirmed by patient')
+  await expect(sectionOf(page, 'Patient said')).toContainText('Confirmed by the patient')
   // Items already sealed in S0 are not listed as new.
   await expect(added).not.toContainText('Hemicolectomy')
 

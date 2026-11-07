@@ -42,9 +42,10 @@ function submittable(a: Answers): Answers {
 }
 
 export function VisitFlow({
-  lang, canVoice, canSpeak, currentYear, lastAnswered,
+  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered,
 }: {
-  lang: Lang; canVoice: boolean; canSpeak: boolean; currentYear: number; lastAnswered: string | null;
+  /** sarvam: the server can transcribe (SARVAM_API_KEY set), so record audio instead of using the browser's recogniser */
+  lang: Lang; canVoice: boolean; canSpeak: boolean; sarvam: boolean; currentYear: number; lastAnswered: string | null;
 }) {
   const [phase, setPhase] = useState<Phase>("questions");
   const [step, setStep] = useState(0);
@@ -57,12 +58,18 @@ export function VisitFlow({
   const heading = useRef<HTMLHeadingElement>(null);
 
   // voice typing (only when the org turned it on): one recording at a time
-  const speechSupported = useSyncExternalStore(() => () => {}, () => !!recognitionCtor(), () => false); // false on the server, real value in the browser
+  const speechSupported = useSyncExternalStore(() => () => {}, () => (sarvam ? typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia : !!recognitionCtor()), () => false); // false on the server, real value in the browser
   const voiceOn = canVoice && speechSupported;
   const [listening, setListening] = useState<string | null>(null);
   const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
   const rec = useRef<Recognition | null>(null);
-  useEffect(() => () => { rec.current?.stop(); if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); }, []);
+  const recorder = useRef<MediaRecorder | null>(null);
+  useEffect(() => () => {
+    rec.current?.stop();
+    const r = recorder.current; // leaving the page: release the microphone, send nothing
+    if (r && r.state !== "inactive") { r.onstop = () => r.stream.getTracks().forEach((t) => t.stop()); r.stop(); }
+    if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel();
+  }, []);
   useEffect(() => { heading.current?.focus(); }, [step, phase]);
 
   const q = QUESTIONS[step];
@@ -73,7 +80,50 @@ export function VisitFlow({
     setAnswers((s) => ({ ...s, [id]: { ...(s[id] ?? { yn: "yes" as const }), ...patch } as Answer }));
   }
 
+  function addSaid(qid: QuestionId, field: Field, said: string) {
+    if (reviewed) setEdited(true);
+    setAnswers((s) => {
+      const cur = (s[qid]?.[field] ?? "").trim();
+      return { ...s, [qid]: { ...(s[qid] ?? { yn: "yes" as const }), [field]: cur ? `${cur} ${said}` : said, voice: true } as Answer };
+    });
+  }
+
+  // Sarvam path: record with MediaRecorder (≤ 30 s), the server transcribes, the text lands in the same field.
+  async function record(id: string, field: Field) {
+    const cur = recorder.current;
+    if (cur?.state === "recording") { cur.stop(); if (listening === id) return; }
+    setVoiceMsg(null);
+    let stream: MediaStream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); } catch { return setVoiceMsg(tp(lang, "voiceFailed")); }
+    const r = new MediaRecorder(stream), chunks: Blob[] = [], qid = q.id;
+    let started = 0;
+    r.onstart = (e) => { started = e.timeStamp; };
+    r.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    r.onstop = async (e) => {
+      stream.getTracks().forEach((t) => t.stop());
+      setListening((x) => (x === id ? null : x));
+      const body = new FormData();
+      body.append("audio", new Blob(chunks, { type: r.mimeType }), "answer");
+      body.append("lang", lang);
+      body.append("seconds", String(Math.round((e.timeStamp - started) / 1000)));
+      try {
+        const res = await fetch("/api/p/voice/transcribe", { method: "POST", body });
+        if (!res.ok) throw new Error(String(res.status));
+        const said = ((await res.json()) as { text?: string }).text?.trim();
+        if (!said) throw new Error("empty");
+        addSaid(qid, field, said);
+      } catch {
+        setVoiceMsg(tp(lang, "voiceFailed"));
+      }
+    };
+    recorder.current = r;
+    setListening(id);
+    r.start();
+    setTimeout(() => { if (r.state === "recording") r.stop(); }, 30_000); // Sarvam's REST endpoint is for clips under 30 s
+  }
+
   function speak(id: string, field: Field) {
+    if (sarvam) return void record(id, field);
     const Ctor = recognitionCtor();
     if (!Ctor) return setVoiceMsg(tp(lang, "voiceUnsupported"));
     rec.current?.stop();
@@ -85,12 +135,7 @@ export function VisitFlow({
     const qid = q.id;
     r.onresult = (e) => {
       const said = e.results[0]?.[0]?.transcript?.trim();
-      if (!said) return;
-      if (reviewed) setEdited(true);
-      setAnswers((s) => {
-        const cur = (s[qid]?.[field] ?? "").trim();
-        return { ...s, [qid]: { ...(s[qid] ?? { yn: "yes" as const }), [field]: cur ? `${cur} ${said}` : said, voice: true } as Answer };
-      });
+      if (said) addSaid(qid, field, said);
     };
     r.onerror = () => { setVoiceMsg(tp(lang, "voiceFailed")); setListening(null); };
     r.onend = () => setListening((x) => (x === id ? null : x));
@@ -106,6 +151,7 @@ export function VisitFlow({
     if (a.yn === "yes" && q.id === "anything_else" && !a.free?.trim()) return setError(tp(lang, "err_free"));
     if (a.yn === "yes" && a.month != null && a.year == null) return setError(tp(lang, "err_year"));
     rec.current?.stop();
+    if (recorder.current?.state === "recording") recorder.current.stop();
     if (step < QUESTIONS.length - 1) return setStep(step + 1);
     setReviewed(true);
     setPhase("review");

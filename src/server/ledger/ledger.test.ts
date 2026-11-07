@@ -271,3 +271,16 @@ describe('performance (FR-LED-07)', () => {
     console.info(`ledger build, 500 events: ${ms.toFixed(0)} ms`)
   })
 })
+
+describe('timeline hospital facet', () => {
+  it('lists one hospital once, whatever its case or spacing, in the nicer casing', async () => {
+    const { canonicalInstitutions, institutionKey } = await import('./core')
+    const c = canonicalInstitutions(['MADHYAM DAY-CARE ONCOLOGY CENTRE', 'Madhyam Day-Care  Oncology Centre', null, 'Triveni Multispeciality Hospital'])
+    expect([...c.values()].sort()).toEqual(['Madhyam Day-Care Oncology Centre', 'Triveni Multispeciality Hospital'])
+    expect(institutionKey('  MADHYAM  Day-Care Oncology Centre ')).toBe(institutionKey('Madhyam Day-Care Oncology Centre'))
+  })
+  it('a shouting name alone is shown in Title Case', async () => {
+    const { canonicalInstitutions } = await import('./core')
+    expect([...canonicalInstitutions(['KASTURI DAY-CARE UNIT']).values()]).toEqual(['Kasturi Day-Care Unit'])
+  })
+})

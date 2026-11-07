@@ -485,6 +485,23 @@ export type TimelineView = {
   shown: number
 }
 
+/** Case and spacing do not make a different hospital. */
+export const institutionKey = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
+const titleCase = (s: string) => s.toLowerCase().replace(/(^|[\s(\-/])(\p{L})/gu, (_, p: string, c: string) => p + c.toUpperCase())
+/** key -> the display form: a mixed-case spelling if one exists, else Title Case of the shouting one. */
+export function canonicalInstitutions(names: readonly (string | null)[]): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const raw of names) {
+    if (!raw) continue
+    const name = raw.trim().replace(/\s+/g, ' ')
+    const k = institutionKey(name)
+    const shouting = name === name.toUpperCase() && name !== name.toLowerCase()
+    const have = out.get(k)
+    if (!have || (!shouting && have === have.toUpperCase())) out.set(k, shouting ? titleCase(name) : name)
+  }
+  return out
+}
+
 const STATUS_SLUG: Record<SnapshotEvent['label'], string> = { Verified: 'verified', 'Not yet verified': 'unverified', Disputed: 'disputed' }
 const MONTH = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
@@ -513,6 +530,9 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     }
   })
   const uniq = <T,>(xs: T[]) => [...new Set(xs)]
+  // One hospital written as "MADHYAM DAY-CARE ONCOLOGY CENTRE" and "Madhyam Day-Care Oncology Centre" is one facet entry (case and spacing ignored), shown in the nicer casing.
+  const canon = canonicalInstitutions(all.map((i) => i.institution))
+  for (const i of all) if (i.institution) i.institution = canon.get(institutionKey(i.institution)) ?? i.institution
   const facets: TimelineView['facets'] = {
     types: uniq(all.map((i) => i.docType).filter(isDocType)).sort().map((t) => ({ value: t, label: staffDocLabel(t) })),
     institutions: uniq(all.map((i) => i.institution).filter((x): x is string => !!x)).sort(),
@@ -520,7 +540,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     statuses: (['Verified', 'Not yet verified', 'Disputed'] as const).filter((l) => all.some((i) => i.label === l)).map((l) => ({ value: STATUS_SLUG[l], label: l })),
   }
   const shown = all.filter((i) =>
-    (!f.type || i.docType === f.type) && (!f.inst || i.institution === f.inst) && (!f.source || i.sourceType === f.source) && (!f.status || STATUS_SLUG[i.label] === f.status))
+    (!f.type || i.docType === f.type) && (!f.inst || (i.institution !== null && institutionKey(i.institution) === institutionKey(f.inst))) && (!f.source || i.sourceType === f.source) && (!f.status || STATUS_SLUG[i.label] === f.status))
   const dated = shown.filter((i) => i.dateIso).sort((x, y) => (x.dateIso! < y.dateIso! ? -1 : x.dateIso! > y.dateIso! ? 1 : x.id < y.id ? -1 : 1))
   const years: TimelineView['years'] = []
   for (const i of dated) {

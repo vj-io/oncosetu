@@ -37,6 +37,9 @@ export function neutralName(text: string | null | undefined, disclosure: Disclos
   return out.length >= 3 && lintText(out, ['diagnosis']).length === 0 ? out : null
 }
 
+/** The hospital as the patient side may see it: the safe part of the name ("Kasturi Day-Care Unit"), the same rule as the letter, and "the hospital" only when nothing safe is left. */
+export const patientInstitution = (name: string, disclosure: Disclosure): string => neutralName(name, disclosure) ?? tr('en', 'reminderInstitutionFallback')
+
 /** "1, 2 and 3" for the cycles a grouped request covers. */
 export function cycleList(cycles: readonly number[], lang: Lang): string {
   const c = [...new Set(cycles)].sort((a, b) => a - b)

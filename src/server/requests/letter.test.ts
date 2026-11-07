@@ -65,3 +65,17 @@ describe('neutralName and cycles', () => {
     expect(letterText(l)).not.toMatch(/chemo/i)
   })
 })
+
+describe('the hospital name on the patient requests card', () => {
+  it('keeps the safe part of the name for an undisclosed patient, like the letter', async () => {
+    const { patientInstitution } = await import('./letter')
+    expect(patientInstitution('Kasturi Day-Care Chemotherapy Unit', 'not_cleared')).toBe('Kasturi Day-Care Unit')
+    expect(patientInstitution('Kasturi Day-Care Chemotherapy Unit', 'unknown')).toBe('Kasturi Day-Care Unit')
+    expect(patientInstitution('Kasturi Day-Care Chemotherapy Unit', 'cleared')).toBe('Kasturi Day-Care Chemotherapy Unit')
+    expect(patientInstitution('Triveni Multispeciality Hospital', 'not_cleared')).toBe('Triveni Multispeciality Hospital')
+  })
+  it('says "the hospital" only when nothing safe is left', async () => {
+    const { patientInstitution } = await import('./letter')
+    expect(patientInstitution('Cancer Chemo', 'not_cleared')).toBe('the hospital')
+  })
+})

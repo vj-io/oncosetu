@@ -61,6 +61,17 @@ const TREATMENT: ReadonlySet<EventType> = new Set<EventType>([
   'procedure_documented', 'chemotherapy_session_documented', 'radiotherapy_documented', 'imaging_report_documented', 'impression_documented', 'regimen_documented',
 ])
 
+/** A quote that is only a date line ("Report Date: 18/11/2024", "Date of Scan: 20/02/2026"): it tells a doctor nothing. */
+export const isDateOnlyQuote = (q: string | null | undefined) => !!q && /^\s*(?:report\s+date|date\s+of\s+(?:scan|report)|date|dated)?\s*[:\-]?\s*\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}\s*$/i.test(q)
+
+const docOf = (i: { sources: { href: string | null }[] }) => i.sources.map((s) => /\/documents\/([0-9a-f-]{36})/i.exec(s.href ?? '')?.[1]).find(Boolean) ?? null
+
+/** Drops an imaging fact whose quote is only a date when the same document also gives an impression: the impression row says more. */
+export function dropDateOnlyImaging<T extends { eventType: EventType; sources: { href: string | null; quote: string }[] }>(items: readonly T[]): T[] {
+  const withImpression = new Set(items.filter((i) => i.eventType === 'impression_documented').map(docOf).filter(Boolean))
+  return items.filter((i) => !(i.eventType === 'imaging_report_documented' && i.sources.length > 0 && i.sources.every((s) => isDateOnlyQuote(s.quote)) && withImpression.has(docOf(i))))
+}
+
 const firstQuote = (i: FactItem) => i.sources.find((s) => s.quote)
 
 export function toFact(i: FactItem): Fact {
@@ -97,7 +108,8 @@ const byDateDesc = (a: Fact, b: Fact) => {
  * treatment timeline (surgery, chemotherapy cycles, radiotherapy, imaging), allergies, medicines, follow-up dates.
  * Rejected items never reach the ledger view, so everything given here is current.
  */
-export function oncologyView(items: readonly FactItem[]): OncologyView {
+export function oncologyView(all: readonly FactItem[]): OncologyView {
+  const items = dropDateOnlyImaging(all)
   const of = (...t: EventType[]) => items.filter((i) => t.includes(i.eventType)).map(toFact)
   return {
     diagnosis: of('diagnosis_documented', 'pathology_report_documented').sort(byDateDesc),

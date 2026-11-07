@@ -33,6 +33,8 @@ export type FirstLookRow = {
   href: string
   linkLabel: string
   details: { text: string; quote?: string; href?: string; meta?: string }[]
+  /** How many more there are than the details shown. */
+  more: number
 }
 
 export const HELD_WORDS: Record<HeldKind, string> = {
@@ -43,7 +45,8 @@ export const HELD_WORDS: Record<HeldKind, string> = {
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
-const clip = (s: string, n = 140) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
+const SHOWN = 3
+const clip = (s: string, n = 90) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
 
 export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
   const base = `/patients/${i.patientId}`
@@ -51,33 +54,37 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
 
   const nNew = i.newTotal
   rows.push({
-    key: 'new', label: i.seal ? 'New since the last sealed visit' : 'On file so far', count: nNew, tone: nNew ? 'setu' : 'neutral',
+    key: 'new', label: i.seal ? 'New since the last sealed visit' : 'items on file (no visit sealed yet)', count: nNew, tone: nNew ? 'setu' : 'neutral',
     summary: nNew
       ? [plural(nNew, 'item'), i.amended ? `${plural(i.amended, 'corrected report')}` : null, i.patientSaid ? `${i.patientSaid} from the patient's own answers` : null].filter(Boolean).join(' · ')
       : i.seal ? 'Nothing new has arrived since that visit.' : 'No items yet.',
     href: `${base}/ledger#new`, linkLabel: 'See what changed',
-    details: i.newItems.slice(0, 4).map((n) => ({ text: [n.typeLabel, n.headline].filter(Boolean).join(': '), meta: n.when, quote: n.quote ? clip(n.quote) : undefined, href: `${base}/ledger#item-${n.id}` })),
+    more: Math.max(i.newTotal - SHOWN, 0),
+    details: i.newItems.slice(0, SHOWN).map((n) => ({ text: [n.typeLabel, n.headline].filter(Boolean).join(': '), meta: n.when, quote: n.quote ? clip(n.quote) : undefined, href: `${base}/ledger#item-${n.id}` })),
   })
 
   rows.push({
     key: 'missing', label: 'Papers not in file', count: i.missing.length, tone: i.missing.length ? 'unverified' : 'verified',
     summary: i.missing.length ? 'Other papers mention these, but we do not hold them. Not in file does not mean it was not done.' : 'No referred-to paper is missing.',
     href: `${base}/completeness`, linkLabel: 'Open the checklist and make a request letter',
-    details: i.missing.slice(0, 4).map((m) => ({ text: m.title, meta: m.askAt ? `Ask at ${m.askAt}` : 'Place not stated', href: `${base}/completeness#m-${m.id}` })),
+    more: Math.max(i.missing.length - SHOWN, 0),
+    details: i.missing.slice(0, SHOWN).map((m) => ({ text: m.title, meta: m.askAt ? `Ask at ${m.askAt}` : 'Place not stated', href: `${base}/completeness#m-${m.id}` })),
   })
 
   rows.push({
     key: 'held', label: 'Held for a person to check', count: i.held.length, tone: i.held.length ? 'conflict' : 'verified',
     summary: i.held.length ? 'Held back because the name did not match, or because it is handwritten or hard to read.' : 'Nothing is waiting for an identity or reading check.',
     href: `${base}/documents`, linkLabel: 'Review the held documents',
-    details: i.held.slice(0, 4).map((h) => ({ text: h.docLabel, meta: HELD_WORDS[h.kind], href: `${base}/documents/${h.id}` })),
+    more: Math.max(i.held.length - SHOWN, 0),
+    details: i.held.slice(0, SHOWN).map((h) => ({ text: h.docLabel, meta: HELD_WORDS[h.kind], href: `${base}/documents/${h.id}` })),
   })
 
   rows.push({
     key: 'conflicts', label: 'Sources that disagree', count: i.conflicts.length, tone: i.conflicts.length ? 'conflict' : 'verified',
     summary: i.conflicts.length ? 'Two sources give different values. Both quotes are shown; a clinician decides.' : 'No two sources disagree.',
     href: `${base}/ledger#conflicts`, linkLabel: 'Compare the two quotes',
-    details: i.conflicts.slice(0, 3).map((c) => ({ text: c.label, href: `${base}/ledger#conflicts` })),
+    more: Math.max(i.conflicts.length - SHOWN, 0),
+    details: i.conflicts.slice(0, SHOWN).map((c) => ({ text: c.label, href: `${base}/ledger#conflicts` })),
   })
 
   rows.push({
@@ -85,13 +92,13 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
     summary: i.unverified
       ? `${plural(i.unverified, 'item')} not yet checked by a person${i.disputed ? ` (${i.disputed} disputed)` : ''}. They are shown, but marked as unchecked.`
       : 'Every item has been checked by a person.',
-    href: `${base}/ledger#all`, linkLabel: 'Check them', details: [],
+    href: `${base}/ledger#all`, linkLabel: 'Check them', details: [], more: 0,
   })
 
   rows.push({
     key: 'sealed', label: 'Last sealed visit', count: null, tone: i.seal ? 'verified' : 'neutral',
     summary: i.seal ? `Sealed ${i.seal.sealedLabel}${i.seal.signerName ? ` by ${i.seal.signerName}` : ''}. Nobody can change it afterwards.` : 'Nothing sealed yet. A clinician seals the record at the end of a visit.',
-    href: i.seal ? `/verify/${i.seal.id}` : `${base}/ledger`, linkLabel: i.seal ? 'Check the seal' : 'Open the ledger', details: [],
+    href: i.seal ? `/verify/${i.seal.id}` : `${base}/ledger`, linkLabel: i.seal ? 'Check the seal' : 'Open What’s new', details: [], more: 0,
   })
   return rows
 }

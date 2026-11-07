@@ -85,16 +85,15 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         {o.docs.length === 0 && o.missing.length === 0 ? (
           <p className="text-muted">No documents have been added yet.</p>
         ) : (
-          <div className="grid gap-x-6 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-            {o.docs.map((d, i) => (
-              <Frame key={d.type} matte animate delay={i * 70} caption={`${d.count} on file`}>
-                <Link href={`/patients/${id}/documents`} className="grid aspect-[3/4] place-content-center gap-2 p-4 text-center hover:bg-spotlight">
-                  <span className="font-display text-5xl tracking-[-0.03em]">{d.count}</span>
-                  <span className="text-[15px]">{d.label}</span>
+          <ul className="flex flex-wrap gap-2">
+            {o.docs.map((d) => (
+              <li key={d.type}>
+                <Link href={`/patients/${id}/documents`} className="inline-flex min-h-11 items-center gap-2 border border-rule bg-matte px-3 text-[15px] hover:bg-spotlight">
+                  <span className="font-display text-xl tabular-nums">{d.count}</span>{d.label}
                 </Link>
-              </Frame>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
         {o.missing.length > 0 && (
           <div className="grid gap-5 border-t border-rule pt-6">

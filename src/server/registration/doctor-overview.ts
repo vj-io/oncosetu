@@ -4,7 +4,7 @@ import { and, eq, gt, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, events, missingRecords, snapshots } from '@/db/schema'
 import { buildFirstLook, classifyHeld, type FirstLookRow, type HeldDoc } from '@/core/doctor/first-look'
-import { oncologyView, type OncologyView } from '@/core/doctor/oncology'
+import { dropDateOnlyImaging, oncologyView, type OncologyView } from '@/core/doctor/oncology'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { staffDocLabel } from '@/core/copy'
 import { now } from '../clock'
@@ -67,9 +67,9 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
   const diff = prev ? buildLedgerView({ ...input, prev: { snapshot: prev.snapshot, summary: prev.summary } }) : full
 
   const quoteOf = (i: { sources: { quote: string }[] }) => i.sources.find((x) => x.quote)?.quote ?? null
-  const newItems = prev
+  const newItems = dropDateOnlyImaging(prev
     ? [...diff.events.new_since_last_visit, ...diff.events.newly_received_older, ...diff.events.amended]
-    : full.events.initial_record
+    : full.events.initial_record)
   const held: HeldDoc[] = heldRows.filter((d) => !d.duplicateOf).map((d) => ({
     id: d.id, docLabel: isDocType(d.docType) ? staffDocLabel(d.docType) : 'Document', date: d.documentDate,
     kind: classifyHeld({ identityResult: d.identityResult, handwritten: d.handwritten, lowConfidence: d.lowConfidence }),

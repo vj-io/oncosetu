@@ -41,13 +41,13 @@ export function FirstLook({ rows }: { rows: FirstLookRow[] }) {
                     <li key={i} className="grid gap-0.5">
                       {d.href ? <Link href={d.href} className="w-fit text-ink underline decoration-brass underline-offset-4">{d.text}</Link> : <span>{d.text}</span>}
                       {d.meta && <span className="text-[13px] text-muted">{d.meta}</span>}
-                      {d.quote && <q className="font-display text-[15px] leading-snug text-ink">{d.quote}</q>}
+                      {d.quote && <q className="line-clamp-1 font-display text-[15px] leading-snug text-ink">{d.quote}</q>}
                     </li>
                   ))}
                 </ul>
               )}
               <Link href={r.href} className="inline-flex min-h-9 w-fit items-center gap-0.5 pl-8 text-sm text-setu-ink underline decoration-brass underline-offset-4">
-                {r.linkLabel}<ArrowUpRight aria-hidden className="size-3.5" />
+                {r.more > 0 ? `See all ${r.count}` : r.linkLabel}<ArrowUpRight aria-hidden className="size-3.5" />
               </Link>
             </li>
           )

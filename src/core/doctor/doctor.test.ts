@@ -76,10 +76,10 @@ describe('buildFirstLook', () => {
   })
   it('clips long quotes and keeps them as quotes', () => {
     const r = buildFirstLook({ ...base, newItems: [{ id: 'n', typeLabel: 'Imaging report', headline: 'CT', when: '1 Jan', quote: 'x'.repeat(400) }] })[0]
-    expect(r.details[0].quote!.length).toBeLessThanOrEqual(140)
+    expect(r.details[0].quote!.length).toBeLessThanOrEqual(90)
   })
   it('labels the first row differently before any seal', () => {
-    expect(buildFirstLook(base)[0].label).toBe('On file so far')
+    expect(buildFirstLook(base)[0].label).toBe('items on file (no visit sealed yet)')
     expect(buildFirstLook({ ...base, seal: { id: 'S', seq: 0, sealedLabel: 'x', signerName: null } })[0].label).toBe('New since the last sealed visit')
   })
   it('never uses an interpretive word', () => {
@@ -98,5 +98,26 @@ describe('classifyHeld', () => {
   it('then an unclear identity, then reading quality', () => {
     expect(classifyHeld({ identityResult: 'insufficient', handwritten: false, lowConfidence: false })).toBe('identity_unclear')
     expect(classifyHeld({ identityResult: 'match', handwritten: false, lowConfidence: true })).toBe('low_quality')
+  })
+})
+
+describe('date-only imaging', () => {
+  const img = (id: string, quote: string, type: EventType = 'imaging_report_documented', doc = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'): FactItem =>
+    item(id, type, { sources: [{ docLabel: 'Imaging report', pageNo: 1, quote, href: `/patients/p/documents/${doc}?event=${id}` }] })
+  it('hides a date-only imaging fact when the same document has an impression', async () => {
+    const { oncologyView } = await import('./oncology')
+    const v = oncologyView([img('a', 'Report Date: 18/11/2024'), img('b', 'Impression: no suspicious lesion.', 'impression_documented')])
+    expect(v.treatment.map((f) => f.id)).toEqual(['b'])
+  })
+  it('keeps it when there is no impression, or when the quote says more', async () => {
+    const { oncologyView } = await import('./oncology')
+    expect(oncologyView([img('a', 'Date of Scan: 20/02/2026')]).treatment.map((f) => f.id)).toEqual(['a'])
+    const v = oncologyView([img('a', 'CT thorax dated 20/02/2026 was reviewed'), img('b', 'Impression: x', 'impression_documented')])
+    expect(v.treatment.map((f) => f.id).sort()).toEqual(['a', 'b'])
+  })
+  it('keeps it when the impression is in another document', async () => {
+    const { oncologyView } = await import('./oncology')
+    const v = oncologyView([img('a', 'Report Date: 18/11/2024'), img('b', 'Impression: x', 'impression_documented', 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')])
+    expect(v.treatment).toHaveLength(2)
   })
 })

@@ -132,8 +132,9 @@ test('V02-E2E-05 a hidden-instruction document is flagged: no forbidden fields, 
 test('V02-E2E-06 no LLM configured: the journey completes in manual mode, keyed facts still pass the evidence gate', async ({ staff, ui }) => {
   const records = await staff('records'), clinician = await staff('clinician')
   const p = await registerPatient(records, { base: 'hero' })
-  const page = await ui('records')
-  await page.goto(`/patients/${p.id}/documents`)
+  // Staff screens no longer name the AI state; the administrator's settings page does.
+  const page = await ui('admin')
+  await page.goto('/admin/settings')
   await expect(page.getByText(/AI-assisted reading: off/)).toBeVisible()
 
   const up = await uploadAndWait(records, p.id, 'hero__04-prescription-printed.pdf')

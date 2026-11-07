@@ -50,7 +50,7 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   for (const e of await eventsOf(p.id)) await records.post(`/api/events/${e.id}/viewed`)
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
-  await expect(rec.getByText('Initial record · first visit')).toBeVisible()
+  await expect(rec.getByRole('heading', { name: 'Everything on file so far' })).toBeVisible()
   const bulkButton = rec.getByRole('button', { name: /Verify opened items \(\d+\)/ })
   const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
   expect(eligible).toBeGreaterThan(0)
@@ -126,13 +126,13 @@ test('V03-E2E-02 returning visit: pre-visit answers, new lab report, ledger "New
   // The clinician's ledger: what changed since S0, what the patient said, with links to the sources.
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  await expect(page.getByRole('heading', { name: 'What changed since S0' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What changed since the last sealed visit' })).toBeVisible()
   // The new lab report: its report fact plus its printed result rows (5 Nov 2026), all from that one document.
   const fromLab = (await eventsOf(p.id)).filter((e) => e.documentId === docId && !e.withdrawnAt)
   expect(fromLab.map((e) => e.eventType)).toContain('lab_results_documented')
-  expect(await count(page, 'New since last visit')).toBe(fromLab.length)
+  expect(await count(page, 'New since the last visit')).toBe(fromLab.length)
   expect(await count(page, 'Patient said')).toBe(5) // one line per answered question, "no" included
-  const added = sectionOf(page, 'New since last visit')
+  const added = sectionOf(page, 'New since the last visit')
   await expect(added).toContainText('Haematology')
   await expect(added.getByRole('link', { name: /source/i }).first()).toHaveAttribute('href', new RegExp(`/patients/${p.id}/documents/${docId}\\?event=`))
   await expect(sectionOf(page, 'Patient said')).toContainText('Sahyadri Hospital')
@@ -169,10 +169,10 @@ test('V03-E2E-03 a 2024 report uploaded after S0 is "Newly received older record
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Newly received older records')).toBe(1)
-  expect(await count(page, 'New since last visit')).toBe(0)
-  await expect(sectionOf(page, 'Newly received older records')).toContainText('Mammography')
-  await expect(sectionOf(page, 'Newly received older records')).toContainText('Newly received older record')
+  expect(await count(page, 'Older papers that arrived late')).toBe(1)
+  expect(await count(page, 'New since the last visit')).toBe(0)
+  await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Mammography')
+  await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Older paper that arrived late')
   // "Verify all" never includes a newly received older item.
   const ev = (await eventsOf(p.id)).find((e) => e.documentId === late.documentId)!
   const r = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ev.id] })
@@ -190,9 +190,9 @@ test('V03-E2E-04 a patient statement that conflicts with a prescription is a con
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Conflicts')).toBe(1)
-  await expect(sectionOf(page, 'Conflicts')).toContainText('Letrozole')
-  await expect(sectionOf(page, 'Conflicts')).toContainText('Capecitabine')
+  expect(await count(page, 'Sources that disagree')).toBe(1)
+  await expect(sectionOf(page, 'Sources that disagree')).toContainText('Letrozole')
+  await expect(sectionOf(page, 'Sources that disagree')).toContainText('Capecitabine')
 
   const events = (await eventsOf(p.id)).filter((e) => e.documentId === rx.documentId && Array.isArray((e.fields as any).medication_names) && ((e.fields as any).medication_names as string[]).includes('Capecitabine'))
   expect(events).toHaveLength(1)
@@ -203,7 +203,7 @@ test('V03-E2E-04 a patient statement that conflicts with a prescription is a con
   const resolved = await clinician.post(`/api/events/${events[0].id}/resolve`, { note: 'Checked with the patient: the other hospital changed the drug' })
   expect(resolved.ok).toBe(true)
   await page.reload()
-  expect(await count(page, 'Conflicts')).toBe(0)
+  expect(await count(page, 'Sources that disagree')).toBe(0)
 })
 
 test('V03-E2E-05 an amended report appears under "Amended and corrected"', async ({ staff, ui }) => {
@@ -218,9 +218,9 @@ test('V03-E2E-05 an amended report appears under "Amended and corrected"', async
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Amended and corrected')).toBeGreaterThanOrEqual(1)
-  await expect(sectionOf(page, 'Amended and corrected')).toContainText(/pathology|histopathology/i)
-  expect(await count(page, 'New since last visit')).toBe(0)
+  expect(await count(page, 'Corrected reports')).toBeGreaterThanOrEqual(1)
+  await expect(sectionOf(page, 'Corrected reports')).toContainText(/pathology|histopathology/i)
+  expect(await count(page, 'New since the last visit')).toBe(0)
 })
 
 test('V03-E2E-06 only a clinician sets the disclosure status; the change is audited and patient copy switches', async ({ staff, browser }) => {

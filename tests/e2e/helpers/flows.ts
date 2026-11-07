@@ -1,19 +1,21 @@
 // Multi-step flows shared by several specs: sealing, share links, crafted files, CSV.
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { encryptJson } from '../../../src/components/shares/crypto'
 import type { Api } from './api'
 import { setClockDays } from './db'
 import { BASE } from './env'
 
-/** A PDF whose catalog runs JavaScript on open (E-DOC-05). Hand-written, so the test owns the exact bytes. */
-export const javascriptPdf = () => Buffer.from([
-  '%PDF-1.4',
-  '1 0 obj<</Type/Catalog/Pages 2 0 R/OpenAction 4 0 R>>endobj',
-  '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
-  '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj',
-  '4 0 obj<</S/JavaScript/JS(app.alert\\(1\\))>>endobj',
-  'trailer<</Root 1 0 R>>',
-  '%%EOF',
-].join('\n'), 'latin1')
+/** JavaScript in a hand-written file no PDF parser can rebuild (no catalog): it cannot be sanitised, so it is quarantined (E-DOC-05, FR-ING-08). */
+export const unparseableJavascriptPdf = () => Buffer.from('%PDF-1.4\n1 0 obj<</S/JavaScript/JS(app.alert\\(1\\))>>endobj\n%%EOF', 'latin1')
+
+/** A real report with JavaScript on open, a document-level script and an embedded file added (FR-ING-08). */
+export async function withActiveContent(pdf: Buffer): Promise<Buffer> {
+  const doc = await PDFDocument.load(pdf)
+  doc.addJavaScript('boot', 'app.alert(1)')
+  await doc.attach(Buffer.from('MZ synthetic payload'), 'payload.exe', { mimeType: 'application/octet-stream' })
+  doc.catalog.set(PDFName.of('OpenAction'), doc.context.obj({ S: 'JavaScript', JS: 'app.alert(2)' }))
+  return Buffer.from(await doc.save({ useObjectStreams: false }))
+}
 
 export type Sealed = { snapshotId: string; seq: number; sha256: string; signature: string; keyId: string; counts: { verified: number; unverified: number; documents: number; missing: number } }
 export async function seal(clinician: Api, patientId: string): Promise<Sealed> {

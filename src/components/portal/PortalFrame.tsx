@@ -33,7 +33,7 @@ export function PortalFrame({ ctx, children }: { ctx: PortalCtx; children: React
       nav={<PortalNav items={items} group={group} label={tp(lang, "navLabel")} signOut={tp(lang, "signOut")} signingOut={tp(lang, "signingOut")} menuLabel={tp(lang, "navMenu")} lang={lang} />}>
       
       {ctx.session.kind === "caregiver" && (
-        <p role="note" className="mb-8 border border-l-[3px] border-violet border-l-violet bg-violet-tint px-4 py-3 text-[15px] text-violet-ink">
+        <p role="note" className="mb-8 border border-l-[3px] border-violet border-l-violet bg-violet-tint px-4 py-3 text-[16px] text-violet-ink">
           {tp(lang, "actingFor", { name: ctx.session.displayName, initials: ctx.initials })}
         </p>
       )}

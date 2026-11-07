@@ -17,8 +17,8 @@ export default async function UploadPage({ searchParams }: { searchParams: Porta
       <Kicker lang={lang}>{tp(lang, 'uploadKicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tp(lang, 'uploadTitle')}</h1>
       <p className="mt-3 max-w-prose text-muted">{tp(lang, 'uploadIntro')}</p>
-      <p data-testid="upload-formats" className="mt-2 max-w-prose text-[15px] text-muted">{tp(lang, 'uploadFormats')}</p>
-      <p className="mt-1 max-w-prose text-[15px] text-muted">{tp(lang, 'uploadNoRead')}</p>
+      <p data-testid="upload-formats" className="mt-2 max-w-prose text-[16px] text-muted">{tp(lang, 'uploadFormats')}</p>
+      <p className="mt-1 max-w-prose text-[16px] text-muted">{tp(lang, 'uploadNoRead')}</p>
       <section aria-labelledby="fwd-h" className="mt-8">
         <h2 id="fwd-h" className="text-xl">{tp(lang, 'forwardTitle')}</h2>
         <p className="mt-2 max-w-prose text-muted">{tp(lang, 'forwardIntro')}</p>

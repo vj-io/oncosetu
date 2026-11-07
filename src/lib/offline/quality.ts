@@ -3,12 +3,13 @@
 export const ANALYSIS_MAX_SIDE = 640
 
 export type Raster = { data: ArrayLike<number>; width: number; height: number } // RGBA, like ImageData
-export type QualityIssue = 'blurry' | 'glare' | 'too_dark' | 'too_small' | 'cropped'
+export type QualityIssue = 'blurry' | 'glare' | 'too_dark' | 'too_small' | 'cropped' | 'skewed'
 export type QualityMetrics = {
   sharpness: number // variance of the Laplacian of the grey image
   glarePct: number // % of pixels blown out well above the paper tone
   paperLuma: number // median of the bright half: the paper tone
   edgeInkPct: number // worst border band that is not solid background: % of ink-dark pixels where the page should end
+  skewDeg: number // text-line tilt from the projection profile; positive = lines fall to the right
 }
 export type QualityReport = { ok: boolean; issues: QualityIssue[]; metrics: QualityMetrics }
 
@@ -21,9 +22,40 @@ export const THRESHOLDS = {
   minLong: 1000, // original pixels: longer side
   edgeInkMin: 5, // border band with this much ink (but not a solid dark band = background): text runs off the page
   edgeInkMax: 60,
+  skewDeg: 5, // |tilt| at or over this many degrees: lines slope enough to hurt OCR line finding
 } as const
 
 const BAND = 0.02 // outer 2 % of each side
+const SKEW_MAX_DEG = 15 // searched range; a page turned further than this is rotated, not skewed
+const SKEW_STEP_DEG = 0.5
+
+/**
+ * Projection-profile skew estimate. Ink pixels that touch paper (text strokes, not a dark desk around the page) are projected
+ * onto lines tilted by each candidate angle; text lines stack up at the true tilt, so the sharpest profile (largest sum of
+ * squared bin counts) wins. Returns 0 when there is too little ink to tell.
+ */
+function estimateSkew(grey: Uint8Array, w: number, h: number, ink: number, paper: number): number {
+  const xs: number[] = [], ys: number[] = []
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x
+      if (grey[i] < ink && (grey[i - 1] >= paper || grey[i + 1] >= paper || grey[i - w] >= paper || grey[i + w] >= paper)) { xs.push(x); ys.push(y) }
+    }
+  }
+  if (xs.length < w * h * 0.002) return 0
+  const off = Math.ceil(w * Math.sin((SKEW_MAX_DEG * Math.PI) / 180)) + 1
+  const bins = new Uint32Array(h + 2 * off)
+  let best = 0, bestScore = -1
+  for (let d = -SKEW_MAX_DEG; d <= SKEW_MAX_DEG; d += SKEW_STEP_DEG) {
+    const c = Math.cos((d * Math.PI) / 180), s = Math.sin((d * Math.PI) / 180)
+    bins.fill(0)
+    for (let k = 0; k < xs.length; k++) bins[Math.round(ys[k] * c - xs[k] * s) + off]++
+    let score = 0
+    for (let b = 0; b < bins.length; b++) score += bins[b] * bins[b]
+    if (score > bestScore) { bestScore = score; best = d }
+  }
+  return best
+}
 
 export function analyse(r: Raster, original: { width: number; height: number } = r): QualityReport {
   const { width: w, height: h, data } = r
@@ -72,6 +104,7 @@ export function analyse(r: Raster, original: { width: number; height: number } =
   // a band that is solid dark is the desk behind the page, not text running off it
   const text = [band(0, bw, 0, h), band(w - bw, w, 0, h), band(0, w, 0, bh), band(0, w, h - bh, h)].filter((b) => b <= THRESHOLDS.edgeInkMax)
   const edgeInkPct = Math.max(0, ...text)
+  const skewDeg = estimateSkew(grey, w, h, inkBelow, paperLuma - 40)
 
   const issues: QualityIssue[] = []
   if (sharpness < THRESHOLDS.blurBelow) issues.push('blurry')
@@ -79,7 +112,8 @@ export function analyse(r: Raster, original: { width: number; height: number } =
   if (p90 < THRESHOLDS.darkBelow) issues.push('too_dark')
   if (Math.min(original.width, original.height) < THRESHOLDS.minShort || Math.max(original.width, original.height) < THRESHOLDS.minLong) issues.push('too_small')
   if (edgeInkPct >= THRESHOLDS.edgeInkMin) issues.push('cropped')
-  return { ok: issues.length === 0, issues, metrics: { sharpness, glarePct, paperLuma, edgeInkPct } }
+  if (Math.abs(skewDeg) >= THRESHOLDS.skewDeg) issues.push('skewed')
+  return { ok: issues.length === 0, issues, metrics: { sharpness, glarePct, paperLuma, edgeInkPct, skewDeg } }
 }
 
 export const ISSUE_TEXT: Record<QualityIssue, string> = {
@@ -88,4 +122,5 @@ export const ISSUE_TEXT: Record<QualityIssue, string> = {
   too_dark: 'Too dark. Move to a brighter spot.',
   too_small: 'Resolution too low. Move closer or use a better camera.',
   cropped: 'Page looks cut off at an edge. Fit the whole page in the frame.',
+  skewed: 'Page is tilted. Line it up with the edges of the frame.',
 }

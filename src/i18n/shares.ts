@@ -34,6 +34,10 @@ export const en = {
   received: 'Received {date}',
   sigVerified: 'Signature verified — issued by {brand} on {date}',
   sigNotVerified: 'Not verified — content may have been altered',
+  // ── printable passport (FR-PAS-05) ──
+  sealedOn: 'Sealed on {when} IST',
+  sealKey: 'Signed with Ed25519 key {key}',
+  scanToVerify: 'Scan the code, or open the address below, to check online that this record has not changed since it was sealed.',
 
   // ── viewer ──
   viewerKicker: 'Shared records',
@@ -120,6 +124,9 @@ export const hi: Record<ShareKey, string> = {
   received: '{date} को मिला',
   sigVerified: 'हस्ताक्षर सत्यापित — {brand} द्वारा {date} को जारी',
   sigNotVerified: 'सत्यापित नहीं — सामग्री बदली गई हो सकती है',
+  sealedOn: '{when} IST पर सील किया गया',
+  sealKey: 'Ed25519 कुंजी {key} से हस्ताक्षरित',
+  scanToVerify: 'कोड स्कैन करें, या नीचे लिखा पता खोलें, और ऑनलाइन जाँचें कि सील होने के बाद यह रिकॉर्ड बदला नहीं गया है।',
 
   viewerKicker: 'साझा किए गए रिकॉर्ड',
   passcodeTitle: 'पासकोड डालें',
@@ -202,6 +209,9 @@ export const hinglish: Record<ShareKey, string> = {
   received: '{date} ko mila',
   sigVerified: 'Signature verify hua — {brand} ne {date} ko jaari kiya',
   sigNotVerified: 'Verify nahi hua — content badla gaya ho sakta hai',
+  sealedOn: '{when} IST par seal kiya gaya',
+  sealKey: 'Ed25519 key {key} se sign kiya gaya',
+  scanToVerify: 'Code scan karein, ya neeche likha address kholein, aur online check karein ki seal hone ke baad ye record badla nahi gaya hai.',
 
   viewerKicker: 'Share kiye gaye records',
   passcodeTitle: 'Passcode daalein',

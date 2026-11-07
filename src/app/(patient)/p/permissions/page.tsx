@@ -15,7 +15,7 @@ export default async function PermissionsPage({ searchParams }: { searchParams: 
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tv(lang, 'whoTitle')}</h1>
       <p className="mt-3 max-w-prose text-muted">{tv(lang, 'whoIntro')}</p>
       <div className="mt-8 overflow-x-auto border border-rule bg-surface" tabIndex={0} role="region" aria-label={tv(lang, 'whoTitle')}>
-        <table className="w-full min-w-[44rem] border-collapse text-left text-[15px]" data-testid="access-matrix">
+        <table className="w-full min-w-[44rem] border-collapse text-left text-[16px]" data-testid="access-matrix">
           <thead>
             <tr className="border-b border-rule bg-alcove">
               <th scope="col" className="px-3 py-3 font-medium">{tv(lang, 'rolesHeader')}</th>
@@ -42,7 +42,7 @@ export default async function PermissionsPage({ searchParams }: { searchParams: 
       </div>
       <section aria-labelledby="notes-h" className="mt-8 grid gap-2">
         <h2 id="notes-h" className="text-xl">{tv(lang, 'whoNotesTitle')}</h2>
-        <ul className="grid gap-2 text-[15px] text-muted">
+        <ul className="grid gap-2 text-[16px] text-muted">
           {(['note1', 'note2', 'note3', 'note4'] as const).map((k) => <li key={k}>{tv(lang, k)}</li>)}
         </ul>
       </section>

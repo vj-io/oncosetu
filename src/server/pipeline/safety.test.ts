@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, scanPdf, sniffMime, textSimilarity } from './safety'
+import { PDFDocument, PDFName, StandardFonts } from 'pdf-lib'
+import { extractText, getDocumentProxy } from 'unpdf'
+import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, sanitisePdf, scanPdf, sniffMime, textSimilarity } from './safety'
 
 const DOCS = join(process.cwd(), 'public', 'demo-docs')
 const pdf = (name: string) => new Uint8Array(readFileSync(join(DOCS, name)))
@@ -57,6 +59,50 @@ describe('scanPdf active content (E-DOC-05)', () => {
   })
   it('does not flag /OpenAction alone (jump to a page is benign)', () => {
     expect(scanPdf(Buffer.from('%PDF-1.7\n1 0 obj << /OpenAction [3 0 R /Fit] >> endobj'))).toEqual([])
+  })
+})
+
+describe('sanitisePdf strips active content and keeps the page (FR-ING-08)', () => {
+  /** A real one-page report with JavaScript (document-level, OpenAction, page /AA), a Launch link and an embedded file. */
+  async function hostilePdf() {
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([400, 300])
+    page.drawText('Discharge summary. Synthetic patient. Haemoglobin 11.2 g/dL.', { x: 20, y: 250, size: 10, font: await doc.embedFont(StandardFonts.Helvetica) })
+    doc.addJavaScript('boot', 'app.alert(1)')
+    await doc.attach(Buffer.from('MZ synthetic payload'), 'payload.exe', { mimeType: 'application/octet-stream' })
+    const ctx = doc.context
+    const js = ctx.register(ctx.obj({ S: 'JavaScript', JS: 'app.launchURL(1)' }))
+    doc.catalog.set(PDFName.of('OpenAction'), js)
+    page.node.set(PDFName.of('AA'), ctx.obj({ O: js }))
+    const link = ctx.register(ctx.obj({ Type: 'Annot', Subtype: 'Link', Rect: [0, 0, 50, 50], A: { S: 'Launch', F: 'cmd.exe' } }))
+    page.node.set(PDFName.of('Annots'), ctx.obj([link]))
+    return doc.save({ useObjectStreams: false })
+  }
+  const text = async (b: Uint8Array) => (await extractText(await getDocumentProxy(b.slice()), { mergePages: true })).text
+
+  it('removes JavaScript, auto-open and page actions, Launch and the embedded file; the text survives', async () => {
+    const bad = await hostilePdf()
+    expect(scanPdf(bad)).toEqual(['AA', 'EmbeddedFile', 'EmbeddedFiles', 'JS', 'JavaScript', 'Launch', 'OpenAction'])
+    const clean = await sanitisePdf(bad)
+    expect(clean).not.toBeNull()
+    expect(scanPdf(clean!)).toEqual([]) // raw bytes and every inflated stream
+    const raw = Buffer.from(clean!).toString('latin1')
+    for (const s of ['/JavaScript', '/JS', '/OpenAction', '/AA', '/Launch', '/EmbeddedFile', 'payload.exe', 'cmd.exe']) expect(raw, s).not.toContain(s)
+    expect((await PDFDocument.load(clean!)).getPageCount()).toBe(1)
+    expect(await text(clean!)).toContain('Haemoglobin 11.2 g/dL')
+    expect(Buffer.from((await sanitisePdf(bad))!).equals(Buffer.from(clean!))).toBe(true) // deterministic: a re-upload still dedupes
+  })
+  it('handles a hand-written PDF with no xref and a #-escaped action name', async () => {
+    const hand = Buffer.from([
+      '%PDF-1.4', '1 0 obj<</Type/Catalog/Pages 2 0 R/OpenAction 4 0 R>>endobj', '2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj',
+      '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj', '4 0 obj<</S/J#61vaScript/JS(app.alert\\(1\\))>>endobj', 'trailer<</Root 1 0 R>>', '%%EOF',
+    ].join('\n'), 'latin1')
+    expect(scanPdf(hand)).toEqual(['JS', 'JavaScript', 'OpenAction'])
+    const clean = await sanitisePdf(hand)
+    expect(clean && scanPdf(clean)).toEqual([])
+  })
+  it('gives up (the caller quarantines) on a PDF it cannot parse', async () => {
+    expect(await sanitisePdf(Buffer.from('%PDF-1.7\n1 0 obj << /S /JavaScript /JS (x) >> endobj\n%%EOF'))).toBeNull()
   })
 })
 

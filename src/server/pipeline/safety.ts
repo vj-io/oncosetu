@@ -1,6 +1,7 @@
 // File-safety checks run on raw upload bytes before anything is processed (FR-ING-06/08, E-DOC-01/02/05/19).
-// Pure functions over bytes; no DB. sharp is used only for the perceptual hash.
+// Pure functions over bytes; no DB. sharp is used only for the perceptual hash, pdf-lib only to re-save a sanitised PDF.
 import { inflateSync } from 'node:zlib'
+import { PDFArray, PDFDict, PDFDocument, PDFName, PDFRef, PDFStream, type PDFObject } from 'pdf-lib'
 import sharp from 'sharp'
 
 import { MAX_FILE_BYTES } from '@/core/limits'
@@ -70,6 +71,72 @@ export function scanPdf(b: Uint8Array): string[] {
     if (/\/OpenAction/.test(raw)) found.add('OpenAction')
   }
   return [...found].sort()
+}
+
+// FR-ING-08: what sanitisePdf removes. Keys that run something or carry a file go wherever they appear; objects that are
+// themselves active (an embedded file, an action that runs or launches something, a media or attachment annotation) are
+// deleted, and every key or array entry pointing at one goes with them.
+const STRIP_KEYS = new Set(['JS', 'JavaScript', 'AA', 'OpenAction', 'EmbeddedFiles', 'EF', 'AF', 'RichMediaContent', 'RichMediaSettings'])
+const ACTIVE_ACTIONS = new Set(['JavaScript', 'Launch', 'ImportData', 'SubmitForm', 'RichMediaExecute', 'GoToE', 'Rendition'])
+const ACTIVE_SUBTYPES = new Set(['RichMedia', 'FileAttachment', 'Screen', 'Movie', 'Sound'])
+const nameAt = (d: PDFDict, key: string) => {
+  const v = d.get(PDFName.of(key))
+  return v instanceof PDFName ? v.decodeText() : ''
+}
+
+function isActive(o: PDFObject | undefined): boolean {
+  const d = o instanceof PDFStream ? o.dict : o
+  return d instanceof PDFDict && (nameAt(d, 'Type') === 'EmbeddedFile' || ACTIVE_ACTIONS.has(nameAt(d, 'S')) || ACTIVE_SUBTYPES.has(nameAt(d, 'Subtype')))
+}
+
+/**
+ * Re-saves a PDF without its active content (JavaScript, auto-open and additional actions, launch actions, embedded files,
+ * rich media). Returns the clean bytes only when scanPdf finds nothing left in them; null when the file cannot be parsed
+ * (damaged, encrypted) or something survives, so the caller quarantines instead. Deterministic: the same input gives the
+ * same output, so a re-upload still dedupes.
+ */
+export async function sanitisePdf(b: Uint8Array): Promise<Uint8Array | null> {
+  try {
+    const doc = await PDFDocument.load(b, { updateMetadata: false })
+    const ctx = doc.context
+    const objects = ctx.enumerateIndirectObjects()
+    const activeRefs = new Set(objects.filter(([, o]) => isActive(o)).map(([ref]) => ref))
+    const dead = (v: PDFObject) => (v instanceof PDFRef ? activeRefs.has(v) : isActive(v))
+    const clean = (o: PDFObject) => { // direct objects only; every indirect one is visited by the loop below
+      const d = o instanceof PDFStream ? o.dict : o
+      if (d instanceof PDFDict) {
+        for (const [k, v] of d.entries()) {
+          if (STRIP_KEYS.has(k.decodeText()) || dead(v)) d.delete(k)
+          else if (!(v instanceof PDFRef)) clean(v)
+        }
+      } else if (d instanceof PDFArray) {
+        for (let i = d.size() - 1; i >= 0; i--) {
+          const v = d.get(i)
+          if (dead(v)) d.remove(i)
+          else if (!(v instanceof PDFRef)) clean(v)
+        }
+      }
+    }
+    for (const [, o] of objects) clean(o)
+    // Drop everything no longer reachable from the trailer: the active objects and what only they used (file specs, file data).
+    const reachable = new Set<PDFRef>()
+    const visit = (o: PDFObject | undefined) => {
+      if (o instanceof PDFRef) {
+        if (!reachable.has(o)) { reachable.add(o); visit(ctx.lookup(o)) }
+        return
+      }
+      const d = o instanceof PDFStream ? o.dict : o
+      if (d instanceof PDFDict) for (const [, v] of d.entries()) visit(v)
+      else if (d instanceof PDFArray) for (let i = 0; i < d.size(); i++) visit(d.get(i))
+    }
+    visit(ctx.trailerInfo.Root)
+    visit(ctx.trailerInfo.Info)
+    for (const [ref] of objects) if (!reachable.has(ref)) ctx.delete(ref)
+    const out = await doc.save({ useObjectStreams: false })
+    return scanPdf(out).length ? null : out
+  } catch {
+    return null
+  }
 }
 
 /** 64-bit difference hash (dHash) of an image as 16 hex chars: greyscale 9×8, compare horizontal neighbours. */

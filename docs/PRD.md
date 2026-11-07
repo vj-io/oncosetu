@@ -465,18 +465,18 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-ING-05 | WhatsApp intake via WhatsApp Business Platform: patient forwards documents to the hospital's number; matched by registered phone + OTP | C (pilot) | Sandbox test; prototype may simulate |
 | FR-ING-06 | Every file gets SHA-256; exact duplicates are linked, not reprocessed; near-duplicates (perceptual hash for images, text similarity ≥ 0.95 for PDFs) are flagged | M | Duplicate test set: exact 100%, near-dup recall ≥ 0.9 |
 | FR-ING-07 | Password-protected PDFs: prompt for password (labs often use DOB/phone); never stored | S | E2E |
-| FR-ING-08 | File safety: MIME sniffing, size limits, PDF sanitisation (strip JavaScript/embedded files), image re-encode, antivirus scan (ClamAV) before processing | M | Security tests with malicious fixtures |
+| FR-ING-08 | File safety: MIME sniffing, size limits, PDF sanitisation (strip JavaScript/embedded files), image re-encode, antivirus scan (ClamAV) before processing | M | Security tests with malicious fixtures. **8 Nov 2026:** active PDF content (JavaScript, open/launch actions, embedded files, rich media) is stripped with pdf-lib and the clean copy is stored (`flags.sanitised`, audit `document.sanitised`); unparseable files are still quarantined; EICAR refused. ClamAV still blocked (needs a scanning host). |
 | FR-ING-ABDM-01 | ABDM HIU flow implemented behind a `AbdmTransport` interface; in-process mock with real X25519/HKDF/AES-GCM; sandbox client swaps in later. **Post-v1.0 (v1.1)** — needs a legal entity and 3–6 months of onboarding | C | Ported test vectors pass; decrypt only after consent gate |
 | FR-ING-ABDM-02 | FHIR document bundles (DiagnosticReportRecord, DischargeSummaryRecord, OPConsultRecord, PrescriptionRecord) mapped to events with `source_type=external_structured` and `event_ref` evidence. **Post-v1.0 (v1.1)** | C | Fixture bundles map correctly |
-| FR-ING-09 | Intake-channel partnership option: `IntakeProvider` interface so an existing ABDM PHR app (e.g., Eka Care) could deliver patient-forwarded documents into the record under the same consent; no implementation in v1.0 beyond the interface | C | Interface documented in ADR |
+| FR-ING-09 | Intake-channel partnership option: `IntakeProvider` interface so an existing ABDM PHR app (e.g., Eka Care) could deliver patient-forwarded documents into the record under the same consent; no implementation in v1.0 beyond the interface | C | Interface documented in ADR. **Built 8 Nov 2026:** `IntakeProvider` in `src/server/pipeline/ingest.ts` (email and WhatsApp intake conform), `docs/ADR/ADR-016-provider-interfaces.md`. |
 
 #### Document processing (DOC)
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-DOC-01 | Text-layer PDFs: extract text with PyMuPDF retaining page and character offsets | M | Offsets round-trip: substring at offsets equals stored quote |
-| FR-DOC-02 | Scans/photos: OCR (PaddleOCR for printed text; optional cloud document AI behind an interface) producing text + per-line bounding boxes + confidence | M | CER ≤ 5% on printed-report eval set |
-| FR-DOC-03 | Page quality check (blur, glare, skew, cropped) with immediate retake prompt at capture | S | Quality classifier flags ≥ 80% of bad pages in eval |
+| FR-DOC-02 | Scans/photos: OCR (PaddleOCR for printed text; optional cloud document AI behind an interface) producing text + per-line bounding boxes + confidence | M | CER ≤ 5% on printed-report eval set. **8 Nov 2026:** `OcrProvider` interface (`src/server/pipeline/text.ts`, ADR-016) with tesseract behind it; measured CER 7.9% (target 5%, not met). |
+| FR-DOC-03 | Page quality check (blur, glare, skew, cropped) with immediate retake prompt at capture | S | Quality classifier flags ≥ 80% of bad pages in eval. **8 Nov 2026:** skew check added (projection profile, ≥ 5° flags a retake) beside blur, glare and crop; the ≥ 80% bad-page recall on an eval set is not measured yet. |
 | FR-DOC-04 | Document classification into: pathology/histopathology, IHC/molecular/NGS, imaging report, lab report, prescription (printed), prescription (handwritten), discharge summary, OPD/consult note, chemotherapy/day-care record, radiotherapy summary, procedure/operative note, bill/insurance, other | M | Macro-F1 ≥ 0.85 on eval set |
 | FR-DOC-05 | Language detection; Hindi and regional-language reports are processed if OCR supports the script, otherwise stored as image with `language_unsupported` | M | |
 | FR-DOC-06 | Low OCR confidence (< 0.80 mean on a page) → page marked `low_confidence`; extraction from it requires human verification before entering the record | M | |
@@ -489,7 +489,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 |---|---|---|---|
 | FR-EXT-01 | Extraction produces only allowed event types (§7.2) with fields, each with a verbatim `quote` | M | Schema validation |
 | FR-EXT-02 | Evidence gate: quote must be found verbatim (after whitespace normalisation only) in the page text; offsets stored; quote hash stored; otherwise item is discarded and logged as `rejected_unsupported` | M | Gate unit tests; eval: 0 unsupported items in record |
-| FR-EXT-03 | Dates parsed with India default DD/MM/YYYY; ambiguous dates (both parts ≤ 12, no month name) flagged `date_ambiguous`; relative dates resolved only against an explicit anchor in the same document, otherwise `date_unknown` | M | Date test suite ≥ 150 cases |
+| FR-EXT-03 | Dates parsed with India default DD/MM/YYYY; ambiguous dates (both parts ≤ 12, no month name) flagged `date_ambiguous`; relative dates resolved only against an explicit anchor in the same document, otherwise `date_unknown` | M | Date test suite ≥ 150 cases. **8 Nov 2026:** an ambiguous date shows both readings ("5 Jun 2026 or 6 May 2026") until records or a clinician picks one; the pick is an edit through the normal verification path (E2E V02-E2E-07). |
 | FR-EXT-04 | Each event stores `event_date` (when it happened), `document_date` (report date) and `received_at` (when OncoSetu got it) separately | M | |
 | FR-EXT-05 | No inference fields: no stage, no response assessment, no "progression", no risk. A document's own words may be quoted (e.g., impression text) only as `quoted_impression` attached to the document, never as a derived patient attribute | M | Schema has no such fields; red-team eval |
 | FR-EXT-06 | Every AI run records provider, model, prompt id+version, schema version, input hash, output hash, latency, token counts | M | `ai_runs` table populated |
@@ -503,10 +503,10 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-VOX-01 | Structured questionnaire (5 questions, configurable): other hospital/doctor visited? new medicines? new tests or scans? hospital admissions? anything you want the doctor to know? | M | |
-| FR-VOX-02 | Answer by tap (default) or voice (optional), on the patient's/caregiver's phone (pre-visit link) or at a private desk station | M (tap) / S (voice) | |
-| FR-VOX-03 | ASR via provider interface (default: Sarvam Saaras, code-mix mode) with keyterm prompting using the hospital formulary and the patient's known medication and institution names. Voice is enabled for real patients only after drug-name WER is measured in shadow mode | S | WER measured on a 50-clip synthetic eval set and on shadow-phase clips; drug-name WER reported separately. **Built 7 Nov 2026:** the Sarvam provider (`src/server/voice/sarvam.ts`, `saaras:v3`, codemix mode for Hinglish) transcribes recorded answers through `POST /api/p/voice/transcribe` when `SARVAM_API_KEY` is set; keyterm prompting and the drug-name WER measurement are not built yet |
-| FR-VOX-04 | Read-back: system shows its understanding as text in the patient's/caregiver's language; patient confirms, edits or re-records. Spoken (TTS) read-back is optional and available only when `disclosure_status = cleared` | M (text) / S (TTS) | E2E |
-| FR-VOX-05 | Audio retained with transcript (encrypted); statements stored as `source_type=patient_reported`, `confirmation=patient_confirmed` or `unconfirmed`; never upgraded to document-supported | M | |
+| FR-VOX-02 | Answer by tap (default) or voice (optional), on the patient's/caregiver's phone (pre-visit link) or at a private desk station | M (tap) / S (voice) | **Built 8 Nov 2026:** desk-station mode `/p/login?station=1` (phone code sign-in, straight to the questions, 5-min idle / 30-min session, signs itself out after saving; E2E `v05-station.spec.ts`) |
+| FR-VOX-03 | ASR via provider interface (default: Sarvam Saaras, code-mix mode) with keyterm prompting using the hospital formulary and the patient's known medication and institution names. Voice is enabled for real patients only after drug-name WER is measured in shadow mode | S | WER measured on a 50-clip synthetic eval set and on shadow-phase clips; drug-name WER reported separately. **Built 7 Nov 2026:** the Sarvam provider (`src/server/voice/sarvam.ts`, `saaras:v3`, codemix mode for Hinglish) transcribes recorded answers through `POST /api/p/voice/transcribe` when `SARVAM_API_KEY` is set. **8 Nov 2026:** `AsrProvider` interface (`src/server/voice/provider.ts`); `saaras:v4` (codemix for Hindi, translit for Hinglish) with keyterms: the patient's own medicines and hospitals, then a 50-name formulary (`src/core/formulary.ts`). Synthetic 50-clip set (`scripts/eval-asr.ts`, Bulbul TTS): drug name wrong in 36% of clips without keyterms, 2% with (WER 7.8% → 3.6%); the one miss was a different listed drug. Shadow-phase clips from real voices: not done (needs the pilot) |
+| FR-VOX-04 | Read-back: system shows its understanding as text in the patient's/caregiver's language; patient confirms, edits or re-records. Spoken (TTS) read-back is optional and available only when `disclosure_status = cleared` | M (text) / S (TTS) | E2E. **Built 8 Nov 2026:** spoken read-back through Sarvam `bulbul:v3` (`POST /api/p/voice/readback`, rebuilt server-side from the answers) when the org `tts` flag is on and disclosure is cleared, else 403 and text only; browser voice without a key. E2E V05-E2E-08 (`v05-voice.spec.ts`, local Sarvam stub) |
+| FR-VOX-05 | Audio retained with transcript (encrypted); statements stored as `source_type=patient_reported`, `confirmation=patient_confirmed` or `unconfirmed`; never upgraded to document-supported | M | **Built 8 Nov 2026:** each Sarvam recording is kept per-file AES-256-GCM encrypted in `voice_clips` (RLS, migration 0018), linked to its statement, played back to records/clinician roles from the statements tab (audited), erased with the patient by trigger |
 | FR-VOX-06 | Disclosure-aware copy (driven by FR-CON-07): unless `cleared`, desk prompts use neutral wording ("your treatment", "your reports"); desk screens hide diagnosis words; patient-facing app, SMS and share viewer use neutral copy | **M** | E2E; copy lint on all patient-facing string catalogues |
 | FR-VOX-07 | "Anything else" answers are stored verbatim and shown to the clinician as patient words; never classified as symptoms or conditions | M | |
 
@@ -570,14 +570,14 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-PAS-02 | Share link: SMART-Health-Link-style — content encrypted with AES-256-GCM; key in URL fragment (never sent to server); passcode **on by default** with attempt limit; expiry (1–30 days, default 7); revocable; scope selectable | M | Security tests: server logs never contain key; revoked link 410 |
 | FR-PAS-03 | Viewer page needs no account; shows who verified each line, as-of date, the statement "This summary contains only records provided to OncoSetu", and respects FR-CON-07 (no diagnosis words unless `cleared`). "Signature valid / invalid / revoked" display in v1.1 | M (v1.0 scope) / S (signature) | E2E |
 | FR-PAS-04 | Every view logged (time, coarse location/IP hash, user agent) and visible to the patient | M | |
-| FR-PAS-05 | Printable PDF passport with Ed25519 signature and a QR to the verification endpoint; tamper check works offline using the published public key | S (v1.1) | |
+| FR-PAS-05 | Printable PDF passport with Ed25519 signature and a QR to the verification endpoint; tamper check works offline using the published public key | S (v1.1) | **Built 8 Nov 2026:** `/print/passport/[snapshotId]` (A4, English/Hindi, seal hash, key id, QR to `/verify/[id]`, share-payload content only), `GET /api/snapshots/[id]` download for records/clinician, offline `scripts/verify-snapshot.ts` (OK / TAMPERED). Printed from the browser (Save as PDF), not a server-made PDF. Unit `src/server/ledger/export.test.ts`, E2E in `v03-ledger.spec.ts`. |
 
 #### Onboarding (ONB)
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-ONB-01 | Backlog mode prioritises document types for processing and verification: pathology/molecular → imaging reports → discharge/procedure summaries → treatment records → prescriptions → labs → other | M | |
-| FR-ONB-02 | Progress meter: pages received, processed, verified; estimated remaining | S | |
+| FR-ONB-02 | Progress meter: pages received, processed, verified; estimated remaining | S | **Built 8 Nov 2026:** the documents board shows pages read, confirmed by a person, and "about N min left" (queued pages × per-page time capped by recent completion throughput). |
 | FR-ONB-03 | Initial snapshot S0 can be sealed with partial verification; unverified items carry forward clearly labelled | M | |
 
 #### Offline (OFF)
@@ -597,7 +597,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 |---|---|---|---|
 | FR-ADM-01 | Staff management, roles, device registration | M | |
 | FR-ADM-02 | Audit log viewer and export (CSV) with filters | M | |
-| FR-ADM-03 | Metrics dashboard: §16 KPIs | S | |
+| FR-ADM-03 | Metrics dashboard: §16 KPIs | S | **8 Nov 2026:** clinician review time (median minutes from first ledger view to seal, per visit type, from audit rows) and voice drug-name accuracy added to `/admin/metrics`; retrieval time is not derivable from current data. |
 | FR-ADM-04 | Retention policy configuration (§10.5) | S | |
 
 ### 6.5 Missing-Record Radar — design detail
@@ -644,7 +644,7 @@ MVP and pilot use a tablet (10–11") on a stand plus the patient's phone. A ded
 
 | Area | Requirement |
 |---|---|
-| Performance | Single-page processing (OCR + extraction + gate) p95 ≤ 60 s; 50-page batch ≤ 15 min; ledger render ≤ 2 s |
+| Performance | Single-page processing (OCR + extraction + gate) p95 ≤ 60 s; 50-page batch ≤ 15 min; ledger render ≤ 2 s **Measured 8 Nov 2026** (`scripts/perf-pipeline.ts`, laptop `next start` against Neon Singapore, AI off): single pages one at a time p95 31.5 s (met); 50-page batch (46 files, 22 photos) 4.8–5.5 min (met), per-page p95 inside a batch 49.6–77.8 s (missed when run beside other load); ledger 500 events ≤ 2 s (V06-E2E-03). |
 | Availability | Pilot target 99.5% monthly; desk capture continues offline |
 | Accessibility | WCAG 2.2 AA; minimum 16 px body text in patient views; large touch targets at desk |
 | Localisation | English, Hindi at v1.0; string catalogue ready for regional languages |
@@ -1177,7 +1177,7 @@ Six weeks, seven versions. Each version: tagged `vX.Y.0`, a release folder `docs
   - `V02-E2E-04` wrong-patient report → blocked; human attach with reason; audit row.
   - `V02-E2E-05` injected-instruction document → no forbidden fields, no status change, document flagged.
   - `V02-E2E-06` AI provider disabled → manual mode completes the journey.
-  - `V02-E2E-07` ambiguous date shows both readings until resolved.
+  - `V02-E2E-07` ambiguous date shows both readings until resolved. **Built 8 Nov 2026** (`v02-extraction.spec.ts`).
   - `V02-E2E-08` low-confidence OCR span → quote shown with image crop; bulk verify unavailable for it.
 - **Eval gate:** §9.5 thresholds on v1 datasets, including per-class recall against clinician abstraction.
 - **Exit:** 0 unsupported facts in record across eval; all v0.1 E2E still green.

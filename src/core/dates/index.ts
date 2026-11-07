@@ -251,6 +251,15 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86_400_000)
 }
 
+/**
+ * The month-first reading of a day-first date flagged `date_ambiguous` (2026-03-12 → 2026-12-03): the stored date is
+ * always the DD/MM reading, so the other one is the same numbers swapped. null when there is no other valid reading.
+ */
+export function swappedReading(iso: string): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  return m && +m[3] <= 12 && m[3] !== m[2] ? `${m[1]}-${m[3]}-${m[2]}` : null
+}
+
 /** First and last calendar day covered by a date of the given precision. */
 export function dateRange(iso: string, precision: DatePrecision): [string, string] {
   const y = +iso.slice(0, 4)

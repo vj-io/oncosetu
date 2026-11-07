@@ -1,0 +1,432 @@
+{
+  "generatedAt": "2026-11-07T18:55:50.821Z",
+  "setup": {
+    "tts": "Sarvam bulbul:v3 (priya)",
+    "asr": "Sarvam saaras:v4",
+    "modes": {
+      "en": "transcribe",
+      "hi": "codemix",
+      "hinglish": "translit"
+    },
+    "keyterms": "the patient's own medicine, then the 50-name formulary"
+  },
+  "caveat": "Synthetic TTS speech, one voice, no background noise: an upper bound, not field accuracy. Shadow-phase clips from real patients are still needed before voice is enabled for real patients (FR-VOX-03).",
+  "overall": {
+    "clips": 50,
+    "plain": {
+      "wer": 0.078,
+      "drugNameErrorRate": 0.36,
+      "drugNamesHeard": 32,
+      "otherListedDrug": []
+    },
+    "withKeyterms": {
+      "wer": 0.036,
+      "drugNameErrorRate": 0.02,
+      "drugNamesHeard": 49,
+      "otherListedDrug": [
+        "Capecitabine → I am taking Carboplatin twice a day after food."
+      ]
+    }
+  },
+  "byLanguage": {
+    "en": {
+      "clips": 17,
+      "plain": {
+        "wer": 0.072,
+        "drugNameErrorRate": 0.471,
+        "drugNamesHeard": 9,
+        "otherListedDrug": []
+      },
+      "withKeyterms": {
+        "wer": 0.007,
+        "drugNameErrorRate": 0.059,
+        "drugNamesHeard": 16,
+        "otherListedDrug": [
+          "Capecitabine → I am taking Carboplatin twice a day after food."
+        ]
+      }
+    },
+    "hi": {
+      "clips": 17,
+      "plain": {
+        "wer": 0.135,
+        "drugNameErrorRate": 0.353,
+        "drugNamesHeard": 11,
+        "otherListedDrug": []
+      },
+      "withKeyterms": {
+        "wer": 0.1,
+        "drugNameErrorRate": 0,
+        "drugNamesHeard": 17,
+        "otherListedDrug": []
+      }
+    },
+    "hinglish": {
+      "clips": 16,
+      "plain": {
+        "wer": 0.025,
+        "drugNameErrorRate": 0.25,
+        "drugNamesHeard": 12,
+        "otherListedDrug": []
+      },
+      "withKeyterms": {
+        "wer": 0,
+        "drugNameErrorRate": 0,
+        "drugNamesHeard": 16,
+        "otherListedDrug": []
+      }
+    }
+  },
+  "rows": [
+    {
+      "drug": "Capecitabine",
+      "lang": "en",
+      "said": "I am taking Capecitabine twice a day after food.",
+      "plain": "I am taking captopril twice a day after food.",
+      "withKeyterms": "I am taking Carboplatin twice a day after food."
+    },
+    {
+      "drug": "Oxaliplatin",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Oxaliplatin लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह oxaliplatin लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Oxaliplatin लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Paclitaxel",
+      "lang": "hinglish",
+      "said": "Main roz subah Paclitaxel leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Paclitaxel leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Paclitaxel leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Docetaxel",
+      "lang": "en",
+      "said": "I am taking Docetaxel twice a day after food.",
+      "plain": "I am taking Dosing Taxil twice a day after food.",
+      "withKeyterms": "I am taking Docetaxel twice a day after food."
+    },
+    {
+      "drug": "Carboplatin",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Carboplatin लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह carboplatin लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Carboplatin लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Cisplatin",
+      "lang": "hinglish",
+      "said": "Main roz subah Cisplatin leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Cisplatin leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Cisplatin leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Cyclophosphamide",
+      "lang": "en",
+      "said": "I am taking Cyclophosphamide twice a day after food.",
+      "plain": "I am taking cyclophosphamide twice a day after food.",
+      "withKeyterms": "I am taking Cyclophosphamide twice a day after food."
+    },
+    {
+      "drug": "Doxorubicin",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Doxorubicin लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Doxorubicin लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Doxorubicin लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Epirubicin",
+      "lang": "hinglish",
+      "said": "Main roz subah Epirubicin leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Apirubicin leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Epirubicin leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Fluorouracil",
+      "lang": "en",
+      "said": "I am taking Fluorouracil twice a day after food.",
+      "plain": "I am taking Florirell twice a day after food.",
+      "withKeyterms": "I am taking Fluorouracil twice a day after food."
+    },
+    {
+      "drug": "Gemcitabine",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Gemcitabine लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Gemstabin लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Gemcitabine लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Irinotecan",
+      "lang": "hinglish",
+      "said": "Main roz subah Irinotecan leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Irinotecan leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Irinotecan leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Pemetrexed",
+      "lang": "en",
+      "said": "I am taking Pemetrexed twice a day after food.",
+      "plain": "I am taking Pemetrexed twice a day after food.",
+      "withKeyterms": "I am taking Pemetrexed twice a day after food."
+    },
+    {
+      "drug": "Etoposide",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Etoposide लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Itoposide लेती हूँ। Doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Etoposide लेती हूँ। Doctor ने बताया था।"
+    },
+    {
+      "drug": "Vinorelbine",
+      "lang": "hinglish",
+      "said": "Main roz subah Vinorelbine leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Vinorelbine leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Vinorelbine leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Methotrexate",
+      "lang": "en",
+      "said": "I am taking Methotrexate twice a day after food.",
+      "plain": "I am taking Miotrexate twice a day after food.",
+      "withKeyterms": "I am taking Methotrexate twice a day after food."
+    },
+    {
+      "drug": "Temozolomide",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Temozolomide लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Temozolomide लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Temozolomide लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Trastuzumab",
+      "lang": "hinglish",
+      "said": "Main roz subah Trastuzumab leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Trastuzumab leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Trastuzumab leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Pertuzumab",
+      "lang": "en",
+      "said": "I am taking Pertuzumab twice a day after food.",
+      "plain": "I am taking PTUZA MAAP twice a day after food.",
+      "withKeyterms": "I am taking Pertuzumab twice a day after food."
+    },
+    {
+      "drug": "Bevacizumab",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Bevacizumab लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Bevacizumab लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Bevacizumab लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Rituximab",
+      "lang": "hinglish",
+      "said": "Main roz subah Rituximab leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Rituximab leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Rituximab leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Cetuximab",
+      "lang": "en",
+      "said": "I am taking Cetuximab twice a day after food.",
+      "plain": "I am taking Cetuximab twice a day after food.",
+      "withKeyterms": "I am taking Cetuximab twice a day after food."
+    },
+    {
+      "drug": "Pembrolizumab",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Pembrolizumab लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Pamelozumab लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Pembrolizumab लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Nivolumab",
+      "lang": "hinglish",
+      "said": "Main roz subah Nivolumab leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Nivalumab leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Nivolumab leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Imatinib",
+      "lang": "en",
+      "said": "I am taking Imatinib twice a day after food.",
+      "plain": "I am taking imatinib twice a day after food.",
+      "withKeyterms": "I am taking Imatinib twice a day after food."
+    },
+    {
+      "drug": "Gefitinib",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Gefitinib लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Gefitinib लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Gefitinib लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Erlotinib",
+      "lang": "hinglish",
+      "said": "Main roz subah Erlotinib leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Erlotinib leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Erlotinib leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Osimertinib",
+      "lang": "en",
+      "said": "I am taking Osimertinib twice a day after food.",
+      "plain": "I am taking Osi Martinep twice a day after food.",
+      "withKeyterms": "I am taking Osimertinib twice a day after food."
+    },
+    {
+      "drug": "Lapatinib",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Lapatinib लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Leptinib लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Lapatinib लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Palbociclib",
+      "lang": "hinglish",
+      "said": "Main roz subah Palbociclib leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Palbosiclib leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Palbociclib leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Ribociclib",
+      "lang": "en",
+      "said": "I am taking Ribociclib twice a day after food.",
+      "plain": "I am taking Ribosiclib twice a day after food.",
+      "withKeyterms": "I am taking Ribociclib twice a day after food."
+    },
+    {
+      "drug": "Tamoxifen",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Tamoxifen लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Tamoxifen लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Tamoxifen लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Letrozole",
+      "lang": "hinglish",
+      "said": "Main roz subah Letrozole leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Letrozole leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Letrozole leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Anastrozole",
+      "lang": "en",
+      "said": "I am taking Anastrozole twice a day after food.",
+      "plain": "I am taking Anastrozole twice a day after food.",
+      "withKeyterms": "I am taking Anastrozole twice a day after food."
+    },
+    {
+      "drug": "Exemestane",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Exemestane लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Exemistane लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Exemestane लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Bicalutamide",
+      "lang": "hinglish",
+      "said": "Main roz subah Bicalutamide leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Bicalutamide leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Bicalutamide leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Abiraterone",
+      "lang": "en",
+      "said": "I am taking Abiraterone twice a day after food.",
+      "plain": "I am taking Abiraterone twice a day after food.",
+      "withKeyterms": "I am taking Abiraterone twice a day after food."
+    },
+    {
+      "drug": "Enzalutamide",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Enzalutamide लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Halotamide लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Enzalutamide लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Zoledronic acid",
+      "lang": "hinglish",
+      "said": "Main roz subah Zoledronic acid leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Zoledronic acid leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Zoledronic acid leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Denosumab",
+      "lang": "en",
+      "said": "I am taking Denosumab twice a day after food.",
+      "plain": "I am taking Denosumab twice a day after food.",
+      "withKeyterms": "I am taking Denosumab twice a day after food."
+    },
+    {
+      "drug": "Ondansetron",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Ondansetron लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Ondansetron लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Ondansetron लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Granisetron",
+      "lang": "hinglish",
+      "said": "Main roz subah Granisetron leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Granisetron leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Granisetron leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Aprepitant",
+      "lang": "en",
+      "said": "I am taking Aprepitant twice a day after food.",
+      "plain": "I am taking Aproprenin twice a day after food.",
+      "withKeyterms": "I am taking Aprepitant twice a day after food."
+    },
+    {
+      "drug": "Dexamethasone",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Dexamethasone लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Dexamethasone लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Dexamethasone लेती हूँ, doctor ने बताया था।"
+    },
+    {
+      "drug": "Filgrastim",
+      "lang": "hinglish",
+      "said": "Main roz subah Filgrastim leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Filgrassim leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Filgrastim leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Pegfilgrastim",
+      "lang": "en",
+      "said": "I am taking Pegfilgrastim twice a day after food.",
+      "plain": "I am taking Pegfilgrastim twice a day after food.",
+      "withKeyterms": "I am taking Pegfilgrastim twice a day after food."
+    },
+    {
+      "drug": "Pantoprazole",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Pantoprazole लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Pantoprazole लेती हूँ। Doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Pantoprazole लेती हूँ। Doctor ने बताया था।"
+    },
+    {
+      "drug": "Loperamide",
+      "lang": "hinglish",
+      "said": "Main roz subah Loperamide leti hoon, doctor ne bataya tha.",
+      "plain": "Main roz subah Loperamide leti hoon, doctor ne bataya tha.",
+      "withKeyterms": "Main roz subah Loperamide leti hoon, doctor ne bataya tha."
+    },
+    {
+      "drug": "Metformin",
+      "lang": "en",
+      "said": "I am taking Metformin twice a day after food.",
+      "plain": "I am taking metformin twice a day after food.",
+      "withKeyterms": "I am taking Metformin twice a day after food."
+    },
+    {
+      "drug": "Paracetamol",
+      "lang": "hi",
+      "said": "मैं रोज़ सुबह Paracetamol लेती हूँ, डॉक्टर ने बताया था।",
+      "plain": "मैं रोज़ सुबह Paracetamol लेती हूँ, doctor ने बताया था।",
+      "withKeyterms": "मैं रोज़ सुबह Paracetamol लेती हूँ, doctor ने बताया था।"
+    }
+  ]
+}

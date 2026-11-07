@@ -15,6 +15,8 @@ const LIMITS = {
   staff: { maxS: 12 * 3600, idleS: 30 * 60 },
   patient: { maxS: 2 * 3600, idleS: 30 * 60 },
   caregiver: { maxS: 2 * 3600, idleS: 30 * 60 },
+  /** A shared desk-station tablet (FR-VOX-02): short, so the next person never finds the last one signed in. */
+  station: { maxS: 30 * 60, idleS: 5 * 60 },
 } as const
 const TOUCH_AFTER_MS = 60_000
 
@@ -90,13 +92,13 @@ export async function requirePatientSession(): Promise<PatientSession> {
 
 export type CreateSessionInput =
   | { kind: 'staff'; staffId: string; orgId: string }
-  | { kind: 'patient'; patientId: string; orgId: string }
-  | { kind: 'caregiver'; patientId: string; caregiverId: string; orgId: string }
+  | { kind: 'patient'; patientId: string; orgId: string; station?: boolean }
+  | { kind: 'caregiver'; patientId: string; caregiverId: string; orgId: string; station?: boolean }
 
 /** Route handlers only (sets the cookie). */
 export async function createSession(input: CreateSessionInput): Promise<{ sessionId: string; expiresAt: Date }> {
   const token = randomToken(32)
-  const { maxS, idleS } = LIMITS[input.kind]
+  const { maxS, idleS } = input.kind !== 'staff' && input.station ? LIMITS.station : LIMITS[input.kind]
   const expiresAt = new Date(Date.now() + maxS * 1000)
   const [row] = await db.insert(sessions).values({
     tokenHash: sha256Hex(token), kind: input.kind, orgId: input.orgId, expiresAt, idleTimeoutS: idleS,

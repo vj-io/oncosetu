@@ -132,6 +132,10 @@ describe('read-back (FR-VOX-04)', () => {
     expect(r.lines.find((l) => l.q === 'new_medicines')?.text).toBe('You were given new medicines: Paracetamol 500, Pantoprazole, Dr Rao.')
     expect(r.lines.find((l) => l.q === 'anything_else')?.text).toBe('You want the doctor to know: “My mother gets dizzy in the mornings”')
     expect(buildReadback(answers, 'hi').lines.find((l) => l.q === 'admissions')?.text).toBe('आप किसी अस्पताल में भर्ती रहे हैं: Lakeview Hospital, सितंबर 2026।')
+    // voice typing returns a sentence with its own full stop; the read-back adds exactly one
+    const spoken: Answers = { new_medicines: { yn: 'yes', names: 'Tab Ondansetron chaar mg subah shaam.' } }
+    expect(buildReadback(spoken, 'en').lines[0].text).toBe('You were given new medicines: Tab Ondansetron chaar mg subah shaam.')
+    expect(buildReadback(spoken, 'hi').lines[0].text).toBe('आपको नई दवाइयाँ दी गई हैं: Tab Ondansetron chaar mg subah shaam।')
   })
 
   it('never turns a relative date into a date (E-DOC-13) and uses month/year only when the patient picked them', () => {

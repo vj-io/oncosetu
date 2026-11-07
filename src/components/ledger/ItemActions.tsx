@@ -7,7 +7,7 @@ import { Button, ButtonLink, Dialog, Field, Input, Stamp, Textarea, useToast } f
 import type { ItemView } from '@/server/ledger/core'
 import { postJson } from './client'
 
-type Props = { item: Pick<ItemView, 'id' | 'rowVersion' | 'status' | 'permits' | 'editable' | 'sources' | 'viewedSource' | 'typeLabel'> }
+type Props = { item: Pick<ItemView, 'id' | 'rowVersion' | 'status' | 'permits' | 'editable' | 'sources' | 'viewedSource' | 'typeLabel'> & { readings: ItemView['when']['readings'] } }
 type Mode = 'edit' | 'reject' | 'dispute' | null
 
 const TITLES = { edit: 'Correct this item', reject: 'Reject this item', dispute: 'Mark this item disputed' } as const
@@ -109,6 +109,18 @@ export function ItemActions({ item }: Props) {
           </Button>
         )}
       </div>
+      {item.readings && p.edit === true && (
+        // Day and month could be swapped: one click records the reading on the page as an edit (new version, original kept).
+        <div role="group" aria-label="Pick the date" className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted">Which date is on the page?</span>
+          {item.readings.map((r) => (
+            <Button key={r.iso} size="sm" variant="secondary" disabled={!!busy}
+              onClick={() => send('edit', { reason: `Day and month checked on the page: ${r.label}`, fields: { event_date_text: r.label } })}>
+              {r.label}
+            </Button>
+          ))}
+        </div>
+      )}
       {blocked ? (
         <p id={noteId} className="flex items-center gap-1.5 text-sm text-muted"><Lock aria-hidden className="size-3.5 shrink-0" />{blocked}</p>
       ) : !verified && !stamped && !item.viewedSource && source ? (

@@ -1,9 +1,10 @@
-// PRD §9.5 extraction evaluation, from the reports scripts/eval.ts writes (synthetic sets, offline, not live data).
+// PRD §9.5 extraction evaluation and FR-VOX-03 voice evaluation, from the reports scripts/eval.ts and scripts/eval-asr.ts write (synthetic sets, offline, not live data).
 import { Badge, Table } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import rules from '../../../data/eval/report.json'
 import hybrid from '../../../data/eval/report-llm.json'
+import asr from '../../../data/eval/asr-report.json'
 import { Block } from './charts'
 
 type Gates = { unsupportedFactsReachingRecord: number; handwrittenAutoExtracted: number }
@@ -84,6 +85,41 @@ export function EvalReport() {
         </tbody>
       </Table>
       <p className="text-sm text-faint">Per-type counts are small (1 to 30 facts), so per-type recall is noisy. The sets are authored by the team and not yet reviewed by the clinician advisor.</p>
+    </Block>
+  )
+}
+
+type AsrScore = { wer: number; drugNameErrorRate: number; drugNamesHeard: number; otherListedDrug: string[] }
+type AsrSet = { clips: number; plain: AsrScore; withKeyterms: AsrScore }
+const A = asr as unknown as { generatedAt: string; setup: { tts: string; asr: string }; overall: AsrSet; byLanguage: Record<'en' | 'hi' | 'hinglish', AsrSet> }
+const pct = (x: number) => `${(x * 100).toFixed(1)}%`
+
+/** FR-VOX-03: drug names in spoken answers, from scripts/eval-asr.ts (synthetic speech). */
+export function AsrReport() {
+  const sets: [string, AsrSet][] = [['All', A.overall], ['English', A.byLanguage.en], ['Hindi', A.byLanguage.hi], ['Hinglish', A.byLanguage.hinglish]]
+  const swapped = A.overall.withKeyterms.otherListedDrug
+  return (
+    <Block kicker="Voice accuracy" title="Are medicine names heard correctly? (synthetic speech)"
+      note={<>{A.overall.clips} spoken answers, one per formulary medicine, made with {A.setup.tts} and transcribed by {A.setup.asr}, without and with the keyterms the app sends (the patient&apos;s own medicines, then the formulary). Studio-clean synthetic speech is an upper bound, not field accuracy: real voices from the shadow phase are still needed before voice is used with real patients. Run {A.generatedAt.slice(0, 10)}; regenerate with <code>scripts/eval-asr.ts</code>.</>}>
+      <Table caption="Drug-name error rate (clips where the medicine name was not transcribed exactly) and word error rate">
+        <thead><tr><th>Language</th><th>Clips</th><th>Drug names wrong, no keyterms</th><th>Drug names wrong, with keyterms</th><th>Word error rate, no keyterms</th><th>Word error rate, with keyterms</th></tr></thead>
+        <tbody>
+          {sets.map(([label, s]) => (
+            <tr key={label}>
+              <td>{label}</td><td className="font-mono tabular-nums">{s.clips}</td>
+              <td className="font-mono tabular-nums">{pct(s.plain.drugNameErrorRate)}</td>
+              <td className="font-mono tabular-nums">{pct(s.withKeyterms.drugNameErrorRate)}</td>
+              <td className="font-mono tabular-nums">{pct(s.plain.wer)}</td>
+              <td className="font-mono tabular-nums">{pct(s.withKeyterms.wer)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </Table>
+      {swapped.length > 0 && (
+        <p className="text-sm text-amber-ink">
+          With keyterms, {swapped.length} {swapped.length === 1 ? 'answer' : 'answers'} came back as a different medicine from the list ({swapped.join('; ')}). A plausible wrong name is the worst kind of miss, which is why every spoken answer is read back to the patient to confirm or correct, and stays marked as patient-reported.
+        </p>
+      )}
     </Block>
   )
 }

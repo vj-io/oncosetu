@@ -4,6 +4,8 @@ import { CONSENT_NOTICE_VERSION } from '@/i18n/consent'
 import { ISO_DATE, purposesSchema } from './logic'
 
 export const langSchema = z.enum(['en', 'hi', 'hinglish'])
+/** The consent notice also exists in Marathi (src/i18n/consent.ts); the consent row records which one was shown. */
+export const consentLangSchema = z.enum(['en', 'hi', 'hinglish', 'mr'])
 export const personName = z.string().trim().min(2).max(120)
 export const phoneField = z.string().trim().min(5).max(32)
 
@@ -23,7 +25,7 @@ export const caregiverInput = z.object({
 
 export const consentInput = z.object({
   purposes: purposesSchema,
-  language: langSchema,
+  language: consentLangSchema,
   noticeVersion: z.literal(CONSENT_NOTICE_VERSION),
 })
 

@@ -10,12 +10,23 @@ import { hmac } from '../crypto'
 import { HttpError } from '../http'
 import { log } from '../log'
 import { activeConsent } from '../patients'
-import { ingestDocument, scheduleProcessing, type DocStatus } from '../pipeline/ingest'
+import { ingestDocument, scheduleProcessing, type DocStatus, type IntakeProvider } from '../pipeline/ingest'
 import { aliasTokensOf, attachmentsOf, senderOf, type PostmarkPayload } from './postmark'
+import { inboundDomain } from './staff'
 
 export type EmailOutcome =
   | { accepted: true; documents: { documentId: string; status: DocStatus; duplicateOf?: string }[]; skipped: { index: number; reason: string }[] }
   | { accepted: false; reason: 'unknown_recipient' | 'ambiguous_recipient' | 'unregistered_sender' | 'no_consent' | 'no_attachments' }
+
+/** The email drop as an intake channel. The route has already refused the request when INBOUND_EMAIL_DOMAIN is unset. */
+export const emailIntake: IntakeProvider<PostmarkPayload, EmailOutcome> = {
+  route: 'email',
+  receive: (p, requestId) => {
+    const domain = inboundDomain()
+    if (!domain) throw new Error('INBOUND_EMAIL_DOMAIN is not set')
+    return receiveEmail(p, domain, requestId)
+  },
+}
 
 export async function receiveEmail(p: PostmarkPayload, domain: string, requestId: string): Promise<EmailOutcome> {
   const tokens = aliasTokensOf(p, domain)

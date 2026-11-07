@@ -36,16 +36,19 @@ function submittable(a: Answers): Answers {
     if (x.testKind) c.testKind = x.testKind;
     if (x.year != null) { c.year = x.year; if (x.month != null) c.month = x.month; }
     if (x.voice) c.voice = true;
+    if (x.clips?.length) c.clips = x.clips;
     out[q.id] = c;
   }
   return out;
 }
 
 export function VisitFlow({
-  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered,
+  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered, station = false,
 }: {
   /** sarvam: the server can transcribe (SARVAM_API_KEY set), so record audio instead of using the browser's recogniser */
   lang: Lang; canVoice: boolean; canSpeak: boolean; sarvam: boolean; currentYear: number; lastAnswered: string | null;
+  /** On the shared desk-station tablet (FR-VOX-02): sign out by itself once the answers are saved. */
+  station?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("questions");
   const [step, setStep] = useState(0);
@@ -80,11 +83,13 @@ export function VisitFlow({
     setAnswers((s) => ({ ...s, [id]: { ...(s[id] ?? { yn: "yes" as const }), ...patch } as Answer }));
   }
 
-  function addSaid(qid: QuestionId, field: Field, said: string) {
+  function addSaid(qid: QuestionId, field: Field, said: string, clipId?: string) {
     if (reviewed) setEdited(true);
     setAnswers((s) => {
-      const cur = (s[qid]?.[field] ?? "").trim();
-      return { ...s, [qid]: { ...(s[qid] ?? { yn: "yes" as const }), [field]: cur ? `${cur} ${said}` : said, voice: true } as Answer };
+      const prev = s[qid] ?? { yn: "yes" as const };
+      const cur = (prev[field] ?? "").trim();
+      const clips = clipId ? [...(prev.clips ?? []), clipId].slice(-6) : prev.clips; // the recordings stay beside the answer (FR-VOX-05)
+      return { ...s, [qid]: { ...prev, [field]: cur ? `${cur} ${said}` : said, voice: true, ...(clips ? { clips } : {}) } as Answer };
     });
   }
 
@@ -109,9 +114,10 @@ export function VisitFlow({
       try {
         const res = await fetch("/api/p/voice/transcribe", { method: "POST", body });
         if (!res.ok) throw new Error(String(res.status));
-        const said = ((await res.json()) as { text?: string }).text?.trim();
+        const out = (await res.json()) as { text?: string; clipId?: string };
+        const said = out.text?.trim();
         if (!said) throw new Error("empty");
-        addSaid(qid, field, said);
+        addSaid(qid, field, said, out.clipId);
       } catch {
         setVoiceMsg(tp(lang, "voiceFailed"));
       }
@@ -168,7 +174,7 @@ export function VisitFlow({
       if (res.status === 401) {
         // The session ended while the questions were open: sign in again, then come back here.
         const chosen = new URLSearchParams(window.location.search).get("lang");
-        window.location.assign(`/p/login?next=/p/visit${chosen === "hi" || chosen === "en" || chosen === "hinglish" ? `&lang=${chosen}` : ""}`);
+        window.location.assign(station ? "/p/login?station=1" : `/p/login?next=/p/visit${chosen === "hi" || chosen === "en" || chosen === "hinglish" ? `&lang=${chosen}` : ""}`);
         return;
       }
       if (!res.ok) throw new Error(String(res.status));
@@ -182,8 +188,30 @@ export function VisitFlow({
 
   const readback = buildReadback(submittable(answers), lang);
 
-  function read() {
-    if (!canSpeak || typeof speechSynthesis === "undefined") return;
+  // Spoken read-back (FR-VOX-04): Sarvam's voice when the server has it, else the browser's own voice.
+  const player = useRef<HTMLAudioElement | null>(null);
+  const [reading, setReading] = useState<"idle" | "loading" | "playing">("idle");
+  async function read() {
+    if (!canSpeak) return;
+    if (sarvam) {
+      if (player.current && !player.current.paused) { player.current.pause(); return setReading("idle"); }
+      setReading("loading");
+      try {
+        const res = await fetch("/api/p/voice/readback", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ answers: submittable(answers), lang }) });
+        if (!res.ok) throw new Error(String(res.status));
+        const url = URL.createObjectURL(await res.blob());
+        const a = new Audio(url);
+        player.current = a;
+        a.onended = () => { setReading("idle"); URL.revokeObjectURL(url); };
+        await a.play();
+        setReading("playing");
+      } catch {
+        setReading("idle");
+        setError(tp(lang, "voiceFailed"));
+      }
+      return;
+    }
+    if (typeof speechSynthesis === "undefined") return;
     if (speechSynthesis.speaking) return speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance([readback.intro, ...readback.lines.map((l) => l.text)].join(" "));
     u.lang = lang === "hi" ? "hi-IN" : "en-IN";
@@ -195,12 +223,12 @@ export function VisitFlow({
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <button
           type="button" onClick={() => speak(id, field)} aria-pressed={listening === id}
-          className="inline-flex min-h-12 items-center gap-2 border border-ink px-4 text-[15px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery"
+          className="inline-flex min-h-12 items-center gap-2 border border-ink px-4 text-[16px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery"
         >
           {listening === id ? <Square aria-hidden className="size-4" /> : <Mic aria-hidden className="size-4" />}
           {tp(lang, listening === id ? "voiceStop" : "voiceStart")}
         </button>
-        <span className="text-[15px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, "voiceLabel")}</span>
+        <span className="text-[16px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, "voiceLabel")}</span>
       </div>
     ) : null;
 
@@ -250,10 +278,14 @@ export function VisitFlow({
           {tp(lang, confirmedSave ? "savedTitle" : "savedUnconfirmed")}
         </h2>
         {confirmedSave && <p className="text-[17px]">{tp(lang, "savedText")}</p>}
-        <div className="flex flex-wrap gap-3">
-          <PLink href={`/p?lang=${lang}`} variant="secondary">{tp(lang, "backHome")}</PLink>
-          <PLink href={`/p/upload?lang=${lang}`} variant="ghost">{tp(lang, "cardUploadTitle")}</PLink>
-        </div>
+        {station ? (
+          <StationSignOut lang={lang} />
+        ) : (
+          <div className="flex flex-wrap gap-3">
+            <PLink href={`/p?lang=${lang}`} variant="secondary">{tp(lang, "backHome")}</PLink>
+            <PLink href={`/p/upload?lang=${lang}`} variant="ghost">{tp(lang, "cardUploadTitle")}</PLink>
+          </div>
+        )}
       </div>
     );
   }
@@ -274,9 +306,9 @@ export function VisitFlow({
           </ul>
         </div>
         {canSpeak && (
-          <PButton variant="secondary" icon={<Volume2 />} onClick={read} className="w-full sm:w-auto">{tp(lang, "readAloud")}</PButton>
+          <PButton variant="secondary" icon={<Volume2 />} loading={reading === "loading"} onClick={read} className="w-full sm:w-auto">{tp(lang, "readAloud")}</PButton>
         )}
-        <p className="text-[15px] text-muted">{tp(lang, "reviewHelp")}</p>
+        <p className="text-[16px] text-muted">{tp(lang, "reviewHelp")}</p>
         {error && <ErrorNote>{error}</ErrorNote>}
         <div className="grid gap-3 sm:grid-cols-2">
           <PButton big loading={saving} onClick={() => save(edited ? "corrected" : "confirmed")}>{saving ? tp(lang, "saving") : tp(lang, "confirmYes")}</PButton>
@@ -290,9 +322,9 @@ export function VisitFlow({
   const choices = q.id === "anything_else" ? (["yes", "no"] as const) : (["yes", "no", "unsure"] as const);
   return (
     <section aria-labelledby="qh" className="mt-8 grid gap-5">
-      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[15px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
+      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[16px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
       <div className="grid gap-2">
-        <p className="text-[15px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: QUESTIONS.length })}</p>
+        <p className="text-[16px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: QUESTIONS.length })}</p>
         <div aria-hidden className="h-2 border border-rule bg-alcove">
           <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }} />
         </div>
@@ -333,12 +365,33 @@ export function VisitFlow({
         </div>
       )}
 
-      {voiceMsg && <p role="status" className="text-[15px] text-muted">{voiceMsg}</p>}
+      {voiceMsg && <p role="status" className="text-[16px] text-muted">{voiceMsg}</p>}
       {error && <ErrorNote>{error}</ErrorNote>}
       <div className="grid gap-3 sm:grid-cols-2">
         {step > 0 ? <PButton variant="secondary" onClick={() => { setError(null); setStep(step - 1); }}>{tp(lang, "back")}</PButton> : <span />}
         <PButton big onClick={next} className="sm:order-last">{tp(lang, "next")}</PButton>
       </div>
     </section>
+  );
+}
+
+/** Desk station: count down, then end the session and return the tablet to the station sign-in for the next person. */
+function StationSignOut({ lang }: { lang: Lang }) {
+  const [left, setLeft] = useState(15);
+  const out = useRef(false);
+  useEffect(() => {
+    const t = setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+  useEffect(() => {
+    if (left > 0 || out.current) return;
+    out.current = true;
+    fetch("/api/auth/logout", { method: "POST" }).finally(() => window.location.assign("/p/login?station=1"));
+  }, [left]);
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <p className="text-[17px]" aria-live="polite">{tp(lang, "stationSignOut", { n: String(left) })}</p>
+      <PButton variant="secondary" onClick={() => setLeft(0)}>{tp(lang, "stationDoneNow")}</PButton>
+    </div>
   );
 }

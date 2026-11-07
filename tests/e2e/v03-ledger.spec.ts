@@ -1,4 +1,7 @@
 // V03-E2E-01..07 (PRD §13, v0.3 Timeline, Change Ledger, structured capture, onboarding). Tests marked @clock move the org clock and run alone.
+import type { Snapshot } from '../../src/core/ledger'
+import { STAFF_ONLY_EVENT_TYPES } from '../../src/core/types'
+import { verifySnapshotFile } from '../../src/server/ledger/export'
 import { buildReadback, type Answers } from '../../src/server/portal/visit-model'
 import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploadDemo, waitDoc } from './helpers/api'
 import { documentsOf, eventsOf, snapshotsOf, statementsOf } from './helpers/db'
@@ -47,12 +50,12 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   for (const e of await eventsOf(p.id)) await records.post(`/api/events/${e.id}/viewed`)
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
-  await expect(rec.getByText('Initial record · first visit')).toBeVisible()
-  const bulkButton = rec.getByRole('button', { name: /Verify opened items \(\d+\)/ })
+  await expect(rec.getByRole('heading', { name: 'Everything on file so far' })).toBeVisible()
+  const bulkButton = rec.getByRole('button', { name: /Mark opened items as checked \(\d+\)/ })
   const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
   expect(eligible).toBeGreaterThan(0)
   await bulkButton.click()
-  await rec.getByRole('dialog').getByRole('button', { name: `Verify ${eligible}` }).click()
+  await rec.getByRole('dialog').getByRole('button', { name: `Mark ${eligible} as checked` }).click()
   await expect(rec.getByText(`${eligible} verified`)).toBeVisible()
   const evs = (await eventsOf(p.id)).filter((e) => !e.withdrawnAt)
   const verified = evs.filter((e) => e.verificationStatus === 'verified_matches_source').length
@@ -62,12 +65,12 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   // The clinician sees the document index with provenance and seals S0 with partial verification.
   const clin = await ui('clinician')
   await clin.goto(`/patients/${p.id}/ledger`)
-  await expect(clin.getByText('Unsealed')).toBeVisible()
-  await expect(clin.getByText(/Verified · matches source/).first()).toBeVisible()
-  await expect(clin.getByText(/Not yet verified/).first()).toBeVisible()
-  await clin.getByRole('button', { name: 'Seal snapshot S0' }).click()
-  await clin.getByRole('dialog').getByRole('button', { name: 'Press the seal' }).click()
-  await expect(clin.getByRole('dialog').getByText('Snapshot S0 sealed')).toBeVisible()
+  await expect(clin.getByText(/No visit has been sealed yet/)).toBeVisible()
+  await expect(clin.getByText('Checked against the page').first()).toBeVisible()
+  await expect(clin.getByText('Not yet checked').first()).toBeVisible()
+  await clin.getByRole('button', { name: 'Seal this visit' }).click()
+  await clin.getByRole('dialog').getByRole('button', { name: 'Seal it' }).click()
+  await expect(clin.getByRole('dialog', { name: 'Visit sealed' })).toBeVisible()
   const [s0] = await snapshotsOf(p.id)
   expect(s0.seq).toBe(0)
   const counts = JSON.parse(s0.canonicalJson) as { verified: unknown[]; unverified: unknown[]; documents: unknown[] }
@@ -123,17 +126,19 @@ test('V03-E2E-02 returning visit: pre-visit answers, new lab report, ledger "New
   // The clinician's ledger: what changed since S0, what the patient said, with links to the sources.
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  await expect(page.getByRole('heading', { name: 'What changed since S0' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'What changed since the last sealed visit' })).toBeVisible()
   // The new lab report: its report fact plus its printed result rows (5 Nov 2026), all from that one document.
   const fromLab = (await eventsOf(p.id)).filter((e) => e.documentId === docId && !e.withdrawnAt)
   expect(fromLab.map((e) => e.eventType)).toContain('lab_results_documented')
-  expect(await count(page, 'New since last visit')).toBe(fromLab.length)
+  expect(await count(page, 'New since the last visit')).toBe(fromLab.length)
   expect(await count(page, 'Patient said')).toBe(5) // one line per answered question, "no" included
-  const added = sectionOf(page, 'New since last visit')
+  const added = sectionOf(page, 'New since the last visit')
   await expect(added).toContainText('Haematology')
-  await expect(added.getByRole('link', { name: /source/i }).first()).toHaveAttribute('href', new RegExp(`/patients/${p.id}/documents/${docId}\\?event=`))
+  // the source link is inside the item: open the first one
+  await added.locator('details > summary').first().click()
+  await expect(added.getByRole('link', { name: /Show the exact words/ }).first()).toHaveAttribute('href', new RegExp(`/patients/${p.id}/documents/${docId}\\?event=`))
   await expect(sectionOf(page, 'Patient said')).toContainText('Sahyadri Hospital')
-  await expect(sectionOf(page, 'Patient said')).toContainText('Confirmed by patient')
+  await expect(sectionOf(page, 'Patient said')).toContainText('Confirmed by the patient')
   // Items already sealed in S0 are not listed as new.
   await expect(added).not.toContainText('Hemicolectomy')
 
@@ -166,10 +171,13 @@ test('V03-E2E-03 a 2024 report uploaded after S0 is "Newly received older record
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Newly received older records')).toBe(1)
-  expect(await count(page, 'New since last visit')).toBe(0)
-  await expect(sectionOf(page, 'Newly received older records')).toContainText('Mammography')
-  await expect(sectionOf(page, 'Newly received older records')).toContainText('Newly received older record')
+  // every fact from the late report (its report line and the impression copied for staff) is listed as arrived late
+  const fromLate = (await eventsOf(p.id)).filter((e) => e.documentId === late.documentId && !e.withdrawnAt)
+  expect(fromLate.length).toBeGreaterThan(0)
+  expect(await count(page, 'Older papers that arrived late')).toBe(fromLate.length)
+  expect(await count(page, 'New since the last visit')).toBe(0)
+  await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Mammography')
+  await expect(sectionOf(page, 'Older papers that arrived late')).toContainText('Older paper that arrived late')
   // "Verify all" never includes a newly received older item.
   const ev = (await eventsOf(p.id)).find((e) => e.documentId === late.documentId)!
   const r = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ev.id] })
@@ -187,9 +195,9 @@ test('V03-E2E-04 a patient statement that conflicts with a prescription is a con
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Conflicts')).toBe(1)
-  await expect(sectionOf(page, 'Conflicts')).toContainText('Letrozole')
-  await expect(sectionOf(page, 'Conflicts')).toContainText('Capecitabine')
+  expect(await count(page, 'Sources that disagree')).toBe(1)
+  await expect(sectionOf(page, 'Sources that disagree')).toContainText('Letrozole')
+  await expect(sectionOf(page, 'Sources that disagree')).toContainText('Capecitabine')
 
   const events = (await eventsOf(p.id)).filter((e) => e.documentId === rx.documentId && Array.isArray((e.fields as any).medication_names) && ((e.fields as any).medication_names as string[]).includes('Capecitabine'))
   expect(events).toHaveLength(1)
@@ -200,7 +208,7 @@ test('V03-E2E-04 a patient statement that conflicts with a prescription is a con
   const resolved = await clinician.post(`/api/events/${events[0].id}/resolve`, { note: 'Checked with the patient: the other hospital changed the drug' })
   expect(resolved.ok).toBe(true)
   await page.reload()
-  expect(await count(page, 'Conflicts')).toBe(0)
+  expect(await count(page, 'Sources that disagree')).toBe(0)
 })
 
 test('V03-E2E-05 an amended report appears under "Amended and corrected"', async ({ staff, ui }) => {
@@ -215,9 +223,9 @@ test('V03-E2E-05 an amended report appears under "Amended and corrected"', async
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Amended and corrected')).toBeGreaterThanOrEqual(1)
-  await expect(sectionOf(page, 'Amended and corrected')).toContainText(/pathology|histopathology/i)
-  expect(await count(page, 'New since last visit')).toBe(0)
+  expect(await count(page, 'Corrected reports')).toBeGreaterThanOrEqual(1)
+  await expect(sectionOf(page, 'Corrected reports')).toContainText(/pathology|histopathology/i)
+  expect(await count(page, 'New since the last visit')).toBe(0)
 })
 
 test('V03-E2E-06 only a clinician sets the disclosure status; the change is audited and patient copy switches', async ({ staff, browser }) => {
@@ -266,4 +274,49 @@ test('V03-E2E-07 a sealed snapshot verifies publicly: hash and signature valid (
   expect(page.status()).toBe(200)
   expect(await viewer.get('/api/snapshots/00000000-0000-7000-8000-000000000000/verify').then((x) => x.status())).toBe(404)
   // Tamper evidence (one changed byte breaks the hash and the signature): src/server/ledger/ledger.test.ts "seal ... tamper (FR-LED-01, V03-E2E-07)".
+})
+
+test('FR-PAS-05 the printable passport: sealed index with hash, key and a QR to the check; no staff-only line; the sealed file verifies offline', async ({ staff, ui, anon }) => {
+  const records = await staff('records'), clinician = await staff('clinician'), desk = await staff('desk')
+  const p = await registerPatient(records, { base: 'hero' }) // disclosure unknown
+  await uploadAndWait(records, p.id, 'hero__02-chemo-daycare-cycle4.pdf') // a day-care visit plus a regimen line (staff-only)
+  const sealed = await seal(clinician, p.id)
+  const snap = JSON.parse((await snapshotsOf(p.id))[0].canonicalJson) as Snapshot
+  const all = [...snap.verified, ...snap.unverified]
+  const staffOnly = all.filter((e) => STAFF_ONLY_EVENT_TYPES.has(e.eventType))
+  expect(staffOnly.length, 'the sealed record holds a staff-only line').toBeGreaterThan(0)
+
+  const clin = await ui('clinician')
+  await clin.goto(`/patients/${p.id}/ledger`)
+  await expect(clin.getByRole('link', { name: 'Print the passport' })).toHaveAttribute('href', `/print/passport/${sealed.snapshotId}`)
+
+  // The desk prints it for the patient: the share link's index, the seal and the QR to the public check.
+  const page = await ui('desk')
+  await page.goto(`/print/passport/${sealed.snapshotId}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
+  await expect(page.locator('section[aria-labelledby="items-h"] ol > li')).toHaveCount(all.length - staffOnly.length)
+  await expect(page.getByRole('img', { name: 'Verify seal' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Download the sealed file/ })).toHaveCount(0) // the desk is not offered the sealed file
+  const text = await page.locator('article').innerText()
+  for (const s of [sealed.sha256, sealed.snapshotId, `Signed with Ed25519 key ${sealed.keyId}`, `/verify/${sealed.snapshotId}`]) expect(text).toContain(s)
+  expect(text).toMatch(/Sealed on \d{1,2} \w{3} \d{4}, \d{2}:\d{2} IST/)
+  expect(diagnosisHits(text)).toEqual([])
+  expect(text).not.toMatch(/onco/i)
+  for (const e of staffOnly) {
+    for (const [k, v] of Object.entries(e.fields)) if (typeof v === 'string' && k !== 'institution_name' && k !== 'event_date_text') expect(text).not.toContain(v)
+  }
+
+  // The sealed file: records officers and clinicians only; it checks out offline against GET /api/keys, a changed byte does not.
+  expect((await desk.get(`/api/snapshots/${sealed.snapshotId}`)).status).toBe(403)
+  const viewer = await anon()
+  expect((await viewer.get(`/api/snapshots/${sealed.snapshotId}`)).status()).toBe(401)
+  const clinPassport = await ui('clinician')
+  await clinPassport.goto(`/print/passport/${sealed.snapshotId}`)
+  await expect(clinPassport.getByRole('link', { name: /Download the sealed file/ })).toHaveAttribute('href', `/api/snapshots/${sealed.snapshotId}`)
+  const file = await clinician.get(`/api/snapshots/${sealed.snapshotId}`)
+  expect(file.status).toBe(200)
+  const { keys } = await (await viewer.get('/api/keys')).json()
+  expect(verifySnapshotFile(file.body, keys)).toMatchObject({ ok: true, hashMatches: true, signatureValid: true, sha256: sealed.sha256 })
+  const flip = (id: string) => id.slice(0, -1) + (id.endsWith('0') ? '1' : '0')
+  expect(verifySnapshotFile({ ...file.body, snapshot: { ...file.body.snapshot, patientId: flip(file.body.snapshot.patientId) } }, keys).ok).toBe(false)
 })

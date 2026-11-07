@@ -38,7 +38,7 @@ export function PatientShell({
             {displayName && (
               <p className="hidden text-right leading-tight min-[420px]:grid">
                 <span className="font-mono text-[11px] tracking-[0.14em] text-faint uppercase">{shellCopy.account[lang]}</span>
-                <span className="text-[15px]">{displayName}</span>
+                <span className="text-[16px]">{displayName}</span>
               </p>
             )}
             <LanguageToggle value={lang} />
@@ -53,7 +53,7 @@ export function PatientShell({
         </main>
       </div>
       <footer className="border-t border-rule">
-        <p className="mx-auto max-w-reading px-4 py-6 text-[15px] text-muted sm:px-6">{shellCopy.footer[lang]}</p>
+        <p className="mx-auto max-w-reading px-4 py-6 text-[16px] text-muted sm:px-6">{shellCopy.footer[lang]}</p>
       </footer>
     </div>
   );

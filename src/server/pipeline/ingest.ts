@@ -15,11 +15,23 @@ import { MAX_FILE_BYTES, MB } from '@/core/limits'
 import { readDicomMeta } from './dicom'
 import { CATEGORY_LABEL, isStoredOnly, sniffFile, storedNote } from './filetypes'
 import { STUDY_BUNDLE_MIME } from './study'
-import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, scanPdf } from './safety'
+import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, sanitisePdf, scanPdf } from './safety'
 
 // 'abdm': FHIR bundles pulled over ABDM (src/server/abdm/flow.ts) are stored directly as structured documents, not via ingestDocument.
 export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync' | 'email' | 'whatsapp' | 'abdm'
 export type DocStatus = (typeof documents.$inferSelect)['status']
+
+/**
+ * FR-ING-09: a channel that delivers files into a patient's record from outside the app's own screens (the email drop,
+ * WhatsApp, a future ABDM PHR app forwarding a patient's documents). Its route handler authenticates the caller and passes
+ * the parsed payload to `receive`, which must resolve the patient and a sender staff verified for that patient, check the
+ * active `store` consent, send every file through ingestDocument with `route`, and call scheduleProcessing only after its
+ * transaction commits. docs/ADR/ADR-016-provider-interfaces.md.
+ */
+export interface IntakeProvider<Payload, Reply> {
+  readonly route: IntakeRoute
+  receive(payload: Payload, requestId: string): Promise<Reply>
+}
 
 export type IngestInput = {
   orgId: string
@@ -54,7 +66,8 @@ export const QUARANTINE_SCAN_LABEL = 'signature check; full AV scan out of scope
 
 /** Must run inside withOrg(orgId). Throws HttpError for files that are refused (nothing stored). */
 export async function ingestDocument(tx: Tx, input: IngestInput): Promise<IngestResult> {
-  const { orgId, patientId, bytes } = input
+  const { orgId, patientId } = input
+  let bytes = input.bytes // replaced by the sanitised copy when a PDF's active content is stripped (FR-ING-08)
   const audit = input.audit ?? ((action, targetType, targetId, details) =>
     writeAudit(tx, { orgId, actorId: input.uploadedBy.id, actorRole: input.uploadedBy.kind, action, targetType, targetId, details }).then(() => {}))
   await assertConsent(tx, patientId, 'store')
@@ -87,6 +100,14 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   if (sniffed.kind === 'zip') throw new HttpError(415, 'zip_not_expanded', 'A ZIP must be opened before intake (use the upload endpoint)')
   const mime = sniffed.mime
 
+  // FR-ING-08 / E-DOC-05: active content in a PDF is stripped and the clean copy is what is hashed, stored, processed and
+  // served. A PDF that cannot be cleaned, or that also carries the EICAR signature, is quarantined.
+  const found = mime === 'application/pdf' ? scanPdf(bytes) : []
+  const clean = found.length && !eicar ? await sanitisePdf(bytes) : null
+  const received = clean ? { receivedSha256: sha256Hex(bytes), receivedBytes: bytes.length } : null
+  if (clean) bytes = clean
+  const active = clean ? [] : found
+
   // E-DOC-01: exact duplicate for this patient → linked, not reprocessed.
   const sha256 = sha256Hex(bytes)
   const [dup] = await tx.select({ id: documents.id, status: documents.status }).from(documents)
@@ -98,7 +119,6 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   }
 
   const receivedAt = await now(orgId)
-  const active = mime === 'application/pdf' ? scanPdf(bytes) : []
   const quarantine = eicar || active.length > 0
 
   // E-DOC-02: perceptual hash for images; near-duplicate = Hamming ≤ 6 against this patient's images.
@@ -116,6 +136,7 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
 
   const flags: Record<string, unknown> = {}
   if (quarantine) flags.quarantine = { reasons: [...(eicar ? ['eicar_signature'] : []), ...active.map((n) => `pdf_${n}`)], scan: QUARANTINE_SCAN_LABEL }
+  if (received) flags.sanitised = { removed: found.map((n) => `pdf_${n}`), ...received }
   if (nearDupOf) flags.near_duplicate = { of: nearDupOf, method: 'dhash' }
   // What kind of file this is, for the Documents page. Imaging, ECG and video are stored and shown but never read for facts.
   flags.file = { kind: sniffed.kind, category: sniffed.category, label: CATEGORY_LABEL[sniffed.category], ...(isStoredOnly(sniffed.kind) ? { storedOnly: true, note: storedNote(sniffed.category, sniffed.kind) } : {}) }
@@ -150,6 +171,7 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   if (nearDupOf) details.nearDuplicateOf = nearDupOf
   await audit('document.upload', 'document', row.id, details)
   if (quarantine) await audit('document.quarantined', 'document', row.id, { reasons: (flags.quarantine as { reasons: string[] }).reasons })
+  if (received) await audit('document.sanitised', 'document', row.id, { removed: found.map((n) => `pdf_${n}`), receivedSha256: received.receivedSha256 })
   return { documentId: row.id, status: row.status, ...(nearDupOf ? { nearDuplicateOf: nearDupOf } : {}) }
 }
 

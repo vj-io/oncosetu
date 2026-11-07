@@ -58,6 +58,11 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
         description="What the patient or a family member told us before the visit, in their own words. It always stays marked “patient said”: it is never treated as backed by a document."
       />
       {canSend && <SendVisitLink patientId={id} recipient={recipient} />}
+      {canSend && (
+        <p className="text-sm text-muted">
+          Or at the desk: open the <a href="/p/login?station=1" target="_blank" rel="noopener" className="text-ink underline decoration-brass underline-offset-4">desk station</a> on the clinic tablet (not on this computer: signing a patient in signs staff out of that browser). The patient signs in with the code sent to their phone, answers, and the tablet signs out by itself.
+        </p>
+      )}
 
       {groups.length === 0 ? (
         <EmptyState icon={<MessageCircle />} title="No answers yet" description="Send the pre-visit link, or ask the patient to open it on their phone." />
@@ -81,6 +86,12 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
                           <>
                             <blockquote className="border-l-[3px] border-violet pl-3 text-[15px] whitespace-pre-wrap">{it.transcript || '—'}</blockquote>
                             {it.readback && <p className="text-sm text-muted"><span className="font-medium">Read-back shown to the patient:</span> {it.readback}</p>}
+                            {it.audioId && (
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted">
+                                <audio controls preload="none" src={`/api/patients/${id}/statements/${it.id}/audio`} className="h-9" aria-label="The patient's recording" />
+                                <span>Their own voice, kept beside the words{it.asr ? ` · transcribed by ${it.asr}` : ''}</span>
+                              </div>
+                            )}
                           </>
                         ) : (
                           <p className="text-sm text-muted">The patient&rsquo;s words are visible to the Records and Clinician roles.</p>

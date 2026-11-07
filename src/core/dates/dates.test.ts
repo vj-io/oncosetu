@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dateRange, daysBetween, findDates, parseDate, toAsciiDigits, type DateOptions } from '.'
+import { addDays, dateRange, daysBetween, findDates, parseDate, swappedReading, toAsciiDigits, type DateOptions } from '.'
 
 const NOW = '2026-11-02'
 type Exp = [iso: string | null, precision: string, flags?: string[], alternatives?: string[]]
@@ -260,5 +260,15 @@ describe('helpers', () => {
     expect(dateRange('2026-02-01', 'month')).toEqual(['2026-02-01', '2026-02-28'])
     expect(dateRange('2024-01-01', 'year')).toEqual(['2024-01-01', '2024-12-31'])
     expect(dateRange('2026-02-05', 'day')).toEqual(['2026-02-05', '2026-02-05'])
+  })
+  it('swappedReading is the other reading of every ambiguous date (V02-E2E-07)', () => {
+    for (let a = 1; a <= 12; a++) {
+      for (let b = 1; b <= 12; b++) {
+        const p = parseDate(`${a}/${b}/2026`)
+        expect(swappedReading(p.iso!)).toBe(p.alternatives?.[0] ?? null)
+      }
+    }
+    expect(swappedReading('2026-03-13')).toBeNull() // day 13 is no month
+    expect(swappedReading('2026-03')).toBeNull()
   })
 })

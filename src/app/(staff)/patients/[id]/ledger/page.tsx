@@ -7,6 +7,7 @@ import { ConflictCard } from '@/components/ledger/ConflictCard'
 import { LedgerItem } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
 import { mergeNoAnswers } from '@/core/doctor/ledger-view'
+import { writeAudit } from '@/server/audit'
 import { now } from '@/server/clock'
 import type { LedgerView } from '@/server/ledger/core'
 import { loadLedger } from '@/server/ledger/record'
@@ -54,8 +55,9 @@ function SealPlaque({ v, patientId }: { v: LedgerView; patientId: string }) {
         <p className="ds-kicker">Changes since the last sealed visit</p>
         <p className="text-[15px]">Sealed {s.sealedLabel}{s.signerName && <> by {s.signerName}</>}</p>
         <p className="flex flex-wrap items-center gap-x-4 text-sm">
-          <Link href={`/verify/${s.id}`} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Check the seal<ArrowUpRight aria-hidden className="size-3.5" /></Link>
-          <Link href={`/patients/${patientId}/timeline?asOf=${s.id}`} className="text-setu-ink underline decoration-brass underline-offset-4">See the record as it was then</Link>
+          <Link href={`/verify/${s.id}`} className="inline-flex min-h-6 items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Check the seal<ArrowUpRight aria-hidden className="size-3.5" /></Link>
+          <Link href={`/patients/${patientId}/timeline?asOf=${s.id}`} className="inline-flex min-h-6 items-center text-setu-ink underline decoration-brass underline-offset-4">See the record as it was then</Link>
+          <Link href={`/print/passport/${s.id}`} target="_blank" className="inline-flex min-h-6 items-center text-setu-ink underline decoration-brass underline-offset-4">Print the passport</Link>
           <InfoTip>{EXPLAIN.seal}</InfoTip>
         </p>
       </div>
@@ -84,7 +86,12 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   if (!UUID.test(id)) notFound()
   const session = await requireStaff()
   if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
-  const v = await withPatientAccess(id, async (tx, s) => loadLedger(tx, id, s, now(s.orgId)))
+  const v = await withPatientAccess(id, async (tx, s) => {
+    const v = await loadLedger(tx, id, s, now(s.orgId))
+    // Start of the clinician review-time KPI (PRD §16.1, /admin/metrics); ids only.
+    await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'ledger.view', targetType: 'patient', targetId: id, details: { mode: v.mode } })
+    return v
+  })
   if (!v) return null // the workspace layout explains the denial
 
   const items = Object.values(v.events).flat()

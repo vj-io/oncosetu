@@ -12,7 +12,7 @@ const FLAG: Partial<Record<EventFlag, { label: string; tone: 'conflict' | 'unver
   binding_uncertain: { label: 'Check this is on the right line', tone: 'unverified', tip: 'The words are exact, but it is not certain which test or date they belong to. Open the page to be sure.' },
   identity_warning: { label: 'Name not fully matched', tone: 'unverified', tip: 'The name or details on the paper did not fully match this patient.' },
   late_received: { label: 'Arrived after the visit', tone: 'brass' },
-  date_ambiguous: { label: 'Day and month could be swapped', tone: 'unverified', tip: 'Read as day/month, as written in India, but the page does not make that certain.' },
+  date_ambiguous: { label: 'Day and month could be swapped', tone: 'unverified', tip: 'The page does not make clear which number is the day, so both readings are shown until someone checks the page and picks one.' },
   date_unknown: { label: 'No date in the words quoted', tone: 'neutral' },
   date_future: { label: 'Date is in the future', tone: 'unverified' },
   patient_confirmed: { label: 'Patient confirmed', tone: 'neutral' },
@@ -157,7 +157,7 @@ function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
       // Pass only what the client island needs: the full ItemView (~16 KB) would be serialised into the RSC payload per card.
       footer={<ItemActions item={{
         id: item.id, rowVersion: item.rowVersion, status: item.status, permits: item.permits, editable: item.editable,
-        viewedSource: item.viewedSource, typeLabel: item.typeLabel, sources: item.sources.filter((s) => s.href).slice(0, 1),
+        viewedSource: item.viewedSource, typeLabel: item.typeLabel, sources: item.sources.filter((s) => s.href).slice(0, 1), readings: item.when.readings,
       }} />}
     >
       {item.amends && (

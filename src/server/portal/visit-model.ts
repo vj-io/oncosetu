@@ -38,6 +38,8 @@ export const answerSchema = z.object({
   free: text(2000),
   /** Any field of this answer was filled with voice typing. */
   voice: z.boolean().optional(),
+  /** Sarvam recordings behind this answer (voice_clips ids, FR-VOX-05); kept beside the statement. */
+  clips: z.array(z.uuid()).max(6).optional(),
 }).refine((a) => a.month == null || a.year != null, { message: 'month needs a year', path: ['month'] })
 
 export type Answer = z.infer<typeof answerSchema>
@@ -125,7 +127,8 @@ export function buildReadback(answers: Answers, lang: Lang): Readback {
       d = details(q, a, lang)
       key = d ? `rb_${q}_yes` : `rb_${q}_yes_plain`
     } else key = `rb_${q}_${a.yn}`
-    lines.push({ q, text: tp(lang, key as PatientKey, { details: d }) })
+    // the sentence supplies its own full stop: "…subah shaam." from voice typing must not read "…subah shaam.."
+    lines.push({ q, text: tp(lang, key as PatientKey, { details: d.replace(/[\s.।!?]+$/u, '') }) })
   }
   return { intro: tp(lang, 'reviewIntro'), lines }
 }

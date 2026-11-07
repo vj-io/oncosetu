@@ -820,6 +820,24 @@ export const uploadChunks = pgTable('upload_chunks', {
   createdAt: createdAt(),
 }, (t) => [uniqueIndex('upload_chunks_session_idx_uq').on(t.sessionId, t.idx)])
 
+/** Voice answers, encrypted, kept beside the statement they became (FR-VOX-05, 0018). Erased with the patient. */
+export const voiceClips = pgTable('voice_clips', {
+  id: pk(),
+  orgId: orgId(),
+  patientId: patientId(),
+  statementId: uuid('statement_id'),
+  mime: text('mime').notNull(),
+  size: integer('size').notNull(),
+  seconds: integer('seconds').notNull().default(0),
+  bytesEnc: bytea('bytes_enc').notNull(),
+  dekWrapped: text('dek_wrapped').notNull(),
+  asrProvider: text('asr_provider').notNull(),
+  asrModel: text('asr_model').notNull(),
+  createdByKind: text('created_by_kind').notNull(),
+  createdById: uuid('created_by_id').notNull(),
+  createdAt: createdAt(),
+}, (t) => [index('voice_clips_patient_idx').on(t.patientId, t.createdAt), index('voice_clips_statement_idx').on(t.statementId)])
+
 export const signedConsents = pgTable('signed_consents', {
   id: pk(),
   orgId: orgId(),

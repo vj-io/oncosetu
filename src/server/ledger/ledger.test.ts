@@ -102,6 +102,22 @@ describe('tier rules (FR-VER-02)', () => {
 })
 
 describe('edit versioning (E-LED-05)', () => {
+  it('an ambiguous date shows both readings until one is picked through the edit path (FR-EXT-03, V02-E2E-07)', () => {
+    const old = event({ fields: { test_name: 'CBC', event_date_text: '05/06/2026' }, eventDate: '2026-06-05', dateFlags: ['date_ambiguous'], flags: { date_ambiguous: true } })
+    const view = (e: EventRow) => itemsById(buildLedgerView({ rows: rows({ events: [e] }), prev: null, role: 'records', now: NOW })).get(e.id)!
+    const before = view(old)
+    expect(before.when.event).toBe('5 Jun 2026 or 6 May 2026')
+    expect(before.when.readings).toEqual([{ iso: '2026-06-05', label: '5 Jun 2026' }, { iso: '2026-05-06', label: '6 May 2026' }])
+    expect(buildTimeline(buildSnapshot(assembleRecord(rows({ events: [old] })).record, NOW), { quoteByHash: new Map() }).years[0].months[0].items[0].dateLabel).toBe('5 Jun 2026 or 6 May 2026')
+
+    const next = editedVersion(old, { event_date_text: before.when.readings![1].label }, { staffId: 's1' }, new Date(NOW))
+    expect(next).toMatchObject({ eventDate: '2026-05-06', datePrecision: 'day', dateFlags: [], verificationStatus: 'edited' })
+    const after = view(event({ ...next, id: id() }))
+    expect(after.flags).not.toContain('date_ambiguous')
+    expect([after.when.event, after.when.readings]).toEqual(['6 May 2026', null])
+  })
+
+
   it('builds a new version that supersedes the original, marks edited fields and re-parses the written date', () => {
     const old = event({ eventType: 'procedure_documented', fields: { procedure_text: 'wide local excison', event_date_text: '12/03/2026' }, eventDate: '2026-03-12', flags: { rule_based: true }, rowVersion: 3 })
     const next = editedVersion(old, { procedure_text: 'wide local excision ', event_date_text: '13 Mar 2026' }, { staffId: 's1' }, new Date(NOW))

@@ -187,12 +187,14 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
 }
 
 export type Lang = "en" | "hi" | "hinglish";
-const LANG_LABEL: Record<Lang, [short: string, name: string]> = { en: ["EN", "English"], hi: ["हिं", "हिन्दी"], hinglish: ["Hinglish", "Hinglish"] };
+/** Marathi is offered by the consent notice only (src/i18n/consent.ts). */
+type ToggleLang = Lang | "mr";
+const LANG_LABEL: Record<ToggleLang, [short: string, name: string]> = { en: ["EN", "English"], hi: ["हिं", "हिन्दी"], hinglish: ["Hinglish", "Hinglish"], mr: ["मराठी", "मराठी"] };
 
 /** EN / हिं / Hinglish switch (staff screens pass `langs` for EN / हिं only). Without `onChange` it sets `?lang=` on the current URL (server pages read searchParams). */
-export function LanguageToggle({ value, onChange, className, langs = ["en", "hi", "hinglish"] }: { value: Lang; onChange?: (lang: Lang) => void; className?: string; langs?: readonly Lang[] }) {
+export function LanguageToggle<L extends ToggleLang = Lang>({ value, onChange, className, langs = ["en", "hi", "hinglish"] as L[] }: { value: L; onChange?: (lang: L) => void; className?: string; langs?: readonly L[] }) {
   const router = useRouter();
-  const choose = (lang: Lang) => {
+  const choose = (lang: L) => {
     if (lang === value) return;
     if (onChange) return onChange(lang);
     const url = new URL(window.location.href);
@@ -211,7 +213,7 @@ export function LanguageToggle({ value, onChange, className, langs = ["en", "hi"
           className={clsx(
             "h-11 min-w-12 px-3 transition-colors",
             value === lang ? "bg-obsidian text-gallery" : "text-ink hover:bg-spotlight",
-            lang === "hi" ? "font-deva text-[15px]" : "font-mono text-xs tracking-[0.14em]",
+            lang === "hi" || lang === "mr" ? "font-deva text-[15px]" : "font-mono text-xs tracking-[0.14em]",
           )}
         >
           <span aria-hidden>{LANG_LABEL[lang][0]}</span>

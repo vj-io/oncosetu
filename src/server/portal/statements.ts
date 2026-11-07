@@ -7,6 +7,8 @@ import type { Tx } from '@/db'
 import { events, evidence, patientStatements } from '@/db/schema'
 import { now } from '../clock'
 import { sha256Hex } from '../crypto'
+import { linkClips } from '../voice/clips'
+import { BROWSER_ASR, asr } from '../voice/provider'
 import {
   buildReadback, hasContent, monthYear, QUESTION_IDS, splitNames, statedDate, transcriptOf,
   type Answers, type QuestionId,
@@ -34,17 +36,20 @@ export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation
     const meds = q === 'new_medicines' ? splitNames(a.names) : []
     const scans = q === 'new_tests' && a.testKind === 'scan' ? (splitNames(a.names).length ? splitNames(a.names) : ['scan']) : []
     const institution = q !== 'anything_else' && a.place ? a.place : null
+    const clips = a.clips ?? []
     const [row] = await tx.insert(patientStatements).values({
       orgId: s.orgId, patientId: s.patientId, questionId: q,
       // answer: everything the patient chose or typed, as given, plus the fields the Radar reads (see core CoreStatement)
       answer: {
-        ...a, batchId, medicationNames: meds, scanNames: scans, institutionName: institution,
+        ...a, clips: undefined, batchId, medicationNames: meds, scanNames: scans, institutionName: institution,
         statedDate: sd?.iso ?? null, statedPrecision: sd?.precision ?? null,
       },
       transcript, language: s.lang, readbackText: buildReadback({ [q]: a }, s.lang).lines[0]?.text ?? null,
-      confirmation: confirmation === 'unconfirmed' ? 'pending' : confirmation, asrProvider: a.voice ? 'browser-webspeech' : null,
+      confirmation: confirmation === 'unconfirmed' ? 'pending' : confirmation, asrProvider: clips.length ? asr.name : a.voice ? BROWSER_ASR : null,
+      asrModel: clips.length ? asr.model : null, audioId: clips[0] ?? null,
       createdByKind: s.actor.kind, createdById: s.actor.id, createdAt: at, confirmedAt: confirmed ? at : null,
     }).returning({ id: patientStatements.id })
+    await linkClips(tx, s.patientId, clips, row.id)
     nStatements++
 
     if (!hasContent(q, a)) continue
@@ -76,6 +81,8 @@ export type StatementGroup = {
   items: {
     id: string; questionId: QuestionId | string; transcript: string | null; readback: string | null
     confirmation: 'pending' | 'confirmed' | 'corrected' | 'declined'; voice: boolean; language: string | null
+    /** The kept recording (FR-VOX-05) and what transcribed it, when the answer was spoken through Sarvam. */
+    audioId: string | null; asr: string | null
     eventId: string | null; conflict: boolean
   }[]
 }
@@ -97,7 +104,7 @@ export async function loadStatementGroups(tx: Tx, patientId: string): Promise<St
     const g = groups.get(key) ?? { key, encounterId: r.encounterId, at: r.createdAt.toISOString(), by: r.createdByKind, items: [] }
     g.items.push({
       id: r.id, questionId: r.questionId, transcript: r.transcript, readback: r.readbackText, confirmation: r.confirmation,
-      voice: !!r.asrProvider, language: r.language, eventId: e?.eventId ?? null, conflict: !!e && (!!e.flags?.conflict || !!e.conflictGroup),
+      voice: !!r.asrProvider, language: r.language, audioId: r.audioId, asr: r.asrProvider ? [r.asrProvider, r.asrModel].filter(Boolean).join(' · ') : null, eventId: e?.eventId ?? null, conflict: !!e && (!!e.flags?.conflict || !!e.conflictGroup),
     })
     groups.set(key, g)
   }

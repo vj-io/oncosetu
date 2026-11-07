@@ -18,3 +18,4 @@ export const pctText = (r: { num: number; den: number }, digits = 1) =>
   r.den > 0 ? `${((r.num / r.den) * 100).toFixed(digits).replace(/\.0+$/, '')}%` : '—'
 
 export const daysText = (d: number | null) => (d == null ? '—' : `${d.toFixed(1).replace(/\.0$/, '')} d`)
+export const minutesText = (m: number | null) => (m == null ? '—' : `${m.toFixed(1).replace(/\.0$/, '')} min`)

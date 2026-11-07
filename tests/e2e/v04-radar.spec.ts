@@ -35,7 +35,7 @@ test('V04-E2E-01 a discharge summary with an excision lists the histopathology r
   const card = page.locator(`article#m-${item.id}`)
   await expect(card).toContainText('Histopathology report not in file for the procedure documented on 12 Mar 2026')
   await expect(card.locator('q')).toContainText('Wide local excision done on 12/03/2026') // the source quote
-  await expect(card.getByRole('link', { name: /View source/ })).toHaveAttribute('href', new RegExp(`/documents/${up.documentId}\\?event=`))
+  await expect(card.getByRole('link', { name: /Show the exact words/ })).toHaveAttribute('href', new RegExp(`/documents/${up.documentId}\\?event=`))
   const shown = await card.locator('h3, [class*="Empty"]').first().innerText().catch(() => '')
   expect(radarHits(shown + ' ' + (await card.innerText()))).toEqual([])
 })
@@ -70,12 +70,12 @@ test('V04-E2E-02 request letter EN + HI, mark sent, reminder at +7 days (one SMS
   await page.goto(`/print/request/${rid}?lang=hi`)
   await expect(page.locator('html[lang="hi"], [lang="hi"]').first()).toBeAttached()
 
-  // A hospital name that is itself a diagnosis word is left blank on a letter the patient carries (disclosure not cleared).
+  // A hospital name with a diagnosis word keeps only its safe part on a letter the patient carries (disclosure not cleared).
   const guarded = (await records.post('/api/requests', { patientId: p.id, missingIds: [], institution: 'Nirnay Pathology and Onco-Diagnostics', lang: 'en' })).body.id
   await page.goto(`/print/request/${guarded}?lang=en`)
   const blank = await page.locator('body').innerText()
   expect(blank).not.toMatch(/onco/i)
-  expect(blank).toContain('(write the hospital name here)')
+  expect(blank).toContain('Nirnay Pathology')
   expect((await records.post(`/api/requests/${guarded}/withdraw`, {})).ok).toBe(true)
 
   // Mark as given to the hospital: the item moves to "requested".
@@ -133,7 +133,7 @@ test('V04-E2E-03 the report arrives through the patient portal: closure proposed
   expect(proposed.proposedDocumentId).toBe(doc.id)
   const page = await ui('records')
   await page.goto(`/patients/${p.id}/completeness`)
-  await expect(page.locator(`article#m-${item.id}`)).toContainText('Institution differs') // E-RAD-01: the report comes from another lab than the hospital
+  await expect(page.locator(`article#m-${item.id}`)).toContainText('From a different hospital than the one that mentioned it') // E-RAD-01: the report comes from another lab than the hospital
   let req = (await records.get(`/api/requests?patientId=${p.id}`)).body.requests[0]
   expect(req.state).not.toBe('fulfilled')
 
@@ -161,7 +161,7 @@ test('V04-E2E-04 chemotherapy cycle 4 documented without earlier records: one gr
   await page.goto(`/patients/${p.id}/completeness`)
   await expect(page.locator('article[id^="m-"]')).toHaveCount(1)
   await expect(page.locator(`article#m-${items[0].id}`)).toContainText('Chemotherapy records for cycles 1–3 are not in file')
-  await expect(page.locator(`article#m-${items[0].id}`)).toContainText('one item for all earlier cycles')
+  await expect(page.locator(`article#m-${items[0].id}`)).toContainText('asked for together in one request')
 })
 
 /** A sealed record of the hero patient from fast PDFs, plus a share created by `by`. */
@@ -197,7 +197,7 @@ test('V04-E2E-05 caregiver shares the document index (7 days, passcode): the vie
   // Every open shows in the staff log and in the patient's own access log.
   const staffPage = await ui('records')
   await staffPage.goto(`/patients/${p.id}/shares`)
-  const row = staffPage.getByRole('row').filter({ hasText: 'active' }).first()
+  const row = staffPage.getByRole('row').filter({ hasText: 'Working' }).first()
   await expect(row).toContainText('passcode')
   await row.locator('summary').click()
   await expect(row).toContainText(/Opened/)
@@ -275,5 +275,5 @@ test('V04-E2E-08 an unreviewed (shadow) rule runs in shadow mode only: its item 
   const apage = await ui('admin')
   await apage.goto('/admin/rules')
   const rule = apage.locator('article, tr, li').filter({ hasText: 'RAD-HPE-IHC-01' }).first()
-  await expect(rule).toContainText(/shadow/i)
+  await expect(rule).toContainText('Under review') // shadow mode
 })

@@ -14,8 +14,8 @@ export function ActionCard({ href, icon, title, text, note }: { href: string; ic
       </span>
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="font-display text-xl leading-snug tracking-[-0.015em]">{title}</span>
-        <span className="text-[15px] text-muted">{text}</span>
-        {note && <span className="text-[15px] text-ink">{note}</span>}
+        <span className="text-[16px] text-muted">{text}</span>
+        {note && <span className="text-[16px] text-ink">{note}</span>}
       </span>
       <ArrowRight aria-hidden className="size-5 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
     </Link>

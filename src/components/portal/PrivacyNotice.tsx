@@ -41,13 +41,13 @@ export function PrivacyNotice({ lang, version, initial }: { lang: Lang; version:
         <li>{tv(lang, "noticeWhy")}</li>
         <li>{tv(lang, "noticeHow")}</li>
       </ul>
-      <p className="text-[15px] text-muted">{tv(lang, "noticeVersion", { version })}</p>
+      <p className="text-[16px] text-muted">{tv(lang, "noticeVersion", { version })}</p>
       {saved && <p role="status" className="flex items-start gap-2 border border-sage bg-sage-tint px-4 py-3 text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "ackSaved")}</p>}
       {ack?.current ? (
         <p data-testid="ack-done" className="text-[17px]">{tv(lang, "ackDone", { date: formatDateTimeIN(new Date(ack.at), lang), version: ack.version })}</p>
       ) : (
         <div className="grid gap-3">
-          {ack && !ack.current && <p className="text-[15px] text-muted">{tv(lang, "ackOld")}</p>}
+          {ack && !ack.current && <p className="text-[16px] text-muted">{tv(lang, "ackOld")}</p>}
           <label className="flex min-h-11 cursor-pointer items-center gap-3 text-[17px]">
             <input type="checkbox" className="size-5 accent-[var(--color-setu)]" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
             {tv(lang, "ackLabel")}

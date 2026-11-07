@@ -19,7 +19,7 @@ export const SAFETY_META: Record<SafetyKind, { label: string; tone: SafetyTone; 
   share_refused: { label: 'Share link refused', tone: 'unverified', explain: 'Someone opened a share link with the wrong passcode, after it expired, or after it was switched off.' },
   sms_limit: { label: 'Code limit reached', tone: 'unverified', explain: 'A phone asked for too many verification codes, so no further code was sent for a while.' },
   id_number_rejected: { label: 'Full ID number rejected', tone: 'unverified', explain: 'A full government ID number was typed where it must not be stored, and was refused.' },
-  upload_rejected: { label: 'Upload rejected', tone: 'unverified', explain: 'A file was refused because it looked unsafe or was in a format the system cannot read.' },
+  upload_rejected: { label: 'Upload rejected (unsafe or unsupported file)', tone: 'unverified', explain: 'A file was refused because it looked unsafe or was in a format the system cannot read.' },
   duplicate_upload: { label: 'Duplicate upload', tone: 'neutral', explain: 'The same file was uploaded twice. The copy was recognised and not added again.' },
   consent_withdrawn: { label: 'Consent withdrawn', tone: 'setu', explain: 'A patient withdrew consent. Access and share links stopped.' },
   erasure_done: { label: 'Records erased', tone: 'verified', explain: 'A patient’s records were erased at their request. The audit trail is kept.' },
@@ -43,6 +43,13 @@ export type SafetyEvent = { kind: SafetyKind; at: Date; title: string; detail: s
 const ROLE_WORDS: Record<string, string> = { desk: 'Desk staff', records: 'Records staff', clinician: 'Clinician', org_admin: 'Administrator', auditor: 'Auditor', patient: 'Patient', caregiver: 'Caregiver', system: 'The system' }
 export const roleWords = (r: string | null | undefined) => (r ? ROLE_WORDS[r] ?? 'Someone' : 'Someone')
 const whoOf = (r: RawSafety) => (r.actorName ? `${r.actorName} (${roleWords(r.actorRole).toLowerCase()})` : roleWords(r.actorRole))
+
+const REJECT_WORDS: Record<string, string> = {
+  unsupported_type: 'The file type is not one the system accepts.', file_too_large: 'The file was over the size limit.', malware_signature: 'The file carried a known test-virus signature.',
+  empty_file: 'The file was empty.', zip_bomb: 'A ZIP expanded far too much and was refused.', zip_too_many_files: 'A ZIP held too many files.', zip_too_large: 'A ZIP was over the size limit.',
+  zip_too_big_unpacked: 'A ZIP was too large once opened.', zip_unreadable: 'A ZIP could not be opened.', zip_empty: 'A ZIP was empty.', unsafe_file_name: 'A ZIP held files with unsafe paths. They were refused.',
+  nested_archive: 'A ZIP held another ZIP. It was refused.', zip_nothing_accepted: 'Nothing in a ZIP could be accepted.',
+}
 
 const SHARE: Record<string, string> = {
   wrong_passcode: 'a wrong passcode was typed', locked: 'the link is locked after too many wrong passcodes', expired: 'the link had expired',
@@ -78,6 +85,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
       return d.outcome === 'locked' ? mk('sms_limit', 'No new code was sent: this phone has reached its limit. Use in-person witnessed check-in instead.') : null
     case 'desk.verify_failed': return d.reason === 'locked' ? mk('sms_limit', 'Too many wrong codes were typed, so this phone is paused for a while.') : null
     case 'identity.full_id_rejected': return mk('id_number_rejected', 'A full ID number was refused. Only the last four digits may be kept.')
+    case 'document.upload_rejected': return mk('upload_rejected', REJECT_WORDS[String(d.reason ?? '')] ?? 'The file was refused and nothing was kept.')
     case 'document.quarantined': return mk('upload_rejected', 'The file looked unsafe or unsupported and was set aside. It was never opened.')
     case 'inbound.email_rejected': return mk('upload_rejected', 'An emailed attachment was refused.', 'The system')
     case 'document.unreadable': return mk('upload_rejected', 'The file could not be read, so it was not processed.', 'The system')
@@ -91,7 +99,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
 /** The audit actions the loader must fetch. Kept next to the mapper so they cannot drift apart. */
 export const SAFETY_AUDIT_ACTIONS = [
   'access.refused', 'break_glass.granted', 'share.locked', 'desk.otp_requested', 'consent.otp_requested', 'desk.verify_failed',
-  'identity.full_id_rejected', 'document.quarantined', 'inbound.email_rejected', 'document.unreadable', 'document.duplicate_upload',
+  'identity.full_id_rejected', 'document.upload_rejected', 'document.quarantined', 'inbound.email_rejected', 'document.unreadable', 'document.duplicate_upload',
   'consent.withdrawn', 'erasure.executed',
 ] as const
 

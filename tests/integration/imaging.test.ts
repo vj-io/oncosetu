@@ -117,3 +117,56 @@ describe('imaging intake', () => {
     expect(d.stage).toBe('completeness')
   }, 60_000)
 })
+
+describe('rejected uploads are returned and audited', () => {
+  const rejected = async (bytes: Uint8Array, fileName: string) => {
+    const c = await ctx()
+    const before = await owner`select count(*)::int as n from audit_log where action = 'document.upload_rejected' and target_id = ${pid}`
+    const r = await c.db.withOrg(ORG_NARMADA_ID, (tx) => c.up.ingestUpload(tx, { ...base, fileName, bytes }))
+    const rows = await owner`select details from audit_log where action = 'document.upload_rejected' and target_id = ${pid} order by seq desc`
+    return { r, added: rows.length - before[0].n, latest: rows.slice(0, rows.length - before[0].n).map((x) => x.details as Record<string, unknown>) }
+  }
+
+  it('an unsupported file is returned as a rejection and audited with its reason, not its name', async () => {
+    const { r, added, latest } = await rejected(new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0, 4, 0, 0, 0, 255]), 'patient-name-scan.exe')
+    expect(r.rejected).toMatchObject({ status: 415, code: 'unsupported_type' })
+    expect(added).toBe(1)
+    expect(latest[0]).toMatchObject({ reason: 'unsupported_type', via: 'bulk' })
+    expect(JSON.stringify(latest)).not.toContain('patient-name-scan')
+  }, 60_000)
+
+  it('a binary file carrying the test-virus signature is refused', async () => {
+    const eicar = Buffer.from('X5O!P%@AP[4' + String.fromCharCode(92) + 'PZX54(P^)7CC)7}$' + 'EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*', 'latin1')
+    const { r, latest } = await rejected(new Uint8Array(Buffer.concat([Buffer.from([0, 1, 2, 3]), eicar])), 'x.bin')
+    expect(r.rejected).toMatchObject({ status: 422, code: 'malware_signature' })
+    expect(latest[0]).toMatchObject({ reason: 'malware_signature' })
+  }, 60_000)
+
+  it('a file over the size limit is refused', async () => {
+    const big = new Uint8Array(51 * 1024 * 1024); big[0] = 0x25; big.set([0x25, 0x50, 0x44, 0x46, 0x2d], 0)
+    const { r, latest } = await rejected(big, 'big.pdf')
+    expect(r.rejected).toMatchObject({ status: 413, code: 'file_too_large' })
+    expect(latest[0]).toMatchObject({ reason: 'file_too_large' })
+  }, 120_000)
+
+  it('a zip bomb is refused before it is opened, and a ZIP of only unsafe paths is refused with a reason per kind', async () => {
+    const bomb = await rejected(zipSync({ 'zeros.bin': new Uint8Array(30 * 1024 * 1024) }), 'bomb.zip')
+    expect(bomb.r.rejected).toMatchObject({ code: 'zip_bomb' })
+    expect(bomb.latest[0]).toMatchObject({ reason: 'zip_bomb' })
+    const trav = await rejected(zipSync({ '../../etc/passwd': strToU8('root'), '/abs/x.txt': strToU8('x') }), 'trav.zip')
+    expect(trav.r.rejected).toMatchObject({ status: 422, code: 'zip_nothing_accepted' })
+    const reasons = trav.latest.map((d) => d.reason)
+    expect(reasons).toContain('unsafe_file_name')
+    expect(reasons).toContain('zip_nothing_accepted')
+  }, 60_000)
+
+  it('a refused entry inside an otherwise good ZIP is audited and the good file is still stored', async () => {
+    const c = await ctx()
+    const png = new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0, 4, 0, 0, 0, 9])
+    const { r, latest } = await rejected(zipSync({ 'note.txt': strToU8('A short typed note about a visit.'), 'tool.exe': png }), 'mixed.zip')
+    expect(r.rejected).toBeUndefined()
+    expect(r.documents.length).toBe(1)
+    expect(latest.map((d) => d.reason)).toContain('unsupported_type')
+    void c
+  }, 60_000)
+})

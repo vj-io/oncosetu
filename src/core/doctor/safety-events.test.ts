@@ -30,6 +30,10 @@ describe('describeSafety', () => {
   })
   it('maps uploads, duplicates, consent and erasure', () => {
     expect(describeSafety(audit('document.quarantined'))?.kind).toBe('upload_rejected')
+    const rej = describeSafety(audit('document.upload_rejected', { reason: 'zip_bomb' }))
+    expect(rej).toMatchObject({ kind: 'upload_rejected', title: 'Upload rejected (unsafe or unsupported file)' })
+    expect(rej?.detail).toMatch(/ZIP expanded far too much/)
+    expect(describeSafety(audit('document.upload_rejected', {}))?.detail).toMatch(/refused/)
     expect(describeSafety(audit('document.duplicate_upload'))?.kind).toBe('duplicate_upload')
     expect(describeSafety(audit('consent.withdrawn'))?.kind).toBe('consent_withdrawn')
     expect(describeSafety(audit('erasure.executed', {}, { actorRole: 'system' }))?.kind).toBe('erasure_done')

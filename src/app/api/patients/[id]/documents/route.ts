@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { assertDeviceActive } from '@/server/devices/check'
 import { HttpError, route } from '@/server/http'
@@ -31,6 +32,7 @@ export const POST = route({ auth: 'staff', roles: ['desk', 'records', 'clinician
     clientFileId: m.clientFileId, encounterId: m.encounterId, clientCapturedAt: m.clientCapturedAt ? new Date(m.clientCapturedAt) : null, fileName: file.name, mime: file.type, bytes: new Uint8Array(await file.arrayBuffer()),
     audit: ctx.audit,
   })
+  if (up.rejected) return NextResponse.json({ error: { code: up.rejected.code, message: up.rejected.message } }, { status: up.rejected.status })
   for (const r of up.documents) if (r.status === 'queued' && !r.duplicateOf && !r.idempotent) scheduleProcessing(r.documentId, ctx.session.orgId)
   // a single file keeps the old response shape; a ZIP also lists what was skipped
   return up.expandedZip ? { documents: up.documents, skipped: up.skipped } : { ...up.documents[0], skipped: up.skipped }

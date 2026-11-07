@@ -6,7 +6,7 @@ import { readDicomMeta, studyLabel, type DicomMeta } from './dicom'
 import { sniffFile } from './filetypes'
 
 export type ZipEntry = { name: string; base: string; data: Uint8Array }
-export type Skipped = { name: string; reason: string }
+export type Skipped = { name: string; reason: string; /** set when the entry was refused for safety (audited), not merely skipped */ code?: string }
 export type ZipPlan = { ok: true; entries: ZipEntry[]; skipped: Skipped[] } | { ok: false; code: 'zip_too_large' | 'zip_unreadable' | 'zip_too_many_files' | 'zip_too_big_unpacked' | 'zip_bomb' | 'zip_empty'; message: string }
 
 const JUNK = /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$|desktop\.ini$)/i
@@ -25,7 +25,7 @@ export function planZip(zip: Uint8Array): ZipPlan {
   const skipped: Skipped[] = []
   const take = new Set<string>()
   for (const f of files) {
-    if (unsafeName(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'unsafe file name' }); continue }
+    if (unsafeName(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'unsafe file name', code: 'unsafe_file_name' }); continue }
     if (JUNK.test(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'system file' }); continue }
     if (f.originalSize === 0) { skipped.push({ name: f.name, reason: 'empty file' }); continue }
     if (f.originalSize / Math.max(f.size, 1) > MAX_ZIP_RATIO && f.originalSize > 1 << 20) return { ok: false, code: 'zip_bomb', message: 'The ZIP was refused because a file in it expands far too much' }
@@ -40,7 +40,7 @@ export function planZip(zip: Uint8Array): ZipPlan {
     if (listed && data.length !== listed.originalSize) return { ok: false, code: 'zip_bomb', message: 'The ZIP was refused because it does not match its own listing' }
     const base = name.split(/[\\/]/).pop() ?? name
     const kind = sniffFile(data, base)?.kind
-    if (kind === 'zip') { skipped.push({ name, reason: 'a ZIP inside a ZIP is not accepted' }); continue }
+    if (kind === 'zip') { skipped.push({ name, reason: 'a ZIP inside a ZIP is not accepted', code: 'nested_archive' }); continue }
     if (base.toUpperCase() === 'DICOMDIR') { skipped.push({ name, reason: 'DICOMDIR index (not needed, the images are read directly)' }); continue }
     entries.push({ name, base, data })
   }

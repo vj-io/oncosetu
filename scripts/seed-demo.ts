@@ -223,6 +223,7 @@ async function signatureValid(origin: string, p: J): Promise<boolean> {
 // ── 1. reset ─────────────────────────────────────────────────────────────────
 /** Child → parent order (FKs are not deferrable). `sessions` and `staff` are handled separately. */
 const ORG_TABLES = [
+  'signed_consents', 'upload_chunks', 'upload_sessions', 'privacy_acknowledgements', 'id_verifications',
   'abdm_transfers', 'abdm_consent_requests', 'inbound_hold_files', 'inbound_holds', 'inbound_aliases', 'contact_emails',
   'share_views', 'share_links', 'record_requests', 'missing_records', 'verification_qa_reviews', 'measurement_form_doc_types',
   'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_pages',
@@ -472,7 +473,7 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
 
   // share link: opens with the passcode on both origins and decrypts with the fragment key
   console.log('\n── SHARE LINK (fulfilled patient, passcode ' + SHARE_PASSCODE + ', 7 days)')
-  for (const origin of [BASE, DEPLOYED]) {
+  for (const origin of BASE.includes('localhost') ? [BASE] : [BASE, DEPLOYED]) // a local run never touches the live site {
     const url = `${origin}/s/${out.shareId}#${out.shareKey}`
     try {
       const o = await new Client('viewer', origin).post(`/api/shares/${out.shareId}/open`, { passcode: SHARE_PASSCODE })

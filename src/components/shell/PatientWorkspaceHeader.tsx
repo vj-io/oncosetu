@@ -8,22 +8,22 @@ export const PATIENT_TABS = [
   ["overview", "Overview"],
   ["documents", "Documents"],
   ["timeline", "Timeline"],
-  ["ledger", "Change ledger"],
-  ["completeness", "Completeness checklist"],
+  ["ledger", "What’s new"],
+  ["completeness", "Missing papers"],
   ["requests", "Requests"],
   ["shares", "Share links"],
-  ["statements", "Pre-visit"],
+  ["statements", "Patient’s own answers"],
   ["consent", "Consent & access"],
-  ["audit", "Audit"],
+  ["audit", "Activity log"],
 ] as const;
 
 export type TabKey = (typeof PATIENT_TABS)[number][0];
 export type Disclosure = "cleared" | "not_cleared" | "unknown";
 
 const DISCLOSURE: Record<Disclosure, { label: string; tone: Tone; icon: ReactNode }> = {
-  cleared: { label: "Disclosure: cleared", tone: "verified", icon: <ShieldCheck /> },
-  not_cleared: { label: "Disclosure: not cleared", tone: "conflict", icon: <EyeOff /> },
-  unknown: { label: "Disclosure: unknown", tone: "unverified", icon: <CircleHelp /> },
+  cleared: { label: "Diagnosis may be discussed", tone: "verified", icon: <ShieldCheck /> },
+  not_cleared: { label: "Do not discuss the diagnosis with the patient", tone: "conflict", icon: <EyeOff /> },
+  unknown: { label: "Not yet recorded: use neutral words", tone: "unverified", icon: <CircleHelp /> },
 };
 
 export type PatientWorkspaceHeaderProps = {
@@ -52,7 +52,7 @@ export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWork
       <div className="flex items-start gap-4 pb-5 sm:gap-5">
         <Avatar name={p.name} initials={p.initials} size="lg" />
         <div className="grid min-w-0 gap-1.5">
-          <p className="ds-kicker">Patient · ACC. {p.accession}</p>
+          <p className="ds-kicker">Patient · record code {p.accession}</p>
           <h1 className="text-[1.75rem] leading-tight tracking-[-0.025em] break-words sm:text-[2.25rem]">{p.name}</h1>
           {facts && <p className="font-mono text-[13px] text-muted">{facts}</p>}
           <div className="mt-1 flex flex-wrap gap-2">
@@ -60,7 +60,7 @@ export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWork
               {d.label}
             </Badge>
             <Badge tone="neutral" icon={<UserRound />}>
-              Primary contact: {p.primaryContact}
+              Main contact: {p.primaryContact}
             </Badge>
             {p.minor && <Badge tone="unverified">Minor</Badge>}
           </div>

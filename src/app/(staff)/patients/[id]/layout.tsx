@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, inArray, isNull } from 'drizzle-orm'
+import { and, count, eq, gt, inArray, isNull, sql } from 'drizzle-orm'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import { RecordErasure } from '@/components/erasure/RecordErasure'
-import { documents, events, missingRecords } from '@/db/schema'
+import { documents, events, missingRecords, snapshots } from '@/db/schema'
 import { accession, istDate } from '@/server/admin/format'
 import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
@@ -32,12 +32,16 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     }
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [[docs], [open], [unverified]] = await Promise.all([
+    const [[docs], [open], [changed]] = await Promise.all([
       tx.select({ n: count() }).from(documents).where(eq(documents.patientId, id)),
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
-      tx.select({ n: count() }).from(events).where(and(eq(events.patientId, id), eq(events.verificationStatus, 'unverified'), isNull(events.withdrawnAt))),
+      // The "What's new" badge counts items that arrived after the last sealed visit (all items if none is sealed yet), not unverified items.
+      tx.select({ n: count() }).from(events).where(and(
+        eq(events.patientId, id), isNull(events.withdrawnAt),
+        gt(events.receivedAt, sql`coalesce((select max(${snapshots.sealedAt}) from ${snapshots} where ${snapshots.patientId} = ${id}), 'epoch'::timestamptz)`),
+      )),
     ])
-    return { patient, counts: { documents: docs.n, completeness: open.n, ledger: unverified.n } }
+    return { patient, counts: { documents: docs.n, completeness: open.n, ledger: changed.n } }
   }).catch((e) => {
     if (e instanceof HttpError && e.status === 404) return null
     throw e

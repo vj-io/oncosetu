@@ -5,6 +5,8 @@ import { PreVisitLinkButton } from '@/components/registration/PreVisitLinkButton
 import { PATIENT_TABS } from '@/components/shell'
 import { Badge, BrassSeal, ButtonLink, EmptyFrame, Frame, KeyValue, Placard, ProgressMeter, SectionHeader } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
+import { tabAllowed } from '@/lib/patient-tabs'
+import type { StaffRole } from '@/lib/staff-nav'
 import { loadOverview } from '@/server/registration/overview'
 import { withPatientAccess } from '@/server/registration/page'
 
@@ -13,11 +15,12 @@ const ENCOUNTER = { onboarding: 'First visit (onboarding)', returning: 'Returnin
 
 export default async function OverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const o = await withPatientAccess(id, (tx) => loadOverview(tx, id))
+  let role: StaffRole = 'clinician'
+  const o = await withPatientAccess(id, (tx, s) => { role = s.role; return loadOverview(tx, id) })
   if (!o) return null // denied or missing: the workspace layout shows why
   const p = o.patient
   const done = o.steps.filter((s) => s.done).length
-  const links = PATIENT_TABS.filter(([k]) => k !== 'overview')
+  const links = PATIENT_TABS.filter(([k]) => k !== 'overview' && tabAllowed(k, role))
 
   return (
     <div className="grid gap-10 py-8">

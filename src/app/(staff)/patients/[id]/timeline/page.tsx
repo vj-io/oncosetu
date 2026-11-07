@@ -1,3 +1,4 @@
+import { RoleRestricted } from '@/components/shell/RoleRestricted'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { BrassSeal, Button, EmptyState, Frame, SectionHeader, Select } from '@/components/ui'
@@ -21,7 +22,8 @@ const one = (v: string | string[] | undefined) => (typeof v === 'string' && v.le
 export default async function TimelinePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SP }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  await requireStaff(['records', 'clinician'])
+  const _s = await requireStaff()
+  if (!['records', 'clinician'].includes(_s.role)) return <RoleRestricted roles={['records', 'clinician']} role={_s.role} backHref={`/patients/${id}/overview`} />
   const sp = await searchParams
   const filters = { type: one(sp.type), inst: one(sp.inst), source: one(sp.source), status: one(sp.status) }
   const asOf = one(sp.asOf) && UUID.test(one(sp.asOf)!) ? one(sp.asOf)! : null

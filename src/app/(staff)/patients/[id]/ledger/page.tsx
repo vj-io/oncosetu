@@ -1,3 +1,4 @@
+import { RoleRestricted } from '@/components/shell/RoleRestricted'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowUpRight, Copy } from 'lucide-react'
@@ -63,7 +64,8 @@ function SealPlaque({ v, patientId }: { v: LedgerView; patientId: string }) {
 export default async function LedgerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  const session = await requireStaff(['desk', 'records', 'clinician'])
+  const session = await requireStaff()
+  if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
   const v = await withPatientAccess(id, async (tx, s) => loadLedger(tx, id, s, now(s.orgId)))
   if (!v) return null // the workspace layout explains the denial
 

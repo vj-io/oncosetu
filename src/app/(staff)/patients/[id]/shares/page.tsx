@@ -1,3 +1,4 @@
+import { RoleRestricted } from '@/components/shell/RoleRestricted'
 // Share links, staff tab (J5, FR-PAS-02..04): create one at the desk on the patient's behalf, see every open, switch off.
 import { notFound } from 'next/navigation'
 import { CreateShareForm } from '@/components/shares/CreateShareForm'
@@ -20,7 +21,8 @@ const OUTCOME: Record<string, string> = {
 export default async function SharesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  const session = await requireStaff(['desk', 'records', 'clinician'])
+  const session = await requireStaff()
+  if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
   const rows = await withPatientAccess(id, (tx, s) => listSharesForStaff(tx, s.orgId, id))
   if (!rows) return null // the workspace layout explains the denial
   return (

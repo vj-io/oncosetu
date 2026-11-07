@@ -1,3 +1,4 @@
+import { RoleRestricted } from '@/components/shell/RoleRestricted'
 // Records Request Kit, staff tab (FR-REQ-01..05). Letters are printed and given by the patient/caregiver;
 // nothing is sent to an institution automatically.
 import { notFound } from 'next/navigation'
@@ -15,7 +16,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export default async function RequestsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   if (!UUID.test(id)) notFound()
-  const session = await requireStaff(['desk', 'records', 'clinician'])
+  const session = await requireStaff()
+  if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
   const ok = await withPatientAccess(id, async () => true)
   if (!ok) return null // the workspace layout explains the denial
   return (

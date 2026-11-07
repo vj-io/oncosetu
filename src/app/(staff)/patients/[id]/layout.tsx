@@ -50,11 +50,29 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     )
   }
   if ('denied' in data) {
+    const roleLimited = data.denied === 'forbidden' || data.denied === 'break_glass_required' // a role rule, not a consent problem
+    if (roleLimited) {
+      const auditor = data.denied === 'forbidden'
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-16">
+          <EmptyState
+            title={auditor ? 'Patient records are not part of your role' : 'Administrators open a record only with break-glass access'}
+            description={auditor
+              ? 'Auditors review the audit log and counts, not patient records. Use the admin console instead.'
+              : 'This is a role restriction. Administrators can open a patient record only through time-limited break-glass access; the reason is logged and the patient is notified.'}
+            action={<span className="flex flex-wrap gap-4">
+              {!auditor && <Link className="underline" href={`/break-glass/${id}`}>Request break-glass access</Link>}
+              <Link className="underline" href="/admin">Go to the admin console</Link>
+            </span>}
+          />
+        </div>
+      )
+    }
     const verify = data.denied === 'verification_required'
     return (
       <div className="mx-auto max-w-2xl px-4 py-16">
         <EmptyState
-          title={verify ? 'Verify the patient first' : data.denied === 'consent_required' ? 'No active consent for this patient' : 'Access restricted'}
+          title={verify ? 'Verify the patient first' : 'No active consent for this patient'}
           description={verify
             ? 'At the desk a record opens only after the patient or primary contact confirms a code, or after in-person witnessed verification.'
             : "This record opens only with the patient's active consent. Consent can be recorded again at the desk after verification. Clinicians can request time-limited break-glass access; the reason is logged and the patient and administrator are notified."}
@@ -80,6 +98,7 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
           disclosure: p.disclosure, primaryContact: p.primaryContact, minor: p.minor,
         }}
         counts={data.counts}
+        role={session.role}
       />
       {children}
     </div>

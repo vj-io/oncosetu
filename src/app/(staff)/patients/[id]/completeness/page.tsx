@@ -1,3 +1,4 @@
+import { RoleRestricted } from '@/components/shell/RoleRestricted'
 // Document-completeness checklist (FR-RAD-03..06, E-RAD-01..04): the gallery wall of referenced-but-absent documents.
 // Production items only; shadow-mode items are never shown to desk, records or clinicians (FR-RAD-05).
 import Link from 'next/link'
@@ -127,7 +128,8 @@ export default async function CompletenessPage({ params, searchParams }: { param
   const { id } = await params
   if (!UUID.test(id)) notFound()
   const lang = (await searchParams).lang === 'hi' ? 'hi' : 'en'
-  const session = await requireStaff(['desk', 'records', 'clinician', 'org_admin'])
+  const session = await requireStaff()
+  if (!['desk', 'records', 'clinician', 'org_admin'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician', 'org_admin']} role={session.role} backHref={`/patients/${id}/overview`} />
   const data = await withPatientAccess(id, async (tx, s) => ({ c: await loadCompleteness(tx, id, s), today: istDate((await now(s.orgId)).toISOString()) }))
   if (!data) return null // the workspace layout explains the denial
   const { c, today } = data

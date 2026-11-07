@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { CircleHelp, EyeOff, ShieldCheck, UserRound } from "lucide-react";
 import { Avatar, Badge, Tabs, type Tone } from "@/components/ui";
+import { tabAllowed } from "@/lib/patient-tabs";
+import type { StaffRole } from "@/lib/staff-nav";
 
 export const PATIENT_TABS = [
   ["overview", "Overview"],
@@ -38,9 +40,11 @@ export type PatientWorkspaceHeaderProps = {
     minor: boolean;
   };
   counts?: Partial<Record<TabKey, number>>;
+  /** Only the tabs this role can open are shown (a hidden tab would end on a refusal page). */
+  role?: StaffRole;
 };
 
-export function PatientWorkspaceHeader({ patient: p, counts }: PatientWorkspaceHeaderProps) {
+export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWorkspaceHeaderProps) {
   const d = DISCLOSURE[p.disclosure];
   const facts = [p.ageYears != null ? `${p.ageYears} y` : null, p.sex || null, p.mrn ? `MRN ${p.mrn}` : null].filter(Boolean).join(" · ");
   return (
@@ -64,7 +68,7 @@ export function PatientWorkspaceHeader({ patient: p, counts }: PatientWorkspaceH
       </div>
       <Tabs
         label="Patient workspace"
-        items={PATIENT_TABS.map(([key, label]) => ({ href: `/patients/${p.id}/${key}`, label, count: counts?.[key] }))}
+        items={PATIENT_TABS.filter(([key]) => !role || tabAllowed(key, role)).map(([key, label]) => ({ href: `/patients/${p.id}/${key}`, label, count: counts?.[key] }))}
       />
     </header>
   );

@@ -4,7 +4,7 @@
 // `{ accepted: false, reason }`, so Postmark does not retry it.
 import { randomUUID } from 'node:crypto'
 import { NextResponse, type NextRequest } from 'next/server'
-import { receiveEmail } from '@/server/inbound/email'
+import { emailIntake } from '@/server/inbound/email'
 import { basicAuthOk, postmarkPayload } from '@/server/inbound/postmark'
 import { inboundDomain } from '@/server/inbound/staff'
 import { logger } from '@/server/log'
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const parsed = postmarkPayload.safeParse(await req.json().catch(() => null))
   if (!parsed.success) return json({ error: { code: 'invalid_request', message: 'Invalid payload' } }, 400)
   try {
-    const out = await receiveEmail(parsed.data, domain, requestId)
+    const out = await emailIntake.receive(parsed.data, requestId)
     log.info('inbound.email', out.accepted ? { accepted: true, documents: out.documents.length, skipped: out.skipped.length } : { accepted: false, reason: out.reason })
     return json(out)
   } catch (err) {

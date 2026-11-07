@@ -114,6 +114,33 @@ export function previsitCompletion(encounters: readonly EncounterRow[], statemen
   return ratio(ok.length, returning.length)
 }
 
+// ── clinician review time (§16.1) ────────────────────────────────────────────
+export type ReviewAuditRow = { at: Date; action: string; actorRole: string; targetId: string | null; details: Record<string, unknown> }
+export const REVIEW_ACTIONS = ['encounter.started', 'ledger.view', 'snapshot.seal'] as const
+
+/**
+ * Minutes from a clinician's first ledger view during a visit to that visit's seal, per visit, from audit rows only
+ * (all on the real clock; encounter and snapshot timestamps may run on the demo clock). A visit counts once it has both
+ * a clinician ledger view and a seal. Median per visit type; §16.1 targets the returning visit.
+ */
+// ponytail: O(visits × rows) scan; group by patient first past ~10k visits.
+export function clinicianReviewTime(rows: readonly ReviewAuditRow[]) {
+  const byAt = (a: ReviewAuditRow, b: ReviewAuditRow) => +a.at - +b.at
+  const views = rows.filter((r) => r.action === 'ledger.view' && r.actorRole === 'clinician')
+  const seals = rows.filter((r) => r.action === 'snapshot.seal').sort(byAt)
+  const minutes: Record<string, number[]> = {}
+  for (const e of rows) {
+    if (e.action !== 'encounter.started') continue
+    const seal = seals.find((s) => s.details.encounterId === e.targetId)
+    const view = seal && views.filter((v) => v.targetId === e.details.patientId && v.at >= e.at && v.at <= seal.at).sort(byAt)[0]
+    if (!seal || !view) continue
+    const type = String(e.details.type)
+    minutes[type] = [...(minutes[type] ?? []), (+seal.at - +view.at) / 60_000]
+  }
+  const stat = (xs: number[] = []) => ({ medianMinutes: median(xs), visits: xs.length })
+  return { returning: stat(minutes.returning), firstVisit: stat(minutes.onboarding) }
+}
+
 // ── non-disclosure prevalence ────────────────────────────────────────────────
 export function disclosurePrevalence(statuses: readonly string[]) {
   const n = (s: string) => statuses.filter((x) => x === s).length

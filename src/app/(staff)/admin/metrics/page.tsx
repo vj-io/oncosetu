@@ -6,7 +6,7 @@ import { AsrReport, EvalReport } from '@/components/admin/EvalReport'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
-import { daysText, istDate, pctText } from '@/server/admin/format'
+import { daysText, istDate, minutesText, pctText } from '@/server/admin/format'
 import { loadMetrics } from '@/server/admin/metrics'
 import { PREVISIT_WINDOW_DAYS } from '@/server/admin/metrics-compute'
 import { sectionRoles } from '@/server/admin/sections'
@@ -20,7 +20,7 @@ const eventLabel = (t: string) => t.replace(/_documented$/, '').replace(/_/g, ' 
 export default async function MetricsPage() {
   const s = await requireStaff(sectionRoles('metrics'))
   const m = await withOrg(s.orgId, (tx) => loadMetrics(tx))
-  const { prov, corrections, radar, fulfilment, previsit, disclosure, census, safety, qa } = m
+  const { prov, corrections, radar, fulfilment, previsit, review, disclosure, census, safety, qa } = m
   const f = fulfilment.overall
   const unsupportedBad = prov.unsupported > 0
 
@@ -106,6 +106,14 @@ export default async function MetricsPage() {
             </tbody>
           </Table>
           <p className="text-sm text-faint">Institution type is not captured: a request records the institution as free text, so all requests fall under “Not recorded”.</p>
+        </Block>
+
+        <Block kicker="Clinician time" title="Time on the record before sealing" note="Per visit: minutes from a clinician first opening “What’s new” during the visit to sealing it, from the activity log. Target for returning visits: a median of 3 minutes or less.">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+            <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(review.returning.medianMinutes)} ({review.returning.visits} {review.returning.visits === 1 ? 'visit' : 'visits'})</dd>
+            <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(review.firstVisit.medianMinutes)} ({review.firstVisit.visits} {review.firstVisit.visits === 1 ? 'visit' : 'visits'})</dd>
+          </dl>
+          <p className="text-sm text-faint">Time to open a named earlier report is not measured here: nothing records the moment someone starts looking for a report, so it stays a timed observation.</p>
         </Block>
 
         <Block kicker="Documents" title="What kinds of pages arrive" note="Pages of non-duplicate documents. Printed, handwritten and image-only are exclusive; low confidence overlaps them.">

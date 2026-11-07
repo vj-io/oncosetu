@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RadarItem, RadarOutput } from '@/core/radar'
-import { needsRunner, stageStates } from './queries'
+import { minutesLeft, needsRunner, stageStates } from './queries'
 import { planRadarMerge, rowKey } from './radar'
 
 const P = 'patient-1'
@@ -75,5 +75,26 @@ describe('processing state machine helpers', () => {
     expect(planRadarMerge(P, [r], out([], [{ dedupeKey: 'k1', documentId: 'doc-9' }]), evs, none)).toEqual([])
     const [op] = planRadarMerge(P, [r], out([item('k1')]), evs, none)
     expect(op.op === 'update' && (op.set.matchWindow as Record<string, unknown>).rejectedDocumentIds).toEqual(['doc-9'])
+  })
+})
+
+describe('minutesLeft (FR-ONB-02 estimate)', () => {
+  const HOUR = 3_600_000
+  it('is queued pages × median recent per-page time, rounded up to whole minutes', () => {
+    // documents finished hours apart (no overlap); per-page: 20 s, 30 s, 90 s → median 30 s; 7 pages × 30 s = 3.5 min → 4
+    const recent = [{ pages: 3, ms: 60_000, at: 3 * HOUR }, { pages: 2, ms: 60_000, at: 2 * HOUR }, { pages: 1, ms: 90_000, at: HOUR }]
+    expect(minutesLeft(7, recent)).toBe(4)
+    expect(minutesLeft(1, [{ pages: 10, ms: 10_000, at: 0 }])).toBe(1) // under a minute still says "about 1 min"
+  })
+  it('uses completion throughput when documents run side by side (the measured 50-page batch)', () => {
+    // 12 one-page documents finished 6 s apart, each 42 s from upload: 12 queued pages → 12 × 6 s = 72 s → 2 min, not 12 × 42 s
+    const burst = Array.from({ length: 12 }, (_, i) => ({ pages: 1, ms: 42_000, at: 100_000 - i * 6_000 }))
+    expect(minutesLeft(12, burst)).toBe(2)
+    expect(minutesLeft(1, burst)).toBe(1) // never below one page's own latency (42 s → about 1 min)
+  })
+  it('has no estimate with nothing queued or no usable history', () => {
+    expect(minutesLeft(0, [{ pages: 1, ms: 30_000, at: 0 }])).toBeNull()
+    expect(minutesLeft(5, [])).toBeNull()
+    expect(minutesLeft(5, [{ pages: 0, ms: 30_000, at: 1 }, { pages: 2, ms: -5, at: 0 }])).toBeNull() // stored-only files and clock skew are ignored
   })
 })

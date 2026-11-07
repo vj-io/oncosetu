@@ -38,6 +38,12 @@ describe.each(DOCS)('quality check on %s (FR-DOC-03)', (file) => {
     const cut = original().extract({ left: Math.round(m.width! * 0.15), top: 0, width: Math.round(m.width! * 0.85), height: m.height! })
     expect((await check(await from(cut))).issues).toContain('cropped')
   })
+  it('flags a page tilted by 8°, keeps a 2° tilt', async () => {
+    const tilt = async (deg: number) => check(sharp(await original().rotate(deg, { background: '#fff' }).toBuffer()))
+    expect((await tilt(8)).issues).toContain('skewed')
+    expect((await tilt(-8)).issues).toContain('skewed')
+    expect((await tilt(2)).issues).not.toContain('skewed')
+  })
   it('flags a glare patch, but not a clean white page', async () => {
     const m = await original().metadata()
     const dim = await original().linear(0.85, 0).toBuffer() // paper at ~217, so a pure-white patch stands out
@@ -52,4 +58,27 @@ it('reports measurements alongside the verdict', async () => {
   expect(r.ok).toBe(true)
   expect(r.metrics.sharpness).toBeGreaterThan(1000)
   expect(r.metrics.paperLuma).toBeGreaterThan(150)
+})
+
+describe('skew (projection profile) on a synthetic page', () => {
+  // A4 at 150 dpi: 30 lines of word-like bars, the shape text lines give the projection profile.
+  const W = 1240, H = 1754
+  const bars = Array.from({ length: 30 }, (_, l) => Array.from({ length: 9 }, (_, k) =>
+    `<rect x="${120 + k * 110}" y="${150 + l * 48}" width="${60 + ((l * 7 + k * 13) % 40)}" height="16" fill="#222"/>`).join('')).join('')
+  const page = () => sharp(Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#fff"/>${bars}</svg>`)).flatten({ background: '#fff' })
+  const tilted = async (deg: number) => check(sharp(await page().rotate(deg, { background: '#fff' }).png().toBuffer()))
+
+  it('reads a straight page as straight', async () => {
+    const r = await check(sharp(await page().png().toBuffer()))
+    expect(Math.abs(r.metrics.skewDeg)).toBeLessThanOrEqual(0.5)
+    expect(r.issues).not.toContain('skewed')
+  })
+  it('measures the tilt and its direction, and flags it', async () => {
+    for (const deg of [7, -7, 12]) {
+      const r = await tilted(deg)
+      expect(Math.abs(r.metrics.skewDeg - deg)).toBeLessThanOrEqual(1)
+      expect(r.issues).toContain('skewed')
+    }
+    expect((await tilted(3)).issues).not.toContain('skewed')
+  })
 })

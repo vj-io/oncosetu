@@ -13,7 +13,7 @@ import { HeldStages } from './HeldStages'
 import { IdentityDecision } from './IdentityDecision'
 import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, shortId, statusBadge, trackerPosition } from './labels'
 
-export type Progress = { documents: number; pagesReceived: number; pagesProcessed: number; pagesVerified: number; inQueue: number; awaitingDecision: number }
+export type Progress = { documents: number; pagesReceived: number; pagesProcessed: number; pagesVerified: number; inQueue: number; minutesLeft: number | null; awaitingDecision: number }
 
 type UploadItem = { key: string; name: string; size: number; state: 'preparing' | 'uploading' | 'done' | 'error'; pct: number; note?: string; documentId?: string }
 type Sample = { file: string; title: string; docType: string; demoStep: string; kind: string }
@@ -160,9 +160,9 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
           <p className="ds-kicker">In this file</p>
           <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}</h2>
           <p className="text-sm text-muted">
-            {p.inQueue > 0 ? <><LoaderCircle aria-hidden className="ds-spin mr-1 inline size-3.5" />{p.inQueue} being checked · </> : null}
+            {p.inQueue > 0 ? <><LoaderCircle aria-hidden className="ds-spin mr-1 inline size-3.5" />{p.inQueue} being checked{p.minutesLeft ? `, about ${p.minutesLeft} min left` : ''} · </> : null}
             {p.awaitingDecision > 0 ? <span className="text-madder-ink">{p.awaitingDecision} held for checking · </span> : null}
-            {p.pagesVerified} of {p.pagesReceived} pages confirmed by a person.
+            {p.pagesProcessed} of {p.pagesReceived} pages read · {p.pagesVerified} confirmed by a person.
           </p>
         </section>
 

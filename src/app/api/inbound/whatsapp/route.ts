@@ -4,7 +4,7 @@
 import { randomUUID } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { twiml, validTwilioSignature } from '@/server/inbound/twilio'
-import { receiveWhatsApp } from '@/server/inbound/whatsapp'
+import { whatsappIntake } from '@/server/inbound/whatsapp'
 import { logger } from '@/server/log'
 
 export async function POST(req: NextRequest) {
@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     return plain('Forbidden', 403)
   }
   try {
-    const reply = await receiveWhatsApp(params, requestId)
+    const reply = await whatsappIntake.receive(params, requestId)
     return new Response(twiml(reply), { headers: { 'content-type': 'text/xml; charset=utf-8', 'cache-control': 'no-store', 'x-request-id': requestId } })
   } catch (err) {
     log.error('inbound.whatsapp_failed', { err })

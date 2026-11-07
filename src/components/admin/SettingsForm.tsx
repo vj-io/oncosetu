@@ -25,7 +25,7 @@ export function SettingsForm({ flags: initial, retentionDays: initialDays, minRe
         <div className="divide-y divide-rule">
           <Switch label="Voice input" description="Patients and desk staff can answer pre-visit questions by voice." checked={flags.voice} onChange={toggle('voice')} />
           <Switch label="Spoken read-back" description="Read the confirmed answers aloud (text read-back is always available)." checked={flags.tts} onChange={toggle('tts')} />
-          <Switch label="AI extraction" description="Use the language model for extraction. Off: rule-based extraction only. Every result passes the same evidence gate." checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
+          <Switch label="AI-assisted reading (only for patients who consented)" description="Off: documents are read by fixed rules only. Every result passes the same evidence check." checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
         </div>
         <div><Button disabled={!dirtyFlags} loading={busy === 'flags'} onClick={() => run('flags', () => postJson('/api/admin/settings', { flags }), 'Feature flags saved')}>Save flags</Button></div>
       </section>

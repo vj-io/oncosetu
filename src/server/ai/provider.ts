@@ -53,12 +53,12 @@ export function llmProvider(): LlmProvider | null {
 
 export type LlmStatus = { on: boolean; provider: LlmProvider['provider'] | null; model: string | null; label: string }
 
-/** For UI: "LLM: off — rule-based extraction" or "LLM: on — <model> via <provider>". Optionally per org. */
+/** For UI: plain "AI-assisted reading: on/off" (no model or provider names). Optionally per org. */
 export function llmStatus(orgFlagOn = true): LlmStatus {
   const p = llmProvider()
-  if (!p) return { on: false, provider: null, model: null, label: 'LLM: off — rule-based extraction' }
-  if (!orgFlagOn) return { on: false, provider: p.provider, model: p.modelId, label: 'LLM: off for this organisation — rule-based extraction' }
-  return { on: true, provider: p.provider, model: p.modelId, label: `LLM: on — ${p.modelId} via ${p.provider === 'anthropic' ? 'Anthropic' : p.provider === 'google' ? 'Gemini API (free tier, rate-limited)' : 'AI Gateway'}` }
+  if (!p) return { on: false, provider: null, model: null, label: 'AI-assisted reading: off' }
+  if (!orgFlagOn) return { on: false, provider: p.provider, model: p.modelId, label: 'AI-assisted reading: off' }
+  return { on: true, provider: p.provider, model: p.modelId, label: 'AI-assisted reading: on' }
 }
 
 export async function orgAiFlag(tx: Tx, orgId: string): Promise<boolean> {

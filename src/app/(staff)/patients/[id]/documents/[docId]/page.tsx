@@ -51,14 +51,6 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const erratum = flags.erratum as { detachedAt: string; reason: string; withdrawnEventIds: string[]; sealedSnapshots: { seq: number }[] } | undefined
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
-  const extraction = flags.extraction as { method?: string; llm_off?: string } | undefined
-  const LLM_OFF: Record<string, string> = {
-    quota_rpm: 'The shared LLM budget for this minute was in use, so the rule-based extractor ran instead.',
-    quota_rpd: 'Today’s free-tier LLM budget is spent, so the rule-based extractor ran instead.',
-    quota_cooldown: 'The LLM provider asked us to slow down, so the rule-based extractor ran instead.',
-    rate_limited: 'The LLM provider refused the call (rate limit), so the rule-based extractor ran instead.',
-  }
-  const llmNote = extraction?.llm_off ? LLM_OFF[extraction.llm_off] : undefined
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
   const live = d.status === 'queued' || d.status === 'processing'
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
@@ -131,7 +123,6 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             </Link>; the ledger shows it as “Amended”.
           </Notice>
         )}
-        {llmNote && <Notice tone="shadow" icon={<Languages />} title="Rule-based extraction (LLM budget)">{llmNote} Every fact still needs a verbatim quote; use Reprocess later to try the LLM again.</Notice>}
         {Boolean(flags.language_unsupported) && <Notice tone="shadow" icon={<Languages />} title="Language not supported by OCR — stored as an image" />}
         {d.status === 'needs_password' && (
           <Notice tone="unverified" icon={<KeyRound />} title="This PDF is password-protected">

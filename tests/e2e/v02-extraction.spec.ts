@@ -132,7 +132,7 @@ test('V02-E2E-06 no LLM configured: the journey completes in manual mode, keyed 
   const p = await registerPatient(records, { base: 'hero' })
   const page = await ui('records')
   await page.goto(`/patients/${p.id}/documents`)
-  await expect(page.getByText(/LLM: off( for this organisation)? — rule-based extraction/)).toBeVisible()
+  await expect(page.getByText(/AI-assisted reading: off/)).toBeVisible()
 
   const up = await uploadAndWait(records, p.id, 'hero__04-prescription-printed.pdf')
   expect(up.doc.status).toBe('done') // extraction ran without any model

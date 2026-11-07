@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import Link from 'next/link'
 import clsx from 'clsx'
 import {
-  ArrowRight, Bot, CopyCheck, FileImage, FileText, Fingerprint, Hand, KeyRound, Languages, Library, LoaderCircle, PenLine, ScanText, ShieldAlert, Upload,
+  ArrowRight, CopyCheck, FileImage, FileText, Fingerprint, Hand, KeyRound, Languages, Library, LoaderCircle, PenLine, ScanText, ShieldAlert, Upload,
 } from 'lucide-react'
 import { Badge, Button, EmptyState, ProgressMeter, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
 import type { DocSummary } from '@/server/pipeline/queries'
@@ -61,9 +61,9 @@ function sendFile(url: string, blob: Blob, name: string, clientFileId: string, o
 
 const norm = (s: string) => s.toLowerCase().replace(/\b(?:mrs?|ms|smt|shri|mr|mohd|md|dr)\.?\s+/g, '').replace(/[^\p{L}]+/gu, ' ').trim()
 
-export function DocumentsBoard({ patientId, patientName, demo, initial, llm, canDecide }: {
+export function DocumentsBoard({ patientId, patientName, demo, initial, canDecide }: {
   patientId: string; patientName: string; demo: boolean; initial: { rows: DocSummary[]; progress: Progress }
-  llm: { on: boolean; label: string }; canDecide: boolean
+  canDecide: boolean
 }) {
   const [data, setData] = useState(initial)
   const [uploads, setUploads] = useState<UploadItem[]>([])
@@ -142,8 +142,6 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, llm, can
               <p className="ds-kicker">Onboarding backlog</p>
               <h2 id="progress-h" className="mt-1 text-xl tracking-[-0.02em]">{p.documents} document{p.documents === 1 ? '' : 's'} in file</h2>
             </div>
-            {/* The model label is long: it wraps inside the card instead of pushing the card under the upload box. */}
-            <Badge tone={llm.on ? 'setu' : 'shadow'} icon={<Bot />} className="max-w-full"><span className="whitespace-normal leading-snug">{llm.label}</span></Badge>
           </header>
           <ProgressMeter label="Pages received" value={p.pagesReceived} max={Math.max(p.pagesReceived, 1)} detail={String(p.pagesReceived)} tone="neutral" />
           <ProgressMeter label="Pages processed" value={p.pagesProcessed} max={Math.max(p.pagesReceived, 1)} tone="setu" />

@@ -44,3 +44,6 @@ next-env.d.ts
 /playwright-report/
 /test-results/
 /blob-report/
+
+# synthetic audio for scripts/eval-asr.ts
+/.cache

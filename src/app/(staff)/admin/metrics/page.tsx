@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Badge, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { QaReview } from '@/components/admin/QaReview'
 import { BarRows, Block, Stat, StackedBar } from '@/components/admin/charts'
-import { EvalReport } from '@/components/admin/EvalReport'
+import { AsrReport, EvalReport } from '@/components/admin/EvalReport'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
@@ -54,6 +54,7 @@ export default async function MetricsPage() {
       </Block>
 
       <EvalReport />
+      <AsrReport />
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Block kicker="Where facts come from" title="Every fact has its words" note="Each live fact is backed by at least one quote from a document or a patient statement, or is itself a patient statement. Withdrawn and rejected facts are left out.">

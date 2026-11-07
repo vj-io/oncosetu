@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import {
   Activity, ArrowRight, Camera, CopyCheck, FileImage, FileText, Fingerprint, Hand, KeyRound, Languages, Library, LoaderCircle, PauseCircle, PenLine, ScanLine, ScanText, ShieldAlert, Upload, Video,
 } from 'lucide-react'
-import { Badge, Button, EmptyState, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
+import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
@@ -230,12 +230,12 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
       </div>
 
       {/* Document index (FR-ONB-01) */}
-      <section aria-labelledby="index-h" className="grid gap-8">
+      <section aria-labelledby="index-h" className="grid gap-8" data-tour="documents">
         <h2 id="index-h" className="sr-only">Document index</h2>
         {!data.rows.length && <EmptyState icon={<FileText />} title="No documents yet" description="Upload the backlog the patient brought — reports, discharge summaries, prescriptions, phone photos." />}
         {held.length > 0 && (
-          <div className="grid gap-3" data-testid="held-group">
-            <h3 className="ds-kicker flex items-center gap-2 border-b border-madder pb-2 text-madder-ink"><PauseCircle aria-hidden className="size-4" />Held for checking · {held.length}</h3>
+          <div className="grid gap-3" data-testid="held-group" data-tour="held">
+            <h3 className="ds-kicker flex items-center gap-2 border-b border-madder pb-2 text-madder-ink"><PauseCircle aria-hidden className="size-4" />Held for checking · {held.length}<InfoTip>{EXPLAIN.wrongPatient}</InfoTip></h3>
             <p className="text-sm text-muted">These files are kept out of the record until a person confirms they belong to this patient.</p>
             <ul className="grid gap-3">
               {held.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={canDecide} index={i} onChange={refresh} />)}
@@ -298,11 +298,13 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
           <p className="text-sm text-muted">
             {r.documentDate ? `Document date ${fmtDate(r.documentDate)}` : r.file?.storedOnly ? 'No facts are read from this file' : 'No document date found'}
             {r.events > 0 && <> · <span className="text-ink">{r.events} fact{r.events > 1 ? 's' : ''} with quotes</span> ({r.verified} verified)</>}
-            {r.rejected > 0 && <> · {r.rejected} not shown (no matching quote)</>}
+            {r.rejected > 0 && <> · {r.rejected} line{r.rejected > 1 ? 's' : ''} not indexed: <Link href={href} className="underline underline-offset-4">open the source</Link></>}
           </p>
           {chips.length > 0 && (
             <div className="mt-1 flex flex-wrap gap-1.5">
               {chips.map((c) => <Badge key={c.text} tone={c.tone} icon={c.icon}>{c.text}</Badge>)}
+              {r.flags.injection && <InfoTip>{EXPLAIN.hiddenInstructions}</InfoTip>}
+              {r.flags.handwritten && <InfoTip>{EXPLAIN.handwriting}</InfoTip>}
             </div>
           )}
         </div>

@@ -9,7 +9,7 @@ import { now } from '@/server/clock'
 import { inboundEmailView } from '@/server/inbound/staff'
 import { activeConsent, loadPatient } from '@/server/patients'
 import { accessLog } from '@/server/registration/audit-view'
-import { accessPhrase } from '@/server/registration/access-words'
+import { describeAction, describeTarget } from '@/core/doctor/audit-words'
 import { patientOwnTarget } from '@/server/registration/contact'
 import { loadIdRecord } from '@/server/privacy/privacy'
 import { listSignedConsents } from '@/server/privacy/sign'
@@ -152,7 +152,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
                   <tr key={e.seq}>
                     <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(e.at)}</td>
                     <td>{e.actorName ?? (e.actorRole === 'system' ? 'System' : 'Patient side')} <Badge>{e.actorRole}</Badge></td>
-                    <td className="text-sm">{accessPhrase(e.action, e.targetType)}</td>
+                    <td className="text-sm">{describeAction(e.action)}<span className="text-muted"> · {describeTarget(e.targetType)}</span></td>
                   </tr>
                 ))}</tbody>
               </Table>

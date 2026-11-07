@@ -8,7 +8,7 @@ import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
 import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
-import { Badge, Frame, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
+import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
@@ -94,7 +94,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </Notice>
         )}
         {injection && (
-          <Notice tone="conflict" icon={<ShieldAlert />} title={`Hidden text removed before reading${injection.patterns.length ? ` · ${injection.patterns.join(', ').replace(/_/g, ' ')}` : ''}`}>
+          <Notice tone="conflict" icon={<ShieldAlert />} title={<>Hidden text removed before reading<InfoTip>{EXPLAIN.hiddenInstructions}</InfoTip></>}>
             {injection.hiddenChars > 0 ? `${injection.hiddenChars} characters of invisible text (white or under 2 pt) on page ${injection.hiddenPages.join(', ')} were stripped. ` : 'Instruction-like wording was found in the visible text. '}
             Nothing written inside a document can confirm a fact or change anything, and every fact still needs its exact words from the visible text.
             {hidden.length > 0 && (
@@ -106,7 +106,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </Notice>
         )}
         {doc.handwritten && (
-          <Notice tone="unverified" icon={<Hand />} title="Handwritten — stored as an image only">
+          <Notice tone="unverified" icon={<Hand />} title={<>Handwritten, kept as an image only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
             Handwriting is never machine-extracted (no OCR text is kept, so no facts can be quoted). Tag the document type, date and institution below.
           </Notice>
         )}
@@ -168,7 +168,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
                 <>
                   <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} found, each with its quote</span>
                   {gate.rejected > 0
-                    ? <span className="text-madder-ink"> · {gate.rejected} possible fact{gate.rejected > 1 ? 's' : ''} not shown because no matching quote was found</span>
+                    ? <span className="text-madder-ink"> · {gate.rejected} line{gate.rejected > 1 ? 's' : ''} not indexed: open the source and read the page</span>
                     : <span className="text-muted"> · none left out</span>}
                 </>
               ) : <span className="text-muted">No automatic extraction for this file.</span>}
@@ -211,7 +211,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
 
         {/* Identity: header vs registered (FR-ID-03..05) */}
         <section aria-labelledby="id-h" className="grid content-start gap-4 [&>*]:min-w-0">
-          <h2 id="id-h" className="ds-kicker">Identity check · header vs registered patient</h2>
+          <h2 id="id-h" className="ds-kicker">Is this the right patient? <span className="normal-case">header vs registered patient</span>{doc.attachState === 'pending_decision' && <InfoTip>{EXPLAIN.wrongPatient}</InfoTip>}</h2>
           <div className="border border-rule bg-surface p-5 shadow-placard">
             <div className="flex flex-wrap items-center gap-2">
               {doc.identityResult !== 'pending' ? <StatusBadge status={doc.identityResult} /> : <Badge tone="shadow">Not checked yet</Badge>}

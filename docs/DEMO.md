@@ -151,9 +151,9 @@ Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Las
   shows the shared LLM budget (calls this minute / today against 8 / 200).
 
 **Optional (2 minutes) · voice answers and spoken read-back (Sarvam).** Private window → `/p/login` → **Mohd. Abdul
-Rahim Khan** (demo account) → **Before your visit**. On "new medicines", tap **Speak** and say a medicine name (for
+Rahim Khan** (demo account) → **Before your visit**. On "new medicines", tap **Speak instead of typing** and say a medicine name (for
 example "Tab Capecitabine 500, subah shaam"); Sarvam transcribes it with his own medicines as keyterms. On the review
-screen **Listen** reads the answers back in Sarvam's voice: offered only because his disclosure is cleared and the demo
+screen **Read it aloud** reads the answers back in Sarvam's voice: offered only because his disclosure is cleared and the demo
 hospital has spoken read-back on (Rohan's portal, disclosure unknown, shows text only). Confirm. As the clinician, the
 **Statements** tab plays his recording beside the words ("transcribed by sarvam · saaras:v4"). Admin → Metrics →
 **Voice accuracy**: drug names wrong in 36% of synthetic clips without keyterms, 2% with them. For a clinic tablet,

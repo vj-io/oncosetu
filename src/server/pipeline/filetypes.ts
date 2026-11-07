@@ -31,7 +31,7 @@ export const isStoredOnly = (k: FileKind) => STORED_ONLY.includes(k)
 /** Kinds that become pages of text for the normal evidence-gated pipeline. */
 export const READ_AS_TEXT: readonly FileKind[] = ['pdf', 'docx', 'text', 'jpeg', 'png', 'webp', 'heic', 'tiff']
 
-const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1'])
+const HEIF_BRANDS = new Set(['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis', 'mif1', 'msf1', 'avif', 'avis'])
 const VIDEO_BRANDS = new Set(['isom', 'iso2', 'mp41', 'mp42', 'avc1', 'qt  ', 'm4v ', 'mmp4', 'MSNV', 'f4v '])
 
 const ascii = (b: Uint8Array, s: number, e: number) => String.fromCharCode(...b.subarray(s, Math.min(e, b.length)))
@@ -91,8 +91,8 @@ export const CATEGORY_LABEL: Record<Category, string> = { report: 'Report', scan
 
 /** The line shown for anything that is not read as text. */
 export function storedNote(category: Category, kind: FileKind): string {
-  if (kind === 'dicom' || kind === 'nifti') return 'Imaging file — stored, not read'
   if (category === 'ecg') return 'ECG file — stored, not read'
+  if (kind === 'dicom' || kind === 'nifti') return 'Imaging file — stored, not read'
   if (category === 'video') return 'Video file — stored, not read'
   return 'File — stored, not read'
 }

@@ -123,3 +123,28 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
   }
   return Buffer.concat([Buffer.alloc(128), Buffer.from('DICM'), groupLen, meta, ...set, pixel])
 }
+
+/** A SYNTHETIC 12-lead ECG waveform DICOM (generated sine-and-spike traces, not a real tracing). */
+export async function buildSyntheticEcgDicom(o: { patientName: string; patientId?: string; sex?: 'F' | 'M'; age?: string; studyDate?: string; studyUid: string; institution?: string }): Promise<Buffer> {
+  const channels = 12, samples = 1250, rate = 500
+  const data = Buffer.alloc(channels * samples * 2)
+  for (let c = 0; c < channels; c++) for (let i = 0; i < samples; i++) {
+    const t = (i % 400) / 400 // one beat every 0.8 s
+    const v = 200 * Math.exp(-((t - 0.5) ** 2) / 0.0006) * (c % 3 === 0 ? 1 : 0.6) - 60 * Math.exp(-((t - 0.46) ** 2) / 0.0004) + 40 * Math.exp(-((t - 0.72) ** 2) / 0.004) + 8 * Math.sin(i / 7 + c)
+    data.writeInt16LE(Math.round(v), (i * channels + c) * 2)
+  }
+  const inner = Buffer.concat([
+    enc([0x3a, 5], 'US', channels), enc([0x3a, 0x10], 'UL', samples), enc([0x3a, 0x1a], 'DS', String(rate)),
+    enc([0x5400, 0x1004], 'US', 16), enc([0x5400, 0x1006], 'CS', 'SS'), enc([0x5400, 0x1010], 'OW', data),
+  ])
+  const item = Buffer.concat([Buffer.from([0xfe, 0xff, 0x00, 0xe0]), (() => { const b = Buffer.alloc(4); b.writeUInt32LE(inner.length); return b })(), inner])
+  const sop = '1.2.840.10008.5.1.4.1.1.9.1.1'
+  const meta = Buffer.concat([enc([2, 1], 'OB', Buffer.from([0, 1])), enc([2, 2], 'UI', sop), enc([2, 3], 'UI', `${o.studyUid}.1`), enc([2, 0x10], 'UI', '1.2.840.10008.1.2.1'), enc([2, 0x12], 'UI', '1.2.826.0.1.3680043.8.498.1')])
+  const set = [
+    enc([8, 0x16], 'UI', sop), enc([8, 0x18], 'UI', `${o.studyUid}.1`), enc([8, 0x20], 'DA', o.studyDate ?? '20260510'), enc([8, 0x60], 'CS', 'ECG'),
+    enc([8, 0x80], 'LO', o.institution ?? 'Synthetic Demo Cardiology Unit'), enc([8, 0x1030], 'LO', '12-lead ECG SYNTHETIC'),
+    enc([0x10, 0x10], 'PN', o.patientName), enc([0x10, 0x20], 'LO', o.patientId ?? 'SYN-0001'), enc([0x10, 0x40], 'CS', o.sex ?? 'M'), enc([0x10, 0x1010], 'AS', o.age ?? '064Y'),
+    enc([0x20, 0xd], 'UI', o.studyUid), enc([0x20, 0xe], 'UI', `${o.studyUid}.9`), enc([0x5400, 0x100], 'SQ', item),
+  ]
+  return Buffer.concat([Buffer.alloc(128), Buffer.from('DICM'), enc([2, 0], 'UL', meta.length), meta, ...set])
+}

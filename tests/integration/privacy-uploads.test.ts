@@ -17,7 +17,7 @@ async function inTx(sql: postgres.Sql, fn: (tx: TransactionSql) => Promise<void>
   await sql.begin(async (tx) => { await fn(tx); throw new Rollback() }).catch((e) => { if (!(e instanceof Rollback)) throw e })
 }
 const setOrg = (tx: TransactionSql, org: string) => tx`select set_config('app.org_id', ${org}, true)`
-const newPatient = (tx: TransactionSql, org: string, id = randomUUID()) =>
+const newPatient = (tx: TransactionSql, org: string, id: string = randomUUID()) =>
   tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc) values (${id}, ${org}, ${'t-' + id}, 'v1.x') returning id`
 const code = async (p: Promise<unknown>) => { try { await p; return 'ok' } catch (e) { return (e as { code?: string }).code } }
 const staffId = async () => (await owner`select id from staff where org_id = ${ORG_NARMADA_ID} limit 1`)[0].id as string

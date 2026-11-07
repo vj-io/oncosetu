@@ -121,6 +121,7 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   else if (sniffed.kind === 'dicom' && !quarantine) {
     const m = readDicomMeta(bytes)
     if (m) flags.imaging = { ...m, modalities: m.modality ? [m.modality] : [], instances: 1 }
+    if (m?.modality === 'ECG') flags.file = { kind: 'dicom', category: 'ecg', label: CATEGORY_LABEL.ecg, storedOnly: true, note: storedNote('ecg', 'dicom') }
     else flags.file = { ...(flags.file as object), previewNote: 'Header could not be read — file stored' }
   }
 

@@ -133,13 +133,39 @@ function decodeRle(frame: Uint8Array, pixels: number, bytesPerSample: number, sa
 
 function firstNumber(v: string | null): number | null { const n = v ? parseFloat(v.split('\\')[0]) : NaN; return Number.isFinite(n) ? n : null }
 
+/** A simple trace of a DICOM ECG waveform (first 2.5 s, up to 12 leads stacked). A picture only: no measurements, no reading. */
+async function renderEcgWaveform(ds: DataSet): Promise<Preview | null> {
+  const wf = ds.elements.x54000100?.items?.[0]?.dataSet
+  const data = wf?.elements.x54001010
+  if (!wf || !data) return null
+  const ch = wf.uint16('x003a0005') ?? 1, n = wf.uint32('x003a0010') ?? 0
+  const bits = wf.uint16('x54001004') ?? 16
+  if (bits !== 16 || !n || ch * n * 2 > data.length) return null
+  const dv = new DataView(ds.byteArray.buffer, ds.byteArray.byteOffset + data.dataOffset, data.length)
+  const rate = firstNumber(str(wf, 'x003a001a')) ?? 500
+  const take = Math.min(n, Math.round(rate * 2.5)), rows = Math.min(ch, 12), h = 70, w = 900
+  const paths: string[] = []
+  for (let c = 0; c < rows; c++) {
+    let lo = Infinity, hi = -Infinity
+    for (let i = 0; i < take; i++) { const v = dv.getInt16((i * ch + c) * 2, true); if (v < lo) lo = v; if (v > hi) hi = v }
+    const span = Math.max(1, hi - lo)
+    let d = ''
+    for (let i = 0; i < take; i += 2) d += `${i ? 'L' : 'M'}${((i / take) * (w - 40) + 30).toFixed(1)},${(c * h + h - 12 - ((dv.getInt16((i * ch + c) * 2, true) - lo) / span) * (h - 24)).toFixed(1)}`
+    paths.push(`<path d="${d}" fill="none" stroke="#111" stroke-width="1"/><text x="4" y="${c * h + 18}" font-size="12" font-family="sans-serif" fill="#555">${c + 1}</text>`)
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${rows * h}"><rect width="100%" height="100%" fill="#fff8f0"/>${paths.join('')}</svg>`
+  return { ok: true, png: await sharp(Buffer.from(svg)).png().toBuffer(), frames: 1, frame: 0, windowed: false }
+}
+
 /** Renders one frame as a PNG (window/level from the header when present). Never throws: unsupported files return a plain note. */
 export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): Promise<Preview> {
   let ds: DataSet
   try { ds = dicomParser.parseDicom(bytes) } catch { return { ok: false, reason: 'parse_failed', note: 'Preview not available — file stored' } }
   const el = ds.elements.x7fe00010
   const rows = ds.uint16('x00280010'), cols = ds.uint16('x00280011')
-  if (!el || !rows || !cols) return { ok: false, reason: 'no_pixels', note: 'No picture inside this file — file stored' }
+  if (!el || !rows || !cols) {
+    return (await renderEcgWaveform(ds).catch(() => null)) ?? { ok: false, reason: 'no_pixels', note: 'No picture inside this file — file stored' }
+  }
   const ts = str(ds, 'x00020010') ?? '1.2.840.10008.1.2'
   const frames = Math.max(1, parseInt(str(ds, 'x00280008') ?? '1', 10) || 1)
   const frame = Math.min(Math.max(frameIndex ?? Math.floor(frames / 2), 0), frames - 1) // default: the middle slice

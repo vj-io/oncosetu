@@ -8,7 +8,7 @@ const base = {
   witnessName: 'Asha Pawar', signedAt: new Date('2026-11-07T10:30:00Z'), noticeVersion: 'dpdp-draft-v1', action: 'grant' as const, language: 'hi',
   purposes: [{ label: 'Care at this hospital', on: true }, { label: 'Second opinion', on: false }],
 }
-const text = async (pdf: Uint8Array) => (await extractText(await getDocumentProxy(pdf), { mergePages: true })).text.replace(/s+/g, ' ')
+const text = async (pdf: Uint8Array) => (await extractText(await getDocumentProxy(pdf), { mergePages: true })).text.replace(/\s+/g, ' ')
 
 describe('signed consent PDF', () => {
   it('is a PDF that names the signer, relationship, witness, form version, notice version and the draft label', async () => {

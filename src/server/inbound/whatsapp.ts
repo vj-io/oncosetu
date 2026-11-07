@@ -17,7 +17,7 @@ import { log } from '../log'
 import { phoneLogins, startOtp, type PhoneLogin } from '../otp'
 import { sendMessage } from '../outbox'
 import { activeConsent } from '../patients'
-import { ingestDocument, scheduleProcessing } from '../pipeline/ingest'
+import { ingestDocument, scheduleProcessing, type IntakeProvider } from '../pipeline/ingest'
 import { MAX_FILE_BYTES, sniffMime } from '../pipeline/safety'
 import { codeIn, evaluateHoldReply, HOLD_TTL_MS, holdCodeHash, MAX_FILES } from './hold'
 import { mediaOf } from './twilio'
@@ -113,6 +113,8 @@ export async function receiveWhatsApp(p: URLSearchParams, requestId: string): Pr
   for (const id of r.process) scheduleProcessing(id, s.orgId)
   return r.reply
 }
+
+export const whatsappIntake: IntakeProvider<URLSearchParams, string> = { route: 'whatsapp', receive: receiveWhatsApp }
 
 async function brandOf(tx: Tx, patientId: string) {
   const [pt] = await tx.select({ d: patients.disclosureStatus }).from(patients).where(eq(patients.id, patientId))

@@ -53,7 +53,7 @@ export type ReadResult =
 
 // ---------- OCR ----------
 
-type OcrLangs = 'eng+hin' | 'eng'
+export type OcrLangs = 'eng+hin' | 'eng'
 const g = globalThis as unknown as { __oncosetuOcr?: Partial<Record<OcrLangs, Promise<Worker>>> }
 
 function ocrWorker(langs: OcrLangs): Promise<Worker> {
@@ -77,9 +77,22 @@ export async function closeOcr(): Promise<void> {
 }
 
 type OcrLine = { text: string; conf: number[] }
+export type OcrResult = { text: string; words: OcrWord[]; lines: OcrLine[]; mean: number | null }
+
+/**
+ * FR-DOC-02: page OCR behind one interface, so a cloud document AI can replace tesseract without touching the pipeline
+ * (docs/ADR/ADR-016-provider-interfaces.md). `recognize` takes one page image (JPEG/PNG, ≤ 2400 px) and returns the text
+ * built line by line, every word with its box and char offsets into `text`, word confidences per line (0..1) and the
+ * mean word confidence. The language re-read and handwriting policy in ocrPage stay provider-independent.
+ */
+export interface OcrProvider {
+  readonly name: string
+  readonly version: string
+  recognize(image: Buffer, langs: OcrLangs): Promise<OcrResult>
+}
 
 /** OCR one JPEG/PNG → text built line by line, with exact char offsets for every word. */
-export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Promise<{ text: string; words: OcrWord[]; lines: OcrLine[]; mean: number | null }> {
+export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Promise<OcrResult> {
   const worker = await ocrWorker(langs)
   const { data } = await worker.recognize(image, {}, { blocks: true, text: false })
   let text = ''
@@ -112,6 +125,8 @@ export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Prom
   const mean = words.length ? words.reduce((a, w) => a + w.c, 0) / words.length : null
   return { text, words, lines, mean }
 }
+
+export const tesseractOcr: OcrProvider = { name: OCR_PROCESSOR.name, version: OCR_PROCESSOR.version, recognize: ocrImage }
 
 const DEVANAGARI = /\p{Script=Devanagari}/u
 
@@ -179,19 +194,19 @@ const typedPage = (text: string, processor: string): PageRead => ({
   processor, processorVersion: '1',
 })
 
-async function ocrPage(pageNo: number, image: Buffer): Promise<PageRead> {
-  const [first, ink] = await Promise.all([ocrImage(image), blueInk(image)])
+async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = tesseractOcr): Promise<PageRead> {
+  const [first, ink] = await Promise.all([provider.recognize(image, 'eng+hin'), blueInk(image)])
   const handwriting = classifyHandwriting(first.lines, ink) // calibrated on the eng+hin pass
   // The Hindi model reads noise on English pages as Devanagari and misreads Latin letters. A page without one confidently
   // read Devanagari word (≥ 0.8) is read again with eng alone: CER 9.4% → 7.9% on the eval image pages (data/eval). On those
   // pages, English ones had no such word and Hindi or mixed ones had ≥ 3 — a Devanagari name in an English header counts.
   // Handwritten pages are never extracted, so they keep the first pass.
   const hindi = first.words.some((w) => w.c >= 0.8 && DEVANAGARI.test(w.t))
-  const ocr = !handwriting.handwritten && !hindi ? await ocrImage(image, 'eng') : first
+  const ocr = !handwriting.handwritten && !hindi ? await provider.recognize(image, 'eng') : first
   return {
     pageNo, text: ocr.text, words: ocr.words, ocrConfidence: ocr.mean === null ? null : round3(ocr.mean),
     lowConfidence: ocr.mean !== null && ocr.mean < OCR_LOW_CONFIDENCE, source: 'ocr', handwriting, hidden: null, image,
-    processor: OCR_PROCESSOR.name, processorVersion: OCR_PROCESSOR.version,
+    processor: provider.name, processorVersion: provider.version,
   }
 }
 

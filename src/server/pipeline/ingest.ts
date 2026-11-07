@@ -21,6 +21,18 @@ import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, scanPdf } from './safety'
 export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync' | 'email' | 'whatsapp' | 'abdm'
 export type DocStatus = (typeof documents.$inferSelect)['status']
 
+/**
+ * FR-ING-09: a channel that delivers files into a patient's record from outside the app's own screens (the email drop,
+ * WhatsApp, a future ABDM PHR app forwarding a patient's documents). Its route handler authenticates the caller and passes
+ * the parsed payload to `receive`, which must resolve the patient and a sender staff verified for that patient, check the
+ * active `store` consent, send every file through ingestDocument with `route`, and call scheduleProcessing only after its
+ * transaction commits. docs/ADR/ADR-016-provider-interfaces.md.
+ */
+export interface IntakeProvider<Payload, Reply> {
+  readonly route: IntakeRoute
+  receive(payload: Payload, requestId: string): Promise<Reply>
+}
+
 export type IngestInput = {
   orgId: string
   patientId: string

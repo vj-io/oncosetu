@@ -1,8 +1,9 @@
-// V02-E2E-01,03,04,05,06,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: either no LLM is
+// V02-E2E-01..06,08 (PRD §13, v0.2 Intake and evidence-gated extraction). Rule-based extraction only: either no LLM is
 // configured, or one is and the Ganga org's AI flag is off (so the suite never spends the shared free-tier quota).
-import { documentsOf, eventsOf, evidenceOf } from './helpers/db'
+import { documentsOf, eventsOf, evidenceOf, pagesOf } from './helpers/db'
 import { Api, demoDoc, registerPatient, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
 import { parseCsv } from './helpers/flows'
+import { scannedDischargeSummary } from './helpers/scan'
 import { test, expect } from './helpers/fixtures'
 
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -40,6 +41,36 @@ test('V02-E2E-01 a text-layer pathology report yields unverified events, each op
     const csv = parseCsv(((await (await staff('admin')).get('/api/admin/audit.csv')).body as string))
     return csv.filter((r) => r.action === 'event.source_viewed' && withQuote.some((q) => q.id === r.target_id)).length
   }, { timeout: 30_000 }).toBeGreaterThan(0)
+})
+
+test('V02-E2E-02 a scanned discharge summary is read by OCR into events with evidence; its low-confidence page is flagged', async ({ staff, ui }) => {
+  const records = await staff('records')
+  const p = await registerPatient(records, { base: 'hero' })
+  // Two photographed pages in a PDF with no text layer; page 2 is a poor scan.
+  const up = await uploadFile(records, p.id, { name: 'scanned-discharge-summary.pdf', buffer: await scannedDischargeSummary(2) })
+  const doc = await waitDoc(records, up.documentId)
+  expect(doc).toMatchObject({ status: 'needs_review', docType: 'discharge_summary', identity: { result: 'match' }, flags: { lowConfidence: true } })
+
+  const pages = await pagesOf(up.documentId)
+  expect(pages.map((x) => [x.pageNo, x.lowConfidence])).toEqual([[1, false], [2, true]])
+  expect(pages[0].ocrConfidence).toBeGreaterThanOrEqual(0.8)
+  expect(pages[1].ocrConfidence).toBeLessThan(0.8)
+
+  // Admission and discharge come from the clear page, each with an OCR quote on page 1; nothing is taken from page 2 unflagged.
+  const evs = (await eventsOf(p.id)).filter((e) => e.documentId === up.documentId)
+  expect(evs.map((e) => [e.eventType, e.eventDate])).toEqual(expect.arrayContaining([['admission_documented', '2026-03-10'], ['discharge_documented', '2026-03-14']]))
+  for (const e of evs) {
+    expect(e).toMatchObject({ verificationStatus: 'unverified', extractionMethod: 'ocr_llm', flags: expect.objectContaining({ ocr: true }) })
+    const [ev] = await evidenceOf(e.id)
+    expect(ev.quote, e.eventType).toBeTruthy()
+    if (ev.pageNo === 2) expect(e.flags, e.eventType).toMatchObject({ low_confidence: true })
+  }
+
+  // Staff see the warning and the OCR confidence of every page whose text is kept (a page the heuristic holds as an image keeps none).
+  const page = await ui('records')
+  await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
+  await expect(page.getByText('Low OCR confidence on at least one page')).toBeVisible()
+  for (const x of pages.filter((x) => x.text.trim())) await expect(page.getByText(`Page ${x.pageNo} · OCR mean confidence ${x.ocrConfidence!.toFixed(2)}`)).toBeVisible()
 })
 
 test('V02-E2E-03 a handwritten prescription is kept as an image: zero events, manual tag works', async ({ staff }) => {

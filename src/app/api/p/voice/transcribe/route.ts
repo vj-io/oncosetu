@@ -7,7 +7,8 @@ import { orgSettings } from '@/db/schema'
 import { HttpError, route } from '@/server/http'
 import { storeClip } from '@/server/voice/clips'
 import { keytermsFor } from '@/server/voice/keyterms'
-import { SarvamError, transcribe } from '@/server/voice/sarvam'
+import { asr } from '@/server/voice/provider'
+import { SarvamError } from '@/server/voice/sarvam'
 
 const LANGS = ['en', 'hi', 'hinglish'] as const
 
@@ -20,12 +21,12 @@ export const POST = route({ auth: 'patient', form: true, maxBytes: 2.2 * 1024 * 
   const keyterms = await keytermsFor(ctx.db, ctx.session.patientId)
   let text: string
   try {
-    text = await transcribe(audio, lang, keyterms)
+    text = await asr.transcribe(audio, lang, keyterms)
   } catch (e) {
     if (!(e instanceof SarvamError)) throw e
     if (e.code === 'too_large') throw new HttpError(413, 'too_large', 'Recording is too long')
     if (e.code === 'not_configured') throw new HttpError(503, 'voice_not_configured', 'Voice typing is not set up on this server')
-    ctx.log.warn('voice.transcribe_failed', { provider: 'sarvam', reason: e.message })
+    ctx.log.warn('voice.transcribe_failed', { provider: asr.name, reason: e.message })
     throw new HttpError(502, 'voice_failed', 'Voice typing did not work')
   }
   const seconds = Math.min(60, Math.max(0, Math.round(Number(ctx.form.get('seconds')) || 0)))
@@ -33,6 +34,6 @@ export const POST = route({ auth: 'patient', form: true, maxBytes: 2.2 * 1024 * 
     orgId: ctx.session.orgId, patientId: ctx.session.patientId, bytes: new Uint8Array(await audio.arrayBuffer()), mime: audio.type, seconds,
     by: { kind: ctx.session.kind, id: ctx.session.caregiverId ?? ctx.session.patientId },
   })
-  await ctx.audit('voice.transcribed', 'patient', ctx.session.patientId, { provider: 'sarvam', seconds, keyterms: keyterms.length, clipId })
+  await ctx.audit('voice.transcribed', 'patient', ctx.session.patientId, { provider: asr.name, model: asr.model, seconds, keyterms: keyterms.length, clipId })
   return { text, clipId }
 })

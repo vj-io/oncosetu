@@ -8,7 +8,7 @@ import { events, evidence, patientStatements } from '@/db/schema'
 import { now } from '../clock'
 import { sha256Hex } from '../crypto'
 import { linkClips } from '../voice/clips'
-import { SARVAM_MODEL } from '../voice/sarvam'
+import { BROWSER_ASR, asr } from '../voice/provider'
 import {
   buildReadback, hasContent, monthYear, QUESTION_IDS, splitNames, statedDate, transcriptOf,
   type Answers, type QuestionId,
@@ -45,8 +45,8 @@ export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation
         statedDate: sd?.iso ?? null, statedPrecision: sd?.precision ?? null,
       },
       transcript, language: s.lang, readbackText: buildReadback({ [q]: a }, s.lang).lines[0]?.text ?? null,
-      confirmation: confirmation === 'unconfirmed' ? 'pending' : confirmation, asrProvider: clips.length ? 'sarvam' : a.voice ? 'browser-webspeech' : null,
-      asrModel: clips.length ? SARVAM_MODEL : null, audioId: clips[0] ?? null,
+      confirmation: confirmation === 'unconfirmed' ? 'pending' : confirmation, asrProvider: clips.length ? asr.name : a.voice ? BROWSER_ASR : null,
+      asrModel: clips.length ? asr.model : null, audioId: clips[0] ?? null,
       createdByKind: s.actor.kind, createdById: s.actor.id, createdAt: at, confirmedAt: confirmed ? at : null,
     }).returning({ id: patientStatements.id })
     await linkClips(tx, s.patientId, clips, row.id)

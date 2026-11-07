@@ -4,7 +4,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { voiceClips } from '@/db/schema'
 import { decryptBytes, encryptBytes } from '../crypto'
-import { SARVAM_MODEL } from './sarvam'
+import { asr } from './provider'
 
 export type Uploader = { kind: 'patient' | 'caregiver' | 'staff'; id: string }
 
@@ -12,7 +12,7 @@ export async function storeClip(tx: Tx, c: { orgId: string; patientId: string; b
   const { bytes, dekWrapped } = encryptBytes(Buffer.from(c.bytes))
   const [row] = await tx.insert(voiceClips).values({
     orgId: c.orgId, patientId: c.patientId, mime: c.mime.split(';')[0] || 'audio/webm', size: c.bytes.length, seconds: c.seconds,
-    bytesEnc: bytes, dekWrapped, asrProvider: 'sarvam', asrModel: SARVAM_MODEL, createdByKind: c.by.kind, createdById: c.by.id,
+    bytesEnc: bytes, dekWrapped, asrProvider: asr.name, asrModel: asr.model, createdByKind: c.by.kind, createdById: c.by.id,
   }).returning({ id: voiceClips.id })
   return row.id
 }

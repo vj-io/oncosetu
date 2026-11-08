@@ -69,7 +69,7 @@ describe('copy lint: screens (src/app, src/components)', () => {
     expect(n).toBeGreaterThan(1000)
     expect(failures).toEqual([])
     expect(ALLOW.filter((_, i) => !used.has(i)).map((x) => `${x.file} ${x.term}: allowed but no longer used`)).toEqual([])
-  })
+  }, 60_000) // reads every screen file: slow under a full parallel run
 
   it('catches a judgement word in JSX text and a template literal, and ignores comments and imports', () => {
     const src = `import x from 'urgent-lib'\n// worse in a comment\nexport const A = () => <p>Result is abnormal</p>\nexport const b = (n: number) => \`\${n} items urgently\`\n`

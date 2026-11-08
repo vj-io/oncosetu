@@ -8,7 +8,7 @@ patients. Every "met" below points at the code or the test that shows it; nothin
 Status: **met** (evidence in code and, where noted, a test) · **partly** (some of it, or only on the deployed host) ·
 **not met** · **n.a.** (the feature does not exist here). Requirements that only apply at Level 3 are left out.
 
-Summary: 144 rows — 96 met, 31 partly, 10 not met, 7 n.a. The not-met items are listed at the end with
+Summary: 144 rows — 96 met, 32 partly, 9 not met, 7 n.a. The not-met items are listed at the end with
 the change each needs.
 
 ## V1 Architecture, design and threat modelling
@@ -140,7 +140,7 @@ the change each needs.
 |---|---|---|---|
 | 8.1.1 | Sensitive data not cached by intermediaries | met | `cache-control: no-store` on every API response; files `private, no-store` |
 | 8.2.1 | Anti-caching headers | met | As 8.1.1; pages render dynamically |
-| 8.2.2 | Browser storage holds no sensitive data | not met | The offline capture queue keeps photos in IndexedDB unencrypted until upload (PRD segment 13 notes it) |
+| 8.2.2 | Browser storage holds no sensitive data | partly | The offline capture queue keeps pages, audio notes and the patient list in IndexedDB only as AES-GCM ciphertext under a device key wrapped by the PIN (PBKDF2, `src/lib/offline/crypto.ts`; V05-E2E-03 checks no plaintext). Ciphertext still sits on the device until it syncs |
 | 8.2.3 | Client storage cleared after the session | partly | The queue empties after upload; not on sign-out |
 | 8.3.1 | Sensitive data in bodies, not URLs | partly | OTP codes, phones and passcodes travel in bodies; the demo outbox page takes a phone in the query string (demo organisations only); share keys sit in the URL fragment (never sent) |
 | 8.3.2 | Users can remove or export their data | partly | Erasure on request after consent withdrawal (J8, tests/integration/erasure.test.ts); patients can share an index, no full self-export |
@@ -235,7 +235,6 @@ the change each needs.
 | 3.3.3, 3.3.4 | A "your sessions" list with "sign out everywhere"; revoke other sessions on a password reset |
 | 3.4.4 | Rename the cookie to `__Host-os_sid` (it already meets the prefix's conditions on HTTPS) |
 | 6.4.1, 6.4.2 | Move the master, HMAC, signing and backup keys into a KMS or HSM-backed secret manager |
-| 8.2.2 | Encrypt the offline capture queue (WebCrypto key held in memory, or no offline photos on shared tablets) |
 | 14.2.5 | Generate an SBOM in CI (`npm sbom` or CycloneDX) |
 
 Also before a pilot: make TOTP mandatory for every staff account (2.x MFA, 4.3.1), remove the demo accounts and the

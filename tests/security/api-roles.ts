@@ -20,6 +20,7 @@ export const EXPECTED: Record<string, Expect> = {
   // admin, audit, metrics
   'GET /api/admin/audit.csv': AUDIT,
   'POST /api/admin/audit/verify': AUDIT,
+  'POST /api/admin/break-glass/[id]/review': 'org_admin',
   'POST /api/admin/duplicates': 'records org_admin',
   'POST /api/admin/duplicates/[id]': 'records org_admin',
   'POST /api/admin/erasure/[id]/execute': 'org_admin',
@@ -31,6 +32,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/admin/staff': 'org_admin',
   'POST /api/admin/staff/[id]': 'org_admin',
   'GET /api/measure/export.csv': AUDIT,
+  'GET /api/measure/requests.csv': AUDIT,
   'POST /api/measure/forms': 'clinician',
   // sign-in
   'GET /api/auth/demo-accounts': 'public',
@@ -48,6 +50,7 @@ export const EXPECTED: Record<string, Expect> = {
   'GET /api/cron/llm-health': cron,
   'GET /api/cron/outbox': cron,
   'GET /api/cron/perf-probe': cron,
+  'GET /api/cron/requests': cron,
   'POST /api/inbound/email': { roles: 'public', gate: 'public', check: 'basicAuthOk(' },
   'POST /api/inbound/whatsapp': { roles: 'public', gate: 'public', check: 'validTwilioSignature(' },
   // public by design: demo outbox (demo orgs only), signing keys, seal verification, share links (key + passcode)
@@ -87,6 +90,7 @@ export const EXPECTED: Record<string, Expect> = {
   // patient portal
   'POST /api/p/abdm/[requestId]': FAMILY,
   'POST /api/p/caregivers/[id]/revoke': { roles: 'patient', gate: FAMILY, check: "session.kind !== 'patient'" },
+  'POST /api/p/card/revoke': FAMILY,
   'POST /api/p/consent': FAMILY,
   'POST /api/p/consent/sign': FAMILY,
   'POST /api/p/documents': FAMILY,
@@ -107,6 +111,8 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/patients': FRONT,
   'GET /api/patients/[id]/abdm': CLINICAL,
   'POST /api/patients/[id]/abdm/consent-requests': CLINICAL,
+  'POST /api/patients/[id]/audio-notes': FRONT,
+  'GET /api/patients/[id]/audio-notes/[clipId]': CLINICAL,
   'POST /api/patients/[id]/break-glass': 'clinician org_admin',
   'POST /api/patients/[id]/caregivers': FRONT,
   'POST /api/patients/[id]/caregivers/[caregiverId]/revoke': FRONT,
@@ -120,6 +126,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/patients/[id]/contact-emails/[contactId]/revoke': FRONT,
   'POST /api/patients/[id]/disclosure': 'clinician',
   'GET /api/patients/[id]/documents': FRONT,
+  'POST /api/patients/[id]/encounters': CLINICAL,
   'POST /api/patients/[id]/documents': FRONT,
   'POST /api/patients/[id]/erasure': CLINICAL,
   'POST /api/patients/[id]/id-verification': FRONT,

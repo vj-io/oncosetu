@@ -1,4 +1,5 @@
 // Evidence gate (PRD §9.4, FR-EXT-02/05/09/10). Deterministic; never trusts model offsets.
+import { lintText } from '../copy/banned'
 import { findDates, parseDate } from '../dates'
 import { sha256Hex } from '../hash'
 import { EVENT_FIELDS, EVENT_TYPES, type EventFlag, type EventType } from '../types'
@@ -64,6 +65,8 @@ export interface Rejected {
   candidate: Candidate
   reason: RejectReason
   detail?: string
+  /** The banned-list term a model's field value hit (§9.6); the list entry, never the document's text. */
+  banned?: string
 }
 export interface GateResult {
   accepted: Accepted[]
@@ -85,6 +88,14 @@ const FORBIDDEN_TOKENS = new Set([
   'recommended', 'advice', 'advised', 'advise', 'plan', 'suggestion', 'suggested', 'ecog', 'kps', 'performance',
 ])
 const HEADER_OR_QUOTE_FIELDS = new Set(['institution_name', 'test_name', 'test_names'])
+/**
+ * §9.6: model field values are linted for Radar/legal wording. Exempt: test and drug names, dates, and the "as written"
+ * fields, which hold a whole line of the document word for word (a quote, like `quote` itself, e.g. "No abnormal uptake").
+ */
+const LINT_EXEMPT = new Set([
+  'test_name', 'test_names', 'medication_names', 'event_date', 'event_date_text', 'cycle_number',
+  'section_text', 'history_text', 'marker_text', 'margins_text', 'addendum_text', 'allergy_text',
+])
 const NOT_EXTRACTABLE = new Set<string>(['document_received', 'patient_statement'])
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -177,7 +188,7 @@ function spanWords(page: GatePage, start: number, end: number): number[] {
   return (page.words ?? []).filter((w) => w.s < end && w.e > start).map((w) => wordConfidence(w.c))
 }
 
-type FieldCheck = { ok: true } | { ok: false; reason: RejectReason; detail: string }
+type FieldCheck = { ok: true } | { ok: false; reason: RejectReason; detail: string; banned?: string }
 
 function checkFields(c: Candidate): FieldCheck {
   const allowed = EVENT_FIELDS[c.event_type as EventType]
@@ -191,6 +202,11 @@ function checkFields(c: Candidate): FieldCheck {
       (Array.isArray(value) && value.length > 0 && value.every(okString)) ||
       (key === 'cycle_number' && typeof value === 'number' && Number.isInteger(value) && value >= 0)
     if (!valid) return { ok: false, reason: 'invalid_field_value', detail: key }
+    // §9.6 banned-word check on model output: a value carrying advice, urgency or a legal claim is not a field value.
+    if (c.origin === 'llm' && !LINT_EXEMPT.has(key)) {
+      const hit = (Array.isArray(value) ? value : [value]).flatMap((v) => (typeof v === 'string' ? lintText(v, ['radar', 'legal']) : []))[0]
+      if (hit) return { ok: false, reason: 'invalid_field_value', detail: key, banned: hit.term }
+    }
   }
   return { ok: true }
 }
@@ -244,7 +260,7 @@ export function runGate(candidates: Candidate[], pages: GatePage[]): GateResult 
   const rejected: Rejected[] = []
   const maps = new Map(pages.map((p) => [p, normaliseWithMap(p.text)] as const))
   const firstPage = [...pages].sort((a, b) => a.pageNo - b.pageNo)[0]
-  const reject = (candidate: Candidate, reason: RejectReason, detail?: string) => rejected.push({ candidate, reason, ...(detail ? { detail } : {}) })
+  const reject = (candidate: Candidate, reason: RejectReason, detail?: string, banned?: string) => rejected.push({ candidate, reason, ...(detail ? { detail } : {}), ...(banned ? { banned } : {}) })
 
   for (const c of candidates) {
     if (!(EVENT_TYPES as readonly string[]).includes(c.event_type)) {
@@ -257,7 +273,7 @@ export function runGate(candidates: Candidate[], pages: GatePage[]): GateResult 
     }
     const fc = checkFields(c)
     if (!fc.ok) {
-      reject(c, fc.reason, fc.detail)
+      reject(c, fc.reason, fc.detail, fc.banned)
       continue
     }
     const nq = normalise(typeof c.quote === 'string' ? c.quote : '')

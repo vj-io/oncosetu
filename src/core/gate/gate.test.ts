@@ -296,3 +296,35 @@ describe('runGate: properties', () => {
     expect(runGate(c, pages)).toEqual(runGate(c, pages))
   })
 })
+
+describe('runGate: §9.6 banned-word check on model field values', () => {
+  const ADVICE = `Remarks: Referred to surgical team urgently for review.
+Status: report awaited, should be ready by Monday.
+Tab. Riskolin 10 mg once daily.
+Impression: No abnormal uptake in the liver.`
+  const p = [{ pageNo: 1, text: ADVICE }]
+  const llm = (event_type: string, quote: string, fields: Record<string, unknown>): Candidate => ({ ...cand(event_type, quote, fields), origin: 'llm' })
+
+  it('rejects a model value carrying Radar wording as invalid_field_value, naming the field and the list term', () => {
+    const r = runGate([llm('referral_documented', 'Referred to surgical team urgently for review.', { referred_to_text: 'surgical team urgently' })], p)
+    expect(r.accepted).toHaveLength(0)
+    expect(r.rejected[0]).toMatchObject({ reason: 'invalid_field_value', detail: 'referred_to_text', banned: 'urgently' })
+  })
+  it('rejects obligation wording too', () => {
+    const r = runGate([llm('report_pending_documented', 'Status: report awaited, should be ready by Monday.', { status_text: 'should be ready' })], p)
+    expect(r.rejected[0]).toMatchObject({ reason: 'invalid_field_value', detail: 'status_text', banned: 'should' })
+  })
+  it('does not lint drug and test names, the quote itself, or "as written" lines', () => {
+    const r = runGate([
+      llm('prescription_documented', 'Tab. Riskolin 10 mg once daily.', { medication_names: ['Riskolin'] }),
+      llm('impression_documented', 'Impression: No abnormal uptake in the liver.', { section_text: 'No abnormal uptake in the liver.' }),
+      llm('referral_documented', 'Referred to surgical team urgently for review.', { referred_to_text: 'surgical team' }),
+    ], p)
+    expect(r.rejected).toEqual([])
+    expect(r.accepted).toHaveLength(3)
+  })
+  it('leaves the rule-based extractor and staff-keyed facts to the other checks', () => {
+    const r = runGate([{ ...cand('referral_documented', 'Referred to surgical team urgently for review.', { referred_to_text: 'surgical team urgently' }), origin: 'rules' }], p)
+    expect(r.accepted).toHaveLength(1)
+  })
+})

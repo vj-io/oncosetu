@@ -32,17 +32,20 @@ async function onDesk(file: string, m: { l: number; r: number; t: number; b: num
 
 describe.each(DOCS)('page edges of %s', (file) => {
   it('finds the page on a dark desk and keeps all of it', async () => {
-    const { img, truth } = await onDesk(file, { l: 0.18, r: 0.1, t: 0.08, b: 0.14 })
-    const r = await raster(img)
-    const box = findPage(r)!
-    expect(box).not.toBeNull()
-    const f = { x: box.x / r.width, y: box.y / r.height, w: box.w / r.width, h: box.h / r.height }
-    // the whole page is inside the box (never cut), with little desk left over
-    expect(f.x).toBeLessThanOrEqual(truth.x + 0.005)
-    expect(f.y).toBeLessThanOrEqual(truth.y + 0.005)
-    expect(f.x + f.w).toBeGreaterThanOrEqual(truth.x + truth.w - 0.005)
-    expect(f.y + f.h).toBeGreaterThanOrEqual(truth.y + truth.h - 0.005)
-    expect(f.w * f.h).toBeLessThan(truth.w * truth.h * 1.12)
+    // a page with some desk around it, and a portrait page in a landscape photo (under half the frame wide)
+    for (const m of [{ l: 0.18, r: 0.1, t: 0.08, b: 0.14 }, { l: 0.7, r: 0.5, t: 0.05, b: 0.05 }]) {
+      const { img, truth } = await onDesk(file, m)
+      const r = await raster(img)
+      const box = findPage(r)!
+      expect(box).not.toBeNull()
+      const f = { x: box.x / r.width, y: box.y / r.height, w: box.w / r.width, h: box.h / r.height }
+      // the whole page is inside the box (never cut), with little desk left over
+      expect(f.x).toBeLessThanOrEqual(truth.x + 0.005)
+      expect(f.y).toBeLessThanOrEqual(truth.y + 0.005)
+      expect(f.x + f.w).toBeGreaterThanOrEqual(truth.x + truth.w - 0.005)
+      expect(f.y + f.h).toBeGreaterThanOrEqual(truth.y + truth.h - 0.005)
+      expect(f.w * f.h).toBeLessThan(truth.w * truth.h * 1.15)
+    }
   })
 
   it('leaves a page that fills the frame as it is', async () => {

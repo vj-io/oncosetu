@@ -69,7 +69,7 @@ describe('record loader mapping', () => {
         { ruleId: 'RAD-Y', ruleVersion: '1', mode: 'production', triggerEventId: e.id, expectedTypes: ['imaging_report'], state: 'requested', dedupeKey: 'k2', matchWindow: { wording: { en: 'Imaging report not in file for the scan documented on 2 Feb 2026', hi: 'h' } } },
       ],
     }))
-    expect(a.record.events[0].flags).toEqual(['date_ambiguous', 'identity_warning', 'low_confidence'])
+    expect(a.held[0].flags).toEqual(['date_ambiguous', 'identity_warning', 'low_confidence']) // held: low confidence, not checked yet (FR-DOC-06)
     expect(a.record.statements[0]).toMatchObject({ confirmation: 'patient_confirmed', medicationNames: ['Tab X'], statedDate: '2026-10-05', transcript: 'I take Tab X' })
     expect(a.record.missing[0]).toMatchObject({ ruleVersion: 2, expectedTypes: ['pathology_report'], wording: { en: 'Histopathology report not in file' } })
     expect(a.record.missing[1].wording.en).toBe('Imaging report not in file for the scan documented on 2 Feb 2026')
@@ -166,7 +166,24 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
     // Eligible but its source not opened by this person: bulk verify leaves it out.
     const unopened = itemsById(buildLedgerView({ rows: base, prev, role: 'records', now: NOW })).get(lab.id)
     expect(bulkSkipReason(unopened)).toEqual(['source_not_opened'])
-    expect(v.counts).toMatchObject({ verified: 0, unverified: 5 })
+    expect(v.counts).toMatchObject({ verified: 0, unverified: 4 }) // the low-confidence item is held until checked (FR-DOC-06)
+  })
+
+  it('a low-confidence fact stays out of the ledger, the seal and the timeline until a person checks it against the page (FR-DOC-06)', () => {
+    const v = buildLedgerView({ rows: base, prev, role: 'clinician', now: NOW })
+    const listed = Object.values(v.events).flat().map((i) => i.id)
+    expect(listed).not.toContain(low.id)
+    expect(v.held.map((i) => i.id)).toEqual([low.id])
+    expect(itemsById(v).get(low.id)).toMatchObject({ status: 'unverified', permits: { verify: true } }) // still verifiable from its document
+    const snap = buildSnapshot(assembleRecord(base).record, NOW)
+    expect([...snap.verified, ...snap.unverified].map((e) => e.id)).not.toContain(low.id)
+    expect(JSON.stringify(buildTimeline(snap, { quoteByHash: new Map() }))).not.toContain(low.id)
+
+    const checked = { ...base, events: base.events.map((e) => (e.id === low.id ? { ...e, verificationStatus: 'verified_matches_source' as const } : e)) }
+    const after = buildLedgerView({ rows: checked, prev, role: 'clinician', now: NOW })
+    expect(after.held).toEqual([])
+    expect(Object.values(after.events).flat().map((i) => i.id)).toContain(low.id)
+    expect(buildSnapshot(assembleRecord(checked).record, NOW).verified.map((e) => e.id)).toContain(low.id)
   })
 
   it('a clinician resolution (flag on one side) removes the conflict and its marker', () => {
@@ -212,7 +229,8 @@ describe('ledger categories, conflicts and bulk eligibility (FR-LED-02/05)', () 
   it('initial record mode with no snapshot (FR-LED-06)', () => {
     const v = buildLedgerView({ rows: base, prev: null, role: 'clinician', now: NOW })
     expect(v.mode).toBe('initial')
-    expect(v.events.initial_record).toHaveLength(5)
+    expect(v.events.initial_record).toHaveLength(4) // + the held low-confidence item (FR-DOC-06)
+    expect(v.held).toHaveLength(1)
   })
 })
 

@@ -113,7 +113,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
         {doc.lowConfidence && !doc.handwritten && (
           <Notice tone="unverified" icon={<ScanText />} title="Low OCR confidence on at least one page">
-            Facts from these pages show the image beside the quote and cannot be bulk-verified.
+            Facts from these pages show the image beside the quote and cannot be bulk-verified. Each stays out of the ledger, the sealed record and shares until a person checks it against the page here.
           </Notice>
         )}
         {nearDup && (
@@ -190,7 +190,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             events={d.events.map((e) => ({
               id: e.id, eventType: e.eventType, fields: e.fields, eventDate: e.eventDate, datePrecision: e.datePrecision, documentDate: e.documentDate,
               flags: e.flags, verificationStatus: e.verificationStatus, extractionMethod: e.extractionMethod,
-              withdrawnAt: e.withdrawnAt?.toISOString() ?? null, withdrawnReason: e.withdrawnReason,
+              withdrawnAt: e.withdrawnAt?.toISOString() ?? null, withdrawnReason: e.withdrawnReason, rowVersion: e.rowVersion,
               evidence: e.evidence.map((x) => ({ pageNo: x.pageNo, charStart: x.charStart, charEnd: x.charEnd, quote: x.quote, bbox: x.bbox })),
             }))}
           />

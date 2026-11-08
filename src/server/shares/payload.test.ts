@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { lintText } from '@/core/copy'
+import { formatDateIN, istDate, lintText } from '@/core/copy'
 import { buildSnapshot } from '@/core/ledger'
 import type { CoreDocument, CoreEvent, EventType, FieldValue } from '@/core/types'
+import { ts } from '@/i18n/shares'
 import { buildSharePayload, type PayloadInput } from './payload'
 
 const ev = (id: string, eventType: EventType, fields: Record<string, FieldValue>, eventDate: string, documentId: string, verificationStatus: CoreEvent['verificationStatus'] = 'unverified'): CoreEvent => ({
@@ -41,14 +42,19 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
       expect(text).not.toContain('Regional')
       expect(p.items.every((i) => !i.quote)).toBe(true)
       expect(p.brand).toBe('Setu Records')
-      expect(p.notice.en).toBe('This is a list of records provided to Setu Records, not a clinical summary.')
+      // FR-PAS-03, in the PRD's words; the brand stays neutral until disclosure is cleared (FR-CON-07)
+      expect(p.notice.en).toBe('This summary contains only records provided to Setu Records. It is a list of documents, not a clinical summary.')
+      expect(p.notice.hi).toContain('केवल वे रिकॉर्ड हैं जो Setu Records को दिए गए')
+      expect(p.notice.hinglish).toContain('sirf woh records hain jo Setu Records ko diye gaye')
     }
   })
 
   it('has the heading, the as-of date, provenance per line and the absent-documents list', () => {
     const p = buildSharePayload(base)
     expect(p.heading.en).toBe('Document index, not a clinical summary')
-    expect(p.asOf).toBe('2026-10-20T06:00:00.000Z')
+    expect(p.asOf).toBe('2026-10-20T06:00:00.000Z') // the seal time: the viewer shows "As of 20 Oct 2026 (sealed record)"
+    expect(ts('en', 'asOf', { date: formatDateIN(istDate(p.asOf), 'en') })).toBe('As of 20 Oct 2026 (sealed record)')
+    expect(buildSharePayload({ ...base, disclosure: 'cleared' }).notice.en).toBe('This summary contains only records provided to OncoSetu. It is a list of documents, not a clinical summary.')
     expect(p.items).toHaveLength(3)
     expect(p.items.map((i) => i.date)).toEqual(['2026-03-10', '2026-03-12', '2026-06-12'])
     expect(p.items[1]).toMatchObject({ label: { en: 'Procedure note' }, source: { documentId: 'd-ds', page: 2, label: { en: 'Hospital discharge summary' } }, verification: 'records', institution: null })

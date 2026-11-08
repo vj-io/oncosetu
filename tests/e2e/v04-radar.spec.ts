@@ -1,5 +1,6 @@
 // V04-E2E-01..08 (PRD §13, v0.4 Missing-Record Radar, Records Request Kit, share link). Tests marked @clock move the org clock and run alone.
 import type { Page } from '@playwright/test'
+import { formatDateIN, istDate } from '../../src/core/copy'
 import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploadDemo, waitDoc } from './helpers/api'
 import { documentsOf, missingOf, smsAbout } from './helpers/db'
 import { createShare, parseCsv, seal } from './helpers/flows'
@@ -187,6 +188,9 @@ test('V04-E2E-05 caregiver shares the document index (7 days, passcode): the vie
   const text = await openShare(viewer, share, '739204')
   await expect(viewer.getByRole('heading', { name: 'Recorded items' })).toBeVisible()
   await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
+  // FR-PAS-03: the PRD's statement (brand neutral until disclosure is cleared) and the as-of date of the seal.
+  expect(text).toContain('This summary contains only records provided to Setu Records.')
+  expect(text).toContain(`As of ${formatDateIN(istDate(share.payload.asOf))} (sealed record)`)
   // Provenance on every recorded line: where it is written, and whether a person verified it.
   const lines = viewer.locator('ol > li')
   expect(await lines.count()).toBeGreaterThan(0)

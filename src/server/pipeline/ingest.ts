@@ -15,7 +15,7 @@ import { MAX_FILE_BYTES, MB } from '@/core/limits'
 import { readDicomMeta } from './dicom'
 import { CATEGORY_LABEL, isStoredOnly, sniffFile, storedNote } from './filetypes'
 import { STUDY_BUNDLE_MIME } from './study'
-import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, sanitisePdf, scanPdf } from './safety'
+import { dHash, eicarScanner, hamming, NEAR_DUP_HAMMING, sanitisePdf, scanPdf, type MalwareScanner } from './safety'
 
 // 'abdm': FHIR bundles pulled over ABDM (src/server/abdm/flow.ts) are stored directly as structured documents, not via ingestDocument.
 export type IntakeRoute = 'desk' | 'bulk' | 'patient_link' | 'offline_sync' | 'email' | 'whatsapp' | 'abdm'
@@ -51,6 +51,8 @@ export type IngestInput = {
   maxBytes?: number
   /** Route handlers pass ctx.audit so the actor's role is recorded; otherwise the uploader kind is used. */
   audit?: (action: string, targetType: string | null, targetId: string | null, details?: AuditDetails) => Promise<void>
+  /** Malware scan (FR-ING-08); the EICAR signature check unless another scanner is plugged in. */
+  scanner?: MalwareScanner
 }
 
 export type IngestResult = {
@@ -61,8 +63,6 @@ export type IngestResult = {
   /** Same clientFileId seen before (offline sync / retry): nothing new was stored. */
   idempotent?: boolean
 }
-
-export const QUARANTINE_SCAN_LABEL = 'signature check; full AV scan out of scope on serverless'
 
 /** Must run inside withOrg(orgId). Throws HttpError for files that are refused (nothing stored). */
 export async function ingestDocument(tx: Tx, input: IngestInput): Promise<IngestResult> {
@@ -90,7 +90,9 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   const cap = input.maxBytes ?? MAX_FILE_BYTES
   if (bytes.length > cap) throw new HttpError(413, 'file_too_large', `Files must be ${cap / MB} MB or smaller`)
   const sniffed = input.bundle ? ({ kind: 'dicom', mime: STUDY_BUNDLE_MIME, category: 'scan' } as const) : sniffFile(bytes, input.fileName)
-  const eicar = hasEicar(bytes)
+  const scanner = input.scanner ?? eicarScanner
+  const malware = await scanner.scan(bytes)
+  const eicar = malware.infected
   // A bare test-virus signature is refused outright; plain text is now an accepted type, so check it before the sniff
   // decides (inside a real PDF or image it is still quarantined below, kept encrypted and never served).
   if (eicar && (!sniffed || sniffed.kind === 'text')) throw new HttpError(422, 'malware_signature', 'The file could not be accepted')
@@ -135,7 +137,7 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
   }
 
   const flags: Record<string, unknown> = {}
-  if (quarantine) flags.quarantine = { reasons: [...(eicar ? ['eicar_signature'] : []), ...active.map((n) => `pdf_${n}`)], scan: QUARANTINE_SCAN_LABEL }
+  if (quarantine) flags.quarantine = { reasons: [...(eicar ? [malware.reason ?? 'malware_signature'] : []), ...active.map((n) => `pdf_${n}`)], scan: scanner.label, scanner: scanner.name }
   if (received) flags.sanitised = { removed: found.map((n) => `pdf_${n}`), ...received }
   if (nearDupOf) flags.near_duplicate = { of: nearDupOf, method: 'dhash' }
   // What kind of file this is, for the Documents page. Imaging, ECG and video are stored and shown but never read for facts.

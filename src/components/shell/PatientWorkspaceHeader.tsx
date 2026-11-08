@@ -56,10 +56,11 @@ export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWork
           <h1 className="text-[1.75rem] leading-tight tracking-[-0.025em] break-words sm:text-[2.25rem]">{p.name}</h1>
           {facts && <p className="font-mono text-[13px] text-muted">{facts}</p>}
           <div className="mt-1 flex flex-wrap gap-2">
-            <Badge tone={d.tone} icon={d.icon}>
+            {/* max-sm:whitespace-normal: a long badge wraps on a phone instead of pushing the page sideways (seen in WebKit) */}
+            <Badge tone={d.tone} icon={d.icon} className="max-sm:whitespace-normal">
               {d.label}
             </Badge>
-            <Badge tone="neutral" icon={<UserRound />}>
+            <Badge tone="neutral" icon={<UserRound />} className="max-sm:whitespace-normal">
               Main contact: {p.primaryContact}
             </Badge>
             {p.minor && <Badge tone="unverified">Minor</Badge>}

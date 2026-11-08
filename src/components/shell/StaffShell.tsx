@@ -64,10 +64,10 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
 
       <header className="sticky top-0 z-30 border-b border-rule bg-gallery/92 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-gallery items-center gap-3 px-4 sm:px-8 lg:gap-8">
-          <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="-ml-2 grid size-11 place-items-center hover:bg-spotlight lg:hidden">
+          <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="-ml-2 grid size-11 shrink-0 place-items-center hover:bg-spotlight lg:hidden">
             <Menu aria-hidden className="size-5" />
           </button>
-          <Link href={home} className="flex shrink-0 items-baseline gap-3">
+          <Link href={home} className="flex min-h-11 shrink-0 items-center gap-3">
             <Wordmark />
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">
@@ -90,9 +90,12 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             {(user.role === "clinician" || user.role === "records") && (
-              <Button variant="secondary" size="md" onClick={startTour} icon={<Compass aria-hidden />} className="hidden md:inline-flex">
-                Take the 2-minute tour
-              </Button>
+              // Hidden on phones by a wrapper: Button's own inline-flex beat a `hidden` class and pushed a 375 px page 165 px sideways.
+              <span className="hidden md:inline-flex">
+                <Button variant="secondary" size="md" onClick={startTour} icon={<Compass aria-hidden />}>
+                  Take the 2-minute tour
+                </Button>
+              </span>
             )}
             <details className="group relative">
               <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
@@ -104,7 +107,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
                 </span>
                 <ChevronDown aria-hidden className="size-4 text-faint group-open:rotate-180" />
               </summary>
-              <div className="absolute right-0 z-50 mt-1 grid w-64 border border-rule bg-matte py-1 shadow-frame">
+              <div className="absolute right-0 z-50 mt-1 hidden w-64 border border-rule bg-matte py-1 shadow-frame group-open:grid">
                 <p className="border-b border-rule px-4 py-2 text-sm"><span className="block text-ink">{user.name}</span><span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">{ROLE_LABEL[user.role]} · {user.orgName}</span></p>
                 {(user.role === "clinician" || user.role === "records") && (
                   <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">

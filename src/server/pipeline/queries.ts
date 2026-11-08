@@ -3,20 +3,14 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { auditLog, documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { backlogRank } from '@/core/backlog'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
 import { median } from '../admin/metrics-compute'
 import { STAGES, STALE_LOCK_MINUTES, type Stage } from './process'
 
-/** FR-ONB-01 backlog order: pathology/molecular → imaging → discharge/procedure → treatment → prescriptions → labs → other. */
-export const ONBOARDING_PRIORITY: DocType[] = [
-  'pathology_report', 'ihc_molecular_report', 'imaging_report', 'discharge_summary', 'procedure_note', 'chemo_daycare_record',
-  'radiotherapy_summary', 'consult_note', 'prescription_printed', 'prescription_handwritten', 'lab_report', 'bill_insurance', 'other',
-]
-const priority = (t: string | null) => {
-  const i = ONBOARDING_PRIORITY.indexOf((t ?? 'other') as DocType)
-  return i < 0 ? ONBOARDING_PRIORITY.length : i
-}
+/** FR-ONB-01 backlog order (src/core/backlog.ts). */
+const priority = backlogRank
 
 type DocRow = typeof documents.$inferSelect
 export type DisplayStatus = DocRow['status'] | 'needs_password'
@@ -185,9 +179,10 @@ export function coverageFor(docType: string | null): { recall: number; gold: num
 export async function documentDetail(tx: Tx, patientId: string, documentId: string) {
   const [d] = await tx.select().from(documents).where(and(eq(documents.id, documentId), eq(documents.patientId, patientId)))
   if (!d) return null
-  const pages = await tx.select().from(documentPages).where(eq(documentPages.documentId, d.id)).orderBy(asc(documentPages.pageNo))
+  // FR-DOC-08: the current version of each derived artefact; superseded readings stay stored, unread here.
+  const pages = await tx.select().from(documentPages).where(and(eq(documentPages.documentId, d.id), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
   const files = await tx.select({ id: documentFiles.id, kind: documentFiles.kind, pageNo: documentFiles.pageNo, mime: documentFiles.mime }).from(documentFiles)
-    .where(eq(documentFiles.documentId, d.id))
+    .where(and(eq(documentFiles.documentId, d.id), isNull(documentFiles.supersededAt)))
   const evs = await tx.select().from(events).where(eq(events.documentId, d.id)).orderBy(asc(events.createdAt))
   const ev = evs.length ? await tx.select().from(evidence).where(inArray(evidence.eventId, evs.map((e) => e.id))) : []
   const related = [d.amendmentOf, d.nearDupOf].filter(Boolean) as string[]

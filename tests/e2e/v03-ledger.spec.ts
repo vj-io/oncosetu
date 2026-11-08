@@ -3,7 +3,8 @@ import type { Snapshot } from '../../src/core/ledger'
 import { STAFF_ONLY_EVENT_TYPES } from '../../src/core/types'
 import { verifySnapshotFile } from '../../src/server/ledger/export'
 import { buildReadback, type Answers } from '../../src/server/portal/visit-model'
-import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploadDemo, waitDoc } from './helpers/api'
+import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
+import { bloodCountBundle } from './helpers/backlog'
 import { documentsOf, eventsOf, snapshotsOf, statementsOf } from './helpers/db'
 import { createShare, parseCsv, seal, withClock } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
@@ -24,16 +25,24 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   const p = await registerPatient(desk, { base: 'hero', primaryContact: 'caregiver', disclosure: 'unknown' })
   expect(p.disclosure).toBe('unknown')
 
-  // The backlog: nine files in one go (3 are photographs read by OCR).
+  // The backlog: a 40-page paper trail in one go. Nine demo files (10 pages, 3 photographs read by OCR) and a 30-page
+  // bundle of monthly blood counts (typed, so it adds pages, not OCR time).
   const backlog = ['hero__01-discharge-summary.pdf', 'hero__02-chemo-daycare-cycle4.pdf', 'hero__03-ct-thorax-abdomen.jpg', 'hero__04-prescription-printed.pdf',
     'hero__05-prescription-handwritten.jpg', 'hero__06-cbc-hindi.jpg', 'hero__07-wrong-patient-histopathology.pdf', 'hero__08-lab-report-injection.pdf', 'hero__09-mammography-2024.pdf']
-  const ups = await Promise.all(backlog.map(async (f) => ({ f, ...(await uploadDemo(records, p.id, f)) })))
-  const docs = Object.fromEntries(await Promise.all(ups.map(async (u) => [u.f, { id: u.documentId, st: await waitDoc(records, u.documentId) }])))
+  const BUNDLE = 'blood-counts-30-pages.pdf'
+  const ups = await Promise.all([
+    ...backlog.map(async (f) => ({ f, ...(await uploadDemo(records, p.id, f)) })),
+    (async () => ({ f: BUNDLE, ...(await uploadFile(records, p.id, { name: BUNDLE, buffer: await bloodCountBundle(30) })) }))(),
+  ])
+  const docs = Object.fromEntries(await Promise.all(ups.map(async (u) => [u.f, { id: u.documentId, st: await waitDoc(records, u.documentId, 240_000) }])))
+  const uploaded = (await records.get(`/api/patients/${p.id}/documents`)).body
+  expect(uploaded.rows.reduce((a: number, r: any) => a + (r.pages ?? 0), 0), 'pages in the backlog').toBe(40)
+  expect(docs[BUNDLE].st).toMatchObject({ status: 'done', docType: 'lab_report', identity: { result: 'match' } })
 
   // Identity checks: the wrong-patient report is blocked, the handwritten page could not be read; a person decides each, with a reason.
   expect(docs['hero__07-wrong-patient-histopathology.pdf'].st.identity).toEqual({ result: 'mismatch', attachState: 'pending_decision' })
   expect(docs['hero__05-prescription-handwritten.jpg'].st.identity).toEqual({ result: 'insufficient', attachState: 'pending_decision' })
-  for (const f of backlog.filter((x) => !x.startsWith('hero__05') && !x.startsWith('hero__07'))) expect(docs[f].st.identity.result, f).toBe('match')
+  for (const f of [...backlog, BUNDLE].filter((x) => !x.startsWith('hero__05') && !x.startsWith('hero__07'))) expect(docs[f].st.identity.result, f).toBe('match')
   expect((await records.post(`/api/documents/${docs['hero__07-wrong-patient-histopathology.pdf'].id}/attach`, { decision: 'reject', reason: 'Another patient: different name, age and sex' })).ok).toBe(true)
   expect((await records.post(`/api/documents/${docs['hero__05-prescription-handwritten.jpg'].id}/attach`, { decision: 'attach', reason: 'Name and age checked on the page by eye' })).ok).toBe(true)
   await waitDoc(records, docs['hero__05-prescription-handwritten.jpg'].id)
@@ -44,7 +53,9 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   const rank = ['pathology_report', 'ihc_molecular_report', 'imaging_report', 'discharge_summary', 'procedure_note', 'chemo_daycare_record', 'prescription_printed', 'prescription_handwritten', 'lab_report']
   const ranks = order.map((t: string) => rank.indexOf(t))
   expect(ranks).toEqual([...ranks].sort((a, b) => a - b))
-  expect(list.progress).toMatchObject({ documents: 8, awaitingDecision: 0 })
+  expect(order[order.length - 1]).toBe('lab_report') // the 30-page bundle comes last, with the other lab reports
+  // Counts: 40 pages arrived; the rejected one-page report no longer counts; everything else has been read.
+  expect(list.progress).toMatchObject({ documents: 9, awaitingDecision: 0, inQueue: 0, pagesReceived: 39, pagesProcessed: 39 })
 
   // Records staff open the sources, then verify what is eligible from the ledger (bulk verify takes opened items only).
   for (const e of await eventsOf(p.id)) await records.post(`/api/events/${e.id}/viewed`)

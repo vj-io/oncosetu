@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation'
 import { ArrowUpRight, Copy } from 'lucide-react'
 import { BrassSeal, Chip, EmptyFrame, EXPLAIN, Explainer, Frame, InfoTip, ProgressMeter, SectionHeader } from '@/components/ui'
 import { ConflictCard } from '@/components/ledger/ConflictCard'
-import { LedgerItem } from '@/components/ledger/LedgerItem'
+import { LedgerItem, SourceWords } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
 import { mergeNoAnswers } from '@/core/doctor/ledger-view'
 import { writeAudit } from '@/server/audit'
@@ -114,7 +114,8 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   ]
 
   return (
-    <div className="grid gap-10 py-8">
+    // grid-cols-1 (minmax(0, 1fr)): an auto track grew to its widest child and pushed the full-bleed JumpBar 7 px past a phone screen
+    <div className="grid grid-cols-1 gap-10 py-8">
       <div className="grid gap-6">
         <SectionHeader
           kicker="What’s new"
@@ -198,7 +199,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
           <ul className="grid divide-y divide-rule border-t border-rule">
             {v.duplicates.items.map((d) => (
               <li key={d.id} className="flex flex-wrap items-baseline justify-between gap-2 px-4 py-2.5 text-[15px]">
-                <span>{d.typeLabel}{d.headline && <span className="text-muted"> · {d.headline}</span>}</span>
+                <span>{d.typeLabel}{d.headline && <span className="text-muted"> · <SourceWords quoted={d.quoted}>{d.headline}</SourceWords></span>}</span>
                 <span className="font-mono text-[13px] text-muted">{d.docLabel} · {d.date}</span>
               </li>
             ))}

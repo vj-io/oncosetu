@@ -1,0 +1,134 @@
+{
+  "at": "2026-11-08T08:37:01.325Z",
+  "base": "http://localhost:3305",
+  "target": {
+    "patients": 2000,
+    "pages": 50000
+  },
+  "reached": {
+    "patients": 2000,
+    "documents": 6300,
+    "pages": 6300,
+    "events": 35400
+  },
+  "fraction": 0.126,
+  "dbMb": {
+    "before": 113,
+    "after": 165,
+    "stoppedEarlyAt": null
+  },
+  "timingsMs": {
+    "name search (/patients?q=, decrypts every name)": {
+      "p50": 4970,
+      "p95": 5498,
+      "max": 5498,
+      "bytes": 32700,
+      "runs": 15
+    },
+    "name search API (/api/patients?q=)": {
+      "p50": 3955,
+      "p95": 4328,
+      "max": 4328,
+      "bytes": 9786,
+      "runs": 15
+    },
+    "patient list (/patients)": {
+      "p50": 3278,
+      "p95": 3734,
+      "max": 3734,
+      "bytes": 167554,
+      "runs": 15
+    },
+    "ledger (/patients/[id]/ledger)": {
+      "p50": 3417,
+      "p95": 3592,
+      "max": 3592,
+      "bytes": 802820,
+      "runs": 15
+    },
+    "document board (/patients/[id]/documents)": {
+      "p50": 3538,
+      "p95": 4651,
+      "max": 4651,
+      "bytes": 157641,
+      "runs": 15
+    },
+    "document board API (/api/patients/[id]/documents)": {
+      "p50": 2631,
+      "p95": 6002,
+      "max": 6002,
+      "bytes": 23700,
+      "runs": 15
+    },
+    "records queue (/records, org-wide)": {
+      "p50": 4366,
+      "p95": 5305,
+      "max": 5305,
+      "bytes": 4912239,
+      "runs": 15
+    }
+  },
+  "measuredPatient": "the ledger and document board are timed on a heavy patient (target pages per patient)",
+  "extrapolation": "Name search and the patient list read or decrypt every patient: they are at full patient count. The records queue aggregates over all pages and events: scale its time linearly from the page fraction. The ledger and document board are per patient and do not grow with the org.",
+  "note": "Laptop `next start` against Neon (Singapore, ~100 ms round trip): times are dominated by database round trips and are an upper bound for a co-located deployment.",
+  "baseline": {
+    "note": "same pages on the same branch and server with only the first 20 patients seeded (500 pages), 3 timed runs each, 2026-11-08T08:23:43.956Z",
+    "reached": {
+      "patients": 20,
+      "documents": 500,
+      "pages": 500,
+      "events": 2900
+    },
+    "timingsMs": {
+      "name search (/patients?q=, decrypts every name)": {
+        "p50": 3955,
+        "p95": 4017,
+        "max": 4017,
+        "bytes": 32716,
+        "runs": 3
+      },
+      "name search API (/api/patients?q=)": {
+        "p50": 3157,
+        "p95": 3185,
+        "max": 3185,
+        "bytes": 5655,
+        "runs": 3
+      },
+      "patient list (/patients)": {
+        "p50": 2865,
+        "p95": 2992,
+        "max": 2992,
+        "bytes": 85068,
+        "runs": 3
+      },
+      "ledger (/patients/[id]/ledger)": {
+        "p50": 3343,
+        "p95": 3407,
+        "max": 3407,
+        "bytes": 802820,
+        "runs": 3
+      },
+      "document board (/patients/[id]/documents)": {
+        "p50": 3705,
+        "p95": 6044,
+        "max": 6044,
+        "bytes": 157641,
+        "runs": 3
+      },
+      "document board API (/api/patients/[id]/documents)": {
+        "p50": 2515,
+        "p95": 2606,
+        "max": 2606,
+        "bytes": 23700,
+        "runs": 3
+      },
+      "records queue (/records, org-wide)": {
+        "p50": 2428,
+        "p95": 3023,
+        "max": 3023,
+        "bytes": 126065,
+        "runs": 3
+      }
+    }
+  }
+}

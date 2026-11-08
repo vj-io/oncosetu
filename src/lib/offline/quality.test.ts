@@ -82,3 +82,58 @@ describe('skew (projection profile) on a synthetic page', () => {
     expect((await tilted(3)).issues).not.toContain('skewed')
   })
 })
+
+// FR-DOC-03 acceptance: "flags at least 80 % of bad pages". An eval set of 60 bad pages (each demo page blurred, glared,
+// darkened, tilted and cut off at several strengths) and 20 good ones (clean, plus changes staff should not have to retake).
+// The thresholds were set on these same four pages, so this is a regression gate, not a held-out measurement.
+describe('bad-page recall over a degraded eval set (FR-DOC-03)', () => {
+  type Bg = { r: number; g: number; b: number }
+  type Case = { kind: 'blur' | 'glare' | 'dark' | 'skew' | 'cut' | 'good'; issue?: string; make: (o: () => Sharp, w: number, h: number, bg: Bg) => Promise<Sharp> }
+  const buf = async (s: Sharp) => sharp(await s.toBuffer())
+  const glare = (rx: number) => async (o: () => Sharp, w: number, h: number) => {
+    const svg = Buffer.from(`<svg width="${w}" height="${h}"><ellipse cx="${w * 0.45}" cy="${h * 0.55}" rx="${w * rx}" ry="${h * rx * 0.8}" fill="#fff"/></svg>`)
+    return sharp(await sharp(await o().linear(0.85, 0).toBuffer()).composite([{ input: svg }]).toBuffer())
+  }
+  const cut = (side: 'left' | 'right' | 'top' | 'bottom', f: number) => async (o: () => Sharp, w: number, h: number) => {
+    const r = { left: 0, top: 0, width: w, height: h }
+    if (side === 'left' || side === 'right') { r.width = Math.round(w * (1 - f)); if (side === 'left') r.left = w - r.width }
+    else { r.height = Math.round(h * (1 - f)); if (side === 'top') r.top = h - r.height }
+    return buf(o().extract(r))
+  }
+  // the corners a rotation opens are filled with the photo's own surround, as a tilted photo would show it
+  const tilt = (deg: number) => async (o: () => Sharp, _w: number, _h: number, bg: Bg) => buf(o().rotate(deg, { background: bg }))
+  const CASES: Case[] = [
+    ...[5, 7, 9].map((s) => ({ kind: 'blur' as const, issue: 'blurry', make: async (o: () => Sharp) => buf(o().blur(s)) })),
+    ...[0.15, 0.2].map((rx) => ({ kind: 'glare' as const, issue: 'glare', make: glare(rx) })),
+    ...[0.3, 0.4, 0.5].map((k) => ({ kind: 'dark' as const, issue: 'too_dark', make: async (o: () => Sharp) => buf(o().linear(k, 0)) })),
+    ...[7, -9, 12].map((d) => ({ kind: 'skew' as const, issue: 'skewed', make: tilt(d) })),
+    ...([['left', 0.15], ['right', 0.2], ['top', 0.15], ['bottom', 0.2]] as const).map(([s, f]) => ({ kind: 'cut' as const, issue: 'cropped', make: cut(s, f) })),
+    { kind: 'good', make: async (o) => o() },
+    { kind: 'good', make: async (o) => buf(o().blur(1.5)) },
+    { kind: 'good', make: async (o) => buf(o().linear(0.9, 0)) },
+    { kind: 'good', make: async (o) => buf(o().resize({ width: 1400 })) },
+    { kind: 'good', make: async (o) => buf(o().jpeg({ quality: 55 })) },
+  ]
+
+  it('flags at least 80 % of the bad pages for the right reason, and passes most good ones', async () => {
+    const bad: Record<string, [number, number]> = {}
+    let goodFlagged = 0, good = 0
+    for (const file of DOCS) {
+      const { width, height } = await sharp(path(file)).metadata()
+      const [r0, g0, b0] = (await sharp(path(file)).extract({ left: 0, top: 0, width: 24, height: 24 }).stats()).channels.map((ch) => Math.round(ch.mean))
+      for (const c of CASES) {
+        const r = await check(await c.make(() => sharp(path(file)), width!, height!, { r: r0, g: g0, b: b0 }))
+        if (c.kind === 'good') { good++; if (!r.ok) goodFlagged++; continue }
+        const t = (bad[c.kind] ??= [0, 0])
+        t[1]++
+        if (r.issues.includes(c.issue as never)) t[0]++
+      }
+    }
+    const hit = Object.values(bad).reduce((a, [h]) => a + h, 0), total = Object.values(bad).reduce((a, [, n]) => a + n, 0)
+    console.log(`FR-DOC-03 eval: ${hit}/${total} bad pages flagged (${((100 * hit) / total).toFixed(1)} %),`,
+      Object.entries(bad).map(([k, [h, n]]) => `${k} ${h}/${n}`).join(', '), `· good pages flagged ${goodFlagged}/${good}`)
+    expect(total).toBe(60)
+    expect(hit / total).toBeGreaterThanOrEqual(0.8)
+    expect(goodFlagged / good).toBeLessThanOrEqual(0.2)
+  }, 120_000)
+})

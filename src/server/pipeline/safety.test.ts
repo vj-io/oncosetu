@@ -5,7 +5,7 @@ import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import { PDFDocument, PDFName, StandardFonts } from 'pdf-lib'
 import { extractText, getDocumentProxy } from 'unpdf'
-import { dHash, hamming, hasEicar, NEAR_DUP_HAMMING, sanitisePdf, scanPdf, sniffMime, textSimilarity } from './safety'
+import { dHash, eicarScanner, hamming, hasEicar, NEAR_DUP_HAMMING, sanitisePdf, scanPdf, sniffMime, textSimilarity } from './safety'
 
 const DOCS = join(process.cwd(), 'public', 'demo-docs')
 const pdf = (name: string) => new Uint8Array(readFileSync(join(DOCS, name)))
@@ -35,6 +35,11 @@ describe('EICAR test signature (E-DOC-19)', () => {
     expect(hasEicar(Buffer.from(EICAR))).toBe(true)
     expect(hasEicar(Buffer.concat([pdf('hero__09-mammography-2024.pdf'), Buffer.from(EICAR)]))).toBe(true)
     expect(hasEicar(pdf('hero__09-mammography-2024.pdf'))).toBe(false)
+  })
+  it('is the default MalwareScanner, labelled honestly (FR-ING-08, ADR-016)', async () => {
+    expect(await eicarScanner.scan(Buffer.concat([pdf('hero__09-mammography-2024.pdf'), Buffer.from(EICAR)]))).toEqual({ infected: true, reason: 'eicar_signature' })
+    expect(await eicarScanner.scan(pdf('hero__09-mammography-2024.pdf'))).toEqual({ infected: false, reason: null })
+    expect(eicarScanner.label).toMatch(/signature check; full AV scan out of scope/)
   })
 })
 

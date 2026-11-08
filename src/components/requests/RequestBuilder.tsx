@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FileText, Mail } from 'lucide-react'
 import { Button, ButtonLink, Checkbox, Dialog, Field, Input, Select, useToast, type ButtonSize, type ButtonVariant } from '@/components/ui'
-import type { Disclosure, Lang } from '@/core/types'
+import { INSTITUTION_TYPES, type Disclosure, type InstitutionType, type Lang } from '@/core/types'
 import { tr } from '@/i18n/requests'
 import { DEFAULT_REQUEST_DOCS, requestDocLabel, type RequestDocKey } from '@/server/requests/letter'
 import { api, ApiError } from './api'
@@ -34,6 +34,7 @@ export function RequestBuilder({
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [institution, setInstitution] = useState(prefill?.institution ?? '')
+  const [institutionType, setInstitutionType] = useState<InstitutionType | ''>('')
   const [uhid, setUhid] = useState('')
   const [docs, setDocs] = useState<Set<RequestDocKey>>(new Set(prefill?.documents?.length ? prefill.documents : DEFAULT_REQUEST_DOCS))
   const [from, setFrom] = useState(prefill?.dateRange?.from ?? '')
@@ -53,7 +54,8 @@ export function RequestBuilder({
     try {
       const r = await api<{ id: string }>('/api/requests', {
         ...(actor === 'staff' ? { patientId } : {}),
-        missingIds: prefill?.missingIds ?? [], institution: institution.trim(), institutionPatientId: uhid.trim() || undefined,
+        missingIds: prefill?.missingIds ?? [], institution: institution.trim(), institutionType: institutionType || undefined,
+        institutionPatientId: uhid.trim() || undefined,
         documents: ORDER.filter((k) => docs.has(k)), lang: letterLang,
         dateRange: from || to ? { ...(from ? { from } : {}), ...(to ? { to } : {}) } : undefined,
       })
@@ -90,6 +92,12 @@ export function RequestBuilder({
           <form id="request-builder" onSubmit={submit} className="grid gap-5" noValidate>
             <Field label={t('institutionLabel')} hint={t('institutionHint')} error={error?.field === 'institution' ? error.text : undefined}>
               <Input value={institution} onChange={(e) => setInstitution(e.target.value)} maxLength={200} autoComplete="off" required />
+            </Field>
+            <Field label={t('institutionTypeLabel')} hint={t('institutionTypeHint')} optional>
+              <Select value={institutionType} onChange={(e) => setInstitutionType(e.target.value as InstitutionType | '')}>
+                <option value="">{t('institutionTypeNone')}</option>
+                {INSTITUTION_TYPES.map((k) => <option key={k} value={k}>{t(`instType_${k}`)}</option>)}
+              </Select>
             </Field>
             <fieldset className="grid gap-1">
               <legend className="ds-kicker mb-1 text-muted">{t('documentsLabel')}</legend>

@@ -186,6 +186,20 @@ Sign in as Admin (Farhan Sheikh).
   diagnosis words. (Tracking is lazy: the reminder goes out on the first read after the threshold.)
   **Reset the clock afterwards** (Settings → Reset, or rerun the seed).
 
+## Added in the 8 Nov PRD-gap round (optional, if time allows)
+
+- **Offline desk capture** (Desk): `/capture` → set a device PIN → pick a patient checked in today → switch the network off
+  (browser dev tools) → add photos: pages on a desk are cut to the paper ("Cut to the page", "Use full photo") → **Save to
+  queue**. Switch the network back on: the queue syncs by itself and empties.
+- **Evidence-gate log** (Records): Mohd. Abdul Rahim Khan → Documents → open a document → **Left out by the evidence gate**
+  lists each proposed fact the gate refused, with the reason. A fact from a hard-to-read page is held until someone presses
+  **Checked against the page**.
+- **Admin**: `/admin/settings` → **Pre-visit questions** (switch off or reorder) and **AI-assisted reading: daily limit**.
+  An unreviewed emergency access shows as a red banner on every admin page until another admin marks it reviewed.
+- **Family's phone**: `/p/access` → **Lost your clinic card?** stops the card (one confirming tap; cannot be undone).
+- **Mohd. Abdul Rahim Khan** has a synthetic ABHA and is also registered at the second organisation; the overview shows
+  "ABHA on file (unverified)" only. Whether a person is registered elsewhere is not shown (PRD §10.3).
+
 ## What to notice (safety)
 
 - **No diagnosis words where disclosure is not cleared.** Sunita and Lakshmi are `unknown`: SMS, portal, request

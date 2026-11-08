@@ -141,6 +141,10 @@ export type MissingState = (typeof MISSING_STATES)[number]
 export const REQUEST_STATES = ['drafted', 'sent', 'reminder_due', 'open_21d', 'fulfilled', 'unobtainable', 'withdrawn'] as const
 export type RequestState = (typeof REQUEST_STATES)[number]
 
+/** FR-REQ-06: the kind of institution a records request goes to (CHECK in drizzle/0019). */
+export const INSTITUTION_TYPES = ['government', 'private', 'charitable', 'diagnostic', 'clinic', 'other'] as const
+export type InstitutionType = (typeof INSTITUTION_TYPES)[number]
+
 export const DISCLOSURES = ['cleared', 'not_cleared', 'unknown'] as const
 export type Disclosure = (typeof DISCLOSURES)[number]
 

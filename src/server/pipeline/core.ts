@@ -4,9 +4,9 @@ import {
   classifyDocument, detectInjection, extractPatterns, parseHeader, type Extraction, type LabelledSpan, type ParsedHeader, type Span,
 } from '@/core/extract'
 import { daysBetween, findDates, parseDate, usesDayFirst, type ParsedDate } from '@/core/dates'
-import { runGate, type Candidate, type GateEvidence, type GatePage, type GateResult } from '@/core/gate'
+import { runGate, type Candidate, type GateEvidence, type GatePage, type GateResult, type RejectReason, type Rejected } from '@/core/gate'
 import { decideIdentity, type IdentityDecision, type PatientIdentity } from '@/core/identity'
-import type { DocType, EventFlag, EventType, ExtractionMethod } from '@/core/types'
+import { EVENT_TYPES, type DocType, type EventFlag, type EventType, type ExtractionMethod } from '@/core/types'
 import { detectLanguage, type PageRead } from './text'
 
 // E-DOC-15: a document dated more than a year before it reached OncoSetu ("years ago, received now").
@@ -373,6 +373,30 @@ export function gateAndDate(
   }
   const drafts = all.filter((d) => best.get(dedupeKey(d)) === d)
   return { gate, drafts }
+}
+
+/** One item the evidence gate left out (FR-EXT-02 `rejected_unsupported`). No document or model text: kinds, names and numbers only. */
+export type RejectionLogItem = {
+  label: 'rejected_unsupported'; reason: RejectReason; field: string | null; banned: string | null
+  eventType: EventType | null; origin: 'llm' | 'rules' | null; pageNo: number | null
+}
+export const REJECTION_LOG_MAX = 200
+
+/**
+ * Per-item rejection log stored on the document (flags.gate.rejections). A model can name any field or type it likes, so
+ * only identifier-shaped field names are kept and event types outside the list become null; quotes and values never are.
+ */
+export function rejectionLog(rejected: readonly Rejected[]): RejectionLogItem[] {
+  const key = (s: string | undefined) => (s && /^[A-Za-z][A-Za-z0-9_]{0,39}$/.test(s) ? s : null)
+  return rejected.slice(0, REJECTION_LOG_MAX).map((r) => ({
+    label: 'rejected_unsupported',
+    reason: r.reason,
+    field: r.reason === 'unknown_event_type' || r.reason === 'event_type_not_extractable' ? null : key(r.detail),
+    banned: r.banned ?? null,
+    eventType: (EVENT_TYPES as readonly string[]).includes(r.candidate.event_type) ? (r.candidate.event_type as EventType) : null,
+    origin: r.candidate.origin ?? null,
+    pageNo: Number.isInteger(r.candidate.page_no) && r.candidate.page_no! > 0 && r.candidate.page_no! < 10_000 ? r.candidate.page_no! : null,
+  }))
 }
 
 // ---------- injection + whole path ----------

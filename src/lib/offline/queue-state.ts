@@ -10,6 +10,7 @@ export type CaptureMeta = {
   state: CaptureState
   capturedAt: number // device clock, epoch ms. Sent as clientCapturedAt only; the server clock is authoritative.
   pageCount: number
+  audio?: boolean // an audio note goes with the pages
   attempts: number
   nextAttemptAt: number | null // null on a failed item = needs a person (permanent error)
   lastError: string | null // error code only

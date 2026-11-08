@@ -129,7 +129,7 @@ async function createProbePatient(staffId: string, origin: string, headers: Head
 
   await withOrg(ORG, async (tx) => {
     const [doc] = await tx.select().from(documents).where(eq(documents.id, up.documentId))
-    const [page1] = await tx.select({ text: documentPages.text }).from(documentPages).where(and(eq(documentPages.documentId, up.documentId), eq(documentPages.pageNo, 1)))
+    const [page1] = await tx.select({ text: documentPages.text }).from(documentPages).where(and(eq(documentPages.documentId, up.documentId), eq(documentPages.pageNo, 1), isNull(documentPages.supersededAt)))
     if (!['done', 'needs_review'].includes(doc.status) || !page1 || page1.text.length < 300) throw new Error(`probe document did not process (status ${doc.status})`)
     const rows = Array.from({ length: MIN_ITEMS }, (_, i) => {
       const type = TYPES[i % TYPES.length]

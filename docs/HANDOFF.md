@@ -115,9 +115,9 @@ browser ──> route handlers (src/app/api/**, wrapped by route() in src/server
 ## 5. Testing
 
 ```bash
-npm run typecheck && npm run lint && npm test          # 1,040 unit tests
-npm run test:integration                               # 27 live-DB tests (RLS, erasure, inbound, ABDM, backups, LLM budget)
-npm run test:e2e                                       # 42 Playwright tests against BASE_URL (default :3000)
+npm run typecheck && npm run lint && npm test          # 1,334 unit tests (88 files; includes the eval regression guard and the RBAC table)
+npm run build && npm run test:integration              # 78 live-DB tests (16 files); the log-redaction test starts `next start` from the build
+npm run test:e2e                                       # 97 Playwright tests (main, webkit, clock) against BASE_URL (default :3000)
 ```
 
 - E2E runs entirely in the **Ganga** org with `*@ganga.test` staff; the two clock-moving tests run alone in the `clock`
@@ -126,7 +126,11 @@ npm run test:e2e                                       # 42 Playwright tests aga
   then `BASE_URL=http://localhost:3100 PUBLIC_BASE_URL=http://localhost:3100 npx playwright test`. Building in the same
   folder as a running dev server disturbs it — build in a copy (clone `node_modules` with `cp -Rc`; Turbopack refuses a
   symlinked `node_modules` outside the project root).
-- Offline capture is a standalone script that needs a production server: `tests/e2e/offline-capture.e2e.ts`.
+- Offline capture is `tests/e2e/v05-offline.spec.ts`; it needs a production build (it launches its own Chromium with a
+  fake camera and microphone and a persistent profile).
+- WebKit subset: `npx playwright test --project=webkit` (needs `npx playwright install webkit`).
+- One spec only: `npx playwright test --project=main <file>`, then `--project=clock --no-deps <file>` for its @clock
+  tests. A bare file filter also runs every project the clock project depends on.
 - Extraction eval: `npx tsx --env-file=.env.local scripts/eval.ts` → `data/eval/report.json` (tuned + held-out sets, OCR CER); `--llm` → `report-llm.json` (about 60 free-tier calls). Results show on `/admin/metrics`.
 - OTP sends are limited to 3 per phone per 10 min — tests use fresh random phones.
 
@@ -135,7 +139,7 @@ npm run test:e2e                                       # 42 Playwright tests aga
 - Deploy: `vercel deploy --prod` from a clean tree (or `git archive HEAD` into a temp folder if your tree has work in
   progress). Production alias: oncosetu-zeta.vercel.app.
 - Crons (`vercel.json`, daily): erasure (02:00), inbound-holds (02:15), outbox sweeper (02:30), perf-probe (02:45),
-  backup (03:00), abdm-erase (03:15), llm-health (03:30). Trigger one now: `vercel crons run /api/cron/<name>`.
+  backup (03:00), abdm-erase (03:15), llm-health (03:30), requests reminders (04:30 UTC = 10:00 IST). Trigger one now: `vercel crons run /api/cron/<name>`.
 - Backups: `npx tsx --env-file=.env.local scripts/backup.ts [--list]`; restore into a throwaway Neon branch and verify:
   `scripts/restore-from-backup.ts --blob latest`. Point-in-time drill: `scripts/restore-drill.ts`. Details and the breach
   checklist: `docs/RUNBOOK.md`.
@@ -162,9 +166,19 @@ npm run test:e2e                                       # 42 Playwright tests aga
   documents that are the patient's (header formats such as "Patient: X, 55 Y / M", Hindi headers). OCR CER on phone
   photos is 7.9% (target 5%). Improving any of these on the held-out set makes it no longer blind: write a fresh set
   first (`scripts/demo-docs/heldout-docs.ts` shows the format). Gold labels need the clinician advisor's review.
-  Drug-name WER for voice is not measured. The three fact types added on 5 Nov (allergy, follow-up date, lab result
+  Drug-name accuracy for voice is measured on 50 synthetic clips only; real voices need the pilot (shadow mode exists). The three fact types added on 5 Nov (allergy, follow-up date, lab result
   rows) have no gold labels yet, so the eval counts them without scoring them. The `--llm` report predates them.
-- Malware check is the EICAR signature only (no ClamAV on serverless).
+- Malware check is the EICAR signature behind the `MalwareScanner` interface (ADR-016); a ClamAV host is still needed.
+- CI (`.github/workflows/ci.yml`) has not run on GitHub yet. The database suites need a `CI_ENV_FILE` secret pointing at a
+  dedicated CI Neon branch, never production. Semgrep has not been run locally.
+- ASVS L2 self-assessment (`docs/security/ASVS-L2-checklist.md`): 9 items not met, among them TOTP code reuse within its
+  window, staff accounts with TOTP off, keys in environment variables instead of a KMS, and the `X-Powered-By` header.
+- Two role mismatches to decide: `rbac.ts` `document.attach` names desk and records but the attach route allows records
+  and clinician; `GET /api/requests` lets the desk in while `request.manage` excludes it.
+- The records queue slows as pages grow (load test at 2,000 patients and 6,300 pages, `data/perf/load-test.json`;
+  roughly 18 s estimated at 50,000 pages). Optimise it before a pilot.
+- Cross-organisation identity: an ABHA links one person across organisations (0019), but `person_registered_elsewhere()`
+  is not shown to staff until a patient-consent link to the other organisation exists (PRD §10.3).
 - Hindi is the only regional language; Hindi copy and Radar wording need review by a native speaker and the clinician
   advisor before a pilot.
 - Backups: up to 24 h data loss after the 6 h PITR window; same Vercel account as the app (pilot needs an off-account

@@ -5,7 +5,8 @@ import { swappedReading } from '../../src/core/dates'
 import { documentsOf, eventsOf, evidenceOf, pagesOf, verificationsOf } from './helpers/db'
 import { Api, demoDoc, registerPatient, until, uploadAndWait, uploadDemo, uploadFile, waitDoc } from './helpers/api'
 import { parseCsv } from './helpers/flows'
-import { scannedDischargeSummary } from './helpers/scan'
+import { passwordPdf } from './helpers/password-pdf'
+import { blurredLabPhoto, scannedDischargeSummary } from './helpers/scan'
 import { test, expect } from './helpers/fixtures'
 
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -39,6 +40,8 @@ test('V02-E2E-01 a text-layer pathology report yields unverified events, each op
     await expect(page.locator(`#ev-${id}`)).toContainText('Not yet verified')
     await expect(page.locator(`#q-${id}`).first()).toBeVisible()
   }
+  // FR-EXT-08: the verifier is told how much the evaluation found for this kind of document.
+  await expect(page.getByTestId('coverage-note')).toContainText(/Coverage: extraction recall for histopathology reports in evaluation [01]\.\d\d \(\d+ facts checked by hand\)/)
   await expect.poll(async () => {
     const csv = parseCsv(((await (await staff('admin')).get('/api/admin/audit.csv')).body as string))
     return csv.filter((r) => r.action === 'event.source_viewed' && withQuote.some((q) => q.id === r.target_id)).length
@@ -73,6 +76,38 @@ test('V02-E2E-02 a scanned discharge summary is read by OCR into events with evi
   await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
   await expect(page.getByText('Low OCR confidence on at least one page')).toBeVisible()
   for (const x of pages.filter((x) => x.text.trim())) await expect(page.getByText(`Page ${x.pageNo} · OCR mean confidence ${x.ocrConfidence!.toFixed(2)}`)).toBeVisible()
+})
+
+test('V02-E2E-11 a fact read from a low-confidence photo stays out of the record until a person checks it against the page (FR-DOC-06)', async ({ staff, ui }) => {
+  const records = await staff('records')
+  const p = await registerPatient(records, { base: 'hero' })
+  // A blurred photo of a short typed report: words are read, at a mean confidence under 0.80 (too few lines to count as handwriting).
+  const up = await uploadFile(records, p.id, { name: 'blurred-lab-photo.jpg', buffer: await blurredLabPhoto() })
+  const st = await waitDoc(records, up.documentId)
+  expect(st.flags).toMatchObject({ lowConfidence: true, handwritten: false })
+  if (st.identity.attachState === 'pending_decision') {
+    expect((await records.post(`/api/documents/${up.documentId}/attach`, { decision: 'attach', reason: 'Name and age checked on the photo by eye' })).ok).toBe(true)
+    await waitDoc(records, up.documentId)
+  }
+  const [page1] = await pagesOf(up.documentId)
+  expect(page1.lowConfidence).toBe(true)
+  const line = page1.text.split('\n').map((l) => l.trim()).find((l) => l.length >= 12)!
+  const keyed = await records.post(`/api/documents/${up.documentId}/manual-events`, { eventType: 'lab_report_documented', fields: {}, quote: line, pageNo: 1 })
+  expect(keyed.ok, JSON.stringify(keyed.body)).toBe(true)
+  const heldId = keyed.body.eventId as string
+  expect((await eventsOf(p.id)).find((e) => e.id === heldId)!.flags).toMatchObject({ low_confidence: true })
+  const page = await ui('records')
+  await page.goto(`/patients/${p.id}/ledger`)
+  await expect(page.locator('main')).toBeVisible() // server-rendered: the ledger is complete once the page is there
+  await expect(page.locator(`#item-${heldId}`)).toHaveCount(0)
+  await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
+  const card = page.locator(`#ev-${heldId}`)
+  await expect(card).toContainText('Needs checking against the page')
+  await expect(card).toContainText('Not in the record until a person checks it against the page')
+  await card.getByRole('button', { name: 'Checked against the page' }).click()
+  await until(async () => (await eventsOf(p.id)).find((e) => e.id === heldId && e.verificationStatus === 'verified_matches_source'))
+  await page.goto(`/patients/${p.id}/ledger`)
+  await expect(page.locator(`#item-${heldId}`)).toHaveCount(1)
 })
 
 test('V02-E2E-03 a handwritten prescription is kept as an image: zero events, manual tag works', async ({ staff }) => {
@@ -254,6 +289,12 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   const evs = await eventsOf(p.id)
   const ctEv = evs.find((e) => e.documentId === ct.id)!, cbcEv = evs.find((e) => e.documentId === cbc.id)!
   expect(cbcEv.flags).toMatchObject({ ocr: true, binding_uncertain: true })
+  // FR-EXT-10: the OCR'd result rows show the page image cropped around the quote, beside it.
+  await page.goto(`/patients/${p.id}/documents/${cbc.id}?event=${cbcEv.id}`)
+  const crop = page.locator(`#ev-${cbcEv.id}`).getByRole('img', { name: 'Page image around the quote' })
+  await expect(crop).toBeVisible()
+  await expect.poll(() => crop.evaluate((c) => (c as HTMLCanvasElement).width * (c as HTMLCanvasElement).height)).toBeGreaterThan(0)
+  await expect(page.locator(`#ev-${cbcEv.id}`)).toContainText('compare with the image. Cannot be bulk-verified.')
   const byRecords = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
   expect(byRecords.body.verified).toEqual([])
   expect(byRecords.body.skipped).toEqual(expect.arrayContaining([{ id: ctEv.id, reasons: ['clinician_tier'] }, { id: cbcEv.id, reasons: ['binding_uncertain'] }]))
@@ -262,4 +303,65 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   const byClinician = await clinician.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
   expect(byClinician.body.verified).toEqual([ctEv.id])
   expect(byClinician.body.skipped).toEqual([{ id: cbcEv.id, reasons: ['binding_uncertain'] }])
+})
+
+test('V02-E2E-09 upload in the browser shows per-file progress; more than 50 files is refused whole with a clear message (FR-ING-02)', async ({ staff, ui }) => {
+  const records = await staff('records')
+  const p = await registerPatient(records, { base: 'hero' })
+  const page = await ui('records')
+  // Each upload is held for a moment on its way to the server, so every file's own progress bar can be seen.
+  await page.route(`**/api/patients/${p.id}/documents`, async (route) => {
+    if (route.request().method() === 'POST') await new Promise((r) => setTimeout(r, 2000))
+    await route.continue()
+  })
+  await page.goto(`/patients/${p.id}/documents`)
+  const input = page.locator('input[type=file]')
+  const files = ['hero__04-prescription-printed.pdf', 'hero__09-mammography-2024.pdf', 'hero__02-chemo-daycare-cycle4.pdf'].map(demoDoc).map((d) => ({ name: d.name, mimeType: 'application/pdf', buffer: d.buffer }))
+  await input.setInputFiles(files)
+  const list = page.getByRole('list', { name: 'Uploads' })
+  for (const f of files) await expect(page.getByRole('progressbar', { name: `Upload ${f.name}` })).toBeVisible()
+  for (const f of files) await expect(list.getByRole('listitem').filter({ hasText: f.name })).toContainText('Received', { timeout: 60_000 })
+  await expect.poll(async () => (await documentsOf(p.id)).length).toBe(3)
+
+  // 51 files: nothing is uploaded, nothing is silently dropped, and the message says what to do.
+  const many = Array.from({ length: 51 }, (_, i) => ({ name: `note-${i + 1}.txt`, mimeType: 'text/plain', buffer: Buffer.from(`Synthetic note ${i + 1}`) }))
+  await input.setInputFiles(many)
+  const note = page.getByTestId('batch-limit')
+  await expect(note).toBeVisible()
+  await expect(note).toContainText('You chose 51 files')
+  await expect(note).toContainText('One upload takes up to 50 files and 200 MB in all, so nothing was uploaded.')
+  await expect(list.getByRole('listitem')).toHaveCount(3)
+  expect((await documentsOf(p.id)).length).toBe(3)
+})
+
+test('V02-E2E-10 a password-protected PDF asks for the password in the UI; a wrong one says so, the right one opens it and is never stored (FR-ING-07)', async ({ staff, ui }) => {
+  const records = await staff('records'), admin = await staff('admin')
+  const p = await registerPatient(records, { base: 'hero' })
+  const PW = '14081974' // a lab's habit: the date of birth
+  const pdf = passwordPdf(PW, ['CITY DIAGNOSTIC LABORATORY', 'LIVER FUNCTION TEST', 'Patient Name: Mrs. SUNITA DESHMUKH', 'Age / Sex: 51 Years / Female', 'Report Date: 02/02/2026', 'Serum bilirubin (total) 0.7 mg/dL 0.3 - 1.2', 'SYNTHETIC DOCUMENT - FOR DEMONSTRATION ONLY'])
+  const up = await uploadFile(records, p.id, { name: 'lft-locked.pdf', buffer: pdf })
+  expect((await waitDoc(records, up.documentId)).status).toBe('needs_password')
+
+  const page = await ui('records')
+  await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
+  await expect(page.getByText('This PDF is password-protected')).toBeVisible()
+  await page.getByLabel('PDF password').fill('wrong-guess')
+  await page.getByRole('button', { name: 'Open file' }).click()
+  await expect.poll(async () => (await documentsOf(p.id)).find((d) => d.id === up.documentId)!.flags.password_incorrect, { timeout: 60_000 }).toBe(true)
+  await page.reload()
+  await expect(page.getByText('That password did not open the file.')).toBeVisible()
+
+  await page.getByLabel('PDF password').fill(PW)
+  await page.getByRole('button', { name: 'Open file' }).click()
+  await expect(page.getByText('Opening with the password')).toBeVisible() // the route has queued the run
+  const done = await waitDoc(records, up.documentId)
+  expect(done).toMatchObject({ status: 'done', docType: 'lab_report', identity: { result: 'match' } })
+  expect(done.events).toBeGreaterThan(0)
+  const [doc] = (await documentsOf(p.id)).filter((d) => d.id === up.documentId)
+  expect(doc.flags).not.toHaveProperty('password_required')
+  // Never stored or logged: not on the document, not in the audit trail.
+  expect(JSON.stringify(doc)).not.toContain(PW)
+  const audit = (await admin.get('/api/admin/audit.csv')).body as string
+  expect(parseCsv(audit).filter((r) => r.target_id === up.documentId).map((r) => r.action)).toEqual(expect.arrayContaining(['document.password_submitted']))
+  expect(audit).not.toContain(PW)
 })

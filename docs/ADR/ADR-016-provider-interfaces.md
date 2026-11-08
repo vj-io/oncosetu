@@ -47,11 +47,33 @@ interface OcrProvider {
 
 `tesseractOcr` (tesseract.js 7, eng+hin) is the only implementation and the default for every scanned page. The policy
 around it stays provider-independent in `ocrPage`: the English-only re-read when no Devanagari word is confidently read,
-the handwriting classifier, and the low-confidence flag.
+the handwriting classifier, and the low-confidence flag. *8 Nov 2026:* `readPages(bytes, mime, password?, ocr?)` takes
+the provider as its fourth argument (default `tesseractOcr`); `text.test.ts` reads a photo and a scanned PDF page with a
+fake provider.
 
 A cloud document AI added later needs a selection point (an env var, like `llmProvider()`), and because page images
 would leave the system it must be gated exactly like the LLM path: the org's AI flag, the patient's `ai` consent purpose,
 and an India-region endpoint (PRD §6.8 data residency). Pages it reads record its own name and version.
+
+### `MalwareScanner` (`src/server/pipeline/safety.ts`) — added 8 Nov 2026
+
+```ts
+interface MalwareScanner {
+  readonly name: string     // stored in documents.flags.quarantine.scanner
+  readonly label: string    // how thorough the scan is; shown to staff beside every quarantined file
+  scan(bytes: Uint8Array): Promise<{ infected: boolean; reason: string | null }>   // reason → flags.quarantine.reasons
+}
+```
+
+FR-ING-08 asks for an antivirus scan (ClamAV) before processing. `ingestDocument` calls the scanner on the raw upload
+bytes before the type sniff, the PDF sanitiser or anything else reads them: an infected plain file is refused (422
+`malware_signature`), an infected PDF or image is quarantined (kept encrypted for audit, never processed or served).
+`eicarScanner` (the EICAR test signature only, label "signature check; full AV scan out of scope on serverless") is the
+only implementation and the default; `IngestInput.scanner` takes another one.
+
+A ClamAV implementation needs a scanning host outside Vercel's functions (clamd over TCP, or a scanning service in the
+India region), a timeout policy (a scan that cannot finish quarantines, never passes), and signature updates. That host
+is the part that stays outside the code.
 
 ### `AsrProvider` (`src/server/voice/provider.ts`)
 

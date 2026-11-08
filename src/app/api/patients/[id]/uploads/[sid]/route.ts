@@ -1,4 +1,5 @@
 // Staff chunked upload: GET = which chunks are stored (resume), POST = store one chunk (multipart: idx, chunk).
+import { assertDeviceActive } from '@/server/devices/check'
 import { HttpError, route } from '@/server/http'
 import { assertPatientAccess } from '@/server/patients'
 import { patientIdParam } from '@/server/registration/http'
@@ -13,6 +14,7 @@ export const GET = route({ auth: 'staff', roles }, async (ctx) => {
 })
 
 export const POST = route({ auth: 'staff', roles, form: true, maxBytes: 4.4 * 1024 * 1024 }, async (ctx) => {
+  await assertDeviceActive(ctx.db, ctx.session.orgId, ctx.req.headers.get('x-device-id')) // a revoked capture device: 410, it wipes
   const patientId = patientIdParam(ctx)
   await assertPatientAccess(ctx, patientId)
   const chunk = ctx.form.get('chunk'), idx = Number(ctx.form.get('idx'))

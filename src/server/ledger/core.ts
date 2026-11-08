@@ -173,15 +173,24 @@ export type Assembled = {
   rowById: Map<string, EventRow>
   docById: Map<string, DocumentRow>
   latest: Map<string, VerificationRow>
+  /** Facts waiting for a person to check them against the page (FR-DOC-06): out of the record, kept for the review screen. */
+  held: CoreEvent[]
 }
 
 const ATTACHED = new Set(['auto', 'attached', 'detached'])
 const UNUSABLE = new Set(['quarantined', 'failed'])
 
 /**
+ * FR-DOC-06 (strict reading): a fact read from a low-confidence page or span enters the record (ledger, seal, shares,
+ * timeline) only once a person has checked it against the page. Until then it is shown on its document's review screen.
+ */
+export const awaitsPageCheck = (e: Pick<EventRow, 'flags' | 'verificationStatus'>): boolean =>
+  e.flags?.low_confidence === true && e.verificationStatus === 'unverified'
+
+/**
  * The current record: events from attached documents (or none), not withdrawn; patient statements as statements.
  * Detached documents stay in (with detachedAt) so diffLedger can raise errata; core drops their events, and drops
- * rejected + superseded versions (latest version per chain).
+ * rejected + superseded versions (latest version per chain). Low-confidence facts nobody has checked are held out.
  */
 export function assembleRecord(rows: RecordRows): Assembled {
   const docs = rows.documents.filter((d) => ATTACHED.has(d.attachState) && !UNUSABLE.has(d.status))
@@ -189,7 +198,9 @@ export function assembleRecord(rows: RecordRows): Assembled {
   const evidenceBy = new Map<string, EvidenceRow[]>()
   for (const v of rows.evidence) evidenceBy.set(v.eventId, [...(evidenceBy.get(v.eventId) ?? []), v])
   const evRows = rows.events.filter((e) => !e.withdrawnAt && e.eventType !== 'patient_statement' && (!e.documentId || docById.has(e.documentId)))
-  const coreEvents = evRows.map((e) => toCoreEvent(e, evidenceBy.get(e.id) ?? [], e.documentId ? docById.get(e.documentId) : undefined))
+  const toCore = (e: EventRow) => toCoreEvent(e, evidenceBy.get(e.id) ?? [], e.documentId ? docById.get(e.documentId) : undefined)
+  const coreEvents = evRows.filter((e) => !awaitsPageCheck(e)).map(toCore)
+  const held = evRows.filter(awaitsPageCheck).map(toCore)
   const coreDocs = docs.map(toCoreDocument)
   const statements = rows.statements.map(toCoreStatement)
   const latest = new Map<string, VerificationRow>()
@@ -202,6 +213,7 @@ export function assembleRecord(rows: RecordRows): Assembled {
     rowById: new Map(evRows.map((e) => [e.id, e])),
     docById,
     latest,
+    held,
   }
 }
 
@@ -332,8 +344,10 @@ export type LedgerView = {
   conflicts: ConflictView[]
   patientSaid: StatementView[]
   missing: MissingView[]
-  duplicates: { count: number; items: { id: string; typeLabel: string; headline: string | null; date: string; docLabel: string }[] }
+  duplicates: { count: number; items: { id: string; typeLabel: string; headline: string | null; quoted: boolean; date: string; docLabel: string }[] }
   errata: { documentId: string; docLabel: string; detached: string; withdrawn: number }[]
+  /** FR-DOC-06: low-confidence facts nobody has checked against the page yet. Not part of the ledger; verifiable from their document. */
+  held: ItemView[]
 }
 
 export const sourceHref = (patientId: string, documentId: string, eventId: string) => `/patients/${patientId}/documents/${documentId}?event=${eventId}`
@@ -357,7 +371,7 @@ export type LedgerInput = {
 /** The Change Ledger for one patient, ready to render (FR-LED-02/04/05/06). Never ordered by clinical importance. */
 export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInput): LedgerView {
   const a = assembleRecord(rows)
-  const { record, rowById, docById, latest } = a
+  const { record, rowById, docById, latest, held } = a
   const ledger = diffLedger(prev?.snapshot ?? null, record, now)
   const conflicts = ledger.conflicts.filter((c) => !isResolved(c, rowById))
   const inConflict = new Set(conflicts.flatMap((c) => [c.a.id, c.b.id]))
@@ -458,7 +472,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     duplicates: {
       count: ledger.duplicates_suppressed.count,
       items: record.events.filter((e) => dupIds.has(e.id) && !(headlinesOnly && STAFF_ONLY_EVENT_TYPES.has(e.eventType))).map((e) => ({
-        id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headlinesOnly ? null : headline(e.fields),
+        id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headlinesOnly ? null : headline(e.fields), quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType),
         date: day(e.eventDate ?? e.documentDate, e.eventDate ? e.datePrecision : 'day'), docLabel: docLabel(e.documentId),
       })),
     },
@@ -466,12 +480,13 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       documentId: x.documentId, docLabel: docLabel(x.documentId) === 'No document' ? 'Document' : docLabel(x.documentId),
       detached: x.detachedAt ? day(x.detachedAt) : 'removed', withdrawn: x.withdrawnEventIds.length,
     })),
+    held: held.map((e) => view({ category: 'initial_record', event: e, flags: e.flags })),
   }
 }
 
-/** Ledger items by id (the API looks up tier, eligibility and current-ness here). */
+/** Ledger items by id, held items included (the API looks up tier, eligibility and current-ness here). */
 export function itemsById(v: LedgerView): Map<string, ItemView> {
-  return new Map(Object.values(v.events).flat().map((i) => [i.id, i]))
+  return new Map([...Object.values(v.events).flat(), ...v.held].map((i) => [i.id, i]))
 }
 
 export function snapshotSummary(s: { id: string; seq: number; sha256: string; sealedAt: Date; keyId: string | null }, signerName: string | null): SnapshotSummary {
@@ -487,6 +502,8 @@ export function snapshotSummary(s: { id: string; seq: number; sha256: string; se
 export type TimelineFilters = { type?: string; inst?: string; source?: string; status?: string }
 export type TimelineItem = {
   id: string; typeLabel: string; headline: string | null; status: VerificationStatus; label: SnapshotEvent['label']
+  /** The headline is the source's own words (a quote-only line): shown only as a quote (PRD §6.6). */
+  quoted: boolean
   flags: EventFlag[]; conflict: boolean; dateIso: string | null; dateLabel: string; dateFrom: 'event' | 'document' | null
   docType: DocType | null; docLabel: string; institution: string | null; sourceType: string; sources: SourceView[]
 }
@@ -532,7 +549,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     const fields = e.fields as Record<string, FieldValue>
     return {
       id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headline(fields), status: e.verificationStatus, label: e.label,
-      flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
+      quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType), flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
       dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision, e.flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
       dateFrom: e.eventDate ? 'event' : e.documentDate ? 'document' : null, docType: d?.docType ?? null, docLabel,
       institution: d?.institution ?? (typeof fields.institution_name === 'string' ? fields.institution_name : null), sourceType: e.sourceType,

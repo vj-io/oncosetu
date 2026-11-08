@@ -4,7 +4,7 @@ import { BarRows, Block } from '@/components/admin/charts'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
-import { daysText, pctText } from '@/server/admin/format'
+import { daysText, minutesText, pctText } from '@/server/admin/format'
 import { loadMeasureRows } from '@/server/admin/measurement'
 import { summariseMeasurement } from '@/server/admin/measurement-core'
 import { loadMetrics } from '@/server/admin/metrics'
@@ -65,8 +65,9 @@ export default async function MeasurementPage() {
           <dt className="text-muted">Median days to fulfilment</dt><dd className="tabular-nums">{daysText(sys.fulfilment.overall.medianDays)}</dd>
           <dt className="text-muted">Disclosure not cleared at enrolment</dt><dd className="tabular-nums">{pctText(sys.disclosure.nonCleared)} ({sys.disclosure.nonCleared.num} of {sys.disclosure.total})</dd>
           <dt className="text-muted">Pages: printed / handwritten / image only</dt><dd className="tabular-nums">{sys.census.printed} / {sys.census.handwritten} / {sys.census.imageOnly} of {sys.census.total}</dd>
+          <dt className="text-muted">Arrival to clinician opening the record, median</dt><dd className="tabular-nums">returning {minutesText(sys.prep.returning.medianMinutes)} (n={sys.prep.returning.visits}) · first {minutesText(sys.prep.firstVisit.medianMinutes)} (n={sys.prep.firstVisit.visits})</dd>
         </dl>
-        <p className="text-sm text-faint">Preparation time here comes only from the clinician form. An instrumented arrival-to-ready time does not exist yet.</p>
+        <p className="text-sm text-faint">“Median prep” in the table comes from the clinician form. The arrival-to-opening time is measured by the system from the activity log and includes any wait for the clinician.</p>
       </Block>
     </div>
   )

@@ -31,6 +31,10 @@
     {
       "path": "/api/cron/llm-health",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/requests",
+      "schedule": "30 4 * * *"
     }
   ]
 }

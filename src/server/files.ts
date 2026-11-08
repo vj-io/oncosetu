@@ -7,6 +7,8 @@ import { decryptBytes, encryptBytes, sha256Hex } from './crypto'
 export type StoreFileInput = {
   orgId: string; patientId: string; documentId: string; kind: 'original' | 'page_image'
   pageNo?: number | null; mime: string; bytes: Buffer
+  /** What made a derived file (page images, FR-DOC-08); null for originals. */
+  processor?: { name: string; version: string } | null
 }
 
 /** Must run inside withOrg(orgId). */
@@ -16,6 +18,7 @@ export async function storeFile(tx: Tx, f: StoreFileInput): Promise<{ id: string
   const [row] = await tx.insert(documentFiles).values({
     orgId: f.orgId, patientId: f.patientId, documentId: f.documentId, kind: f.kind, pageNo: f.pageNo ?? null,
     mime: f.mime, bytesEnc: bytes, dekWrapped, size: f.bytes.length, sha256,
+    processor: f.processor?.name ?? null, processorVersion: f.processor?.version ?? null,
   }).returning({ id: documentFiles.id })
   return { id: row.id, size: f.bytes.length, sha256 }
 }

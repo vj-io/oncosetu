@@ -23,8 +23,9 @@ import { decryptJson, encryptJson, fromB64url, payloadDigest, SHARE_SIG_CONTEXT 
 import { istDate, lintText } from '../src/core/copy'
 import { RADAR_RULES } from '../src/core/radar/rules'
 import { CONSENT_NOTICE_VERSION } from '../src/i18n/consent'
-import { phoneHmac } from '../src/server/crypto'
-import { ORG_GANGA_ID, ORG_NARMADA_ID } from '../src/server/demo'
+import { base32Encode, phoneHmac, sha256Hex } from '../src/server/crypto'
+import { DEMO_PASSWORD, ORG_GANGA_ID, ORG_NARMADA_ID } from '../src/server/demo'
+import { totp } from '../src/server/totp'
 import type { ItemView } from '../src/server/ledger/core'
 import { loadLedger } from '../src/server/ledger/record'
 import { describeRows } from '../src/server/radar-ui/completeness'
@@ -100,6 +101,8 @@ type Spec = {
   caregiver: { name: string; relation: string; phone: string; isGuardian: boolean } | null; primary: 'patient' | 'caregiver'
   /** Consent purpose `ai`: the returning and fulfilled patients allow LLM extraction; the hero declines it (manual/rule path). */
   ai?: boolean
+  /** ABHA number as captured at registration (unverified, FR-ID-07). */
+  abha?: string
 }
 const json = JSON.parse(readFileSync(path.join(DOCS, 'patients.json'), 'utf8')) as J[]
 const fromJson = (key: string, lang: 'en' | 'hi'): Spec => {
@@ -110,7 +113,9 @@ const fromJson = (key: string, lang: 'en' | 'hi'): Spec => {
   }
 }
 const HERO = fromJson('hero', 'hi') // disclosure stays `unknown` (PRD hero), not patients.json's not_cleared
-const RETURNING: Spec = { ...fromJson('returning', 'en'), ai: true }
+/** Synthetic (00- prefix = deliberately invalid, as in data/abdm/hip.json) and absent from the synthetic HIP: no ABDM records. */
+const CROSS_ORG_ABHA = '00-1111-2222-0099'
+const RETURNING: Spec = { ...fromJson('returning', 'en'), ai: true, abha: CROSS_ORG_ABHA }
 const FULFILLED: Spec = { ...fromJson('fulfilled', 'en'), ai: true }
 const MINOR: Spec = {
   key: 'minor', fullName: 'Aarav Kulkarni', aliases: [], sex: 'male', dob: '2014-06-18', lang: 'en', primary: 'caregiver',
@@ -130,11 +135,36 @@ async function register(desk: Client, s: Spec): Promise<{ id: string; encounterI
   const r = await desk.call('POST', '/api/patients', {
     fullName: s.fullName, sex: s.sex, dob: s.dob, ...(s.phone ? { phone: s.phone } : {}), preferredLanguage: s.lang,
     aliases: s.aliases.map((name) => ({ name, kind: /[^\x00-\x7F]/.test(name) ? 'transliteration' : 'other' })),
-    disclosureStatus: 'unknown', primaryContact: s.primary, ...(s.caregiver ? { caregiver: s.caregiver } : {}),
+    disclosureStatus: 'unknown', primaryContact: s.primary, ...(s.caregiver ? { caregiver: s.caregiver } : {}), ...(s.abha ? { abhaNumber: s.abha } : {}),
     consent: { purposes: { ...PURPOSES, ai: !!s.ai }, language: s.lang, noticeVersion: CONSENT_NOTICE_VERSION, confirm: { method: 'otp', code } },
   }, [200, 409])
   if (r.error) throw new Error(`register ${s.key}: ${r.error.code} — the org was empty after the reset, so another writer registered this person in Narmada during the run: ${JSON.stringify(r.candidates)}`)
   return { id: r.id, encounterId: r.encounterId }
+}
+
+/**
+ * FR-ID-07: the same person is also a patient of Ganga Valley Hospital, registered there by its clinician with the same
+ * ABHA number (in-person consent, no phone, so the Narmada portal login stays unambiguous). Each org keeps its own
+ * RLS-isolated record; both rows link to one person_identities row (drizzle/0019), and each org's staff see only
+ * "also registered at another OncoSetu hospital: yes". Ganga is not wiped by the reset: a twin from an earlier run,
+ * found by its ABHA, is kept. Returns the Ganga patient id.
+ */
+async function crossOrgTwin(s: Spec): Promise<string> {
+  // Ganga's demo clinician is not on /api/auth/demo-accounts (Narmada only): same password and TOTP formula as scripts/seed-base.ts.
+  const email = 'clinician@ganga.demo'
+  const ganga = new Client('ganga clinician')
+  await ganga.post('/api/auth/staff/login', {
+    email, password: DEMO_PASSWORD, totp: totp(base32Encode(Buffer.from(sha256Hex(`oncosetu-demo-totp:${email}`), 'hex').subarray(0, 20)), Date.now()),
+  })
+  const body = {
+    fullName: s.fullName, sex: s.sex, dob: s.dob, preferredLanguage: s.lang, aliases: [], abhaNumber: s.abha, disclosureStatus: 'unknown', primaryContact: 'patient',
+    consent: { purposes: PURPOSES, language: s.lang, noticeVersion: CONSENT_NOTICE_VERSION, confirm: { method: 'witnessed', attest: true } },
+  }
+  const r = await ganga.call('POST', '/api/patients', body, [200, 409])
+  const twin = (r.candidates as J[] | undefined)?.find((c) => c.reasons.includes('abha'))
+  const id: string = r.id ?? twin?.id ?? (await ganga.post('/api/patients', { ...body, continueDespiteDuplicates: true })).id // same name, other ABHA: E2E patients
+  await ganga.post('/api/auth/logout', undefined, [200, 401])
+  return id
 }
 
 async function deskCheckIn(desk: Client, s: Spec, patientId: string): Promise<{ encounterId: string; encounterType: string }> {
@@ -241,7 +271,7 @@ async function reset() {
   await adminDb.transaction(async (tx) => {
     const orgTables = (await tx.execute<{ t: string }>(sql`select table_name t from information_schema.columns
       where table_schema = 'public' and column_name = 'org_id'`)).map((r) => r.t)
-    const unknown = orgTables.filter((t) => ![...ORG_TABLES, 'sessions', 'staff', 'org_settings'].includes(t))
+    const unknown = orgTables.filter((t) => ![...ORG_TABLES, 'sessions', 'staff', 'org_settings', 'llm_calls'].includes(t)) // llm_calls: budget bookkeeping, no patient data
     if (unknown.length) throw new Error(`reset: unknown org-scoped table(s) ${unknown.join(', ')} — add them to ORG_TABLES`)
     const residue = (await tx.select({ id: organisations.id }).from(organisations)
       .where(and(ne(organisations.id, N), ne(organisations.id, ORG_GANGA_ID)))).map((o) => o.id)
@@ -254,6 +284,7 @@ async function reset() {
     for (const o of wiped) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'audit:' + o}, 0))`)
     await tx.execute(sql`alter table audit_log disable trigger audit_log_append_only`)
     await tx.execute(sql`alter table snapshots disable trigger snapshots_append_only`)
+    await tx.execute(sql`select set_config('oncosetu.erasing', 'on', true)`) // original files are deletable only on the erasure path (0021)
     await tx.execute(sql`delete from sessions where org_id = ${N} and kind <> 'staff'`)
     await tx.execute(sql`delete from sessions where org_id = any(${pgArr(residue)}::uuid[])`)
     // any session still pointing at a person being removed (whatever org or kind it was stamped with)
@@ -385,6 +416,10 @@ async function main() {
   out.ids.minor = (await register(desk, MINOR)).id
   step('minor: registered with guardian consent')
 
+  // 3f. the returning patient is also registered at Ganga Valley Hospital with the same ABHA (FR-ID-07)
+  out.ids.gangaTwin = await crossOrgTwin(RETURNING)
+  step('returning: same ABHA registered at Ganga Valley Hospital (one person identity, two separate records)')
+
   // 4. checks + summary
   const failures = await summarise({ desk, records, clinician, admin })
   for (const c of [desk, records, clinician, admin, retPortal, cg]) await c.post('/api/auth/logout', undefined, [200, 401])
@@ -463,6 +498,9 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
       check(view.conflicts.some((c) => c.kind === 'medication_names'), 'returning: ledger has no medicine conflict')
       check(view.patientSaid.length, 'returning: ledger has no "Patient said"')
       check(miss.some((m) => m.ruleId === PET_RULE && m.mode === 'production'), `returning: no ${PET_RULE} item in production`)
+      const same = p.personId ? await adminDb.select({ id: patients.id, orgId: patients.orgId }).from(patients).where(eq(patients.personId, p.personId)) : []
+      console.log(`  person identity (ABHA): ${same.length} record(s) in ${new Set(same.map((x) => x.orgId)).size} organisation(s)`)
+      check(same.some((x) => x.orgId === N && x.id === id) && same.some((x) => x.orgId === ORG_GANGA_ID && x.id === out.ids.gangaTwin), 'returning: not one person identity with its Ganga record (FR-ID-07)')
     }
     if (key === 'fulfilled') {
       check(reqs.length === 1 && reqs[0].state === 'fulfilled' && reqs[0].reminder7SentAt, 'fulfilled: request not fulfilled with a 7-day reminder')

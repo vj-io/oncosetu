@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import { Check, CircleCheck, Mic, Square, Volume2 } from "lucide-react";
 import { formatDateIN } from "@/core/copy";
 import { tp, type PatientKey } from "@/i18n/patient";
-import { buildReadback, QUESTIONS, TEST_KINDS, type Answer, type Answers, type QuestionId } from "@/server/portal/visit-model";
+import { buildReadback, QUESTION_IDS, TEST_KINDS, type Answer, type Answers, type QuestionId } from "@/server/portal/visit-model";
 import { ErrorNote, PButton, PField, PInput, PLink, PSelect, PTextarea } from "./ui";
 
 import type { Lang } from "@/core/types";
@@ -27,26 +27,31 @@ const recognitionCtor = (): RecognitionCtor | null => {
 /** Drop detail fields when the answer is not "yes", and blank strings everywhere: what is sent is what is read back. */
 function submittable(a: Answers): Answers {
   const out: Answers = {};
-  for (const q of QUESTIONS) {
-    const x = a[q.id];
+  for (const id of QUESTION_IDS) {
+    const x = a[id];
     if (!x) continue;
-    if (x.yn !== "yes") { out[q.id] = { yn: x.yn }; continue; }
+    if (x.yn !== "yes") { out[id] = { yn: x.yn }; continue; }
     const c: Answer = { yn: "yes" };
     for (const k of ["place", "names", "free", "whenText"] as const) if (x[k]?.trim()) c[k] = x[k]!.trim();
     if (x.testKind) c.testKind = x.testKind;
     if (x.year != null) { c.year = x.year; if (x.month != null) c.month = x.month; }
     if (x.voice) c.voice = true;
     if (x.clips?.length) c.clips = x.clips;
-    out[q.id] = c;
+    if (x.shadow?.length) c.shadow = x.shadow;
+    out[id] = c;
   }
   return out;
 }
 
 export function VisitFlow({
-  lang, canVoice, canSpeak, sarvam, currentYear, lastAnswered, station = false,
+  lang, questions, canVoice, shadow = false, canSpeak, sarvam, currentYear, lastAnswered, station = false,
 }: {
   /** sarvam: the server can transcribe (SARVAM_API_KEY set), so record audio instead of using the browser's recogniser */
   lang: Lang; canVoice: boolean; canSpeak: boolean; sarvam: boolean; currentYear: number; lastAnswered: string | null;
+  /** The questions this hospital asks, in its order (FR-VOX-01). */
+  questions: QuestionId[];
+  /** Voice shadow mode (FR-VOX-03): the recording is kept for staff; what it says never fills the answer. Needs Sarvam. */
+  shadow?: boolean;
   /** On the shared desk-station tablet (FR-VOX-02): sign out by itself once the answers are saved. */
   station?: boolean;
 }) {
@@ -62,7 +67,7 @@ export function VisitFlow({
 
   // voice typing (only when the org turned it on): one recording at a time
   const speechSupported = useSyncExternalStore(() => () => {}, () => (sarvam ? typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia : !!recognitionCtor()), () => false); // false on the server, real value in the browser
-  const voiceOn = canVoice && speechSupported;
+  const voiceOn = canVoice && speechSupported && (!shadow || sarvam);
   const [listening, setListening] = useState<string | null>(null);
   const [voiceMsg, setVoiceMsg] = useState<string | null>(null);
   const rec = useRef<Recognition | null>(null);
@@ -75,7 +80,7 @@ export function VisitFlow({
   }, []);
   useEffect(() => { heading.current?.focus(); }, [step, phase]);
 
-  const q = QUESTIONS[step];
+  const q = { id: questions[step] };
   const a = answers[q.id];
 
   function setA(id: QuestionId, patch: Partial<Answer>) {
@@ -114,7 +119,12 @@ export function VisitFlow({
       try {
         const res = await fetch("/api/p/voice/transcribe", { method: "POST", body });
         if (!res.ok) throw new Error(String(res.status));
-        const out = (await res.json()) as { text?: string; clipId?: string };
+        const out = (await res.json()) as { text?: string; clipId?: string; shadow?: string };
+        if (out.shadow) { // shadow mode: keep the sealed token beside the answer; the patient's typing stays the answer
+          const token = out.shadow;
+          setAnswers((s) => { const prev = s[qid] ?? { yn: "yes" as const }; return { ...s, [qid]: { ...prev, shadow: [...(prev.shadow ?? []), token].slice(-6) } }; });
+          return setVoiceMsg(tp(lang, "voiceShadowSaved"));
+        }
         const said = out.text?.trim();
         if (!said) throw new Error("empty");
         addSaid(qid, field, said, out.clipId);
@@ -158,7 +168,7 @@ export function VisitFlow({
     if (a.yn === "yes" && a.month != null && a.year == null) return setError(tp(lang, "err_year"));
     rec.current?.stop();
     if (recorder.current?.state === "recording") recorder.current.stop();
-    if (step < QUESTIONS.length - 1) return setStep(step + 1);
+    if (step < questions.length - 1) return setStep(step + 1);
     setReviewed(true);
     setPhase("review");
   }
@@ -186,7 +196,7 @@ export function VisitFlow({
     setSaving(false);
   }
 
-  const readback = buildReadback(submittable(answers), lang);
+  const readback = buildReadback(submittable(answers), lang, questions);
 
   // Spoken read-back (FR-VOX-04): Sarvam's voice when the server has it, else the browser's own voice.
   const player = useRef<HTMLAudioElement | null>(null);
@@ -228,7 +238,7 @@ export function VisitFlow({
           {listening === id ? <Square aria-hidden className="size-4" /> : <Mic aria-hidden className="size-4" />}
           {tp(lang, listening === id ? "voiceStop" : "voiceStart")}
         </button>
-        <span className="text-[16px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, "voiceLabel")}</span>
+        <span className="text-[16px] text-muted">{listening === id ? tp(lang, "voiceListening") : tp(lang, shadow ? "voiceShadowLabel" : "voiceLabel")}</span>
       </div>
     ) : null;
 
@@ -324,9 +334,9 @@ export function VisitFlow({
     <section aria-labelledby="qh" className="mt-8 grid gap-5">
       {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[16px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
       <div className="grid gap-2">
-        <p className="text-[16px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: QUESTIONS.length })}</p>
+        <p className="text-[16px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: questions.length })}</p>
         <div aria-hidden className="h-2 border border-rule bg-alcove">
-          <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / QUESTIONS.length) * 100}%` }} />
+          <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / questions.length) * 100}%` }} />
         </div>
       </div>
       <h2 id="qh" ref={heading} tabIndex={-1} className="text-[1.65rem] leading-snug outline-none">{tp(lang, `q_${q.id}` as PatientKey)}</h2>

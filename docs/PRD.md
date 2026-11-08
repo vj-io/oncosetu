@@ -436,11 +436,11 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-ID-03 | Every incoming document runs an identity check: extract header name, age/DOB, sex, external MRN/UHID, report date | M | Unit tests on 30 header formats; fields stored with evidence spans |
 | FR-ID-04 | Identity match result is `match`, `mismatch` or `insufficient` using transliteration-aware fuzzy name match (Latin/Devanagari), age tolerance ±1 year vs DOB on report date, sex equality | M | Labelled set ≥ 200 pairs: mismatch recall ≥ 0.99; false-match rate ≤ 0.5% |
 | FR-ID-05 | `mismatch` or `insufficient` blocks auto-attach; a person must confirm attachment with a reason, or reject | M | E2E: wrong-patient PDF cannot reach the timeline without a human action; audit row exists |
-| FR-ID-06 | Detach: a wrongly attached document can be detached; derived events are withdrawn from the record and from unsealed ledgers; sealed snapshots get an erratum entry | M | E2E: detach after seal produces an erratum visible in the next ledger and passport |
-| FR-ID-07 | ABHA number/address can be linked (verified via ABDM M1 when available; captured and flagged unverified before that). OncoSetu ID is a fallback and an internal key | S | Patient with ABHA has a single record across two orgs in the demo dataset |
-| FR-ID-08 | Card lost/stolen: patient or staff revokes the token; new token issued; old token returns "revoked" | M | E2E |
-| FR-ID-09 | Staff authentication: email + password + TOTP; sessions 12 h max, idle 30 min on shared desk devices | M | Security tests |
-| FR-ID-10 | Break-glass access for clinicians outside consent scope requires reason text, is time-limited (4 h) and alerts org_admin and the patient | S | E2E |
+| FR-ID-06 | Detach: a wrongly attached document can be detached; derived events are withdrawn from the record and from unsealed ledgers; sealed snapshots get an erratum entry | M | E2E: detach after seal produces an erratum visible in the next ledger and passport **PRD gap round, 8 Nov 2026:** errata recorded in the next sealed snapshot and shown on the share and the passport; E2E `v03-timeline.spec.ts`. |
+| FR-ID-07 | ABHA number/address can be linked (verified via ABDM M1 when available; captured and flagged unverified before that). OncoSetu ID is a fallback and an internal key | S | Patient with ABHA has a single record across two orgs in the demo dataset **PRD gap round, 8 Nov 2026:** an ABHA links one person identity across organisations (blind index, `person_identities`, 0019); each organisation keeps its own record. Whether the person is registered elsewhere is not shown to staff (§10.3: another organisation only through a patient consent link). The demo returning patient is registered at two organisations. M1 verification is external. |
+| FR-ID-08 | Card lost/stolen: patient or staff revokes the token; new token issued; old token returns "revoked" | M | E2E **PRD gap round, 8 Nov 2026:** patient or caregiver stops a lost card from `/p/access` ("My card is lost: stop it", `POST /api/p/card/revoke`, audited); E2E includes revoke without reissue. |
+| FR-ID-09 | Staff authentication: email + password + TOTP; sessions 12 h max, idle 30 min on shared desk devices | M | Security tests **PRD gap round, 8 Nov 2026:** E2E proves the 12 h maximum and 30 min idle limits. |
+| FR-ID-10 | Break-glass access for clinicians outside consent scope requires reason text, is time-limited (4 h) and alerts org_admin and the patient | S | E2E **PRD gap round, 8 Nov 2026:** org_admin alert on every admin page until another admin reviews the grant; the review is audited. |
 
 #### Consent (CON)
 
@@ -448,7 +448,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 |---|---|---|---|
 | FR-CON-01 | Consent notice in plain language in English, Hindi and at least one regional language; purposes listed separately: (a) store and organise records, (b) process with AI services, (c) share with a named organisation, (d) ABDM pull, (e) anonymised quality metrics | M | Each purpose has its own toggle; the record of consent stores notice version, language, timestamp, actor |
 | FR-CON-02 | Caregiver delegation: patient grants caregiver scope; caregiver identity (name, relation, phone) recorded; every action attributed | M | E2E |
-| FR-CON-03 | Minor patients: guardian consent required; record flagged `minor`; patient-facing views go to the guardian | M | E2E with a synthetic paediatric patient |
+| FR-CON-03 | Minor patients: guardian consent required; record flagged `minor`; patient-facing views go to the guardian | M | E2E with a synthetic paediatric patient **PRD gap round, 8 Nov 2026:** E2E `v05-portal.spec.ts`: guardian required; sign-in, consent and pre-visit codes go to the guardian. |
 | FR-CON-04 | Withdrawal is one tap in the patient view and takes effect on the next request (checked on use, not cached) | M | E2E: share link opened after withdrawal returns 410 |
 | FR-CON-05 | Patient sees an access log: who viewed or exported what, when, from which org | M | E2E |
 | FR-CON-06 | Patient lacks a smartphone: desk-assisted consent with a printed notice and a witnessed acknowledgement; SMS OTP on a basic phone | M | E2E path without the patient app |
@@ -458,14 +458,14 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-ING-01 | Desk capture: multi-page camera capture with edge detection and page ordering on a tablet/phone browser | M | 10-page capture ≤ 90 s in usability test |
-| FR-ING-02 | Bulk upload: PDF, JPEG, PNG, HEIC; up to 50 files / 200 MB per batch; per-file progress | M | E2E |
+| FR-ING-01 | Desk capture: multi-page camera capture with edge detection and page ordering on a tablet/phone browser | M | 10-page capture ≤ 90 s in usability test **PRD gap round, 8 Nov 2026:** edge detection with auto-crop (full photo kept, switchable), reorder and retake tested; the 10 pages / 90 s timing stays a usability test. |
+| FR-ING-02 | Bulk upload: PDF, JPEG, PNG, HEIC; up to 50 files / 200 MB per batch; per-file progress | M | E2E **PRD gap round, 8 Nov 2026:** 50 files / 200 MB per batch enforced with a message (no silent truncation); browser upload E2E with per-file progress. |
 | FR-ING-03 | Patient upload link: OTP-protected web link (no app install) for forwarding files before visits | M | E2E |
 | FR-ING-04 | Email drop: per-patient alias (random) accepting attachments from verified patient/caregiver addresses only | S | E2E with test mailbox |
 | FR-ING-05 | WhatsApp intake via WhatsApp Business Platform: patient forwards documents to the hospital's number; matched by registered phone + OTP | C (pilot) | Sandbox test; prototype may simulate |
-| FR-ING-06 | Every file gets SHA-256; exact duplicates are linked, not reprocessed; near-duplicates (perceptual hash for images, text similarity ≥ 0.95 for PDFs) are flagged | M | Duplicate test set: exact 100%, near-dup recall ≥ 0.9 |
-| FR-ING-07 | Password-protected PDFs: prompt for password (labs often use DOB/phone); never stored | S | E2E |
-| FR-ING-08 | File safety: MIME sniffing, size limits, PDF sanitisation (strip JavaScript/embedded files), image re-encode, antivirus scan (ClamAV) before processing | M | Security tests with malicious fixtures. **8 Nov 2026:** active PDF content (JavaScript, open/launch actions, embedded files, rich media) is stripped with pdf-lib and the clean copy is stored (`flags.sanitised`, audit `document.sanitised`); unparseable files are still quarantined; EICAR refused. ClamAV still blocked (needs a scanning host). |
+| FR-ING-06 | Every file gets SHA-256; exact duplicates are linked, not reprocessed; near-duplicates (perceptual hash for images, text similarity ≥ 0.95 for PDFs) are flagged | M | Duplicate test set: exact 100%, near-dup recall ≥ 0.9 **PRD gap round, 8 Nov 2026:** synthetic duplicate set of 64 pairs, near-duplicate recall 0.984; integration test raises the flag through the pipeline. |
+| FR-ING-07 | Password-protected PDFs: prompt for password (labs often use DOB/phone); never stored | S | E2E **PRD gap round, 8 Nov 2026:** password-PDF E2E (wrong then right password; the password is not stored or logged). |
+| FR-ING-08 | File safety: MIME sniffing, size limits, PDF sanitisation (strip JavaScript/embedded files), image re-encode, antivirus scan (ClamAV) before processing | M | Security tests with malicious fixtures. **8 Nov 2026:** active PDF content (JavaScript, open/launch actions, embedded files, rich media) is stripped with pdf-lib and the clean copy is stored (`flags.sanitised`, audit `document.sanitised`); unparseable files are still quarantined; EICAR refused. ClamAV still blocked (needs a scanning host). **PRD gap round, 8 Nov 2026:** `MalwareScanner` interface (EICAR default) pluggable at intake, ADR-016; a ClamAV host is still external. |
 | FR-ING-ABDM-01 | ABDM HIU flow implemented behind a `AbdmTransport` interface; in-process mock with real X25519/HKDF/AES-GCM; sandbox client swaps in later. **Post-v1.0 (v1.1)** — needs a legal entity and 3–6 months of onboarding | C | Ported test vectors pass; decrypt only after consent gate |
 | FR-ING-ABDM-02 | FHIR document bundles (DiagnosticReportRecord, DischargeSummaryRecord, OPConsultRecord, PrescriptionRecord) mapped to events with `source_type=external_structured` and `event_ref` evidence. **Post-v1.0 (v1.1)** | C | Fixture bundles map correctly |
 | FR-ING-09 | Intake-channel partnership option: `IntakeProvider` interface so an existing ABDM PHR app (e.g., Eka Care) could deliver patient-forwarded documents into the record under the same consent; no implementation in v1.0 beyond the interface | C | Interface documented in ADR. **Built 8 Nov 2026:** `IntakeProvider` in `src/server/pipeline/ingest.ts` (email and WhatsApp intake conform), `docs/ADR/ADR-016-provider-interfaces.md`. |
@@ -475,49 +475,49 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-DOC-01 | Text-layer PDFs: extract text with PyMuPDF retaining page and character offsets | M | Offsets round-trip: substring at offsets equals stored quote |
-| FR-DOC-02 | Scans/photos: OCR (PaddleOCR for printed text; optional cloud document AI behind an interface) producing text + per-line bounding boxes + confidence | M | CER ≤ 5% on printed-report eval set. **8 Nov 2026:** `OcrProvider` interface (`src/server/pipeline/text.ts`, ADR-016) with tesseract behind it; measured CER 7.9% (target 5%, not met). |
-| FR-DOC-03 | Page quality check (blur, glare, skew, cropped) with immediate retake prompt at capture | S | Quality classifier flags ≥ 80% of bad pages in eval. **8 Nov 2026:** skew check added (projection profile, ≥ 5° flags a retake) beside blur, glare and crop; the ≥ 80% bad-page recall on an eval set is not measured yet. |
+| FR-DOC-02 | Scans/photos: OCR (PaddleOCR for printed text; optional cloud document AI behind an interface) producing text + per-line bounding boxes + confidence | M | CER ≤ 5% on printed-report eval set. **8 Nov 2026:** `OcrProvider` interface (`src/server/pipeline/text.ts`, ADR-016) with tesseract behind it; measured CER 7.9% (target 5%, not met). **PRD gap round, 8 Nov 2026:** `readPages` takes an `OcrProvider` (fake-provider test). CER 7.9% against the 5% target stays a known limit. |
+| FR-DOC-03 | Page quality check (blur, glare, skew, cropped) with immediate retake prompt at capture | S | Quality classifier flags ≥ 80% of bad pages in eval. **8 Nov 2026:** skew check added (projection profile, ≥ 5° flags a retake) beside blur, glare and crop; the ≥ 80% bad-page recall on an eval set is not measured yet. **PRD gap round, 8 Nov 2026:** degraded eval set flags 60/60 bad pages for the right reason and 0/20 good ones (same pages the thresholds were tuned on: a regression gate, not a held-out measurement). |
 | FR-DOC-04 | Document classification into: pathology/histopathology, IHC/molecular/NGS, imaging report, lab report, prescription (printed), prescription (handwritten), discharge summary, OPD/consult note, chemotherapy/day-care record, radiotherapy summary, procedure/operative note, bill/insurance, other | M | Macro-F1 ≥ 0.85 on eval set |
-| FR-DOC-05 | Language detection; Hindi and regional-language reports are processed if OCR supports the script, otherwise stored as image with `language_unsupported` | M | |
-| FR-DOC-06 | Low OCR confidence (< 0.80 mean on a page) → page marked `low_confidence`; extraction from it requires human verification before entering the record | M | |
+| FR-DOC-05 | Language detection; Hindi and regional-language reports are processed if OCR supports the script, otherwise stored as image with `language_unsupported` | M | **PRD gap round, 8 Nov 2026:** unsupported-script path tested (unit and through the pipeline). |
+| FR-DOC-06 | Low OCR confidence (< 0.80 mean on a page) → page marked `low_confidence`; extraction from it requires human verification before entering the record | M | **PRD gap round, 8 Nov 2026:** low-confidence facts are held out of the ledger, seal, shares and timeline until a person checks them against the page on the review screen. |
 | FR-DOC-07 | Handwritten pages (classifier) are never auto-extracted; stored as images; staff may add manual tags (document type, date, institution) | M | E2E: handwritten prescription yields zero machine-extracted medication events |
-| FR-DOC-08 | Original files are immutable; derived artefacts (OCR text, thumbnails) are versioned with processor name and version | M | |
+| FR-DOC-08 | Original files are immutable; derived artefacts (OCR text, thumbnails) are versioned with processor name and version | M | **PRD gap round, 8 Nov 2026:** originals immutable in the database (0021 trigger; deletion only inside `erase_patient()`/`abdm_erase()`); page text and page images versioned with processor name and version, superseded instead of deleted on reprocessing. |
 
 #### Extraction and evidence (EXT) — see §9
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-EXT-01 | Extraction produces only allowed event types (§7.2) with fields, each with a verbatim `quote` | M | Schema validation |
-| FR-EXT-02 | Evidence gate: quote must be found verbatim (after whitespace normalisation only) in the page text; offsets stored; quote hash stored; otherwise item is discarded and logged as `rejected_unsupported` | M | Gate unit tests; eval: 0 unsupported items in record |
+| FR-EXT-02 | Evidence gate: quote must be found verbatim (after whitespace normalisation only) in the page text; offsets stored; quote hash stored; otherwise item is discarded and logged as `rejected_unsupported` | M | Gate unit tests; eval: 0 unsupported items in record **PRD gap round, 8 Nov 2026:** per-item `rejected_unsupported` log stored and shown to Records staff ("Left out by the evidence gate"). |
 | FR-EXT-03 | Dates parsed with India default DD/MM/YYYY; ambiguous dates (both parts ≤ 12, no month name) flagged `date_ambiguous`; relative dates resolved only against an explicit anchor in the same document, otherwise `date_unknown` | M | Date test suite ≥ 150 cases. **8 Nov 2026:** an ambiguous date shows both readings ("5 Jun 2026 or 6 May 2026") until records or a clinician picks one; the pick is an edit through the normal verification path (E2E V02-E2E-07). |
 | FR-EXT-04 | Each event stores `event_date` (when it happened), `document_date` (report date) and `received_at` (when OncoSetu got it) separately | M | |
-| FR-EXT-05 | No inference fields: no stage, no response assessment, no "progression", no risk. A document's own words may be quoted (e.g., impression text) only as `quoted_impression` attached to the document, never as a derived patient attribute | M | Schema has no such fields; red-team eval |
+| FR-EXT-05 | No inference fields: no stage, no response assessment, no "progression", no risk. A document's own words may be quoted (e.g., impression text) only as `quoted_impression` attached to the document, never as a derived patient attribute | M | Schema has no such fields; red-team eval **PRD gap round, 8 Nov 2026:** banned-word check on model field values; a quote that is an instruction is rejected (`quote_has_instructions`); unicode-folded injection detection; 30-document red-team set with an automated test (no unsupported fact, every instruction flagged). |
 | FR-EXT-06 | Every AI run records provider, model, prompt id+version, schema version, input hash, output hash, latency, token counts | M | `ai_runs` table populated |
 | FR-EXT-07 | Provider-agnostic interface; a deterministic "manual mode" works with no AI provider configured (staff key in events) | M | E2E with AI disabled |
-| FR-EXT-08 | **Omission control.** The gate cannot detect what the model left out. For every document class, recall is measured against clinician gold-standard abstraction (eval set, then a 10% pilot sample); per-class recall is shown to the verifier as a "coverage" note ("extraction recall for discharge summaries in evaluation: 0.87 — review the source for anything not listed") | M | §9.5 recall ≥ 0.85 per class; UI shows the note; pilot sampling protocol in §16 |
+| FR-EXT-08 | **Omission control.** The gate cannot detect what the model left out. For every document class, recall is measured against clinician gold-standard abstraction (eval set, then a 10% pilot sample); per-class recall is shown to the verifier as a "coverage" note ("extraction recall for discharge summaries in evaluation: 0.87 — review the source for anything not listed") | M | §9.5 recall ≥ 0.85 per class; UI shows the note; pilot sampling protocol in §16 **PRD gap round, 8 Nov 2026:** coverage note on the review page. Recall 0.85 is not reached; the held-out set stays blind. |
 | FR-EXT-09 | **Field-binding control.** A verbatim quote can be attached to the wrong field, date or patient. For each accepted event: date values must appear in raw form inside the quote (already in gate); `institution_name` and `test_name` must appear in the quote or the page header; the identity check (FR-ID-03..05) runs per document, not per batch; events whose quote spans a page boundary or a table cell with OCR confidence < 0.80 are flagged `binding_uncertain` and require human verification | M | Fixture tests: wrong-date-in-right-quote and wrong-patient-header cases caught |
-| FR-EXT-10 | **OCR-error propagation control.** A faithfully quoted OCR error is still an error. Quotes from OCR text carry the mean token confidence of their span; spans < 0.80 render with the page image crop beside the quote and cannot be bulk-verified | M | UI test; FR-LED-05 interaction |
+| FR-EXT-10 | **OCR-error propagation control.** A faithfully quoted OCR error is still an error. Quotes from OCR text carry the mean token confidence of their span; spans < 0.80 render with the page image crop beside the quote and cannot be bulk-verified | M | UI test; FR-LED-05 interaction **PRD gap round, 8 Nov 2026:** E2E asserts the image crop beside the quote (V02-E2E-08). |
 
 #### Voice and pre-visit capture (VOX)
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-VOX-01 | Structured questionnaire (5 questions, configurable): other hospital/doctor visited? new medicines? new tests or scans? hospital admissions? anything you want the doctor to know? | M | |
+| FR-VOX-01 | Structured questionnaire (5 questions, configurable): other hospital/doctor visited? new medicines? new tests or scans? hospital admissions? anything you want the doctor to know? | M | **PRD gap round, 8 Nov 2026:** `/admin/settings` switches and orders the five questions; every question that is on is required except "anything else"; E2E `v05-portal.spec.ts`. |
 | FR-VOX-02 | Answer by tap (default) or voice (optional), on the patient's/caregiver's phone (pre-visit link) or at a private desk station | M (tap) / S (voice) | **Built 8 Nov 2026:** desk-station mode `/p/login?station=1` (phone code sign-in, straight to the questions, 5-min idle / 30-min session, signs itself out after saving; E2E `v05-station.spec.ts`) |
-| FR-VOX-03 | ASR via provider interface (default: Sarvam Saaras, code-mix mode) with keyterm prompting using the hospital formulary and the patient's known medication and institution names. Voice is enabled for real patients only after drug-name WER is measured in shadow mode | S | WER measured on a 50-clip synthetic eval set and on shadow-phase clips; drug-name WER reported separately. **Built 7 Nov 2026:** the Sarvam provider (`src/server/voice/sarvam.ts`, `saaras:v3`, codemix mode for Hinglish) transcribes recorded answers through `POST /api/p/voice/transcribe` when `SARVAM_API_KEY` is set. **8 Nov 2026:** `AsrProvider` interface (`src/server/voice/provider.ts`); `saaras:v4` (codemix for Hindi, translit for Hinglish) with keyterms: the patient's own medicines and hospitals, then a 50-name formulary (`src/core/formulary.ts`). Synthetic 50-clip set (`scripts/eval-asr.ts`, Bulbul TTS): drug name wrong in 36% of clips without keyterms, 2% with (WER 7.8% → 3.6%); the one miss was a different listed drug. Shadow-phase clips from real voices: not done (needs the pilot) |
-| FR-VOX-04 | Read-back: system shows its understanding as text in the patient's/caregiver's language; patient confirms, edits or re-records. Spoken (TTS) read-back is optional and available only when `disclosure_status = cleared` | M (text) / S (TTS) | E2E. **Built 8 Nov 2026:** spoken read-back through Sarvam `bulbul:v3` (`POST /api/p/voice/readback`, rebuilt server-side from the answers) when the org `tts` flag is on and disclosure is cleared, else 403 and text only; browser voice without a key. E2E V05-E2E-08 (`v05-voice.spec.ts`, local Sarvam stub) |
-| FR-VOX-05 | Audio retained with transcript (encrypted); statements stored as `source_type=patient_reported`, `confirmation=patient_confirmed` or `unconfirmed`; never upgraded to document-supported | M | **Built 8 Nov 2026:** each Sarvam recording is kept per-file AES-256-GCM encrypted in `voice_clips` (RLS, migration 0018), linked to its statement, played back to records/clinician roles from the statements tab (audited), erased with the patient by trigger |
+| FR-VOX-03 | ASR via provider interface (default: Sarvam Saaras, code-mix mode) with keyterm prompting using the hospital formulary and the patient's known medication and institution names. Voice is enabled for real patients only after drug-name WER is measured in shadow mode | S | WER measured on a 50-clip synthetic eval set and on shadow-phase clips; drug-name WER reported separately. **Built 7 Nov 2026:** the Sarvam provider (`src/server/voice/sarvam.ts`, `saaras:v3`, codemix mode for Hinglish) transcribes recorded answers through `POST /api/p/voice/transcribe` when `SARVAM_API_KEY` is set. **8 Nov 2026:** `AsrProvider` interface (`src/server/voice/provider.ts`); `saaras:v4` (codemix for Hindi, translit for Hinglish) with keyterms: the patient's own medicines and hospitals, then a 50-name formulary (`src/core/formulary.ts`). Synthetic 50-clip set (`scripts/eval-asr.ts`, Bulbul TTS): drug name wrong in 36% of clips without keyterms, 2% with (WER 7.8% → 3.6%); the one miss was a different listed drug. Shadow-phase clips from real voices: not done (needs the pilot) **PRD gap round, 8 Nov 2026:** shadow mode (org flag `voice_shadow`): recordings transcribed and kept, the transcript sealed so it never fills the answer, shown beside the typed answer on the statements tab. Real-voice shadow data and its drug-name error rate need the pilot. |
+| FR-VOX-04 | Read-back: system shows its understanding as text in the patient's/caregiver's language; patient confirms, edits or re-records. Spoken (TTS) read-back is optional and available only when `disclosure_status = cleared` | M (text) / S (TTS) | E2E. **Built 8 Nov 2026:** spoken read-back through Sarvam `bulbul:v3` (`POST /api/p/voice/readback`, rebuilt server-side from the answers) when the org `tts` flag is on and disclosure is cleared, else 403 and text only; browser voice without a key. E2E V05-E2E-08 (`v05-voice.spec.ts`, local Sarvam stub) **PRD gap round, 8 Nov 2026:** E2E: a change after read-back is saved as "corrected" (`v05-portal.spec.ts`). |
+| FR-VOX-05 | Audio retained with transcript (encrypted); statements stored as `source_type=patient_reported`, `confirmation=patient_confirmed` or `unconfirmed`; never upgraded to document-supported | M | **Built 8 Nov 2026:** each Sarvam recording is kept per-file AES-256-GCM encrypted in `voice_clips` (RLS, migration 0018), linked to its statement, played back to records/clinician roles from the statements tab (audited), erased with the patient by trigger **PRD gap round, 8 Nov 2026:** unit test: an edited statement keeps `patient_reported`. |
 | FR-VOX-06 | Disclosure-aware copy (driven by FR-CON-07): unless `cleared`, desk prompts use neutral wording ("your treatment", "your reports"); desk screens hide diagnosis words; patient-facing app, SMS and share viewer use neutral copy | **M** | E2E; copy lint on all patient-facing string catalogues |
-| FR-VOX-07 | "Anything else" answers are stored verbatim and shown to the clinician as patient words; never classified as symptoms or conditions | M | |
+| FR-VOX-07 | "Anything else" answers are stored verbatim and shown to the clinician as patient words; never classified as symptoms or conditions | M | **PRD gap round, 8 Nov 2026:** E2E `v05-portal.spec.ts`. |
 
 #### Timeline (TML)
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-TML-01 | Chronological timeline by `event_date`; undated events in a separate lane | M | |
-| FR-TML-02 | Each event shows source chip(s), verification status, conflict marker and opens the source page with the quote highlighted | M | E2E |
-| FR-TML-03 | Filters: document type, institution, source type, verification status | S | |
-| FR-TML-04 | As-of view: the record as it stood at any sealed snapshot | S | |
+| FR-TML-02 | Each event shows source chip(s), verification status, conflict marker and opens the source page with the quote highlighted | M | E2E **PRD gap round, 8 Nov 2026:** E2E `v03-timeline.spec.ts` (badges, source chip, Sources disagree). |
+| FR-TML-03 | Filters: document type, institution, source type, verification status | S | **PRD gap round, 8 Nov 2026:** four filters through the form in E2E; "Clear" now resets the form (bug found by the new test). |
+| FR-TML-04 | As-of view: the record as it stood at any sealed snapshot | S | **PRD gap round, 8 Nov 2026:** as-of a sealed visit covered by E2E. |
 
 #### Change Ledger (LED)
 
@@ -526,7 +526,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-LED-01 | Snapshot `S_n` is sealed when a clinician completes verification of an encounter: immutable JSON (canonicalised), SHA-256, signer, time (M); Ed25519 signature with `key_id` (S, v1.1) | M / S | Tamper test: any byte change changes the hash (v1.0) and fails signature verification (v1.1) |
 | FR-LED-02 | Ledger = diff between `S_n` and the current record, grouped into: **New since last visit** (event_date > S_n.sealed_at), **Newly received older records** (event_date ≤ S_n.sealed_at but not in S_n) — visually distinct with the event date prominent, **Amended / corrected**, **Conflicts**, **Patient said** (unconfirmed by documents), **Missing records** (from Radar), **Duplicates suppressed** (count, expandable) | M | Each category has fixture tests |
 | FR-LED-03 | Conflict detection is attribute-level and deterministic: same event type + overlapping date window + different values on a compared field (e.g., medication name on a prescription vs patient statement; date of a procedure in two documents) | M | Conflict fixtures |
-| FR-LED-04 | Ledger items show WHAT (event), WHERE (source + page + quote), WHO (verification status and actor), WHEN (event date, document date, received date) | M | |
+| FR-LED-04 | Ledger items show WHAT (event), WHERE (source + page + quote), WHO (verification status and actor), WHEN (event date, document date, received date) | M | **PRD gap round, 8 Nov 2026:** ledger cards show the event date, the document's own date and the received date beside who verified (name, role, date); E2E `v03-timeline.spec.ts`. |
 | FR-LED-05 | Bulk actions are limited: "verify all" is not available for items with conflicts, low OCR confidence, identity warnings or newly received older records. *Amended 5 Nov 2026:* it takes only items whose source the verifier has opened ("Verify opened items") | M | E2E |
 | FR-LED-06 | First visit: no S_n → ledger shows "Initial record" mode with onboarding priorities (FR-ONB) | M | |
 | FR-LED-07 | Ledger renders in ≤ 2 s for a patient with 500 events | S | Performance test |
@@ -558,9 +558,9 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-REQ-01 | Generate a request letter (PDF + printable) from a missing item or manually: patient identifiers, institution, document(s), date range, patient/caregiver signature line, return channel (upload QR), and a neutral reference to the patient's right to records (IMC Regulation 1.3.2 — "the regulations provide for indoor records to be issued within 72 hours of a request"). The letter never claims a legal deadline binds the institution, never threatens action, and is scoped by default to discharge summaries, inpatient records and pathology/imaging reports (the categories the regulation and case law most clearly cover). Template text reviewed by a health-law advisor before pilot | M | Snapshot tests on letter; legal review recorded in ADR; banned-phrase lint ("must", "legally required to", "within 72 hours you") |
 | FR-REQ-02 | Languages: English and Hindi at minimum | M | |
 | FR-REQ-03 | Tracking: `drafted`, `sent` (patient confirms date), `reminder_due` (sent + 7 days), `open_21d` (sent + 21 days), `fulfilled` (document received and matched), `unobtainable`, `withdrawn`. The regulation's 72-hour period is displayed as a reference, not as a state | M | State-machine tests |
-| FR-REQ-04 | Reminders to the patient/caregiver at `reminder_due` and `open_21d` (SMS/WhatsApp template), with an optional one-page information sheet on escalation routes (State Medical Council complaint; consumer commission; hospital grievance officer) — informational, no legal advice, reviewed by the health-law advisor | S | |
+| FR-REQ-04 | Reminders to the patient/caregiver at `reminder_due` and `open_21d` (SMS/WhatsApp template), with an optional one-page information sheet on escalation routes (State Medical Council complaint; consumer commission; hospital grievance officer) — informational, no legal advice, reviewed by the health-law advisor | S | **PRD gap round, 8 Nov 2026:** daily cron `/api/cron/requests` (10:00 IST) sends the day-7 and day-21 reminders without anyone opening the list; real SMS still needs Twilio + DLT. |
 | FR-REQ-05 | No automatic sending to institutions in MVP; the patient or caregiver sends it (they hold the right) | M | |
-| FR-REQ-06 | Request outcomes feed the measurement study: per institution type, median days to fulfilment and fulfilment rate (anonymised) | M | Metrics exported (§16.4) |
+| FR-REQ-06 | Request outcomes feed the measurement study: per institution type, median days to fulfilment and fulfilment rate (anonymised) | M | Metrics exported (§16.4) **PRD gap round, 8 Nov 2026:** kind of institution chosen in the request builder; fulfilment rate and median days per kind on `/admin/metrics`; anonymised CSV `/api/measure/requests.csv`. |
 
 #### Continuity Passport and sharing (PAS)
 
@@ -568,7 +568,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 |---|---|---|---|
 | FR-PAS-01 | Share summary = the latest sealed snapshot rendered as a one-page **document index** + per-line provenance + list of included source documents + **list of referenced-but-absent documents (Radar)** + as-of date, headed "Document index, not a clinical summary". Signature block and verification QR added in v1.1 | M | Copy lint: heading present; absent-documents list present |
 | FR-PAS-02 | Share link: SMART-Health-Link-style — content encrypted with AES-256-GCM; key in URL fragment (never sent to server); passcode **on by default** with attempt limit; expiry (1–30 days, default 7); revocable; scope selectable | M | Security tests: server logs never contain key; revoked link 410 |
-| FR-PAS-03 | Viewer page needs no account; shows who verified each line, as-of date, the statement "This summary contains only records provided to OncoSetu", and respects FR-CON-07 (no diagnosis words unless `cleared`). "Signature valid / invalid / revoked" display in v1.1 | M (v1.0 scope) / S (signature) | E2E |
+| FR-PAS-03 | Viewer page needs no account; shows who verified each line, as-of date, the statement "This summary contains only records provided to OncoSetu", and respects FR-CON-07 (no diagnosis words unless `cleared`). "Signature valid / invalid / revoked" display in v1.1 | M (v1.0 scope) / S (signature) | E2E **PRD gap round, 8 Nov 2026:** viewer states "This summary contains only records provided to {brand}" (en/hi/hinglish) with the as-of date; who verified is shown as a role (staff names are not shared outside the hospital). |
 | FR-PAS-04 | Every view logged (time, coarse location/IP hash, user agent) and visible to the patient | M | |
 | FR-PAS-05 | Printable PDF passport with Ed25519 signature and a QR to the verification endpoint; tamper check works offline using the published public key | S (v1.1) | **Built 8 Nov 2026:** `/print/passport/[snapshotId]` (A4, English/Hindi, seal hash, key id, QR to `/verify/[id]`, share-payload content only), `GET /api/snapshots/[id]` download for records/clinician, offline `scripts/verify-snapshot.ts` (OK / TAMPERED). Printed from the browser (Save as PDF), not a server-made PDF. Unit `src/server/ledger/export.test.ts`, E2E in `v03-ledger.spec.ts`. |
 
@@ -576,7 +576,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-ONB-01 | Backlog mode prioritises document types for processing and verification: pathology/molecular → imaging reports → discharge/procedure summaries → treatment records → prescriptions → labs → other | M | |
+| FR-ONB-01 | Backlog mode prioritises document types for processing and verification: pathology/molecular → imaging reports → discharge/procedure summaries → treatment records → prescriptions → labs → other | M | **PRD gap round, 8 Nov 2026:** batches processed in backlog order from a file-name hint (bulk upload order; ZIP and email entries three at a time). A strict cross-request queue would need a jobs table. |
 | FR-ONB-02 | Progress meter: pages received, processed, verified; estimated remaining | S | **Built 8 Nov 2026:** the documents board shows pages read, confirmed by a person, and "about N min left" (queued pages × per-page time capped by recent completion throughput). |
 | FR-ONB-03 | Initial snapshot S0 can be sealed with partial verification; unverified items carry forward clearly labelled | M | |
 
@@ -585,20 +585,20 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
 | FR-OFF-01 | Installable PWA; app shell cached; desk capture works offline | M | |
-| FR-OFF-02 | Offline queue in IndexedDB (Dexie) with states Pending, Syncing, Failed, Synced; client-generated UUIDv7 encounter and file IDs; server idempotency keys | M | Duplicate-free after reconnect test |
+| FR-OFF-02 | Offline queue in IndexedDB (Dexie) with states Pending, Syncing, Failed, Synced; client-generated UUIDv7 encounter and file IDs; server idempotency keys | M | Duplicate-free after reconnect test **PRD gap round, 8 Nov 2026:** Records and Clinicians open visits offline with a client UUIDv7, accepted idempotently on sync; the desk cannot, and an offline visit never counts as identity verification (FR-ID-02). |
 | FR-OFF-03 | Offline payloads encrypted at rest with a per-device key wrapped by a staff PIN-derived key (WebCrypto, PBKDF2/Argon2 via WASM); queue wiped after successful sync and on logout | M | Test: IndexedDB contents unreadable without PIN |
 | FR-OFF-04 | Server timestamps are authoritative for ordering; client times stored as `client_captured_at` only | M | Clock-skew test |
-| FR-OFF-05 | Storage-eviction resilience: warn if not installed; persistent storage requested (`navigator.storage.persist`); queue age alert at 24 h | S | |
-| FR-OFF-06 | Remote wipe: org_admin can revoke a device; next online contact wipes its queue | S | |
+| FR-OFF-05 | Storage-eviction resilience: warn if not installed; persistent storage requested (`navigator.storage.persist`); queue age alert at 24 h | S | **PRD gap round, 8 Nov 2026:** install and storage-persistence notices tested shown and hidden. |
+| FR-OFF-06 | Remote wipe: org_admin can revoke a device; next online contact wipes its queue | S | **PRD gap round, 8 Nov 2026:** admin revoke route and devices page tested end to end. |
 
 #### Staff and admin (ADM)
 
 | ID | Requirement | Pri | Acceptance criteria |
 |---|---|---|---|
-| FR-ADM-01 | Staff management, roles, device registration | M | |
-| FR-ADM-02 | Audit log viewer and export (CSV) with filters | M | |
+| FR-ADM-01 | Staff management, roles, device registration | M | **PRD gap round, 8 Nov 2026:** staff create, role change, TOTP reset, deactivate and reactivate covered by E2E (`v12-admin.spec.ts`). |
+| FR-ADM-02 | Audit log viewer and export (CSV) with filters | M | **PRD gap round, 8 Nov 2026:** actor, action, type and date filters on the viewer and the CSV covered by E2E. |
 | FR-ADM-03 | Metrics dashboard: §16 KPIs | S | **8 Nov 2026:** clinician review time (median minutes from first ledger view to seal, per visit type, from audit rows) and voice drug-name accuracy added to `/admin/metrics`; retrieval time is not derivable from current data. |
-| FR-ADM-04 | Retention policy configuration (§10.5) | S | |
+| FR-ADM-04 | Retention policy configuration (§10.5) | S | **PRD gap round, 8 Nov 2026:** E2E proves retention under 1,095 days is refused and the daily erasure cron executes a due request. |
 
 ### 6.5 Missing-Record Radar — design detail
 
@@ -646,11 +646,11 @@ MVP and pilot use a tablet (10–11") on a stand plus the patient's phone. A ded
 |---|---|
 | Performance | Single-page processing (OCR + extraction + gate) p95 ≤ 60 s; 50-page batch ≤ 15 min; ledger render ≤ 2 s **Measured 8 Nov 2026** (`scripts/perf-pipeline.ts`, laptop `next start` against Neon Singapore, AI off): single pages one at a time p95 31.5 s (met); 50-page batch (46 files, 22 photos) 4.8–5.5 min (met), per-page p95 inside a batch 49.6–77.8 s (missed when run beside other load); ledger 500 events ≤ 2 s (V06-E2E-03). |
 | Availability | Pilot target 99.5% monthly; desk capture continues offline |
-| Accessibility | WCAG 2.2 AA; minimum 16 px body text in patient views; large touch targets at desk |
+| Accessibility | WCAG 2.2 AA; minimum 16 px body text in patient views; large touch targets at desk **PRD gap round, 8 Nov 2026:** axe scan includes the timeline; 16 px patient text and 44 px portal and desk targets asserted; phone-width overflow fixed on staff pages. |
 | Localisation | English, Hindi at v1.0; string catalogue ready for regional languages |
-| Browser support | Chrome/Edge latest two, Safari iOS 17+, Android Chrome |
+| Browser support | Chrome/Edge latest two, Safari iOS 17+, Android Chrome **PRD gap round, 8 Nov 2026:** WebKit Playwright project (sign-in, portal, a11y and header checks); it found and fixed a Safari hydration bug in the document board dates. |
 | Data residency | Database and storage in an India region |
-| Scalability | Pilot: 1 department, ≤ 2,000 patients, ≤ 50,000 pages |
+| Scalability | Pilot: 1 department, ≤ 2,000 patients, ≤ 50,000 pages **PRD gap round, 8 Nov 2026:** `scripts/load-test.ts` at 2,000 patients and 6,300 pages (12.6% of the page target): p50 3.3–5.0 s from a laptop to Neon Singapore, mostly round-trip time. The records queue grows with pages (estimate about 18 s at 50,000 pages) and is the page to optimise before a pilot. |
 
 ---
 
@@ -831,8 +831,8 @@ Datasets are synthetic, authored by the team, reviewed by the clinician, stored 
 
 - The model has no tools, no network, no write access; its output is data validated by the schema and the gate.
 - Strip invisible text where detectable (PDF text with render mode invisible, white-on-white, font size < 2 pt) and flag the document.
-- Forbidden-field and banned-word checks on output.
-- Rate and cost limits per org.
+- Forbidden-field and banned-word checks on output. **PRD gap round, 8 Nov 2026:** banned-word check on model field values (Radar and legal wording rejected as `invalid_field_value`); instruction quotes rejected (`quote_has_instructions`); red-team set of 30 documents in `npm test`.
+- Rate and cost limits per org. **PRD gap round, 8 Nov 2026:** daily call and token budget per org for every provider, set in `/admin/settings`; over budget falls back to the rule-based path.
 - Log only hashes of prompts and outputs.
 
 ---
@@ -859,17 +859,17 @@ Datasets are synthetic, authored by the team, reviewed by the clinician, stored 
 
 ### 10.2 Controls checklist (each is a test in `tests/security/`)
 
-- TLS everywhere; HSTS; secure cookies; CSP without `unsafe-inline` for scripts.
+- TLS everywhere; HSTS; secure cookies; CSP without `unsafe-inline` for scripts. **PRD gap round, 8 Nov 2026:** asserted in `tests/e2e/security-headers.spec.ts`, `src/proxy.test.ts` and `src/server/session.test.ts`.
 - JWT verification with JWKS rotation; short access tokens.
-- RBAC matrix test: every role × every endpoint.
+- RBAC matrix test: every role × every endpoint. **PRD gap round, 8 Nov 2026:** all API handlers listed with their roles (`tests/security/api-roles.ts`); a unit test checks each `route()` guard and an E2E sweep calls every handler as 7 roles and anonymously.
 - RLS enabled + forced on all patient tables; a test connects as the app role and tries cross-org reads.
 - Application-level envelope encryption for PII columns and original files; keys in KMS/secret manager.
-- Secrets never in repo (gitleaks in CI).
+- Secrets never in repo (gitleaks in CI). **PRD gap round, 8 Nov 2026:** `.github/workflows/ci.yml` runs typecheck, lint, unit tests, npm audit, gitleaks over full history and Semgrep; database suites run only with the `CI_ENV_FILE` secret. Not yet run on GitHub.
 - Dependency scanning (pip-audit, npm audit), SAST (Semgrep), container scan (Trivy).
 - File upload hardening (FR-ING-08).
-- Log redaction test: inject a synthetic name/phone/quote and assert it never appears in logs.
+- Log redaction test: inject a synthetic name/phone/quote and assert it never appears in logs. **PRD gap round, 8 Nov 2026:** `tests/integration/log-redaction.test.ts` drives real requests against `next start` and searches stdout, stderr and `audit_log`.
 - Backups encrypted; restore drill documented per version from v0.6.
-- OWASP ASVS Level 2 checklist reviewed before v1.0.
+- OWASP ASVS Level 2 checklist reviewed before v1.0. **PRD gap round, 8 Nov 2026:** self-assessment `docs/security/ASVS-L2-checklist.md` (144 rows: 96 met, 32 partly, 9 not met, 7 n.a.); an external review and a pen test are still required.
 
 ### 10.3 Data roles and governance
 
@@ -1187,7 +1187,7 @@ Six weeks, seven versions. Each version: tagged `vX.Y.0`, a release folder `docs
 - **Scope:** timeline, snapshots (seal + hash), ledger categories, conflict detection, two-tier verification, bulk-action limits, structured pre-visit questions (tap), text read-back, disclosure-aware copy (FR-VOX-06 as Must), onboarding mode. **IEC protocol drafted and submitted this week (§16.3).**
 - **FRs:** TML-01…04, LED-01 (hash part)…07, VER-02, VER-04, VOX-01, VOX-02 (tap), VOX-04 (text), VOX-05…07, ONB-01…03.
 - **E2E (`tests/e2e/v03/`):**
-  - `V03-E2E-01` **hero journey (first visit):** caregiver-primary patient with `disclosure_status = unknown` → 40-page backlog uploaded → onboarding priorities → identity checks → records staff verify → clinician sees document index with provenance → S0 sealed with partial verification → share link issued to caregiver; no diagnosis words in any caregiver/patient-facing output.
+  - `V03-E2E-01` **hero journey (first visit):** caregiver-primary patient with `disclosure_status = unknown` → 40-page backlog uploaded → onboarding priorities → identity checks → records staff verify → clinician sees document index with provenance → S0 sealed with partial verification → share link issued to caregiver; no diagnosis words in any caregiver/patient-facing output. **PRD gap round, 8 Nov 2026:** 40-page backlog: order and progress asserted.
   - `V03-E2E-02` returning visit: patient answers pre-visit questions by tap → text read-back confirmed → uploads new lab report → clinician sees ledger with "New since last visit", "Patient said", source links → verifies → seals → snapshot hash recorded.
   - `V03-E2E-03` 2024 report uploaded now appears under "Newly received older records", not "New".
   - `V03-E2E-04` patient statement conflicts with prescription → conflict item; "verify all" disabled.
@@ -1216,11 +1216,11 @@ Six weeks, seven versions. Each version: tagged `vX.Y.0`, a release folder `docs
 - **Scope:** installable PWA, encrypted offline queue, idempotent sync, conflict and clock handling, storage persistence, remote wipe, patient upload link polish, email drop, WhatsApp intake (simulated), caregiver delegation, minors; **optional voice input (ASR) and TTS read-back behind feature flags, off by default, with the drug-name WER eval**.
 - **FRs:** OFF-01…06, ING-01, ING-03, ING-04, ING-05 (simulated OK), ING-07, CON-02, CON-03, CON-05, VOX-02 (voice), VOX-03, VOX-04 (TTS).
 - **E2E (`tests/e2e/v05/`):**
-  - `V05-E2E-01` network off → capture encounter with audio + 5 photos → close browser → reopen → queue intact → network on → synced once.
-  - `V05-E2E-02` interrupted upload at 90% → resumes → no duplicate.
-  - `V05-E2E-03` IndexedDB inspected without PIN → ciphertext only.
-  - `V05-E2E-04` device clock +3 days → server ordering correct.
-  - `V05-E2E-05` revoked device → queue wiped on next contact.
+  - `V05-E2E-01` network off → capture encounter with audio + 5 photos → close browser → reopen → queue intact → network on → synced once. **PRD gap round, 8 Nov 2026:** network off, 5 photos and a desk audio note queued encrypted, browser closed and reopened, synced once (`v05-offline.spec.ts`).
+  - `V05-E2E-02` interrupted upload at 90% → resumes → no duplicate. **PRD gap round, 8 Nov 2026:** pages upload in 256 KB resumable chunks; a reopened browser sends only the missing chunk; no duplicate.
+  - `V05-E2E-03` IndexedDB inspected without PIN → ciphertext only. **PRD gap round, 8 Nov 2026:** IndexedDB inspected without the PIN after a reopen: ciphertext only, no JPEG or WebM markers.
+  - `V05-E2E-04` device clock +3 days → server ordering correct. **PRD gap round, 8 Nov 2026:** device clock +3 days; server `received_at`/`started_at` authoritative, device time kept apart in `client_captured_at`.
+  - `V05-E2E-05` revoked device → queue wiped on next contact. **PRD gap round, 8 Nov 2026:** revoked through the admin devices page; 410 on every upload path; queue wiped on next contact.
   - `V05-E2E-06` caregiver uploads on behalf; actions attributed; revoked caregiver blocked.
   - `V05-E2E-07` email drop from an unregistered address rejected.
   - `V05-E2E-08` voice flag on + `disclosure_status = cleared` → spoken read-back works; flag on + `not_cleared` → text only.
@@ -1232,7 +1232,7 @@ Six weeks, seven versions. Each version: tagged `vX.Y.0`, a release folder `docs
 - **FRs:** ID-07 (capture only), ID-10, ADM-03, ADM-04, REQ-06.
 - **E2E (`tests/e2e/v06/`):**
   - `V06-E2E-01` break-glass access → reason required, patient notified, auto-expiry.
-  - `V06-E2E-02` restore from backup into a fresh database → E2E smoke passes.
+  - `V06-E2E-02` restore from backup into a fresh database → E2E smoke passes. **PRD gap round, 8 Nov 2026:** both restore scripts share `scripts/restore-smoke.ts`; the smoke was broken by renamed headings and is fixed; it passes standalone.
   - `V06-E2E-03` 500-event patient ledger renders ≤ 2 s.
   - `V06-E2E-04` clinician completes the consultation-level measurement form in ≤ 60 s; export contains no PHI.
   - `V06-E2E-05` same person registered twice (ABHA/phone/DOB+name) → duplicate detected; merge needs two approvals.

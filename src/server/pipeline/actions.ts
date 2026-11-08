@@ -132,7 +132,7 @@ export const manualEventSchema = z.object({
 
 export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manualEventSchema>) {
   if (!(ATTACHED as readonly string[]).includes(d.attachState)) throw new HttpError(409, 'not_attached', 'Attach the document before adding facts')
-  const [page] = await ctx.db.select().from(documentPages).where(and(eq(documentPages.documentId, d.id), eq(documentPages.pageNo, body.pageNo)))
+  const [page] = await ctx.db.select().from(documentPages).where(and(eq(documentPages.documentId, d.id), eq(documentPages.pageNo, body.pageNo), isNull(documentPages.supersededAt)))
   if (!page) throw new HttpError(404, 'page_not_found', 'No such page')
   // FR-DOC-07: image-only pages (handwritten) carry no machine text, so facts cannot be quoted — tags only.
   if (!page.text.trim()) throw new HttpError(422, 'image_only', 'This page is stored as an image only; add document tags instead')

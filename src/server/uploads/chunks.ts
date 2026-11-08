@@ -13,6 +13,7 @@ import { HttpError } from '../http'
 export type StartInput = {
   orgId: string; patientId: string; uploader: { kind: 'staff' | 'patient' | 'caregiver'; id: string }
   fileName: string; totalSize: number; totalChunks: number; sha256: string; intakeRoute: string; encounterId?: string | null
+  clientFileId?: string | null; clientCapturedAt?: Date | null // offline queue (0020): handed to intake when the file is assembled
 }
 
 /** Whether the declared file may start an upload: sizes against the caps, chunk count against the size. Pure. */
@@ -35,7 +36,7 @@ export async function startUpload(tx: Tx, i: StartInput): Promise<{ id: string; 
   const [row] = await tx.insert(uploadSessions).values({
     orgId: i.orgId, patientId: i.patientId, uploaderKind: i.uploader.kind, uploaderId: i.uploader.id, fileNameEnc: encryptField(i.fileName.slice(0, 200)),
     totalSize: i.totalSize, totalChunks: i.totalChunks, sha256: i.sha256, intakeRoute: i.intakeRoute, encounterId: i.encounterId ?? null,
-    expiresAt: new Date(Date.now() + UPLOAD_SESSION_HOURS * 3600_000),
+    clientFileId: i.clientFileId ?? null, clientCapturedAt: i.clientCapturedAt ?? null, expiresAt: new Date(Date.now() + UPLOAD_SESSION_HOURS * 3600_000),
   }).returning({ id: uploadSessions.id })
   return { id: row.id, chunkBytes: CHUNK_BYTES }
 }

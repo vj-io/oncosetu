@@ -1,5 +1,6 @@
 // Pure metric computations over plain rows (PRD §16). No DB, no clock, no invented numbers:
 // every ratio carries its numerator and denominator, and an empty denominator is "no data", not 0%.
+import { toCsv } from './csv'
 
 export type Ratio = { num: number; den: number }
 export const ratio = (num: number, den: number): Ratio => ({ num, den })
@@ -95,6 +96,19 @@ export function requestFulfilment(rows: readonly RequestRow[]) {
   }
 }
 
+export type RequestOutcomeRow = RequestRow & { id: string; state: string; createdAt: Date }
+export const REQUEST_CSV_HEADER = ['request_id', 'institution_type', 'state', 'created_on', 'sent_on', 'fulfilled_on', 'days_to_fulfilment'] as const
+const istDay = (d: Date | null) => (d ? new Date(d.getTime() + 330 * 60_000).toISOString().slice(0, 10) : '')
+
+/** FR-REQ-06 export: one row per request, ids and dates only (no patient, no institution name), oldest first. */
+export function requestOutcomesCsv(rows: readonly RequestOutcomeRow[]): string {
+  const sorted = [...rows].sort((a, b) => +a.createdAt - +b.createdAt || a.id.localeCompare(b.id))
+  return toCsv(REQUEST_CSV_HEADER, sorted.map((r) => [
+    r.id, r.institutionType ?? 'not_recorded', r.state, istDay(r.createdAt), istDay(r.sentAt), istDay(r.fulfilledAt),
+    r.sentAt && r.fulfilledAt ? Math.round(((+r.fulfilledAt - +r.sentAt) / DAY) * 10) / 10 : '',
+  ]))
+}
+
 // ── pre-visit completion ─────────────────────────────────────────────────────
 export type EncounterRow = { id: string; patientId: string; type: string; startedAt: Date }
 export type StatementRow = { patientId: string; encounterId: string | null; confirmation: string; createdAt: Date }
@@ -137,8 +151,35 @@ export function clinicianReviewTime(rows: readonly ReviewAuditRow[]) {
     const type = String(e.details.type)
     minutes[type] = [...(minutes[type] ?? []), (+seal.at - +view.at) / 60_000]
   }
-  const stat = (xs: number[] = []) => ({ medianMinutes: median(xs), visits: xs.length })
-  return { returning: stat(minutes.returning), firstVisit: stat(minutes.onboarding) }
+  return { returning: visitStat(minutes.returning), firstVisit: visitStat(minutes.onboarding) }
+}
+
+const visitStat = (xs: number[] = []) => ({ medianMinutes: median(xs), visits: xs.length })
+
+// ── record preparation time (§16.1) ──────────────────────────────────────────
+export const PREP_WINDOW_HOURS = 12
+
+/**
+ * Per visit: minutes from the desk opening the visit (`encounter.started`, the patient's arrival) to a clinician first
+ * opening the record (`ledger.view`, "What's new"), i.e. the record reaching the clinician. The window ends at the
+ * patient's next visit or after PREP_WINDOW_HOURS. It includes any wait for the clinician, so it is an upper bound on
+ * preparation. Same audit rows as clinicianReviewTime, real clock only. Median per visit type.
+ */
+// ponytail: O(visits × rows) scan like clinicianReviewTime; group by patient first past ~10k visits.
+export function recordPrepTime(rows: readonly ReviewAuditRow[]) {
+  const views = rows.filter((r) => r.action === 'ledger.view' && r.actorRole === 'clinician')
+  const starts = rows.filter((r) => r.action === 'encounter.started').sort((a, b) => +a.at - +b.at)
+  const minutes: Record<string, number[]> = {}
+  starts.forEach((e, i) => {
+    const patientId = e.details.patientId
+    const next = starts.slice(i + 1).find((s) => s.details.patientId === patientId)
+    const end = Math.min(+e.at + PREP_WINDOW_HOURS * 3_600_000, next ? +next.at : Infinity)
+    const first = Math.min(...views.filter((v) => v.targetId === patientId && +v.at >= +e.at && +v.at < end).map((v) => +v.at))
+    if (!Number.isFinite(first)) return
+    const type = String(e.details.type)
+    minutes[type] = [...(minutes[type] ?? []), (first - +e.at) / 60_000]
+  })
+  return { returning: visitStat(minutes.returning), firstVisit: visitStat(minutes.onboarding) }
 }
 
 // ── non-disclosure prevalence ────────────────────────────────────────────────

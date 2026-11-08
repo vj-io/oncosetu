@@ -2,7 +2,7 @@
 // Staff: 12 h max, 30 min idle (FR-ID-09). Patient/caregiver: 2 h max, 30 min idle.
 // Expiry uses real time (not the demo clock), so fast-forwarding an org never logs anyone out.
 import { and, eq, isNull } from 'drizzle-orm'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { forbidden, redirect } from 'next/navigation'
 import { cache } from 'react'
 import { db, withOrg } from '@/db'
@@ -95,6 +95,15 @@ export type CreateSessionInput =
   | { kind: 'patient'; patientId: string; orgId: string; station?: boolean }
   | { kind: 'caregiver'; patientId: string; caregiverId: string; orgId: string; station?: boolean }
 
+/**
+ * The session cookie is Secure wherever the app is deployed. The one exception is a production build served over plain
+ * http on this machine (E2E): WebKit, unlike Chromium, drops a Secure cookie from http://localhost, so nobody could sign in.
+ */
+export function cookieSecure(host: string | null, proto: string | null, production = process.env.NODE_ENV === 'production'): boolean {
+  if (!production) return false
+  return proto === 'https' || !['localhost', '127.0.0.1', '[::1]'].includes((host ?? '').replace(/:\d+$/, ''))
+}
+
 /** Route handlers only (sets the cookie). */
 export async function createSession(input: CreateSessionInput): Promise<{ sessionId: string; expiresAt: Date }> {
   const token = randomToken(32)
@@ -106,8 +115,9 @@ export async function createSession(input: CreateSessionInput): Promise<{ sessio
     patientId: input.kind === 'staff' ? null : input.patientId,
     caregiverId: input.kind === 'caregiver' ? input.caregiverId : null,
   }).returning({ id: sessions.id })
+  const h = await headers()
   ;(await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', path: '/', maxAge: maxS,
+    httpOnly: true, secure: cookieSecure(h.get('host'), h.get('x-forwarded-proto')), sameSite: 'lax', path: '/', maxAge: maxS,
   })
   return { sessionId: row.id, expiresAt }
 }

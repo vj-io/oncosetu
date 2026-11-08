@@ -157,7 +157,7 @@ export default function StaffLoginPage() {
                         <span className="text-[15px]">{a.name}</span>
                         <span className="truncate font-mono text-xs text-muted">{a.email}</span>
                       </span>
-                      <Badge className="hidden min-[420px]:inline-flex">{ROLE_LABEL[a.role] ?? a.role}</Badge>
+                      <span className="hidden min-[420px]:inline-flex"><Badge>{ROLE_LABEL[a.role] ?? a.role}</Badge></span>
                       {filling === a.email ? <LoaderCircle aria-hidden className="ds-spin size-4" /> : <ArrowRight aria-hidden className="size-4 text-faint" />}
                     </button>
                   </li>

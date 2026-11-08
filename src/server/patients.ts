@@ -89,8 +89,10 @@ export async function assertPatientAccess(ctx: { db: Tx; session: Session }, pat
   if (s.role === 'org_admin') throw new HttpError(403, 'break_glass_required', 'Break-glass access required')
   const consented = !!(await activeConsent(ctx.db, patientId))?.purposes.store
   // FR-ID-02: the desk opens a record only through an identity-verified encounter (OTP or witnessed) from the last 12 h.
+  // An encounter opened offline by a capture device (0020) verified nobody, so it never counts.
   const verifiedVisit = async () => !!(await ctx.db.select({ id: encounters.id }).from(encounters).where(and(
     eq(encounters.patientId, patientId), isNull(encounters.closedAt), gt(encounters.startedAt, new Date(Date.now() - 12 * 3600_000)),
+    eq(encounters.offlineCreated, false),
   )).limit(1))[0]
   const visit = s.role === 'desk' || (opts.consentOptional && !consented) ? await verifiedVisit() : false
   if (!consented && !(opts.consentOptional && visit)) throw new HttpError(403, 'consent_required', 'No active consent for this patient')

@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { documentFiles, patients } from '@/db/schema'
 import { HttpError, route } from '@/server/http'
@@ -20,7 +20,7 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   const kind = ctx.query.kind === 'page' ? 'page_image' : 'original'
   const where = kind === 'original'
     ? and(eq(documentFiles.documentId, d.id), eq(documentFiles.kind, 'original'))
-    : and(eq(documentFiles.documentId, d.id), eq(documentFiles.kind, 'page_image'), eq(documentFiles.pageNo, ctx.query.page))
+    : and(eq(documentFiles.documentId, d.id), eq(documentFiles.kind, 'page_image'), eq(documentFiles.pageNo, ctx.query.page), isNull(documentFiles.supersededAt))
   const [f] = await ctx.db.select({ id: documentFiles.id }).from(documentFiles).where(where).limit(1)
   const file = f && (await readFile(ctx.db, f.id))
   if (!file) throw new HttpError(404, 'not_found', 'Not found')

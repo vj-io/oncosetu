@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   disclosureAt,
   clinicianReviewTime, correctionRates, disclosurePrevalence, documentCensus, median, previsitCompletion, provenance, radarMetrics,
-  requestFulfilment, safetyKpis, type MissingRow,
+  recordPrepTime, REQUEST_CSV_HEADER, requestFulfilment, requestOutcomesCsv, safetyKpis, type MissingRow, type RequestOutcomeRow,
 } from './metrics-compute'
 
 const d = (s: string) => new Date(s)
@@ -128,6 +128,70 @@ describe('requestFulfilment', () => {
   })
   it('reports no median when nothing is fulfilled', () => {
     expect(requestFulfilment([{ institutionType: 'govt', sentAt: d('2026-01-01'), fulfilledAt: null }]).overall.medianDays).toBeNull()
+  })
+  it('FR-REQ-06: one row per institution type, with "unknown" for requests where none was recorded', () => {
+    const r = requestFulfilment([
+      { institutionType: 'government', sentAt: d('2026-01-01'), fulfilledAt: d('2026-01-21') }, // 20 d
+      { institutionType: 'government', sentAt: d('2026-01-01'), fulfilledAt: null },
+      { institutionType: 'private', sentAt: d('2026-01-01'), fulfilledAt: d('2026-01-03') }, // 2 d
+      { institutionType: 'private', sentAt: d('2026-01-01'), fulfilledAt: d('2026-01-05') }, // 4 d
+      { institutionType: null, sentAt: d('2026-01-01'), fulfilledAt: null },
+    ])
+    expect(r.byType).toEqual([
+      { institutionType: 'government', sent: 2, fulfilled: 1, rate: { num: 1, den: 2 }, medianDays: 20 },
+      { institutionType: 'private', sent: 2, fulfilled: 2, rate: { num: 2, den: 2 }, medianDays: 3 },
+      { institutionType: 'unknown', sent: 1, fulfilled: 0, rate: { num: 0, den: 1 }, medianDays: null },
+    ])
+    expect(r.overall).toMatchObject({ sent: 5, fulfilled: 3, medianDays: 4 })
+  })
+})
+
+describe('requestOutcomesCsv (FR-REQ-06 export)', () => {
+  const row = (o: Partial<RequestOutcomeRow>): RequestOutcomeRow => ({
+    id: 'r1', institutionType: 'government', state: 'fulfilled', createdAt: d('2026-01-01T04:00:00Z'), sentAt: d('2026-01-02T20:00:00Z'), fulfilledAt: d('2026-01-12T20:00:00Z'), ...o,
+  })
+  it('one row per request, oldest first: ids, type, state and India dates only', () => {
+    const csv = requestOutcomesCsv([row({ id: 'r2', createdAt: d('2026-02-01T04:00:00Z'), institutionType: null, state: 'drafted', sentAt: null, fulfilledAt: null }), row({})])
+    expect(csv.split('\r\n')).toEqual([
+      REQUEST_CSV_HEADER.join(','),
+      'r1,government,fulfilled,2026-01-01,2026-01-03,2026-01-13,10', // 20:00 UTC is the next India day
+      'r2,not_recorded,drafted,2026-02-01,,,',
+      '',
+    ])
+    expect(REQUEST_CSV_HEADER.join(',')).not.toMatch(/name|patient|phone|institution_name|reason/)
+  })
+})
+
+describe('recordPrepTime (§16.1: arrival → clinician opens the record)', () => {
+  const P = 'p1', Q = 'p2'
+  const row = (action: string, at: string, targetId: string, details: Record<string, unknown> = {}, actorRole = 'clinician') =>
+    ({ action, at: d(`2026-03-02T${at}Z`), targetId, details, actorRole })
+  it('takes minutes from the visit start to the first clinician view of that patient, median per visit type', () => {
+    const r = recordPrepTime([
+      row('ledger.view', '08:00:00', P), // before arrival: ignored
+      row('encounter.started', '09:00:00', 'e1', { patientId: P, type: 'returning' }, 'desk'),
+      row('ledger.view', '09:05:00', P, {}, 'records'), // records staff preparing: not the clinician
+      row('ledger.view', '09:20:00', Q), // another patient
+      row('ledger.view', '09:30:00', P), // 30 min
+      row('ledger.view', '09:40:00', P), // a later view does not move it
+      row('encounter.started', '10:00:00', 'e2', { patientId: Q, type: 'returning' }, 'desk'),
+      row('ledger.view', '10:10:00', Q), // 10 min
+      row('encounter.started', '11:00:00', 'e3', { patientId: Q, type: 'onboarding' }, 'desk'),
+      row('ledger.view', '11:45:00', Q), // 45 min, first visit
+    ])
+    expect(r.returning).toEqual({ medianMinutes: 20, visits: 2 })
+    expect(r.firstVisit).toEqual({ medianMinutes: 45, visits: 1 })
+  })
+  it('a view more than 12 hours later, or after the patient\'s next visit started, does not count for the earlier visit', () => {
+    const r = recordPrepTime([
+      row('encounter.started', '01:00:00', 'e1', { patientId: P, type: 'returning' }, 'desk'),
+      row('ledger.view', '13:30:00', P), // 12.5 h after e1: outside its window
+      row('encounter.started', '14:00:00', 'e2', { patientId: Q, type: 'returning' }, 'desk'),
+      row('encounter.started', '14:30:00', 'e3', { patientId: Q, type: 'returning' }, 'desk'), // Q checked in again: e2's window ends
+      row('ledger.view', '14:40:00', Q), // counts for e3 (10 min) only
+    ])
+    expect(r.returning).toEqual({ medianMinutes: 10, visits: 1 })
+    expect(recordPrepTime([]).firstVisit).toEqual({ medianMinutes: null, visits: 0 })
   })
 })
 

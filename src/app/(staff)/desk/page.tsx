@@ -47,7 +47,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
                   <td>{e.type === 'onboarding' ? 'First visit' : e.type === 'returning' ? 'Returning' : 'Between visits'}</td>
                   <td>{e.startedBy}</td>
                   <td><Badge tone={e.open ? 'setu' : 'shadow'}>{e.open ? 'Open' : 'Closed'}</Badge></td>
-                  <td><Link className="underline" href={`/patients/${e.patientId}/overview`}>Open</Link></td>
+                  <td><Link className="inline-flex min-h-11 min-w-11 items-center underline" href={`/patients/${e.patientId}/overview`}>Open</Link></td>
                 </tr>
               ))}
             </tbody>

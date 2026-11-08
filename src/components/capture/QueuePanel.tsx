@@ -59,7 +59,7 @@ export function QueuePanel({
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={s.tone} icon={s.icon}>{s.label}</Badge>
                   {age >= QUEUE_ALERT_MS && <Badge tone="unverified" icon={<Clock />}>Waiting {Math.floor(age / 3600_000)} h</Badge>}
-                  <span className="ml-auto font-mono text-xs text-faint">{c.pageCount} page{c.pageCount === 1 ? "" : "s"} · {hhmm(c.capturedAt)}</span>
+                  <span className="ml-auto font-mono text-xs text-faint">{c.pageCount} page{c.pageCount === 1 ? "" : "s"}{c.audio ? " + audio note" : ""} · {hhmm(c.capturedAt)}</span>
                 </div>
                 <p className="text-[15px] break-words text-ink">{unlocked ? (names[c.id] ?? "…") : "Locked · unlock to view"}</p>
                 {why(c) && <p className="text-sm text-muted">{why(c)}</p>}

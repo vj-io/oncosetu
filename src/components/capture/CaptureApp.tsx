@@ -2,24 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Lock } from "lucide-react";
+import { v7 as uuidv7 } from "uuid";
 import { Button, Dialog, EmptyState, SectionHeader, Skeleton, useToast } from "@/components/ui";
 import { ensureDevice, checkDevice, wipeRevokedDevice } from "@/lib/offline/device";
-import type { CapturedPage } from "@/lib/offline/image";
+import { revokePage, type CapturedPage } from "@/lib/offline/image";
 import { overdue, retryNow, type CaptureMeta } from "@/lib/offline/queue-state";
 import {
   enqueueCapture, getDevice, getDeviceLabel, hasKeyBundle, listCaptures, loadCaptureList, recoverInterrupted,
-  saveCaptureList, setDeviceLabel, setPin, unlockWithPin, updateCapture, wipeAll, wipeCapture, type CapturePatient,
+  saveCaptureList, setDeviceLabel, setPin, unlockWithPin, updateCapture, wipeAll, wipeCapture, type CapturePatient, type RecentPatient,
 } from "@/lib/offline/store";
 import { syncQueue } from "@/lib/offline/sync";
 import { onSwWipe, registerCaptureSw } from "@/lib/offline/sw-register";
+import { AudioNote, type RecordedNote } from "./AudioNote";
 import { PageCapture } from "./PageCapture";
-import { PatientPicker } from "./PatientPicker";
+import { NEW_VISIT, PatientPicker } from "./PatientPicker";
 import { PinGate } from "./PinGate";
 import { QueuePanel } from "./QueuePanel";
 import { NetworkPill, Notice, useOnline } from "./status";
 
 type Phase = "boot" | "setup" | "locked" | "ready" | "unsupported";
-type PatientList = { items: CapturePatient[]; source: "live" | "cache"; savedAt: number | null };
+type PatientList = { items: CapturePatient[]; recent: RecentPatient[]; source: "live" | "cache"; savedAt: number | null };
 
 const defaultLabel = () => (/iPad|Tablet/i.test(navigator.userAgent) ? "Desk tablet" : "Desk device");
 const SYNC_EVERY_MS = 15_000;
@@ -39,12 +41,16 @@ export function CaptureApp() {
   const [now, setNow] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [pages, setPages] = useState<CapturedPage[]>([]);
+  const [note, setNote] = useState<RecordedNote | null>(null);
   const [saving, setSaving] = useState(false);
   const [discarding, setDiscarding] = useState<CaptureMeta | null>(null);
 
   const getKey = useCallback(() => keyRef.current, []);
   const refresh = useCallback(async () => { try { setCaps(await listCaptures()); } catch { /* storage unavailable */ } }, []);
-  const clearPages = useCallback(() => setPages((cur) => { cur.forEach((p) => URL.revokeObjectURL(p.url)); return []; }), []);
+  const clearPages = useCallback(() => {
+    setPages((cur) => { cur.forEach(revokePage); return []; });
+    setNote((cur) => { if (cur) URL.revokeObjectURL(cur.url); return null; });
+  }, []);
 
   const dropKey = useCallback(() => { keyRef.current = null; verified.current = false; setList(null); setSelected(null); clearPages(); }, [clearPages]);
 
@@ -57,6 +63,21 @@ export function CaptureApp() {
     setPhase("setup");
   }, [dropKey]);
 
+  /** Today's list from the server, saved encrypted for offline use. Offline or server down: the cached list stays. */
+  const loadList = useCallback(async () => {
+    const key = keyRef.current;
+    try {
+      const res = await fetch("/api/devices/capture-list", { cache: "no-store" });
+      if (res.status === 401) setAuthRequired(true);
+      else if (res.ok && key) {
+        const { items, recent = [] } = (await res.json()) as { items: CapturePatient[]; recent?: RecentPatient[] };
+        setList({ items, recent, source: "live", savedAt: Date.now() });
+        setAuthRequired(false);
+        await saveCaptureList(key, { items, recent });
+      }
+    } catch { /* offline or server down */ }
+  }, []);
+
   const sync = useCallback(async () => {
     const key = keyRef.current;
     if (!key || !verified.current) return; // never upload before the revocation check of this online session
@@ -64,8 +85,11 @@ export function CaptureApp() {
     await refresh();
     if (out.revoked) return onRevoked();
     setAuthRequired(out.authRequired);
-    if (out.synced) toast({ title: `${out.synced} capture${out.synced === 1 ? "" : "s"} synced`, description: "Confirmed by the server and removed from this device.", tone: "verified" });
-  }, [refresh, onRevoked, toast]);
+    if (out.synced) {
+      toast({ title: `${out.synced} capture${out.synced === 1 ? "" : "s"} synced`, description: "Confirmed by the server and removed from this device.", tone: "verified" });
+      void loadList(); // a visit opened on this device now exists on the server
+    }
+  }, [refresh, onRevoked, toast, loadList]);
 
   // boot: storage check, service worker, locked/setup
   useEffect(() => {
@@ -93,7 +117,7 @@ export function CaptureApp() {
     await recoverInterrupted();
     await refresh();
     const cached = await loadCaptureList(key).catch(() => null);
-    if (cached) setList({ items: cached.items, source: "cache", savedAt: cached.savedAt });
+    if (cached) setList({ items: cached.items, recent: cached.recent, source: "cache", savedAt: cached.savedAt });
     navigator.storage?.persist?.().then(setPersisted).catch(() => setPersisted(false));
   }
 
@@ -106,20 +130,11 @@ export function CaptureApp() {
       const dev = await ensureDevice(getDeviceLabel() ?? defaultLabel());
       if (dev && (await checkDevice(dev.deviceId)) === "revoked") return onRevoked();
       verified.current = true;
-      const key = keyRef.current;
-      try {
-        const res = await fetch("/api/devices/capture-list", { cache: "no-store" });
-        if (res.status === 401) setAuthRequired(true);
-        else if (res.ok && key) {
-          const { items } = (await res.json()) as { items: CapturePatient[] };
-          if (alive) { setList({ items, source: "live", savedAt: Date.now() }); setAuthRequired(false); }
-          await saveCaptureList(key, items);
-        }
-      } catch { /* offline or server down: keep the cached list */ }
+      if (alive) await loadList();
       if (alive) await sync();
     })();
     return () => { alive = false; };
-  }, [phase, online, sync, onRevoked]);
+  }, [phase, online, sync, onRevoked, loadList]);
 
   // backoff retries and the 24 h age alert
   useEffect(() => {
@@ -129,19 +144,33 @@ export function CaptureApp() {
   }, [phase, sync]);
 
   useEffect(() => {
-    if (!pages.length) return;
+    if (!pages.length && !note) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [pages.length]);
+  }, [pages.length, note]);
+
+  /** The chosen visit, or a new one opened on this device with its own UUIDv7 (FR-OFF-02; the server accepts it on sync). */
+  function chosenVisit(): CapturePatient | undefined {
+    if (selected?.startsWith(NEW_VISIT)) {
+      const r = list?.recent.find((p) => NEW_VISIT + p.patientId === selected);
+      return r && { patientId: r.patientId, name: r.name, mrn: r.mrn, ageYears: r.ageYears, encounterId: uuidv7(), type: "returning", startedAt: new Date().toISOString(), newEncounter: true };
+    }
+    return list?.items.find((p) => p.encounterId === selected);
+  }
 
   async function save() {
-    const patient = list?.items.find((p) => p.encounterId === selected);
+    const patient = chosenVisit();
     const key = keyRef.current;
     if (!patient || !key || !pages.length) return;
     setSaving(true);
     try {
-      await enqueueCapture(key, { patient, pages: pages.map((p) => p.blob), offline: !navigator.onLine });
+      await enqueueCapture(key, { patient, pages: pages.map((p) => p.blob), audio: note && { blob: note.blob, seconds: note.seconds }, offline: !navigator.onLine });
+      if (patient.newEncounter && list) { // the new visit now heads today's list, so further pages join the same visit
+        const next = { items: [patient, ...list.items], recent: list.recent.filter((r) => r.patientId !== patient.patientId) };
+        setList({ ...list, ...next });
+        await saveCaptureList(key, next).catch(() => {});
+      }
       clearPages();
       setSelected(null);
       await refresh();
@@ -226,7 +255,7 @@ export function CaptureApp() {
                 <h2 id="who" className="text-2xl">Who are these pages for?</h2>
               </header>
               {list ? (
-                <PatientPicker items={list.items} value={selected} onChange={setSelected} source={list.source} savedAt={list.savedAt} />
+                <PatientPicker items={list.items} recent={list.recent} value={selected} onChange={setSelected} source={list.source} savedAt={list.savedAt} />
               ) : online ? (
                 <Skeleton className="h-40" />
               ) : (
@@ -242,11 +271,20 @@ export function CaptureApp() {
               <PageCapture pages={pages} setPages={setPages} />
             </section>
 
+            <section aria-labelledby="note" className="grid gap-4">
+              <header className="grid gap-1">
+                <p className="ds-kicker">Step 3 · optional</p>
+                <h2 id="note" className="text-2xl">Add an audio note</h2>
+                <p className="text-[15px] text-muted">Say anything the papers do not show. It is encrypted with the pages and only Records and Clinicians can play it once it syncs.</p>
+              </header>
+              <AudioNote note={note} setNote={setNote} />
+            </section>
+
             <section aria-labelledby="save" className="grid gap-3 border-t border-rule pt-6">
               <h2 id="save" className="sr-only">Save</h2>
               <div className="flex flex-wrap items-center gap-4">
                 <Button size="lg" onClick={save} loading={saving} disabled={!selected || pages.length === 0}>
-                  Save {pages.length || ""} page{pages.length === 1 ? "" : "s"} to queue
+                  Save {pages.length || ""} page{pages.length === 1 ? "" : "s"}{note ? " and note" : ""} to queue
                 </Button>
                 {(!selected || pages.length === 0) && <p className="text-sm text-muted">Choose a patient and add at least one page.</p>}
               </div>

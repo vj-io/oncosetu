@@ -2,6 +2,7 @@
 // DICOM instances are grouped into studies (one document per study), every other entry is its own document, and whatever
 // cannot be accepted is listed with a plain reason instead of failing the whole upload.
 import type { Tx } from '@/db'
+import { inBacklogOrder } from '@/core/backlog'
 import { MAX_ZIP_BYTES } from '@/core/limits'
 import { writeAudit } from '@/server/audit'
 import { HttpError } from '@/server/http'
@@ -64,7 +65,7 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
     const imaging = { ...first, modalityLabel: s.label, studyLabel: s.label, modalities: s.modalities, instances: s.instances.length, frames: s.instances.length }
     await one({ fileName: `${s.label} (${s.instances.length} images)`, bytes: bundleInstances(files), bundle: { imaging }, maxBytes: MAX_ZIP_BYTES }, `${s.label} study`)
   }
-  for (const e of others) await one({ fileName: e.base, bytes: e.data }, e.name)
+  for (const e of inBacklogOrder(others, (x) => x.base)) await one({ fileName: e.base, bytes: e.data }, e.name) // FR-ONB-01: processed in this order
   if (!documents.length && skipped.length) {
     await auditRejected(tx, input, 'zip_nothing_accepted')
     return { documents, skipped, expandedZip: true, rejected: { status: 422, code: 'zip_nothing_accepted', message: `Nothing in the ZIP could be accepted: ${[...new Set(skipped.map((s) => s.reason))].join('; ')}` } }

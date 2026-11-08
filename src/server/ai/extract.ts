@@ -15,16 +15,23 @@ import { sha256Hex } from '@/core/hash'
 import type { DocType } from '@/core/types'
 import type { LlmExtractor } from '@/server/pipeline/core'
 import type { LlmProvider } from './provider'
-import { reserveLlmCall, settleLlmCall, type Reservation, type LlmOutcome } from './quota'
+import { reserveLlmCall, settleLlmCall, type LlmOutcome, type QuotaDenial, type Reservation } from './quota'
 
 export type AiRunRecord = {
   kind: 'extract'; provider: string; model: string; promptId: string; promptVersion: string; schemaVersion: string
   inputHash: string; outputHash: string | null; latencyMs: number; tokensIn: number | null; tokensOut: number | null
-  outcome: 'ok' | 'schema_error' | 'provider_error' | 'rate_limited' | 'quota_rpm' | 'quota_rpd' | 'quota_cooldown'
+  outcome: 'ok' | 'schema_error' | 'provider_error' | 'rate_limited' | `quota_${QuotaDenial}`
 }
 
-export type QuotaFns = { reserve: (provider: string, model: string) => Promise<Reservation>; settle: (id: number, outcome: LlmOutcome) => Promise<void> }
-const SHARED_QUOTA: QuotaFns = { reserve: reserveLlmCall, settle: settleLlmCall }
+export type QuotaFns = {
+  reserve: (provider: string, model: string) => Promise<Reservation>
+  settle: (id: number, outcome: LlmOutcome, tokens?: number | null) => Promise<void>
+}
+/** The free-tier key's shared budget (Gemini) and, when the provider is bound to an org, that org's daily budget (PRD §9.6). */
+const quotaFor = (p: LlmProvider): QuotaFns | null => (p.provider === 'google' || p.orgId ? {
+  reserve: (provider, model) => reserveLlmCall(provider, model, { orgId: p.orgId, shared: p.provider === 'google' }),
+  settle: settleLlmCall,
+} : null)
 
 // Gemini's response-schema dialect rejects `const` and length/size bounds (400 "invalid argument"). Send a copy without
 // them; the full ExtractionSchema still validates the answer here, item by item.
@@ -49,9 +56,10 @@ const statusOf = (e: unknown) => (APICallError.isInstance(e) ? e.statusCode : un
 
 /**
  * An extractor bound to a provider; pushes one AiRunRecord per attempt into `runs`. At most three attempts:
- * one retry on a schema failure, and one step down the fallback list per 503. Quota applies to the free-tier provider.
+ * one retry on a schema failure, and one step down the fallback list per 503. Quota: the free-tier provider's shared
+ * budget, plus the org's daily call/token budget for any provider bound to an org (aiAllowed does that).
  */
-export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = p.provider === 'google' ? SHARED_QUOTA : null): LlmExtractor {
+export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = quotaFor(p)): LlmExtractor {
   return async (pages: { pageNo: number; text: string }[], docType: DocType): Promise<Extraction | null> => {
     const prompt = buildExtractionPrompt(pages, docType)
     const models = [{ modelId: p.modelId, model: p.model }, ...(p.fallbacks ?? [])]
@@ -74,12 +82,13 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
       try {
         const res = await generateText({
           model: m.model, instructions: EXTRACTION_SYSTEM_PROMPT, prompt, output: Output.object({ schema: outputSchemaFor(p) }),
-          maxOutputTokens: 8000, maxRetries: quota ? 0 : 2, // paid providers: SDK retries 429/5xx (E-DOC-20)
+          maxOutputTokens: 8000, maxRetries: p.provider === 'google' ? 0 : 2, // paid providers: SDK retries 429/5xx (E-DOC-20)
           abortSignal: AbortSignal.timeout(90_000),
         })
         const out = p.provider === 'google' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
-        if (slot !== null) await quota!.settle(slot, 'ok')
-        runs.push({ ...base, outputHash: sha256Hex(JSON.stringify(out)), latencyMs: Date.now() - t0, tokensIn: res.usage.inputTokens ?? null, tokensOut: res.usage.outputTokens ?? null, outcome: 'ok' })
+        const tokensIn = res.usage.inputTokens ?? null, tokensOut = res.usage.outputTokens ?? null
+        if (slot !== null) await quota!.settle(slot, 'ok', (tokensIn ?? 0) + (tokensOut ?? 0))
+        runs.push({ ...base, outputHash: sha256Hex(JSON.stringify(out)), latencyMs: Date.now() - t0, tokensIn, tokensOut, outcome: 'ok' })
         return out
       } catch (e) {
         const schemaError = NoObjectGeneratedError.isInstance(e) || (e as { name?: string })?.name === 'ZodError'

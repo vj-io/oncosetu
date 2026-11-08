@@ -179,7 +179,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
                   </div>
                 ))}
                 <div>
-                  <Button variant="secondary" size="sm" onClick={() => setAliases((xs) => [...xs, { name: "", kind: "married" }])} icon={<Plus aria-hidden />}>
+                  <Button variant="secondary" onClick={() => setAliases((xs) => [...xs, { name: "", kind: "married" }])} icon={<Plus aria-hidden />}>
                     Add another name
                   </Button>
                 </div>

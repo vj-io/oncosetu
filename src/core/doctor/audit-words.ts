@@ -54,6 +54,7 @@ const WORDS: Record<string, string> = {
   'patient.token_reissued': 'Records card replaced',
   'patient.token_revoked': 'Records card switched off',
   'break_glass.granted': 'Emergency access granted',
+  'break_glass.reviewed': 'Emergency access reviewed by an administrator',
   'access.refused': 'Access refused',
   'caregiver.added': 'Family member added',
   'caregiver.revoked': 'Family member removed',

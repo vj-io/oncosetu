@@ -5,7 +5,9 @@ import {
   bigint, boolean, customType, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, real, text,
   timestamp, unique, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
+import type { InstitutionType } from '../core/types'
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' })
 
@@ -73,7 +75,13 @@ export const mergeState = pgEnum('merge_state', ['requested', 'approved', 'execu
 
 /** `team` (case discussion with a care team) was added later: rows written before it have no such key, which reads as off. */
 export type ConsentPurposes = { store: boolean; ai: boolean; share: boolean; abdm: boolean; metrics: boolean; team?: boolean }
-export type OrgFlags = { voice: boolean; tts: boolean; ai_extraction: boolean }
+export type OrgFlags = {
+  voice: boolean; tts: boolean; ai_extraction: boolean
+  /** FR-VOX-03 shadow mode: recordings are transcribed and kept for staff evaluation; the transcript never fills an answer. */
+  voice_shadow?: boolean
+  /** FR-VOX-01: pre-visit questions in the order asked, each on or off (absent: all five, default order). */
+  questions?: { id: string; on: boolean }[]
+}
 /** OCR word: text, confidence 0..1, char start/end in page text, optional bbox [x0,y0,x1,y1]. */
 export type OcrWord = { t: string; c: number; s: number; e: number; b?: [number, number, number, number] }
 
@@ -142,6 +150,8 @@ export const patients = pgTable('patients', {
   abhaNumberEnc: text('abha_number_enc'),
   abhaHmac: text('abha_hmac'),
   abhaVerified: boolean('abha_verified').notNull().default(false),
+  /** Set by a trigger from abha_hmac (0019): the cross-org person; read only through person_registered_elsewhere(). */
+  personId: uuid('person_id'),
   nameEnc: text('name_enc').notNull(),
   dobEnc: text('dob_enc'),
   phoneEnc: text('phone_enc'),
@@ -220,6 +230,8 @@ export const encounters = pgTable('encounters', {
   clientCapturedAt: tsz('client_captured_at'),
   sealedSnapshotId: uuid('sealed_snapshot_id'),
   closedAt: tsz('closed_at'),
+  /** Opened offline by a records/clinician device (client UUIDv7, 0020); never the desk's verified visit (FR-ID-02). */
+  offlineCreated: boolean('offline_created').notNull().default(false),
 }, (t) => [index('encounters_patient_idx').on(t.patientId)])
 
 // ── documents ────────────────────────────────────────────────────────────────
@@ -288,6 +300,10 @@ export const documentFiles = pgTable('document_files', {
   dekWrapped: text('dek_wrapped').notNull(),
   size: integer('size').notNull(),
   sha256: text('sha256').notNull(),
+  // FR-DOC-08 (0021): what made a page image; originals are immutable and never superseded (DB trigger).
+  processor: text('processor'),
+  processorVersion: text('processor_version'),
+  supersededAt: tsz('superseded_at'),
   createdAt: createdAt(),
 }, (t) => [index('document_files_doc_idx').on(t.documentId)])
 
@@ -304,8 +320,13 @@ export const documentPages = pgTable('document_pages', {
   processor: text('processor'),
   processorVersion: text('processor_version'),
   textHash: text('text_hash'),
+  /** FR-DOC-08 (0021): set when a reprocess replaces this version; readers take rows where it is null. */
+  supersededAt: tsz('superseded_at'),
   createdAt: createdAt(),
-}, (t) => [unique('document_pages_doc_page_uq').on(t.documentId, t.pageNo)])
+}, (t) => [
+  uniqueIndex('document_pages_doc_page_uq').on(t.documentId, t.pageNo).where(sql`superseded_at is null`),
+  index('document_pages_doc_idx').on(t.documentId),
+])
 
 // ── events, evidence, statements, verification ───────────────────────────────
 export const events = pgTable('events', {
@@ -440,6 +461,7 @@ export const recordRequests = pgTable('record_requests', {
   patientId: patientId(),
   missingRecordId: uuid('missing_record_id').references(() => missingRecords.id),
   institution: text('institution').notNull(),
+  institutionType: text('institution_type').$type<InstitutionType>(), // FR-REQ-06; null = not recorded
   documents: jsonb('documents').$type<string[]>().notNull().default([]),
   dateRange: jsonb('date_range').$type<{ from?: string; to?: string }>(),
   lang: lang('lang').notNull().default('en'),
@@ -565,6 +587,9 @@ export const breakGlass = pgTable('break_glass', {
   reason: text('reason').notNull(),
   createdAt: createdAt(),
   expiresAt: tsz('expires_at').notNull(),
+  /** FR-ID-10: an alert on /admin until an org_admin marks the grant reviewed (0019). */
+  reviewedAt: tsz('reviewed_at'),
+  reviewedBy: uuid('reviewed_by').references(() => staff.id),
 }, (t) => [index('break_glass_lookup_idx').on(t.patientId, t.staffId, t.expiresAt)])
 
 /** Consultation-level baseline measurement form (PRD §16.4). No PHI. */
@@ -590,6 +615,9 @@ export const orgSettings = pgTable('org_settings', {
   flags: jsonb('flags').$type<OrgFlags>().notNull().default({ voice: false, tts: false, ai_extraction: false }),
   demoClockOffsetS: integer('demo_clock_offset_s').notNull().default(0),
   retentionDays: integer('retention_days').notNull().default(3650),
+  /** PRD §9.6 per-org daily LLM budget (India day), every provider. */
+  llmDailyCalls: integer('llm_daily_calls').notNull().default(1000),
+  llmDailyTokens: integer('llm_daily_tokens').notNull().default(10_000_000),
   updatedAt: tsz('updated_at').notNull().defaultNow(),
 })
 
@@ -804,6 +832,8 @@ export const uploadSessions = pgTable('upload_sessions', {
   sha256: text('sha256').notNull(),
   intakeRoute: text('intake_route').notNull(),
   encounterId: uuid('encounter_id'),
+  clientFileId: text('client_file_id'), // offline queue: idempotency key, passed to intake when the file is assembled (0020)
+  clientCapturedAt: tsz('client_captured_at'),
   state: text('state').$type<'open' | 'done' | 'aborted'>().notNull().default('open'),
   createdAt: createdAt(),
   expiresAt: tsz('expires_at').notNull(),
@@ -826,6 +856,8 @@ export const voiceClips = pgTable('voice_clips', {
   orgId: orgId(),
   patientId: patientId(),
   statementId: uuid('statement_id'),
+  /** A desk audio note of this encounter (0020); null for a voice answer. */
+  encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'set null' }),
   mime: text('mime').notNull(),
   size: integer('size').notNull(),
   seconds: integer('seconds').notNull().default(0),
@@ -836,7 +868,7 @@ export const voiceClips = pgTable('voice_clips', {
   createdByKind: text('created_by_kind').notNull(),
   createdById: uuid('created_by_id').notNull(),
   createdAt: createdAt(),
-}, (t) => [index('voice_clips_patient_idx').on(t.patientId, t.createdAt), index('voice_clips_statement_idx').on(t.statementId)])
+}, (t) => [index('voice_clips_patient_idx').on(t.patientId, t.createdAt), index('voice_clips_statement_idx').on(t.statementId), index('voice_clips_encounter_idx').on(t.encounterId)])
 
 export const signedConsents = pgTable('signed_consents', {
   id: pk(),

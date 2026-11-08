@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { ChevronDown, Compass, LogOut, Menu, Smartphone } from "lucide-react";
+import { ChevronDown, Compass, LogOut, Menu, MonitorSmartphone, Smartphone } from "lucide-react";
 import { navFor, roleHome, type StaffRole } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
 import { Tour, startTour } from "./Tour";
@@ -114,6 +114,9 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
                     <Compass aria-hidden className="size-4" />Take the 2-minute tour
                   </button>
                 )}
+                <Link href="/account/sessions" className="flex min-h-11 items-center gap-2 px-4 text-[15px] hover:bg-spotlight">
+                  <MonitorSmartphone aria-hidden className="size-4" />Where you are signed in
+                </Link>
                 <button type="button" onClick={signOut} disabled={signingOut} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
                   <LogOut aria-hidden className="size-4" />Sign out
                 </button>

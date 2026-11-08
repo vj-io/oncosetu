@@ -27,7 +27,7 @@ import { loadLedger } from '@/server/ledger/record'
 import { BUDGET_MS, MIN_ITEMS, countItems, median, verdictFor } from '@/server/perf/probe'
 import type { AuditFn, StaffCtx } from '@/server/registration/http'
 import type { RegisterBody } from '@/server/registration/schemas'
-import { SESSION_COOKIE, type StaffSession } from '@/server/session'
+import { sessionCookieName, type StaffSession } from '@/server/session'
 
 export const maxDuration = 300
 
@@ -58,7 +58,7 @@ async function withProbeSession<T>(staffId: string, fn: (cookie: string) => Prom
     tokenHash: sha256Hex(token), kind: 'staff', orgId: ORG, staffId, expiresAt: new Date(Date.now() + SESSION_TTL_MS), idleTimeoutS: SESSION_TTL_MS / 1000,
   }).returning({ id: sessions.id })
   try {
-    return await fn(`${SESSION_COOKIE}=${token}`)
+    return await fn(`${sessionCookieName(true)}=${token}`) // the deployment is https: the prefixed name (ASVS 3.4.4)
   } finally {
     await db.delete(sessions).where(eq(sessions.id, row.id))
   }

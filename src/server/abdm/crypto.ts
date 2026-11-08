@@ -98,7 +98,7 @@ export function decryptEntry(content: string, own: Ephemeral, peer: KeyMaterial,
   const blob = Buffer.from(content, 'base64')
   if (blob.length < 17) throw new AbdmCryptoError('decrypt_failed')
   try {
-    const d = createDecipheriv('aes-256-gcm', key, iv)
+    const d = createDecipheriv('aes-256-gcm', key, iv, { authTagLength: 16 })
     d.setAuthTag(blob.subarray(blob.length - 16))
     return Buffer.concat([d.update(blob.subarray(0, blob.length - 16)), d.final()])
   } catch {

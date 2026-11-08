@@ -32,6 +32,11 @@ describe('envelope encryption', () => {
     expect(() => decryptField('v1.' + body.toString('base64url'))).toThrow()
     expect(() => decryptField('v9.' + enc.slice(3))).toThrow()
   })
+  it('refuses an authentication tag cut short (Semgrep gcm-no-tag-length)', () => {
+    const { bytes, dekWrapped } = encryptBytes(Buffer.alloc(0)) // IV 12 + tag 16, no ciphertext
+    expect(decryptBytes(bytes, dekWrapped).length).toBe(0)
+    expect(() => decryptBytes(bytes.subarray(0, 16), dekWrapped)).toThrow() // the real tag's first 4 bytes only
+  })
   it('round-trips bytes', () => {
     const plain = randomBytes(5000)
     const { bytes, dekWrapped } = encryptBytes(plain)

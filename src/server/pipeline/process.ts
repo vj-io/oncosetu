@@ -14,7 +14,7 @@ import { log } from '@/server/log'
 import { activeConsent } from '@/server/patients'
 import { llmExtractor, type AiRunRecord } from '@/server/ai/extract'
 import { aiAllowed } from '@/server/ai/provider'
-import { classify, extractCandidates, gateAndDate, identify, injectionReport, type DraftEvent } from './core'
+import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
 import { textSimilarity } from './safety'
 import { readPages, type PageRead } from './text'
@@ -190,7 +190,7 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   const { gate, drafts } = gateAndDate(ex.candidates, classified, ident.id, doc.receivedAt, ex.method)
   const reasons: Record<string, number> = {}
   for (const r of gate.rejected) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1
-  flags.gate = { candidates: ex.candidates.length, accepted: gate.accepted.length, kept: drafts.length, rejected: gate.rejected.length, reasons }
+  flags.gate = { candidates: ex.candidates.length, accepted: gate.accepted.length, kept: drafts.length, rejected: gate.rejected.length, reasons, rejections: rejectionLog(gate.rejected) }
   const counts = await withOrg(orgId, (tx) => persistEvents(tx, doc, drafts, pages, ident.attachState === 'attached'))
   await consentStillActive(orgId, documentId, patientId)
 

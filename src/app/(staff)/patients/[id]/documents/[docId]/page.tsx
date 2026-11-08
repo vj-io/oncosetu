@@ -5,13 +5,14 @@ import { ArrowLeft, CopyCheck, FileWarning, Hand, KeyRound, Languages, PenLine, 
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
-import { fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
+import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
 import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
 import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
+import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
 import { withPatientAccess } from '@/server/registration/page'
 
@@ -50,7 +51,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const flags = doc.flags as Record<string, unknown>
   const injection = flags.injection as { patterns: string[]; hiddenChars: number; hiddenPages: number[] } | undefined
   const hidden = ((doc.quality as { hidden?: { pageNo: number; text: string }[] } | null)?.hidden ?? [])
-  const gate = flags.gate as { candidates: number; accepted: number; kept: number; rejected: number; reasons: Record<string, number> } | undefined
+  const gate = flags.gate as { candidates: number; accepted: number; kept: number; rejected: number; reasons: Record<string, number>; rejections?: RejectionLogItem[] } | undefined
   const erratum = flags.erratum as { detachedAt: string; reason: string; withdrawnEventIds: string[]; sealedSnapshots: { seq: number }[] } | undefined
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
@@ -173,6 +174,13 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
                 </>
               ) : <span className="text-muted">No automatic extraction for this file.</span>}
             </p>
+            {/* FR-EXT-08: the gate cannot see what was left out, so the verifier is told how much the evaluation found */}
+            {gate && d.coverage && (
+              <p data-testid="coverage-note" className="text-sm text-muted">
+                Coverage: extraction recall for {doc.docType ? staffDocLabel(doc.docType as DocType).toLowerCase() : 'this kind of document'}s in evaluation{' '}
+                <span className="font-mono text-ink tabular-nums">{d.coverage.recall.toFixed(2)}</span> ({d.coverage.gold} facts checked by hand). Read the source for anything not listed.
+              </p>
+            )}
           </div>
           <SourceViewer
             documentId={doc.id}
@@ -186,6 +194,31 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
               evidence: e.evidence.map((x) => ({ pageNo: x.pageNo, charStart: x.charStart, charEnd: x.charEnd, quote: x.quote, bbox: x.bbox })),
             }))}
           />
+          {/* FR-EXT-02: every proposal the gate discarded, logged as rejected_unsupported (kinds and names only, never text) */}
+          {gate?.rejections && gate.rejections.length > 0 && (
+            <details className="border border-rule bg-surface p-4" data-testid="rejection-log">
+              <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-medium">
+                Left out by the evidence gate · {gate.rejected}
+                <StatusBadge status="rejected_unsupported" label="rejected_unsupported" />
+              </summary>
+              <p className="mt-2 text-sm text-muted">Proposed facts that failed the quote check. None of them is in the record; read the page for anything that matters.</p>
+              <Table caption="Proposed facts left out" className="mt-3">
+                <thead><tr><th scope="col">Kind of fact</th><th scope="col">Why</th><th scope="col">Detail</th><th scope="col">Proposed by</th><th scope="col">Page</th></tr></thead>
+                <tbody>
+                  {gate.rejections.map((r, i) => (
+                    <tr key={i}>
+                      <td>{r.eventType ? (EVENT_LABEL[r.eventType] ?? r.eventType) : 'Unknown kind'}</td>
+                      <td>{r.reason === 'invalid_field_value' && r.banned ? `Advice or urgency wording (“${r.banned}”) in a value` : REJECT_REASON[r.reason] ?? r.reason}</td>
+                      <td className="font-mono text-[13px]">{r.field ? (FIELD_LABEL[r.field] ?? r.field) : '—'}</td>
+                      <td>{r.origin === 'llm' ? 'AI reading' : r.origin === 'rules' ? 'Pattern rules' : '—'}</td>
+                      <td className="tabular-nums">{r.pageNo ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+              {gate.rejected > gate.rejections.length && <p className="mt-2 text-sm text-muted">Showing the first {gate.rejections.length} of {gate.rejected}.</p>}
+            </details>
+          )}
         </div>
       )}
 

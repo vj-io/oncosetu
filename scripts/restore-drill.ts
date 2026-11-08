@@ -16,14 +16,12 @@
  * Needs `neonctl` (authenticated), `.env.local` and Chromium for Playwright. Never writes to main. Run it while nothing writes to
  * main (no test run, no users): the reference needs ~10 s of quiet and the drill retries a few times before giving up.
  */
-import { execFile, spawn, type ChildProcess } from 'node:child_process'
+import { execFile, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:net'
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { isDeepStrictEqual, promisify } from 'node:util'
-import { chromium, request } from '@playwright/test'
 import { and, asc, eq, gt } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres, { type Sql } from 'postgres'
@@ -31,9 +29,7 @@ import { RLS_TABLES, auditLog } from '../src/db/schema'
 import { verifyChainRows, GENESIS_HASH, type AuditRow } from '../src/server/audit'
 import { decryptBytes, decryptField, publicKeys, sha256Hex, verifyEd25519 } from '../src/server/crypto'
 import { ORG_GANGA_ID } from '../src/server/demo'
-import { verifyCopy } from '../src/i18n/ledger'
-import { EMAIL, PASSWORD } from '../tests/e2e/helpers/env'
-import { totpFor } from '../tests/e2e/helpers/totp'
+import { runRestoreSmoke } from './restore-smoke'
 
 const PROJECT = process.env.NEON_PROJECT_ID ?? 'mute-salad-65632065'
 const NEON_ORG = process.env.NEON_ORG_ID ?? 'org-shiny-star-64825025'
@@ -208,70 +204,7 @@ async function verifyKeysAndData(sql: Sql, ref: Reference) {
   check('stored files and patient names decrypt with APP_MASTER_KEY; each file matches its recorded SHA-256', names > 0 && files > 0, `${names} names (${erased} erased tombstones skipped), ${files} files (${(bytes / 1048576).toFixed(1)} MB)`)
 }
 
-// ── d. smoke: the app on the restored database ───────────────────────────────
-const sourceHash = () => {
-  const h = createHash('sha256')
-  const walk = (d: string) => { for (const e of readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) { const p = join(d, e.name); if (e.isDirectory()) walk(p); else h.update(p).update(readFileSync(p)) } }
-  walk('src'); walk('drizzle')
-  for (const f of ['package-lock.json', 'next.config.ts', 'tsconfig.json']) h.update(readFileSync(f))
-  return h.digest('hex')
-}
-
-/** A production build of a COPY of this repo (a build in the live tree would disturb a running dev server). Reused while the source is unchanged. */
-async function prepareBuild(dir: string): Promise<{ built: boolean }> {
-  const stamp = join(dir, '.drill-source-hash'), hash = sourceHash()
-  if (existsSync(join(dir, '.next/BUILD_ID')) && existsSync(stamp) && readFileSync(stamp, 'utf8') === hash) return { built: false }
-  mkdirSync(dir, { recursive: true })
-  await exec('rsync', ['-a', '--delete', '--exclude', 'node_modules', '--exclude', '.next', '--exclude', '.git', '--exclude', '.vercel', '--exclude', 'test-results',
-    '--exclude', 'playwright-report', '--exclude', 'tsconfig.tsbuildinfo', '--exclude', '.env.local', '--exclude', '.drill-source-hash', './', `${dir}/`])
-  if (!existsSync(join(dir, 'node_modules'))) await exec('cp', ['-cR', 'node_modules', join(dir, 'node_modules')]).catch(() => exec('cp', ['-R', 'node_modules', join(dir, 'node_modules')]))
-  // The copy gets no database URL at all: it can only reach the restored branch, whose URLs the server is started with.
-  writeFileSync(join(dir, '.env.local'), readFileSync('.env.local', 'utf8').split('\n').filter((l) => !l.startsWith('DATABASE_URL')).join('\n'))
-  rmSync(join(dir, '.next'), { recursive: true, force: true })
-  const env = { ...process.env }
-  for (const k of Object.keys(env)) if (k.startsWith('DATABASE_URL')) delete env[k]
-  await exec(process.execPath, [join(dir, 'node_modules/next/dist/bin/next'), 'build'], { cwd: dir, env, maxBuffer: 64 << 20 })
-  writeFileSync(stamp, hash)
-  return { built: true }
-}
-
-const freePort = () => new Promise<number>((res, rej) => { const s = createServer(); s.listen(0, () => { const { port } = s.address() as { port: number }; s.close(() => res(port)) }); s.on('error', rej) })
-
-async function smoke(base: string, sql: Sql, before: Reference) {
-  const [snap] = await sql`select s.id, s.patient_id, s.seq from snapshots s
-    where s.org_id = ${ORG_GANGA_ID} and exists (select 1 from events e where e.patient_id = s.patient_id)
-      and (select c.action from consents c where c.patient_id = s.patient_id order by c.recorded_at desc limit 1) <> 'withdraw'
-    order by s.sealed_at desc limit 1`
-  if (!snap) throw new Error('no sealed Ganga snapshot with events and active consent on the restored database')
-  const api = await request.newContext({ baseURL: base, extraHTTPHeaders: { Origin: base } })
-  const browser = await chromium.launch({ channel: process.env.PW_CHANNEL ?? 'chromium' })
-  try {
-    const email = EMAIL.clinician
-    const login = await api.post('/api/auth/staff/login', { data: { email, password: PASSWORD, totp: totpFor(email) } })
-    if (!login.ok()) throw new Error(`staff login failed: ${login.status()}`)
-    const page = await (await browser.newContext({ storageState: await api.storageState(), baseURL: base })).newPage()
-    let t0 = performance.now()
-    const ledger = await page.goto(`/patients/${snap.patient_id}/ledger`, { waitUntil: 'load' })
-    const ledgerMs = Math.round(performance.now() - t0)
-    const cards = await page.locator('article').count()
-    const sealed = await page.getByText('Verify seal').count()
-    check('smoke: signed in as the Ganga clinician and opened a patient ledger', ledger?.status() === 200 && (await page.title()).startsWith('Change ledger') && cards > 0 && sealed > 0,
-      `HTTP ${ledger?.status()}, ${cards} items, seal plaque with "Verify seal" shown, ${ledgerMs} ms`)
-
-    const anon = await (await browser.newContext({ baseURL: base })).newPage()
-    t0 = performance.now()
-    const verify = await anon.goto(`/verify/${snap.id}`, { waitUntil: 'load' })
-    const verifyMs = Math.round(performance.now() - t0)
-    const intact = await anon.getByText(verifyCopy.intactTitle.en).count()
-    check('smoke: the public /verify page of snapshot S' + snap.seq + ' reports it intact (no session)', verify?.status() === 200 && intact > 0, `HTTP ${verify?.status()}, "${verifyCopy.intactTitle.en}" shown, ${verifyMs} ms`)
-  } finally {
-    await browser.close()
-    await api.dispose()
-  }
-  // The login above wrote a session row; it must be on the branch (and the server was given no other database).
-  const [{ n }] = await sql`select count(*)::int as n from sessions`
-  check('smoke: the app wrote to the restored branch (sessions grew)', n > before.tables.sessions, `sessions ${before.tables.sessions} → ${n}`)
-}
+// ── d. smoke: scripts/restore-smoke.ts (shared with restore-from-backup.ts) ──────
 
 // ── f. report ────────────────────────────────────────────────────────────────
 function writeReport(info: { startedAt: Date; point?: { at: Date; attempts: number }; branch?: string; parentLsn?: string; window?: number; ref?: Reference; built?: boolean }) {
@@ -344,7 +277,7 @@ async function main() {
   const main = connect(process.env.DATABASE_URL_UNPOOLED!)
   const info: Parameters<typeof writeReport>[0] = { startedAt }
   const name = `restore-drill-${startedAt.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15)}`
-  let branchStarted = false, server: ChildProcess | undefined, serverLog = ''
+  let branchStarted = false, server: ChildProcess | undefined
 
   const cleanup = async () => {
     if (server && server.exitCode === null) { server.kill('SIGTERM'); await new Promise((r) => { server!.once('exit', r); setTimeout(r, 10_000) }); server.kill('SIGKILL') }
@@ -418,23 +351,13 @@ async function main() {
 
       // d. smoke: the app, from a production build, on the restored database only
       await timed('smoke', async () => {
-        const { built } = await timed('build', () => prepareBuild(buildDir))
-        info.built = built
-        if (built) log(`built the repo copy in ${buildDir}`)
-        const port = await freePort(), base = `http://localhost:${port}`
-        server = spawn(process.execPath, [join(buildDir, 'node_modules/next/dist/bin/next'), 'start', '-p', String(port)], {
-          cwd: buildDir, stdio: ['ignore', 'pipe', 'pipe'],
-          env: { ...process.env, NODE_ENV: 'production', DATABASE_URL: pooled.toString(), DATABASE_URL_UNPOOLED: direct, DATABASE_URL_APP: appUrl.toString() },
-        })
-        for (const s of [server.stdout!, server.stderr!]) s.on('data', (d: Buffer) => { serverLog = (serverLog + d.toString()).slice(-3000) })
-        const end = Date.now() + 60_000
-        while (!(await fetch(`${base}/login`).then((r) => r.ok, () => false))) { if (Date.now() > end || server.exitCode !== null) throw new Error(`next start did not come up:\n${serverLog}`); await sleep(500) }
-        log(`next start on ${base} against ${hosts.read_write_pooled_host.split('.')[0]}`)
-        await smoke(base, restored, ref)
+        const r = await runRestoreSmoke({ buildDir, urls: { pooled: pooled.toString(), direct, app: appUrl.toString() }, sql: restored, check, log, onServer: (p) => { server = p } })
+        info.built = r.built
+        timings.build = r.buildMs
       })
     } finally { await restored.end({ timeout: 5 }) }
   } catch (e) {
-    check('drill ran to completion', false, msg(e) + (serverLog ? `\nserver log tail:\n${serverLog}` : ''))
+    check('drill ran to completion', false, msg(e))
   } finally {
     await cleanup()
     await main.end({ timeout: 5 })

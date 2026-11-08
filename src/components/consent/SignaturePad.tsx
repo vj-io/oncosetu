@@ -53,7 +53,7 @@ export function SignaturePad({ onChange, clearLabel, hint }: { onChange: (png: s
         aria-label={hint} data-testid="signature-pad" style={{ touchAction: "none" }}
         className="h-40 w-full cursor-crosshair border border-control bg-white"
       />
-      <div className="flex items-center justify-between gap-3 text-[15px] text-muted">
+      <div className="flex items-center justify-between gap-3 text-base text-muted">
         <span>{hint}</span>
         <button type="button" onClick={clear} disabled={empty} className="inline-flex h-11 items-center px-2 underline underline-offset-4 disabled:opacity-50">{clearLabel}</button>
       </div>

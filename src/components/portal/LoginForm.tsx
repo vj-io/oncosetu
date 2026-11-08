@@ -116,7 +116,7 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
               <li key={p.key}>
                 <button type="button" onClick={() => demoSignIn(p)} data-testid={`demo-${p.key}`} className="flex min-h-12 w-full items-center justify-between gap-3 border border-control bg-matte px-4 py-2 text-left text-[16px] hover:border-ink hover:bg-spotlight">
                   <span>{dm(lang, p.key)}</span>
-                  <span className="shrink-0 font-mono text-[12px] text-muted">{p.phone}</span>
+                  <span className="shrink-0 font-mono text-base text-muted">{p.phone}</span>
                 </button>
                 {demoState?.key === p.key && <p role="status" className="mt-1 text-[16px] text-muted">{demoState.msg}</p>}
               </li>

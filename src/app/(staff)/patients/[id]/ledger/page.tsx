@@ -114,7 +114,8 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   ]
 
   return (
-    <div className="grid gap-10 py-8">
+    // grid-cols-1 (minmax(0, 1fr)): an auto track grew to its widest child and pushed the full-bleed JumpBar 7 px past a phone screen
+    <div className="grid grid-cols-1 gap-10 py-8">
       <div className="grid gap-6">
         <SectionHeader
           kicker="What’s new"

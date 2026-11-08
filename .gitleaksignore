@@ -1,0 +1,21 @@
+# gitleaks findings reviewed on 8 Nov 2026 (gitleaks 8.30.1, default rules, 148 commits): all false positives.
+# One fingerprint per finding, so anything new still fails the CI secret scan.
+#
+# X25519/HKDF/AES-GCM test vectors of the in-process ABDM gateway (not keys in use):
+1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:15
+1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:16
+1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:23
+# The ABDM protocol label constant in src/server/abdm/crypto.ts (a curve name, not a key), and this file's own first
+# wording of that comment (commit 402733f):
+1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.ts:generic-api-key:25
+402733fa7c3068f1a7369012197b935ac0ea160a:.gitleaksignore:generic-api-key:8
+# A synthetic inbound-email alias token in a unit test:
+33647bfe9b542f9b17cf4c76c9ec9cd5450c5a8e:src/server/inbound/inbound.test.ts:generic-api-key:110
+# Lists of required environment variable NAMES ('APP_MASTER_KEY', ...), not values:
+1ab68d083cb4ba24bab946ec13a023b9840e2720:scripts/restore-from-backup.ts:generic-api-key:247
+3fc32bf09416e51e3b6a1626ca9c0a360b83b877:scripts/restore-drill.ts:generic-api-key:339
+# Playwright traces committed by mistake in 403f7d7 and c917787 and deleted in 6fbfa17: registration responses of
+# synthetic E2E patients on a local database (patient QR tokens of test data; no credentials):
+403f7d7e8db147486f2e2fac9cd718ab1a2fab4f:test-results/.playwright-artifacts-0/traces/resources/019c5a209c05a2f64f3ee131623b9434e4aed958.json:generic-api-key:1
+403f7d7e8db147486f2e2fac9cd718ab1a2fab4f:test-results/.playwright-artifacts-1/traces/resources/5556318044fb1bd612b30c6bfc676a53c0930674.json:generic-api-key:1
+c9177873f0ffbae2b44048262b9e8d4b9f03f265:test-results/.playwright-artifacts-0/traces/resources/a9a32588fcad3c677d742c28f6e2ef8b5fd83ea6.json:generic-api-key:1

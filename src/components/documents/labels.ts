@@ -105,10 +105,22 @@ export function statusBadge(status: string): { status: Status; label?: string } 
 
 export const shortId = (id: string) => id.replace(/-/g, '').slice(-6).toUpperCase()
 
-const DATE = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-const DATETIME = new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
-export const fmtDate = (iso: string | null | undefined) => (iso ? DATE.format(new Date(iso + 'T00:00:00Z')) : 'date not stated')
-export const fmtDateTime = (iso: string) => DATETIME.format(new Date(iso))
+// Written out by hand, not with Intl: the board renders on the server (Node's ICU) and again in the browser, and Safari's ICU
+// formats en-IN date-times differently, so WebKit failed hydration (React #418). Same output as Node's en-IN Intl ("Sept" included).
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+const IST_MS = 330 * 60_000
+const pad = (n: number) => String(n).padStart(2, '0')
+/** "1 Mar 2026" for a YYYY-MM-DD date. */
+export const fmtDate = (iso: string | null | undefined) => {
+  if (!iso) return 'date not stated'
+  const d = new Date(iso + 'T00:00:00Z')
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`
+}
+/** "8 Nov, 11:35 am" in India time for an ISO timestamp. */
+export const fmtDateTime = (iso: string) => {
+  const d = new Date(Date.parse(iso) + IST_MS), h = d.getUTCHours()
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}, ${pad(h % 12 || 12)}:${pad(d.getUTCMinutes())} ${h < 12 ? 'am' : 'pm'}`
+}
 
 const REASON_TEXT: Record<string, string> = {
   name_mismatch: 'name on the report differs', sex_mismatch: 'sex differs', age_mismatch: 'age differs by more than a year',

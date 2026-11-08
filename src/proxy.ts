@@ -5,6 +5,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 export function proxy(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const dev = process.env.NODE_ENV === 'development'
+  // A production build served over plain http on this machine (E2E): WebKit applies upgrade-insecure-requests to localhost
+  // too and sends the page's own scripts to https://, which has no listener. Deployed hosts always get the directive.
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(request.nextUrl.hostname)
   const csp = [
     `default-src 'self'`,
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? ` 'unsafe-eval'` : ''}`,
@@ -19,7 +22,7 @@ export function proxy(request: NextRequest) {
     `base-uri 'self'`,
     `form-action 'self'`,
     `frame-ancestors 'none'`,
-    ...(dev ? [] : ['upgrade-insecure-requests']),
+    ...(dev || local ? [] : ['upgrade-insecure-requests']),
   ].join('; ')
 
   const requestHeaders = new Headers(request.headers)

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { ClipboardCheck, FileQuestion, ScanText } from 'lucide-react'
 import { Badge, EmptyState, Frame, SectionHeader, Table } from '@/components/ui'
 import { withOrg } from '@/db'
-import { loadRecordsQueue } from '@/server/ledger/queue'
+import { loadRecordsQueue, QUEUE_PAGE } from '@/server/ledger/queue'
 import { requireStaff } from '@/server/session'
 
 export const metadata = { title: 'Records queue · OncoSetu' }
@@ -25,9 +25,7 @@ const link = 'font-mono text-[11px] tracking-[0.12em] uppercase text-setu-ink un
 /** Cross-patient work queue for records staff (FR-ONB-01, FR-VER-02). Administrative priority by document type only. */
 export default async function RecordsQueuePage() {
   const session = await requireStaff(['records'])
-  const { rows, withoutConsent, buckets } = await withOrg(session.orgId, (tx) => loadRecordsQueue(tx))
-  const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0)
-  const unverified = sum((r) => r.unverified.reduce((a, b) => a + b, 0))
+  const { rows, totals, withoutConsent, buckets } = await withOrg(session.orgId, (tx) => loadRecordsQueue(tx))
 
   return (
     <div className="grid grid-cols-1 gap-10">
@@ -38,9 +36,9 @@ export default async function RecordsQueuePage() {
         description="Documents waiting for someone to decide whose they are, pages that were hard to read, and items not yet checked, with pathology and molecular reports first. It is a filing order, never a judgement of importance."
       />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Tally icon={<FileQuestion />} n={sum((r) => r.identity)} label="Whose document is it?" />
-        <Tally icon={<ScanText />} n={sum((r) => r.lowConfidence)} label="Hard-to-read pages" />
-        <Tally icon={<ClipboardCheck />} n={unverified} label="Not yet checked" />
+        <Tally icon={<FileQuestion />} n={totals.identity} label="Whose document is it?" />
+        <Tally icon={<ScanText />} n={totals.lowConfidence} label="Hard-to-read pages" />
+        <Tally icon={<ClipboardCheck />} n={totals.unverified} label="Not yet checked" />
       </div>
 
       {rows.length ? (
@@ -78,6 +76,9 @@ export default async function RecordsQueuePage() {
         </Table>
       ) : (
         <EmptyState icon={<ClipboardCheck />} title="Nothing waiting" description="Every document has been matched to a patient and every item has been checked." />
+      )}
+      {totals.patients > rows.length && (
+        <p className="text-sm text-muted">Showing the first {QUEUE_PAGE} of {totals.patients} patients with open work, in this order. The counts above include all of them.</p>
       )}
       {withoutConsent > 0 && (
         <p className="text-sm text-muted">{withoutConsent} more {withoutConsent === 1 ? 'patient has' : 'patients have'} open items but no active consent; they are not listed and cannot be opened.</p>

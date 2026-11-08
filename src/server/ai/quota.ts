@@ -4,7 +4,7 @@
 // the pipeline falls back to rule-based extraction behind the same evidence gate.
 // Runs on sideDb: it is called outside request transactions and must commit even if the caller later fails (POOL RULE).
 import { sql } from 'drizzle-orm'
-import { sideDb } from '@/db'
+import { sideDb, type Tx } from '@/db'
 
 const int = (v: string | undefined, d: number) => (v && /^\d+$/.test(v) ? Number(v) : d)
 
@@ -13,14 +13,19 @@ export function llmLimits() {
   return { rpm: int(process.env.LLM_RPM, 8), rpd: int(process.env.LLM_RPD, 200), cooldownS: int(process.env.LLM_COOLDOWN_S, 60) }
 }
 
-export type QuotaDenial = 'rpm' | 'rpd' | 'cooldown'
+export type QuotaDenial = 'rpm' | 'rpd' | 'cooldown' | 'org_calls' | 'org_tokens'
 export type Reservation = { id: number } | { denied: QuotaDenial }
 export type LlmOutcome = 'ok' | 'schema_error' | 'provider_error' | 'rate_limited'
 
-export async function reserveLlmCall(provider: string, model: string): Promise<Reservation> {
+/**
+ * One call slot. `orgId` adds the org's daily call and token budget (PRD §9.6, every provider; limits in
+ * org_settings, drizzle/0019). `shared` = the free-tier key's per-minute / per-day budget and 429 cooldown (Gemini).
+ */
+export async function reserveLlmCall(provider: string, model: string, opts: { orgId?: string | null; shared?: boolean } = {}): Promise<Reservation> {
   const l = llmLimits()
-  const rows = await sideDb.execute<{ call_id: string | null; reason: QuotaDenial | null }>(
-    sql`select * from llm_reserve(${provider}, ${model}, ${l.rpm}, ${l.rpd}, ${l.cooldownS})`)
+  const shared = opts.shared ?? true
+  const rows = await sideDb.execute<{ call_id: string | null; reason: QuotaDenial | null }>(sql`select * from llm_reserve(
+    ${provider}, ${model}, ${shared ? l.rpm : null}::int, ${shared ? l.rpd : null}::int, ${l.cooldownS}, ${opts.orgId ?? null}::uuid)`)
   const r = rows[0]
   return r?.call_id ? { id: Number(r.call_id) } : { denied: r?.reason ?? 'rpm' }
 }
@@ -30,13 +35,20 @@ export async function reserveLlmCallWaiting(provider: string, model: string, max
   const until = Date.now() + maxWaitMs
   for (;;) {
     const r = await reserveLlmCall(provider, model)
-    if ('id' in r || r.denied === 'rpd' || Date.now() > until) return r
+    if ('id' in r || (r.denied !== 'rpm' && r.denied !== 'cooldown') || Date.now() > until) return r // day budgets do not refill while waiting
     await new Promise((res) => setTimeout(res, r.denied === 'cooldown' ? llmLimits().cooldownS * 1000 : 7_500))
   }
 }
 
-export async function settleLlmCall(id: number, outcome: LlmOutcome): Promise<void> {
-  await sideDb.execute(sql`select llm_settle(${id}, ${outcome})`).catch(() => undefined) // bookkeeping only; never fails the caller
+/** `tokens` (input + output) count towards the org's daily token budget. */
+export async function settleLlmCall(id: number, outcome: LlmOutcome, tokens: number | null = null): Promise<void> {
+  await sideDb.execute(sql`select llm_settle(${id}, ${outcome}, ${tokens}::int)`).catch(() => undefined) // bookkeeping only; never fails the caller
+}
+
+/** The calling org's use today (India day). Inside withOrg: the function reads the org from app.org_id. */
+export async function orgLlmUsage(tx: Tx): Promise<{ calls: number; tokens: number }> {
+  const [r] = await tx.execute<{ calls: number; tokens: string }>(sql`select * from llm_org_usage()`)
+  return { calls: r?.calls ?? 0, tokens: Number(r?.tokens ?? 0) }
 }
 
 export async function llmUsage(): Promise<{ lastMinute: number; today: number; cooldownUntil: Date | null; limits: ReturnType<typeof llmLimits> }> {

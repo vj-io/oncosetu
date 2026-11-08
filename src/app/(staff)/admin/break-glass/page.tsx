@@ -1,3 +1,4 @@
+import { ReviewBreakGlass } from '@/components/admin/ReviewBreakGlass'
 import { Badge, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { withOrg } from '@/db'
 import { istDateTime } from '@/server/admin/format'
@@ -11,15 +12,16 @@ export default async function BreakGlassPage() {
   const s = await requireStaff(sectionRoles('breakGlass'))
   const rows = await withOrg(s.orgId, (tx) => listBreakGlass(tx, s.orgId))
   const active = rows.filter((r) => r.active)
+  const waiting = rows.filter((r) => !r.reviewedAt).length
   return (
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
-        description="Clinician access to a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Patients are shown by record code only." />
+        description="Clinician access to a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. An administrator reviews every grant; until then it is shown as an alert on the admin pages. Patients are shown by record code only." />
       {rows.length === 0 ? <EmptyState title="No break-glass grants" description="Nobody has used break-glass access in this organisation." /> : (
         <>
-          <p className="font-mono text-sm text-muted" role="status">{active.length} active now · {rows.length} shown</p>
+          <p className="font-mono text-sm text-muted" role="status">{active.length} active now · {waiting} not yet reviewed · {rows.length} shown</p>
           <Table caption="Break-glass grants, newest first">
-            <thead><tr><th>Status</th><th>Staff</th><th>Patient</th><th>Reason given</th><th>Granted</th><th>Expires</th></tr></thead>
+            <thead><tr><th>Status</th><th>Staff</th><th>Patient</th><th>Reason given</th><th>Granted</th><th>Expires</th><th>Review</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
@@ -29,6 +31,11 @@ export default async function BreakGlassPage() {
                   <td className="max-w-sm text-[15px]">{r.reason}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.createdAt)}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.expiresAt)}</td>
+                  <td>
+                    {r.reviewedAt ? <span className="text-sm text-muted">Reviewed by {r.reviewedBy ?? '—'}<span className="block font-mono text-[13px]">{istDateTime(r.reviewedAt)}</span></span>
+                      : s.role === 'org_admin' ? <ReviewBreakGlass id={r.id} patient={r.patient} />
+                      : <Badge tone="unverified">Not yet reviewed</Badge>}
+                  </td>
                 </tr>
               ))}
             </tbody>

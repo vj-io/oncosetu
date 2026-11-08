@@ -17,6 +17,8 @@ export type LlmProvider = {
   provider: 'anthropic' | 'google' | 'gateway'; modelId: string; model: LanguageModel
   /** Tried in order when the primary model is overloaded (503); each attempt still takes a quota slot. */
   fallbacks?: { modelId: string; model: LanguageModel }[]
+  /** Set by aiAllowed(): every call then counts against this org's daily budget (PRD §9.6, ai/quota.ts). */
+  orgId?: string
 }
 
 export const GEMINI_DEFAULT_MODEL = 'gemini-3.5-flash-lite'
@@ -75,5 +77,5 @@ export async function aiAllowed(tx: Tx, orgId: string, patientId: string): Promi
   if (!provider) return { provider: null, reason: 'no_provider' }
   if (!(await orgAiFlag(tx, orgId))) return { provider: null, reason: 'org_flag_off' }
   if (!(await activeConsent(tx, patientId))?.purposes.ai) return { provider: null, reason: 'no_ai_consent' }
-  return { provider, reason: null }
+  return { provider: { ...provider, orgId }, reason: null }
 }

@@ -6,14 +6,21 @@ import { postJson, useRun } from './client'
 
 type Flags = { voice: boolean; tts: boolean; ai_extraction: boolean }
 
-export function SettingsForm({ flags: initial, retentionDays: initialDays, minRetentionDays, demo, demoOffsetDays }: {
-  flags: Flags; retentionDays: number; minRetentionDays: number; demo: boolean; demoOffsetDays: number
+type Budget = { calls: number; tokens: number }
+
+export function SettingsForm({ flags: initial, retentionDays: initialDays, minRetentionDays, demo, demoOffsetDays, llmBudget, llmBudgetMax }: {
+  flags: Flags; retentionDays: number; minRetentionDays: number; demo: boolean; demoOffsetDays: number; llmBudget: Budget; llmBudgetMax: Budget
 }) {
   const { busy, run } = useRun()
   const [flags, setFlags] = useState(initial)
   const [days, setDays] = useState(String(initialDays))
   const n = Number(days)
   const daysValid = Number.isInteger(n) && n >= minRetentionDays && n <= 36_500
+  const [calls, setCalls] = useState(String(llmBudget.calls))
+  const [tokens, setTokens] = useState(String(llmBudget.tokens))
+  const budget = { calls: Number(calls), tokens: Number(tokens) }
+  const okNum = (v: number, max: number) => Number.isInteger(v) && v >= 0 && v <= max
+  const budgetValid = okNum(budget.calls, llmBudgetMax.calls) && okNum(budget.tokens, llmBudgetMax.tokens)
   const toggle = (k: keyof Flags) => (e: { target: { checked: boolean } }) => setFlags((f) => ({ ...f, [k]: e.target.checked }))
   const dirtyFlags = (Object.keys(flags) as (keyof Flags)[]).some((k) => flags[k] !== initial[k])
 
@@ -39,6 +46,21 @@ export function SettingsForm({ flags: initial, retentionDays: initialDays, minRe
           </Field>
           <Button disabled={!daysValid || n === initialDays} loading={busy === 'ret'} onClick={() => run('ret', () => postJson('/api/admin/settings', { retentionDays: n }), 'Retention saved')}>Save retention</Button>
           {daysValid && <p className="pb-3 font-mono text-sm text-muted">≈ {(n / 365).toFixed(1)} years</p>}
+        </div>
+      </section>
+
+      <section aria-labelledby="budget-h" className="grid gap-3 bg-matte p-5 shadow-frame sm:p-6">
+        <h2 id="budget-h" className="text-xl tracking-[-0.02em]">AI-assisted reading: daily limit</h2>
+        <p className="max-w-prose text-sm text-muted">Caps this organisation&apos;s use per India day, whatever reading service is connected. Once a limit is reached, documents are read by the fixed rules until midnight; nothing is lost.</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Calls per day" error={calls && !okNum(budget.calls, llmBudgetMax.calls) ? `Enter a whole number from 0 to ${llmBudgetMax.calls}.` : undefined}>
+            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.calls} value={calls} onChange={(e) => setCalls(e.target.value)} className="w-40 font-mono" />
+          </Field>
+          <Field label="Tokens per day" error={tokens && !okNum(budget.tokens, llmBudgetMax.tokens) ? `Enter a whole number from 0 to ${llmBudgetMax.tokens}.` : undefined}>
+            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.tokens} value={tokens} onChange={(e) => setTokens(e.target.value)} className="w-48 font-mono" />
+          </Field>
+          <Button disabled={!budgetValid || (budget.calls === llmBudget.calls && budget.tokens === llmBudget.tokens)} loading={busy === 'budget'}
+            onClick={() => run('budget', () => postJson('/api/admin/settings', { llmBudget: budget }), 'Daily limit saved')}>Save limit</Button>
         </div>
       </section>
 

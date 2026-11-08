@@ -25,6 +25,14 @@ import { analyse, extractCandidates, type Analysis } from './core'
 import { sniffMime } from './safety'
 import { closeOcr, readPages, type PageRead } from './text'
 
+// aiAllowed binds the org, so every call takes a slot from that org's daily budget (PRD §9.6). The budget itself is a
+// Postgres function (tests/integration/llm-quota.test.ts); here a recorder stands in for it and always grants.
+const quota = vi.hoisted(() => ({ reserved: [] as unknown[][], settled: [] as unknown[][] }))
+vi.mock('@/server/ai/quota', () => ({
+  reserveLlmCall: async (...a: unknown[]) => { quota.reserved.push(a); return { id: quota.reserved.length } },
+  settleLlmCall: async (...a: unknown[]) => { quota.settled.push(a) },
+}))
+
 const DOCS = join(process.cwd(), 'public', 'demo-docs')
 const RECEIVED = new Date('2026-07-01T06:00:00Z')
 const ORG = '00000000-0000-4000-8000-000000000001'
@@ -121,8 +129,12 @@ const CHEMO_ITEMS = [
 describe('(a) verbatim quotes are accepted, with real offsets and a content-free ai_run', () => {
   it('chemo record: two facts, exact slices, LLM-path flags, dates re-derived from the quote', async () => {
     const model = scripted(response('chemo_daycare_record', CHEMO_ITEMS))
+    const before = quota.reserved.length
     const { a } = await viaPipeline('chemo', model)
     expect(model.doGenerateCalls).toHaveLength(1)
+    // the org's budget was consulted (no shared free-tier budget for a paid provider) and charged the tokens used
+    expect(quota.reserved.slice(before)).toEqual([['anthropic', model.modelId, { orgId: ORG, shared: false }]])
+    expect(quota.settled.at(-1)).toEqual([quota.reserved.length, 'ok', 1234 + 56])
     expect(a.method).toBe('llm')
     expect(a.gate.rejected).toEqual([])
     expect(a.drafts).toHaveLength(2)

@@ -93,8 +93,9 @@ export const BREAK_GLASS_HOURS = 4
 export const breakGlassSchema = z.object({ reason: z.string().trim().min(10, 'Give a reason of at least 10 characters').max(500) })
 
 /**
- * Time-limited access outside consent. The org_admin alert is the break_glass row plus the audit row (staff have no
- * phone in the schema); the patient or primary contact gets a neutral simulated SMS.
+ * Time-limited access outside consent. The org_admin alert: the new row stays unreviewed, shown on every /admin page
+ * until an org_admin marks it reviewed (admin/ops.ts; staff have no phone in the schema). The patient or primary
+ * contact gets a neutral SMS.
  */
 export async function grantBreakGlass(ctx: StaffCtx<z.infer<typeof breakGlassSchema>>, patientId: string) {
   const p = await loadFor(ctx, patientId, false) // RLS keeps it in-org; break-glass is the access path when consent is absent

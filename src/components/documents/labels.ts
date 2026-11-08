@@ -70,6 +70,7 @@ export const REJECT_REASON: Record<string, string> = {
   quote_not_found: 'Quote not found on the page',
   field_not_in_quote: 'A value is not in its quote',
   date_not_in_quote: 'The date is not in its quote',
+  quote_has_instructions: 'The quote is an instruction to the reader, not a fact',
 }
 
 export const PRIORITY_GROUPS: { title: string; types: string[] }[] = [

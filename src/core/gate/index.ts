@@ -1,6 +1,7 @@
 // Evidence gate (PRD §9.4, FR-EXT-02/05/09/10). Deterministic; never trusts model offsets.
 import { lintText } from '../copy/banned'
 import { findDates, parseDate } from '../dates'
+import { detectInjection } from '../extract/injection'
 import { sha256Hex } from '../hash'
 import { EVENT_FIELDS, EVENT_TYPES, type EventFlag, type EventType } from '../types'
 
@@ -42,6 +43,7 @@ export type RejectReason =
   | 'quote_not_found'
   | 'field_not_in_quote'
   | 'date_not_in_quote'
+  | 'quote_has_instructions'
 
 export interface GateEvidence {
   pageNo: number
@@ -289,6 +291,11 @@ export function runGate(candidates: Candidate[], pages: GatePage[]): GateResult 
     const loc = locate(nq, pages, c.page_no, maps)
     if (!loc) {
       reject(c, 'quote_not_found')
+      continue
+    }
+    // §9.6: words written to instruct the reader are never a fact, however exactly they are quoted.
+    if (detectInjection(nq).flagged) {
+      reject(c, 'quote_has_instructions')
       continue
     }
 

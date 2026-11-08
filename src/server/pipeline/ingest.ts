@@ -181,11 +181,34 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
  * `password` (FR-ING-07) lives only in this closure — never stored, never logged.
  */
 export function scheduleProcessing(documentId: string, orgId: string, opts: { password?: string } = {}): void {
-  const run = () => import('./process').then((m) => m.runDocument(documentId, orgId, opts))
-    .catch((err) => log.error('pipeline.schedule_failed', { documentId, err }))
+  afterResponse(() => import('./process').then((m) => m.runDocument(documentId, orgId, opts))
+    .catch((err) => log.error('pipeline.schedule_failed', { documentId, err })))
+}
+
+function afterResponse(run: () => Promise<unknown>): void {
   try {
     after(run)
   } catch {
     void run()
   }
+}
+
+export const BATCH_CONCURRENCY = 3
+
+/**
+ * FR-ONB-01: the documents of one batch (a ZIP, an email's attachments), passed in backlog order (src/core/backlog.ts),
+ * are processed in that order BATCH_CONCURRENCY at a time instead of all at once. Same after() and claim rules as
+ * scheduleProcessing.
+ */
+// ponytail: per-request queue only. A document the documents screen polls (needsRunner) can still start early on its own
+// runner — harmless, the claim lets one runner work on it; a cross-request priority queue needs a jobs table.
+export function scheduleBatch(documentIds: readonly string[], orgId: string): void {
+  const queue = [...documentIds]
+  if (!queue.length) return
+  afterResponse(() => import('./process').then(({ runDocument }) => {
+    const worker = async () => {
+      for (let id = queue.shift(); id; id = queue.shift()) await runDocument(id, orgId).catch((err) => log.error('pipeline.schedule_failed', { documentId: id, err }))
+    }
+    return Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, queue.length) }, worker))
+  }).catch((err) => log.error('pipeline.schedule_failed', { documents: queue.length, err })))
 }

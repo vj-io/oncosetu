@@ -3,20 +3,14 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { auditLog, documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { backlogRank } from '@/core/backlog'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
 import { median } from '../admin/metrics-compute'
 import { STAGES, STALE_LOCK_MINUTES, type Stage } from './process'
 
-/** FR-ONB-01 backlog order: pathology/molecular → imaging → discharge/procedure → treatment → prescriptions → labs → other. */
-export const ONBOARDING_PRIORITY: DocType[] = [
-  'pathology_report', 'ihc_molecular_report', 'imaging_report', 'discharge_summary', 'procedure_note', 'chemo_daycare_record',
-  'radiotherapy_summary', 'consult_note', 'prescription_printed', 'prescription_handwritten', 'lab_report', 'bill_insurance', 'other',
-]
-const priority = (t: string | null) => {
-  const i = ONBOARDING_PRIORITY.indexOf((t ?? 'other') as DocType)
-  return i < 0 ? ONBOARDING_PRIORITY.length : i
-}
+/** FR-ONB-01 backlog order (src/core/backlog.ts). */
+const priority = backlogRank
 
 type DocRow = typeof documents.$inferSelect
 export type DisplayStatus = DocRow['status'] | 'needs_password'

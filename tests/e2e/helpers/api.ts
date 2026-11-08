@@ -102,6 +102,7 @@ export type RegisterOpts = {
   purposes?: { store: boolean; ai: boolean; share: boolean; abdm: boolean; metrics: boolean }
   confirm?: 'witnessed' | 'otp'
   continueDespiteDuplicates?: boolean
+  abhaNumber?: string
 }
 export const ALL_PURPOSES = { store: true, ai: true, share: true, abdm: false, metrics: true }
 
@@ -127,7 +128,7 @@ export async function registerPatient(api: Api, o: RegisterOpts = {}): Promise<R
     fullName: o.fullName ?? d.fullName,
     aliases: o.aliases === false ? [] : d.aliases.filter((a) => a !== d.fullName).map((name) => ({ name, kind: 'transliteration' })),
     dob: o.dob ?? d.dob, sex: o.sex ?? d.sex, ...(phone ? { phone } : {}), preferredLanguage: language,
-    disclosureStatus: disclosure, primaryContact, ...(caregiver ? { caregiver } : {}),
+    disclosureStatus: disclosure, primaryContact, ...(caregiver ? { caregiver } : {}), ...(o.abhaNumber ? { abhaNumber: o.abhaNumber } : {}),
     consent: { purposes, language, noticeVersion: CONSENT_NOTICE_VERSION, confirm },
     continueDespiteDuplicates: o.continueDespiteDuplicates ?? true,
   }

@@ -10,7 +10,8 @@ import { hmac } from '../crypto'
 import { HttpError } from '../http'
 import { log } from '../log'
 import { activeConsent } from '../patients'
-import { ingestDocument, scheduleProcessing, type DocStatus, type IntakeProvider } from '../pipeline/ingest'
+import { inBacklogOrder } from '@/core/backlog'
+import { ingestDocument, scheduleBatch, type DocStatus, type IntakeProvider } from '../pipeline/ingest'
 import { aliasTokensOf, attachmentsOf, senderOf, type PostmarkPayload } from './postmark'
 import { inboundDomain } from './staff'
 
@@ -55,7 +56,7 @@ export async function receiveEmail(p: PostmarkPayload, domain: string, requestId
     const uploadedBy = contact.caregiver_id ? { kind: 'caregiver' as const, id: contact.caregiver_id } : { kind: 'patient' as const, id: patientId }
     const skipped = atts.flatMap((a) => ('reason' in a ? [{ index: a.index, reason: a.reason as string }] : []))
     const documents: Extract<EmailOutcome, { accepted: true }>['documents'] = []
-    for (const a of atts) {
+    for (const a of inBacklogOrder(atts, (x) => ('name' in x ? x.name : ''))) { // FR-ONB-01: processed in this order
       if ('reason' in a) continue
       try {
         const r = await ingestDocument(tx, { orgId, patientId, uploadedBy, intakeRoute: 'email', fileName: a.name, bytes: a.bytes })
@@ -72,6 +73,6 @@ export async function receiveEmail(p: PostmarkPayload, domain: string, requestId
     })
     return { accepted: true, documents, skipped }
   })
-  if (out.accepted) for (const d of out.documents) if (!d.duplicateOf && d.status === 'queued') scheduleProcessing(d.documentId, orgId)
+  if (out.accepted) scheduleBatch(out.documents.filter((d) => !d.duplicateOf && d.status === 'queued').map((d) => d.documentId), orgId)
   return out
 }

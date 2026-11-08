@@ -1,6 +1,7 @@
 // Records requests (FR-REQ-01..03). GET: a patient's requests for staff (tracked lazily on read: state + reminders).
 // POST: create a request letter from completeness items or manually — staff (records) or the patient/caregiver.
 import { z } from 'zod'
+import { INSTITUTION_TYPES } from '@/core/types'
 import { route } from '@/server/http'
 import { assertPatientAccess } from '@/server/patients'
 import { DEFAULT_REQUEST_DOCS, REQUEST_DOC_KEYS } from '@/server/requests/letter'
@@ -17,6 +18,7 @@ const Body = z.object({
   patientId: z.uuid().optional(),
   missingIds: z.array(z.uuid()).max(20).default([]),
   institution: z.string().trim().min(2).max(200),
+  institutionType: z.enum(INSTITUTION_TYPES).optional(), // FR-REQ-06: measurement only, never on the letter
   institutionPatientId: z.string().trim().max(60).optional(),
   documents: z.array(z.enum(REQUEST_DOC_KEYS)).min(1).max(14).default(DEFAULT_REQUEST_DOCS),
   dateRange: z.object({ from: day.optional(), to: day.optional() }).optional(),

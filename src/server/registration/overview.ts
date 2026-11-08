@@ -1,7 +1,7 @@
 // Read model for the patient workspace landing page ("gallery wall").
-import { and, count, desc, eq, inArray } from 'drizzle-orm'
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { documents, encounters, events, missingRecords, snapshots } from '@/db/schema'
+import { documents, encounters, events, missingRecords, patients, snapshots } from '@/db/schema'
 import { formatDateIN, staffDocLabel } from '@/core/copy'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { activeConsent, loadPatient, type ActiveConsent, type PatientView } from '../patients'
@@ -21,6 +21,9 @@ export type Overview = {
   steps: OverviewStep[]
   encounter: { id: string; type: string; startedAt: Date } | null
   snapshot: { seq: number; sha256: string; sealedAt: Date } | null
+  /** FR-ID-07: ABHA captured (verified only through ABDM M1, not built), and whether the same person is an active patient
+   *  of another organisation: yes/no only, never which one or anything from its record (drizzle/0019). */
+  abha: { verified: boolean; elsewhere: boolean } | null
 }
 
 const isDocType = (t: string | null): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
@@ -35,7 +38,7 @@ const eventWords = (t: string) => EVENT_WORDS[t] ?? t.replace(/_documented$/, ''
 export async function loadOverview(tx: Tx, patientId: string): Promise<Overview | null> {
   const patient = await loadPatient(tx, patientId)
   if (!patient) return null
-  const [consent, byType, [pending], [review], missingRows, [enc], [snap], target] = await Promise.all([
+  const [consent, byType, [pending], [review], missingRows, [enc], [snap], target, [abha]] = await Promise.all([
     activeConsent(tx, patientId),
     tx.select({ type: documents.docType, n: count() }).from(documents)
       .where(and(eq(documents.patientId, patientId), inArray(documents.attachState, ['auto', 'attached']))).groupBy(documents.docType),
@@ -48,6 +51,8 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     tx.select().from(encounters).where(eq(encounters.patientId, patientId)).orderBy(desc(encounters.startedAt)).limit(1),
     tx.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(desc(snapshots.seq)).limit(1),
     primaryContactTarget(tx, patientId),
+    tx.select({ onFile: sql<boolean>`${patients.abhaHmac} is not null`, verified: patients.abhaVerified, elsewhere: sql<boolean>`person_registered_elsewhere(${patients.id})` })
+      .from(patients).where(eq(patients.id, patientId)),
   ])
   const docs = byType.map((r) => ({ type: r.type ?? 'unclassified', label: isDocType(r.type) ? staffDocLabel(r.type) : 'Not yet classified', count: r.n }))
     .sort((a, b) => b.count - a.count)
@@ -70,5 +75,6 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     })),
     steps, encounter: enc ? { id: enc.id, type: enc.type, startedAt: enc.startedAt } : null,
     snapshot: snap ? { seq: snap.seq, sha256: snap.sha256, sealedAt: snap.sealedAt } : null,
+    abha: abha?.onFile ? { verified: abha.verified, elsewhere: abha.elsewhere } : null,
   }
 }

@@ -4,7 +4,7 @@
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { brandFor, formatDateIN, istDate } from '@/core/copy'
 import { transitionMissing } from '@/core/radar'
-import type { Disclosure, Lang, LetterLang, RequestState } from '@/core/types'
+import type { Disclosure, InstitutionType, Lang, LetterLang, RequestState } from '@/core/types'
 import type { Tx } from '@/db'
 import { missingRecords, patients, recordRequests } from '@/db/schema'
 import { tr } from '@/i18n/requests'
@@ -12,7 +12,7 @@ import { writeAudit, type AuditDetails } from '../audit'
 import { now } from '../clock'
 import { HttpError } from '../http'
 import { sendMessage } from '../outbox'
-import { assertPatientAccess } from '../patients'
+import { activeConsent, assertPatientAccess } from '../patients'
 import { can } from '../rbac'
 import { primaryContactTarget } from '../registration/contact'
 import { sessionRole, type Session } from '../session'
@@ -104,6 +104,24 @@ export async function refreshRequests(tx: Tx, orgId: string, patientId: string):
   return rows
 }
 
+/**
+ * Daily cron (FR-REQ-04): the same lazy tracking for every patient of one org with an open request, so reminders go out
+ * even when nobody opens a request list. Only active, living patients whose consent still covers storing their
+ * records: the read paths it stands in for are refused for anyone else. Returns the patients refreshed.
+ */
+export async function refreshOpenRequests(tx: Tx, orgId: string): Promise<number> {
+  const rows = await tx.selectDistinct({ id: recordRequests.patientId }).from(recordRequests)
+    .innerJoin(patients, eq(patients.id, recordRequests.patientId))
+    .where(and(inArray(recordRequests.state, ACTIVE), eq(patients.status, 'active'), eq(patients.deceased, false)))
+  let n = 0
+  for (const { id } of rows) {
+    if (!(await activeConsent(tx, id))?.purposes.store) continue
+    await refreshRequests(tx, orgId, id)
+    n++
+  }
+  return n
+}
+
 export type RequestView = {
   id: string; state: RequestState; institution: string; institutionPatientId: string | null
   documents: { key: string; label: L2 }[]; dateRange: { from?: string; to?: string } | null; lang: Lang
@@ -133,7 +151,7 @@ export async function listRequests(tx: Tx, orgId: string, patientId: string, aud
 }
 
 export type CreateRequestInput = {
-  patientId?: string; missingIds: string[]; institution: string; institutionPatientId?: string
+  patientId?: string; missingIds: string[]; institution: string; institutionType?: InstitutionType; institutionPatientId?: string
   documents: RequestDocKey[]; dateRange?: { from?: string; to?: string }; lang: LetterLang
 }
 
@@ -156,11 +174,12 @@ export async function createRequest(ctx: Ctx, input: CreateRequestInput): Promis
   const actor = actorOf(ctx.session)
   const [row] = await ctx.db.insert(recordRequests).values({
     orgId: ctx.session.orgId, patientId, missingRecordId: missingIds[0] ?? null,
-    institution: input.institution.trim(), documents: [...new Set(input.documents)], dateRange: input.dateRange ?? null, lang: input.lang,
+    institution: input.institution.trim(), institutionType: input.institutionType ?? null,
+    documents: [...new Set(input.documents)], dateRange: input.dateRange ?? null, lang: input.lang,
     letterPayload: { missingIds, institutionPatientId: input.institutionPatientId?.trim() || null },
     state: 'drafted', createdByKind: actor.kind, createdBy: actor.id,
   }).returning({ id: recordRequests.id })
-  await ctx.audit('request.create', 'record_request', row.id, { patientId, missingIds, lang: input.lang })
+  await ctx.audit('request.create', 'record_request', row.id, { patientId, missingIds, lang: input.lang, institutionType: input.institutionType ?? null })
   return { id: row.id }
 }
 

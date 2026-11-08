@@ -59,6 +59,24 @@ test('V06-E2E-01 break-glass: reason required, patient notified, access works, e
   expect(JSON.parse(audit!.details)).toMatchObject({ breakGlassId: grant.id, hours: 4, patientNotified: true })
   expect(audit!.details).not.toContain('unconscious')
 
+  // The org_admin is alerted on every admin page until an administrator reviews the grant (FR-ID-10). The count is
+  // org-wide (earlier runs leave grants too), so the check is that this grant's review takes exactly one off it.
+  const alert = apage.getByText(/^Emergency access used: \d+ grants? not yet reviewed$/)
+  const waiting = async () => Number((await alert.textContent())!.match(/\d+/)![0])
+  await apage.goto('/admin')
+  await expect(alert).toBeVisible()
+  await apage.goto('/admin/break-glass')
+  const waitingBefore = await waiting()
+  expect((await clinician.post(`/api/admin/break-glass/${grant.id}/review`)).status).toBe(403) // only an org_admin
+  await row.first().getByRole('button', { name: 'Mark the grant for ' + p.accession + ' reviewed' }).click()
+  await expect(row.first()).toContainText('Reviewed by E2E Admin')
+  await apage.reload()
+  if (waitingBefore > 1) expect(await waiting()).toBe(waitingBefore - 1)
+  else await expect(alert).toHaveCount(0)
+  expect((await admin.post(`/api/admin/break-glass/${grant.id}/review`)).body.error.code).toBe('already_reviewed')
+  const reviewed = parseCsv(((await admin.get('/api/admin/audit.csv?action=break_glass.reviewed')).body as string)).find((r) => r.target_id === p.id)
+  expect(JSON.parse(reviewed!.details)).toEqual({ breakGlassId: grant.id, grantedTo: grant.staffId })
+
   // Expiry is enforced on the next request, with nothing else changed.
   await expireBreakGlass(p.id)
   expect(await clinician.get(`/api/patients/${p.id}/documents`).then((r) => [r.status, r.body.error.code])).toEqual([403, 'consent_required'])

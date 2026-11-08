@@ -1,10 +1,13 @@
 // PRD §10.2 "TLS everywhere; HSTS; secure cookies; CSP without unsafe-inline for scripts", asserted on the running server
 // (src/proxy.ts sets the headers, src/server/session.ts the cookie). Needs a production build: `next dev` adds
-// 'unsafe-eval' and drops upgrade-insecure-requests on purpose.
-import { EMAIL, PASSWORD } from './helpers/env'
+// 'unsafe-eval' on purpose. A plain-http localhost server gets no upgrade-insecure-requests and no Secure cookie (WebKit would
+// upgrade its own assets to https and drop the cookie); src/proxy.test.ts and src/server/session.test.ts cover a deployed host.
+import { BASE, EMAIL, PASSWORD } from './helpers/env'
 import { totpFor } from './helpers/totp'
 import { test, expect } from './helpers/fixtures'
 
+/** A plain-http production build on this machine: no upgrade-insecure-requests, no Secure cookie (WebKit honours both on localhost). */
+const LOCAL = new URL(BASE).protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(new URL(BASE).hostname)
 const directives = (csp: string) => new Map(csp.split(';').map((d) => d.trim().split(/\s+/)).filter((p) => p[0]).map(([k, ...v]) => [k, v]))
 
 test('pages: nonce + strict-dynamic CSP without unsafe-inline scripts, HSTS, nosniff, framing and referrer locked', async ({ anon }) => {
@@ -24,7 +27,7 @@ test('pages: nonce + strict-dynamic CSP without unsafe-inline scripts, HSTS, nos
     expect(csp.get('object-src')).toEqual(["'none'"])
     expect(csp.get('base-uri')).toEqual(["'self'"])
     expect(csp.get('frame-ancestors')).toEqual(["'none'"])
-    expect(csp.has('upgrade-insecure-requests')).toBe(true)
+    expect(csp.has('upgrade-insecure-requests')).toBe(!LOCAL)
     // Next stamps the per-request nonce on every script it renders; a script without it would be blocked.
     const html = await res.text()
     const scripts = html.match(/<script\b[^>]*>/g) ?? []
@@ -55,7 +58,7 @@ test('API responses carry the same headers; decrypted originals are sandboxed', 
   expect(csp.get('default-src')).toEqual(["'none'"])
 })
 
-test('the session cookie is HttpOnly, Secure, SameSite=Lax and host-only; sign-out clears it', async ({ anon }) => {
+test('the session cookie is HttpOnly, Secure (deployed), SameSite=Lax and host-only; sign-out clears it', async ({ anon }) => {
   const api = await anon()
   const res = await api.post('/api/auth/staff/login', { data: { email: EMAIL.records, password: PASSWORD, totp: totpFor(EMAIL.records) } })
   expect(res.ok()).toBe(true)
@@ -66,7 +69,7 @@ test('the session cookie is HttpOnly, Secure, SameSite=Lax and host-only; sign-o
   expect(nameValue.split('=')[0]).toBe('os_sid')
   expect(nameValue.split('=')[1].length).toBeGreaterThanOrEqual(40) // 32 random bytes
   expect(has('HttpOnly')).toBe(true)
-  expect(has('Secure')).toBe(true)
+  expect(has('Secure'), 'Secure (a deployed host; src/server/session.test.ts covers both cases)').toBe(!LOCAL)
   expect(has('SameSite=lax')).toBe(true)
   expect(has('Path=/')).toBe(true)
   expect(attrs.some((x) => /^domain=/i.test(x)), 'no Domain attribute: host-only').toBe(false)

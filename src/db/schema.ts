@@ -5,6 +5,7 @@ import {
   bigint, boolean, customType, date, index, integer, jsonb, pgEnum, pgTable, primaryKey, real, text,
   timestamp, unique, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 import { v7 as uuidv7 } from 'uuid'
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' })
@@ -288,6 +289,10 @@ export const documentFiles = pgTable('document_files', {
   dekWrapped: text('dek_wrapped').notNull(),
   size: integer('size').notNull(),
   sha256: text('sha256').notNull(),
+  // FR-DOC-08 (0021): what made a page image; originals are immutable and never superseded (DB trigger).
+  processor: text('processor'),
+  processorVersion: text('processor_version'),
+  supersededAt: tsz('superseded_at'),
   createdAt: createdAt(),
 }, (t) => [index('document_files_doc_idx').on(t.documentId)])
 
@@ -304,8 +309,13 @@ export const documentPages = pgTable('document_pages', {
   processor: text('processor'),
   processorVersion: text('processor_version'),
   textHash: text('text_hash'),
+  /** FR-DOC-08 (0021): set when a reprocess replaces this version; readers take rows where it is null. */
+  supersededAt: tsz('superseded_at'),
   createdAt: createdAt(),
-}, (t) => [unique('document_pages_doc_page_uq').on(t.documentId, t.pageNo)])
+}, (t) => [
+  uniqueIndex('document_pages_doc_page_uq').on(t.documentId, t.pageNo).where(sql`superseded_at is null`),
+  index('document_pages_doc_idx').on(t.documentId),
+])
 
 // ── events, evidence, statements, verification ───────────────────────────────
 export const events = pgTable('events', {

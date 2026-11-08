@@ -1,6 +1,6 @@
 // Direct database access (owner role) for what has no API: reading ids, simulated SMS, nudging the clock backwards,
 // closing an encounter. Every read is scoped to the Ganga org. Actions under test still go through the app.
-import { and, desc, eq, sql } from 'drizzle-orm'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { adminDb } from '../../../src/db'
 import { auditLog, breakGlass, caregivers, consents, documentPages, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, patientStatements, patients, sessions, snapshots, staff, verifications } from '../../../src/db/schema'
 import { phoneHmac } from '../../../src/server/crypto'
@@ -16,7 +16,7 @@ export const evidenceOf = (eventId: string) => adminDb.select().from(evidence).w
 export const verificationsOf = (eventId: string) => adminDb.select().from(verifications).where(eq(verifications.eventId, eventId))
 
 export const documentsOf = (patientId: string) => adminDb.select().from(documents).where(eq(documents.patientId, patientId))
-export const pagesOf = (documentId: string) => adminDb.select().from(documentPages).where(eq(documentPages.documentId, documentId)).orderBy(documentPages.pageNo)
+export const pagesOf = (documentId: string) => adminDb.select().from(documentPages).where(and(eq(documentPages.documentId, documentId), isNull(documentPages.supersededAt))).orderBy(documentPages.pageNo)
 
 export const missingOf = (patientId: string) =>
   adminDb.select().from(missingRecords).where(eq(missingRecords.patientId, patientId)).orderBy(missingRecords.createdAt)

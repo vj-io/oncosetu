@@ -17,7 +17,7 @@ import { aiAllowed } from '@/server/ai/provider'
 import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
 import { textSimilarity } from './safety'
-import { readPages, type PageRead } from './text'
+import { IMAGE_PROCESSOR, readPages, type PageRead } from './text'
 
 export const STAGES = ['received', 'text', 'classified', 'identity', 'extracted', 'gate', 'completeness'] as const
 export type Stage = (typeof STAGES)[number]
@@ -234,9 +234,11 @@ async function finish(orgId: string, documentId: string, patientId: string, stat
   })
 }
 
+/** FR-DOC-08: a new reading supersedes the earlier page text and page images; they are kept, never deleted or changed. */
 async function savePages(tx: Tx, doc: typeof documents.$inferSelect, pages: PageRead[], flags: Record<string, unknown>) {
-  await tx.delete(documentPages).where(eq(documentPages.documentId, doc.id))
-  await tx.delete(documentFiles).where(and(eq(documentFiles.documentId, doc.id), eq(documentFiles.kind, 'page_image')))
+  const at = new Date()
+  await tx.update(documentPages).set({ supersededAt: at }).where(and(eq(documentPages.documentId, doc.id), isNull(documentPages.supersededAt)))
+  await tx.update(documentFiles).set({ supersededAt: at }).where(and(eq(documentFiles.documentId, doc.id), eq(documentFiles.kind, 'page_image'), isNull(documentFiles.supersededAt)))
   for (const p of pages) {
     await tx.insert(documentPages).values({
       orgId: doc.orgId, patientId: doc.patientId, documentId: doc.id, pageNo: p.pageNo,
@@ -245,7 +247,7 @@ async function savePages(tx: Tx, doc: typeof documents.$inferSelect, pages: Page
       ocrConfidence: p.ocrConfidence, lowConfidence: p.lowConfidence, processor: p.processor, processorVersion: p.processorVersion,
       textHash: sha256Hex(p.text),
     })
-    if (p.image) await storeFile(tx, { orgId: doc.orgId, patientId: doc.patientId, documentId: doc.id, kind: 'page_image', pageNo: p.pageNo, mime: 'image/jpeg', bytes: p.image })
+    if (p.image) await storeFile(tx, { orgId: doc.orgId, patientId: doc.patientId, documentId: doc.id, kind: 'page_image', pageNo: p.pageNo, mime: 'image/jpeg', bytes: p.image, processor: IMAGE_PROCESSOR })
   }
   await tx.update(documents).set({
     quality: {
@@ -261,7 +263,7 @@ async function savePages(tx: Tx, doc: typeof documents.$inferSelect, pages: Page
     const mine = pages.map((p) => p.text).join('\n')
     const others = await tx.select({ documentId: documentPages.documentId, text: documentPages.text }).from(documentPages)
       .innerJoin(documents, eq(documents.id, documentPages.documentId))
-      .where(and(eq(documentPages.patientId, doc.patientId), ne(documentPages.documentId, doc.id), ne(documents.attachState, 'detached')))
+      .where(and(eq(documentPages.patientId, doc.patientId), ne(documentPages.documentId, doc.id), ne(documents.attachState, 'detached'), isNull(documentPages.supersededAt)))
     const byDoc = new Map<string, string>()
     for (const o of others) byDoc.set(o.documentId, (byDoc.get(o.documentId) ?? '') + '\n' + o.text)
     const best = [...byDoc].map(([id, t]) => ({ id, s: textSimilarity(mine, t) })).sort((a, b) => b.s - a.s)[0]

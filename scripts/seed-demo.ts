@@ -254,6 +254,7 @@ async function reset() {
     for (const o of wiped) await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'audit:' + o}, 0))`)
     await tx.execute(sql`alter table audit_log disable trigger audit_log_append_only`)
     await tx.execute(sql`alter table snapshots disable trigger snapshots_append_only`)
+    await tx.execute(sql`select set_config('oncosetu.erasing', 'on', true)`) // original files are deletable only on the erasure path (0021)
     await tx.execute(sql`delete from sessions where org_id = ${N} and kind <> 'staff'`)
     await tx.execute(sql`delete from sessions where org_id = any(${pgArr(residue)}::uuid[])`)
     // any session still pointing at a person being removed (whatever org or kind it was stamped with)

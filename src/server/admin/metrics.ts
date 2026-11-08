@@ -53,7 +53,7 @@ export async function loadMetrics(tx: Tx) {
 
   const census = documentCensus(await tx.select({
     hasText: sql<boolean>`length(btrim(${documentPages.text})) > 0`, handwritten: documents.handwritten, lowConfidence: documentPages.lowConfidence,
-  }).from(documentPages).innerJoin(documents, eq(documents.id, documentPages.documentId)).where(sql`${documents.duplicateOf} is null`)) // ponytail: one tiny row per page; group in SQL past ~100k pages
+  }).from(documentPages).innerJoin(documents, eq(documents.id, documentPages.documentId)).where(sql`${documents.duplicateOf} is null and ${documentPages.supersededAt} is null`)) // ponytail: one tiny row per page; group in SQL past ~100k pages
 
   const [{ n: wrongPatient }] = await tx.select({ n: sql<number>`count(*)::int` }).from(documents)
     .where(and(inArray(documents.identityResult, ['mismatch', 'insufficient']), eq(documents.attachState, 'auto')))

@@ -32,6 +32,7 @@ beforeAll(async () => {
 afterAll(async () => {
   await owner.begin(async (tx) => {
     await tx`select set_config('app.org_id', ${ORG_NARMADA_ID}, true)`
+    await tx`select set_config('oncosetu.erasing', 'on', true)` // originals are deletable only on the erasure path (0021)
     for (const t of ['evidence', 'events', 'missing_records', 'document_pages', 'document_files', 'documents']) await tx.unsafe(`delete from ${t} where patient_id = '${pid}'`)
     await tx`delete from audit_log where target_id = ${pid}`.catch(() => {})
     await tx.unsafe(`delete from consents where patient_id = '${pid}'`).catch(() => {})

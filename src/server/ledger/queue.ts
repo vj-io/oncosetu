@@ -22,7 +22,7 @@ export async function loadRecordsQueue(tx: Tx): Promise<{ rows: QueueRow[]; with
       .where(eq(documents.attachState, 'pending_decision')).groupBy(documents.patientId),
     tx.select({ patientId: documents.patientId, n: count() }).from(documentPages)
       .innerJoin(documents, eq(documents.id, documentPages.documentId))
-      .where(and(eq(documentPages.lowConfidence, true), inArray(documents.attachState, ['auto', 'attached']))).groupBy(documents.patientId),
+      .where(and(eq(documentPages.lowConfidence, true), isNull(documentPages.supersededAt), inArray(documents.attachState, ['auto', 'attached']))).groupBy(documents.patientId),
     tx.select({ patientId: events.patientId, docType: documents.docType, n: count() }).from(events)
       .leftJoin(documents, eq(documents.id, events.documentId))
       .where(and(

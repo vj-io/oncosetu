@@ -276,6 +276,15 @@ describe('timeline (FR-TML-01/03/04)', () => {
     expect(buildTimeline(snap, { quoteByHash: new Map() }, { source: 'external_document' })).toMatchObject({ shown: 2, undated: [] })
     expect(buildTimeline(snap, { quoteByHash: new Map() }, { source: 'patient_reported' }).shown).toBe(0)
   })
+  it('marks quote-only lines so their source words render only as a quote (PRD §6.6)', () => {
+    const d = doc({ docType: 'imaging_report' })
+    const e1 = event({ documentId: d.id, eventType: 'impression_documented', fields: { section_text: 'No significant interval change.' } })
+    const e2 = event({ documentId: d.id })
+    const t = buildTimeline(buildSnapshot(assembleRecord(rows({ documents: [d], events: [e1, e2] })).record, NOW), { quoteByHash: new Map() })
+    const items = t.years.flatMap((y) => y.months.flatMap((m) => m.items))
+    expect(items.find((i) => i.id === e1.id)).toMatchObject({ quoted: true, headline: 'No significant interval change.' })
+    expect(items.find((i) => i.id === e2.id)).toMatchObject({ quoted: false, headline: 'CBC' })
+  })
 })
 
 describe('performance (FR-LED-07)', () => {

@@ -332,7 +332,7 @@ export type LedgerView = {
   conflicts: ConflictView[]
   patientSaid: StatementView[]
   missing: MissingView[]
-  duplicates: { count: number; items: { id: string; typeLabel: string; headline: string | null; date: string; docLabel: string }[] }
+  duplicates: { count: number; items: { id: string; typeLabel: string; headline: string | null; quoted: boolean; date: string; docLabel: string }[] }
   errata: { documentId: string; docLabel: string; detached: string; withdrawn: number }[]
 }
 
@@ -458,7 +458,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     duplicates: {
       count: ledger.duplicates_suppressed.count,
       items: record.events.filter((e) => dupIds.has(e.id) && !(headlinesOnly && STAFF_ONLY_EVENT_TYPES.has(e.eventType))).map((e) => ({
-        id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headlinesOnly ? null : headline(e.fields),
+        id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headlinesOnly ? null : headline(e.fields), quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType),
         date: day(e.eventDate ?? e.documentDate, e.eventDate ? e.datePrecision : 'day'), docLabel: docLabel(e.documentId),
       })),
     },
@@ -487,6 +487,8 @@ export function snapshotSummary(s: { id: string; seq: number; sha256: string; se
 export type TimelineFilters = { type?: string; inst?: string; source?: string; status?: string }
 export type TimelineItem = {
   id: string; typeLabel: string; headline: string | null; status: VerificationStatus; label: SnapshotEvent['label']
+  /** The headline is the source's own words (a quote-only line): shown only as a quote (PRD §6.6). */
+  quoted: boolean
   flags: EventFlag[]; conflict: boolean; dateIso: string | null; dateLabel: string; dateFrom: 'event' | 'document' | null
   docType: DocType | null; docLabel: string; institution: string | null; sourceType: string; sources: SourceView[]
 }
@@ -532,7 +534,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     const fields = e.fields as Record<string, FieldValue>
     return {
       id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headline(fields), status: e.verificationStatus, label: e.label,
-      flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
+      quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType), flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
       dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision, e.flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
       dateFrom: e.eventDate ? 'event' : e.documentDate ? 'document' : null, docType: d?.docType ?? null, docLabel,
       institution: d?.institution ?? (typeof fields.institution_name === 'string' ? fields.institution_name : null), sourceType: e.sourceType,

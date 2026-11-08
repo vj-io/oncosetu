@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowUpRight, GitCompare } from 'lucide-react'
+import { SourceWords } from '@/components/ledger/LedgerItem'
 import { Badge, Chip, StatusBadge, type Tone } from '@/components/ui'
 import type { TimelineItem, TimelineView } from '@/server/ledger/core'
 
@@ -22,7 +23,7 @@ function Hung({ i, k }: { i: TimelineItem; k: number }) {
         </header>
         <h4 className="text-lg leading-snug tracking-[-0.015em]">
           {i.typeLabel}
-          {i.headline && <span className="mt-0.5 block text-[15px] tracking-normal text-muted">{i.headline}</span>}
+          {i.headline && <span className="mt-0.5 block text-[15px] tracking-normal text-muted"><SourceWords quoted={i.quoted}>{i.headline}</SourceWords></span>}
         </h4>
         <div className="flex flex-wrap gap-1.5">
           <Chip kicker={i.label} tone={LABEL_TONE[i.label]}>{i.docLabel}{i.institution ? ` · ${i.institution}` : ''}</Chip>

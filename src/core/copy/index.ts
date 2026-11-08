@@ -1,7 +1,7 @@
 // Patient/staff copy helpers (FR-CON-07, FR-VOX-06). Pure, client-safe.
 import type { DatePrecision, Disclosure, DocType, Lang } from '../types'
 
-export { DIAGNOSIS_WORDS, LEGAL_BANNED, LETTER_BANNED, RADAR_BANNED, lintText } from './banned'
+export { DIAGNOSIS_WORDS, JUDGEMENT_WORDS, LEGAL_BANNED, LETTER_BANNED, RADAR_BANNED, lintText } from './banned'
 export type { LintHit, Ruleset } from './banned'
 
 type Label = { en: string; hi: string }

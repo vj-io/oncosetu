@@ -2,7 +2,7 @@
  * PRD §10.2: restore from an encrypted, off-database backup (scripts/backup.ts, GET /api/cron/backup) into a FRESH Neon
  * branch, prove the restored data, delete the branch. Never writes to main.
  *
- *   npx tsx --env-file=.env.local scripts/restore-from-backup.ts --blob <pathname|latest> [--keep-branch]
+ *   npx tsx --env-file=.env.local scripts/restore-from-backup.ts --blob <pathname|latest> [--keep-branch] [--build-dir DIR]
  *
  * 1. Download the backup from the private Blob store into a temp file (still encrypted).
  * 2. Verify the file: GCM tag (key by id: BACKUP_KEY or BACKUP_KEY_PREVIOUS), every table's row count and SHA-256 against
@@ -16,13 +16,16 @@
  *    back byte for byte); audit chains recompute to the manifest heads; snapshot hashes + Ed25519 signatures; stored
  *    files and names decrypt with APP_MASTER_KEY and match their SHA-256; migrations on the branch equal the backup's,
  *    and the repo's drizzle/ files are compared with them (scripts/check-migrations.mts).
+ * 5b. App smoke (V06-E2E-02, the same as the point-in-time drill: scripts/restore-smoke.ts): a production build of a copy of
+ *    the repo runs `next start` against the restored branch only; Playwright signs in as the Ganga clinician, opens a sealed
+ *    patient's ledger and the public /verify page, and the login must land as a session row on the branch.
  * 6. Delete the branch (always, `finally`; `--keep-branch` keeps it for a real cut-over, RUNBOOK §1 C), delete the temp file,
  *    write docs/releases/v1.0/BACKUP-RESTORE.md.
  *
- * Needs neonctl (authenticated), .env.local with DATABASE_URL_UNPOOLED, APP_MASTER_KEY, SIGNING_KEY_ED25519, BACKUP_KEY,
- * BLOB_READ_WRITE_TOKEN.
+ * Needs neonctl (authenticated), .env.local with DATABASE_URL_UNPOOLED, DATABASE_URL_APP, APP_MASTER_KEY, SIGNING_KEY_ED25519,
+ * BACKUP_KEY, BLOB_READ_WRITE_TOKEN, and Chromium for Playwright.
  */
-import { execFile } from 'node:child_process'
+import { execFile, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -41,6 +44,7 @@ import { listBackups, readBackup, verifyBackup, type Manifest } from '../src/ser
 import { backupKeysFromEnv } from '../src/server/backup/envelope'
 import { exportRows, listTables, rowLoader, type Table } from '../src/server/backup/jsonl'
 import { decryptBytes, decryptField, sha256Hex, verifyEd25519 } from '../src/server/crypto'
+import { runRestoreSmoke } from './restore-smoke'
 
 const PROJECT = process.env.NEON_PROJECT_ID ?? 'mute-salad-65632065'
 const REPORT = 'docs/releases/v1.0/BACKUP-RESTORE.md'
@@ -217,6 +221,8 @@ A daily logical backup (encrypted, in a private Vercel Blob store, off the datab
 | Branch create + compute ready | ${s('branch')} |
 | Load (TRUNCATE + insert ${i.loaded ?? '?'} rows, one transaction) | ${s('load')} |
 | Verification on the branch | ${s('verification')} |
+| App smoke: production build of the repo copy | ${s('build')} |
+| App smoke: server start + sign-in + ledger + /verify | ${timings.smoke === undefined ? 'n/a' : `${((timings.smoke - (timings.build ?? 0)) / 1000).toFixed(1)} s`} |
 | Branch delete | ${s('branchDelete')} |
 | **Total** | ${s('total')} |
 
@@ -255,7 +261,12 @@ async function main() {
   let branchStarted = false
   const keep = process.argv.includes('--keep-branch')
 
+  const argAt = process.argv.indexOf('--build-dir')
+  const buildDir = argAt > 0 ? process.argv[argAt + 1] : join(tmpdir(), 'oncosetu-restore-drill-build')
+  if (!process.env.DATABASE_URL_APP) throw new Error('DATABASE_URL_APP is not set (the app smoke signs in through the app role)')
+  let server: ChildProcess | undefined
   const cleanup = async () => {
+    if (server && server.exitCode === null) { server.kill('SIGTERM'); await new Promise((r) => { server!.once('exit', r); setTimeout(r, 10_000) }); server.kill('SIGKILL') }
     rmSync(file, { force: true })
     if (!branchStarted) return
     branchStarted = false
@@ -299,8 +310,10 @@ async function main() {
     if (!inWindow) notes.push('The backup is older than the point-in-time window, so the branch is a copy of main now (its schema may be newer).')
     branchStarted = true
     info.branch = name
+    let pooledHost = ''
     const direct = await timed('branch', async () => {
-      await neonJson('branches', 'create', '--name', name, '--parent', info.parent!)
+      const created: { endpoints: { hosts: { read_write_pooled_host: string } }[] } = await neonJson('branches', 'create', '--name', name, '--parent', info.parent!)
+      pooledHost = created.endpoints[0].hosts.read_write_pooled_host
       const url = (await exec('neonctl', ['connection-string', name, '--role-name', role, '--database-name', database, '--project-id', PROJECT])).stdout.trim()
       if (new URL(url).host === owner.host) throw new Error('the branch resolved to the main endpoint: refusing to continue')
       for (const end = Date.now() + 180_000; ;) {
@@ -326,6 +339,13 @@ async function main() {
         await verifyAudit(sql, m)
         await verifySnapshotsAndFiles(sql)
         await verifyMigrations(sql, m)
+      })
+      // 5b. the app on the restored branch only (the app role exists there: the branch is a copy of main's roles)
+      const pooled = new URL(direct); pooled.host = pooledHost
+      const app = new URL(process.env.DATABASE_URL_APP!); app.host = pooledHost
+      await timed('smoke', async () => {
+        const r = await runRestoreSmoke({ buildDir, urls: { pooled: pooled.toString(), direct, app: app.toString() }, sql, check, log, onServer: (p) => { server = p } })
+        timings.build = r.buildMs
       })
     } finally { await sql.end({ timeout: 5 }) }
   } catch (e) {

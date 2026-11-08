@@ -75,9 +75,10 @@ async function smoke(base: string, sql: Sql, check: Check) {
     const ledger = await page.goto(`/patients/${snap.patient_id}/ledger`, { waitUntil: 'load' })
     const ledgerMs = Math.round(performance.now() - t0)
     const cards = await page.locator('article').count()
-    const sealed = await page.getByText('Verify seal').count()
-    check('smoke: signed in as the Ganga clinician and opened a patient ledger', ledger?.status() === 200 && (await page.title()).startsWith('Change ledger') && cards > 0 && sealed > 0,
-      `HTTP ${ledger?.status()}, ${cards} items, seal plaque with "Verify seal" shown, ${ledgerMs} ms`)
+    const sealed = await page.locator(`a[href="/verify/${snap.id}"]`).count() // the seal plaque links to this snapshot's /verify page
+    const title = await page.title() // the ledger tab's metadata title (src/app/(staff)/patients/[id]/ledger/page.tsx)
+    check('smoke: signed in as the Ganga clinician and opened a patient ledger', ledger?.status() === 200 && title.startsWith('What’s new') && cards > 0 && sealed > 0,
+      `HTTP ${ledger?.status()}, title "${title}", ${cards} items, ${sealed ? 'seal plaque links to /verify of the latest snapshot' : 'NO link to the latest seal'}, ${ledgerMs} ms`)
 
     const anon = await (await browser.newContext({ baseURL: base })).newPage()
     t0 = performance.now()

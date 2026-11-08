@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 // Cache Components off: every page here is per-request PHI behind auth; nothing should be cached.
 const nextConfig: NextConfig = {
+  poweredByHeader: false, // ASVS 14.3.3: no framework banner
   // forbidden() → 403 page from requireStaff(roles) (src/server/session.ts).
   experimental: { authInterrupts: true },
   // Pipeline (src/server/pipeline): tesseract.js spawns a worker_thread from its own file path and loads its wasm

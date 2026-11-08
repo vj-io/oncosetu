@@ -117,6 +117,9 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
           <li><Link className="inline-flex h-11 items-center border border-rule bg-matte px-4 text-sm hover:bg-spotlight" href={`/patients/${id}/card`}>Records card</Link></li>
         </ul>
         <p className="text-sm text-faint">Registered contact: {p.primaryContact === 'caregiver' ? 'the caregiver' : 'the patient'}{p.minor && <> · <Badge tone="unverified">Minor</Badge></>} · Last consent: {o.consent ? formatDateIN(o.consent.recordedAt.toISOString()) : 'none active'}</p>
+        <p className="text-sm text-faint" data-testid="abha-status">
+          {o.abha ? <>ABHA on file ({o.abha.verified ? 'verified' : 'unverified'}) · Also registered at another OncoSetu hospital: {o.abha.elsewhere ? 'yes' : 'no'}. Nothing from another hospital&apos;s record is shown here.</> : 'No ABHA number on file.'}
+        </p>
       </section>
     </div>
   )

@@ -126,6 +126,14 @@ describe('edit versioning (E-LED-05)', () => {
     expect(next.flags).toMatchObject({ rule_based: true, 'edited:procedure_text': true, 'edited:event_date_text': true })
     expect(old.fields.procedure_text).toBe('wide local excison') // original untouched
   })
+  it('an edited patient statement stays what the patient said: never upgraded to document-supported (FR-VOX-05)', () => {
+    for (const sourceType of ['patient_reported', 'caregiver_reported'] as const) {
+      const old = event({ eventType: 'patient_statement', fields: { statement_text: 'Tab Letrozol 2.5' }, eventDate: null, datePrecision: 'unknown', documentDate: null, sourceType, extractionMethod: 'asr', flags: { patient_confirmed: true } })
+      const next = editedVersion(old, { statement_text: 'Tab Letrozole 2.5' }, { staffId: 's1' }, new Date(NOW))
+      expect(next).toMatchObject({ sourceType, extractionMethod: 'asr', documentId: null, documentDate: null, eventType: 'patient_statement' })
+      expect(next.flags).toMatchObject({ patient_confirmed: true, 'edited:statement_text': true })
+    }
+  })
   it('an edit after a seal shows under Amended and replaces the original in the record', () => {
     const d = doc()
     const old = event({ documentId: d.id, eventDate: '2026-09-01' })
@@ -251,7 +259,7 @@ describe('timeline (FR-TML-01/03/04)', () => {
     const d1 = doc({ docType: 'imaging_report', institutionName: 'Scan Centre' }), d2 = doc({ documentDate: null })
     const e1 = event({ documentId: d1.id, eventType: 'imaging_report_documented', fields: { test_name: 'CT chest' }, eventDate: '2025-12-03' })
     const e2 = event({ documentId: d2.id, eventDate: '2026-01-15' })
-    const e3 = event({ documentId: d2.id, eventDate: null, documentDate: null, datePrecision: 'unknown', verificationStatus: 'verified_matches_source' })
+    const e3 = event({ documentId: d2.id, eventDate: null, documentDate: null, datePrecision: 'unknown', verificationStatus: 'verified_matches_source', sourceType: 'internal_document' })
     const r = rows({ documents: [d1, d2], events: [e2, e1, e3], evidence: [quote(e1, 'CT chest on 03/12/2025')] })
     const snap = buildSnapshot(assembleRecord(r).record, NOW)
     const t = buildTimeline(snap, { quoteByHash: new Map([[`h-${e1.id}`, 'CT chest on 03/12/2025']]) })
@@ -262,6 +270,11 @@ describe('timeline (FR-TML-01/03/04)', () => {
     expect(buildTimeline(snap, { quoteByHash: new Map() }, { type: 'imaging_report' }).shown).toBe(1)
     expect(buildTimeline(snap, { quoteByHash: new Map() }, { status: 'verified' }).undated).toHaveLength(1)
     expect(buildTimeline(snap, { quoteByHash: new Map() }, { inst: 'Scan Centre' }).shown).toBe(1)
+    // source type (FR-TML-03): this hospital's own paper vs outside documents
+    expect(t.facets.sources).toEqual(['external_document', 'internal_document'])
+    expect(buildTimeline(snap, { quoteByHash: new Map() }, { source: 'internal_document' }).undated.map((i) => i.id)).toEqual([e3.id])
+    expect(buildTimeline(snap, { quoteByHash: new Map() }, { source: 'external_document' })).toMatchObject({ shown: 2, undated: [] })
+    expect(buildTimeline(snap, { quoteByHash: new Map() }, { source: 'patient_reported' }).shown).toBe(0)
   })
 })
 

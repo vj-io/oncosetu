@@ -54,7 +54,8 @@ export default async function TimelinePage({ params, searchParams }: { params: P
         </Frame>
       )}
 
-      <form method="get" className="grid gap-3 border border-rule bg-surface px-4 py-4 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
+      {/* keyed by the filters: after "Clear" (a client-side navigation) the selects must show the new values, not keep the old ones */}
+      <form key={JSON.stringify([filters, data.asOf?.id ?? null])} method="get" className="grid gap-3 border border-rule bg-surface px-4 py-4 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
         <label className="grid gap-1.5"><span className="ds-kicker text-muted">Document type</span>
           <Select name="type" defaultValue={filters.type ?? ''}><option value="">All types</option>{view.facets.types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</Select>
         </label>

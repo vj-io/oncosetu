@@ -6,7 +6,7 @@
 import { createServer, type Server } from 'node:http'
 import { eq } from 'drizzle-orm'
 import { adminDb } from '../../src/db'
-import { orgSettings, type OrgFlags } from '../../src/db/schema'
+import { orgSettings, voiceClips, type OrgFlags } from '../../src/db/schema'
 import type { Answers } from '../../src/server/portal/visit-model'
 import { portalLogin, registerPatient } from './helpers/api'
 import { ORG } from './helpers/env'
@@ -107,6 +107,55 @@ test('V05-E2E-08 spoken answers keep their recording; spoken read-back only when
     await setFlags({ ...before, voice: true, tts: false })
     expect((await patient.post('/api/p/voice/readback', { answers, lang: 'en' })).status).toBe(403)
     expect(seen.filter((s) => s.path === '/text-to-speech')).toHaveLength(ttsBefore + 1)
+  } finally {
+    await setFlags(before)
+  }
+})
+
+test('FR-VOX-03 shadow mode: the recording is transcribed and kept for staff; what was heard never fills the answer @clock', async ({ staff, ui }) => {
+  const [{ flags: before }] = await adminDb.select({ flags: orgSettings.flags }).from(orgSettings).where(eq(orgSettings.orgId, ORG))
+  const clinician = await staff('clinician'), desk = await staff('desk')
+  const p = await registerPatient(clinician, { base: 'returning', disclosure: 'cleared' })
+  const audio = Buffer.from('synthetic-shadow-webm-bytes')
+  const record = (api: Awaited<ReturnType<typeof portalLogin>>) =>
+    api.ctx.post('/api/p/voice/transcribe', { multipart: { lang: 'en', seconds: '4', audio: { name: 'answer.webm', mimeType: 'audio/webm', buffer: audio } } })
+  try {
+    const patient = await portalLogin(p.phone!)
+    await setFlags({ ...before, voice: false, voice_shadow: false })
+    expect((await record(patient)).status()).toBe(403) // neither voice nor shadow mode: nothing is sent
+
+    await setFlags({ ...before, voice: false, voice_shadow: true })
+    const sttBefore = seen.filter((s) => s.path === '/speech-to-text').length
+    const res = await record(patient)
+    expect(res.status()).toBe(200)
+    const out = (await res.json()) as { clipId: string; shadow: string; text?: string }
+    expect(seen.filter((s) => s.path === '/speech-to-text')).toHaveLength(sttBefore + 1) // it still went for transcription
+    expect(out.text).toBeUndefined() // the browser never gets the words, so they cannot fill the answer
+    expect(out.shadow).not.toContain('Capecitabine')
+
+    // The patient types the answer; the sealed token rides beside it. A token this server did not seal is dropped.
+    const typed = 'Capecitabine 500 mg twice a day'
+    const answers: Answers = { ...NO, new_medicines: { yn: 'yes', names: typed, shadow: [out.shadow, 'v1.forged'] } }
+    expect((await patient.post('/api/p/statements', { answers, lang: 'en', confirmation: 'confirmed' })).ok).toBe(true)
+    const st = (await statementsOf(p.id)).find((s) => s.questionId === 'new_medicines')!
+    expect(st).toMatchObject({ transcript: typed, asrProvider: null, audioId: null })
+    expect((st.answer as { asrShadow?: string[] }).asrShadow).toEqual([out.shadow])
+    expect(JSON.stringify(st.answer)).not.toContain('Tab Capecitabine 500')
+    const [clip] = await adminDb.select({ statementId: voiceClips.statementId }).from(voiceClips).where(eq(voiceClips.id, out.clipId))
+    expect(clip.statementId).toBe(st.id)
+
+    // Staff see the trial beside the typed words and can play it; the desk cannot.
+    const page = await ui('clinician')
+    await page.goto(`/patients/${p.id}/statements`)
+    const trial = page.getByTestId('voice-shadow')
+    await expect(trial).toHaveCount(1)
+    await expect(trial).toContainText('Tab Capecitabine 500') // what the speech service heard (the stub)
+    await expect(page.locator('blockquote', { hasText: typed })).toHaveCount(1) // the answer is what was typed
+    const played = await clinician.ctx.get(`/api/patients/${p.id}/statements/${st.id}/audio?clip=${out.clipId}`)
+    expect(played.status()).toBe(200)
+    expect(Buffer.from(await played.body())).toEqual(audio)
+    expect((await desk.get(`/api/patients/${p.id}/statements/${st.id}/audio?clip=${out.clipId}`)).status).toBe(403)
+    expect((await clinician.get(`/api/patients/${p.id}/statements/${st.id}/audio?clip=00000000-0000-7000-8000-000000000000`)).status).toBe(404)
   } finally {
     await setFlags(before)
   }

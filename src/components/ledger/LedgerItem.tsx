@@ -2,7 +2,7 @@ import Link from 'next/link'
 import clsx from 'clsx'
 import { ArrowUpRight, Eye } from 'lucide-react'
 import { Badge, InfoTip, Placard, QuoteHighlight, StatusBadge } from '@/components/ui'
-import type { EventFlag } from '@/core/types'
+import { STAFF_ONLY_EVENT_TYPES, type EventFlag, type EventType } from '@/core/types'
 import type { ItemView, SourceView } from '@/server/ledger/core'
 import { ItemActions } from './ItemActions'
 
@@ -68,6 +68,10 @@ export function FlagBadges({ flags }: { flags: EventFlag[] }) {
   )
 }
 
+/** Quote-only lines (stage, impression, margins, markers, addendum, regimen, diagnosis, history) are the source's own words: shown only as a quote (PRD §6.6). */
+export const quoteOnly = (t: EventType) => STAFF_ONLY_EVENT_TYPES.has(t)
+export const SourceWords = ({ quoted, children }: { quoted: boolean; children: string }) => (quoted ? <q className="font-mono text-[0.92em]">{children}</q> : <>{children}</>)
+
 const KICKER: Record<ItemView['category'], string> = {
   initial_record: 'On file', new_since_last_visit: 'New since the last visit', newly_received_older: 'Older paper that arrived late', amended: 'Corrected report',
 }
@@ -85,7 +89,7 @@ function CollapsedItem({ item, index }: { item: ItemView; index: number }) {
     <details id={`item-${item.id}`} className="group border border-rule bg-surface open:bg-transparent open:shadow-placard">
       <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 [&::-webkit-details-marker]:hidden">
         <span className="w-24 shrink-0 font-mono text-[13px] text-muted">{item.when.event}</span>
-        <span className="min-w-0 flex-1 text-[15px]"><span className="font-medium">{item.typeLabel}</span>{item.headline && <span className="text-muted">: {item.headline}</span>}</span>
+        <span className="min-w-0 flex-1 text-[15px]"><span className="font-medium">{item.typeLabel}</span>{item.headline && <span className="text-muted">: <SourceWords quoted={quoteOnly(item.eventType)}>{item.headline}</SourceWords></span>}</span>
         <StatusBadge status={item.status} label={STATUS_WORDS[item.status]} />
         {flags.slice(0, 2).map((f) => <Badge key={f} tone={FLAG[f]!.tone}>{FLAG[f]!.label}</Badge>)}
         <span className="text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:hidden">Show quote</span>
@@ -113,6 +117,7 @@ function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
         {item.when.event}
         {item.when.dateFrom === 'document' && <span className="text-muted"> (the document’s own date; the quoted words give none)</span>}
       </span>
+      {item.when.document && item.when.dateFrom !== 'document' && <span className="font-mono text-[13px] text-muted">Document dated {item.when.document}</span>}
       <span className="font-mono text-[13px] text-muted">
         Received {item.when.received}
       </span>
@@ -129,14 +134,14 @@ function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
       title={
         <>
           {item.typeLabel}
-          {item.headline && <span className="mt-0.5 block text-base tracking-normal text-muted">{item.headline}</span>}
+          {item.headline && <span className="mt-0.5 block text-base tracking-normal text-muted"><SourceWords quoted={quoteOnly(item.eventType)}>{item.headline}</SourceWords></span>}
         </>
       }
       what={item.fields.length ? (
         <ul className="grid gap-0.5">
           {item.fields.map((f) => (
             <li key={f.key}>
-              <span className="text-muted">{f.label}:</span> {f.value}
+              <span className="text-muted">{f.label}:</span> <SourceWords quoted={quoteOnly(item.eventType) && !f.edited}>{f.value}</SourceWords>
               {f.edited && <Badge tone="setu" className="ml-2 align-[2px]">Edited</Badge>}
             </li>
           ))}

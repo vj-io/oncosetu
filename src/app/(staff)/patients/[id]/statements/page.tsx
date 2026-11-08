@@ -92,6 +92,17 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
                                 <span>Their own voice, kept beside the words{it.asr ? ` · transcribed by ${it.asr}` : ''}</span>
                               </div>
                             )}
+                            {it.shadow.length > 0 && (
+                              <div className="grid gap-2 border border-dashed border-control bg-alcove px-3 py-3" data-testid="voice-shadow">
+                                <p className="text-sm"><span className="ds-kicker mr-2">Voice trial</span>Recorded in shadow mode: what the speech service heard, kept to compare with the typed answer above. It is not part of the answer.</p>
+                                {it.shadow.map((c) => (
+                                  <div key={c.clipId} className="grid gap-1.5">
+                                    <blockquote className="border-l-2 border-control pl-3 font-mono text-[13.5px] whitespace-pre-wrap">{c.text || '—'}</blockquote>
+                                    <audio controls preload="none" src={`/api/patients/${id}/statements/${it.id}/audio?clip=${c.clipId}`} className="h-9" aria-label="Voice trial recording" />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </>
                         ) : (
                           <p className="text-sm text-muted">The patient&rsquo;s words are visible to the Records and Clinician roles.</p>

@@ -228,8 +228,15 @@ describe('diffLedger: returning visit (FR-LED-02)', () => {
     const r = next()
     r.documents = r.documents.map((d) => (d.id === 'd-hpe' ? { ...d, detachedAt: '2026-04-01T00:00:00Z' } : d))
     const l = diffLedger(prev, r, '2026-04-06T00:00:00Z')
-    expect(l.errata).toEqual([{ documentId: 'd-hpe', detachedAt: '2026-04-01T00:00:00Z', withdrawnEventIds: ['e-path'] }])
+    expect(l.errata).toEqual([{ documentId: 'd-hpe', docType: 'pathology_report', detachedAt: '2026-04-01T00:00:00Z', withdrawnEventIds: ['e-path'] }])
     expect(JSON.stringify(l)).not.toContain('"id":"e-path"')
+    // The next seal records the erratum; the earlier seal is untouched; a seal with nothing taken out has no errata key.
+    const s1 = buildSnapshot(r, '2026-04-06T00:00:00Z', prev)
+    expect(s1.errata).toEqual(l.errata)
+    expect(s1.documents.map((d) => d.id)).not.toContain('d-hpe')
+    expect(prev.errata).toBeUndefined()
+    expect(buildSnapshot(next(), '2026-04-06T00:00:00Z', prev)).not.toHaveProperty('errata')
+    expect(canonicalJson(buildSnapshot(next(), '2026-04-06T00:00:00Z', prev))).toBe(canonicalJson(buildSnapshot(next(), '2026-04-06T00:00:00Z')))
   })
 
   it('property: deterministic and independent of input order', () => {

@@ -5,7 +5,7 @@ import type { Lang } from '@/core/types'
 export const en = {
   // ── document index (payload + viewer) ──
   heading: 'Document index, not a clinical summary',
-  notice: 'This is a list of records provided to {brand}, not a clinical summary.',
+  notice: 'This summary contains only records provided to {brand}. It is a list of documents, not a clinical summary.',
   asOf: 'As of {date} (sealed record)',
   itemsTitle: 'Recorded items',
   itemsEmpty: 'The sealed record has no items yet.',
@@ -28,6 +28,9 @@ export const en = {
   absentExpected: 'Not in file',
   absentRequested: 'Requested',
   absentReceived: 'Received · to confirm',
+  errataTitle: 'Corrections since the previous sealed record',
+  errataIntro: 'These documents were in the previous sealed record, were attached to this record by mistake and have been taken out. Their items are no longer listed.',
+  errataLine: '{label} · taken out on {date} · items withdrawn: {n}',
   sealTitle: 'Seal',
   sealText: 'Record {id} · SHA-256 {hash}',
   verifySeal: 'Verify seal',
@@ -95,7 +98,7 @@ export type ShareKey = keyof typeof en
 
 export const hi: Record<ShareKey, string> = {
   heading: 'दस्तावेज़ सूची, चिकित्सा सारांश नहीं',
-  notice: 'यह {brand} को दिए गए रिकॉर्ड की सूची है, कोई चिकित्सीय सारांश नहीं।',
+  notice: 'इस सारांश में केवल वे रिकॉर्ड हैं जो {brand} को दिए गए। यह दस्तावेज़ों की सूची है, कोई चिकित्सीय सारांश नहीं।',
   asOf: '{date} तक (सील किया गया रिकॉर्ड)',
   itemsTitle: 'दर्ज प्रविष्टियाँ',
   itemsEmpty: 'सील किए गए रिकॉर्ड में अभी कोई प्रविष्टि नहीं है।',
@@ -118,6 +121,9 @@ export const hi: Record<ShareKey, string> = {
   absentExpected: 'फ़ाइल में नहीं है',
   absentRequested: 'माँगा गया',
   absentReceived: 'मिल गया · पुष्टि बाकी',
+  errataTitle: 'पिछले सील किए गए रिकॉर्ड के बाद के सुधार',
+  errataIntro: 'ये दस्तावेज़ पिछले सील किए गए रिकॉर्ड में थे, पर गलती से इस रिकॉर्ड में जोड़े गए थे और अब हटा दिए गए हैं। इनकी प्रविष्टियाँ अब सूची में नहीं हैं।',
+  errataLine: '{label} · {date} को हटाया गया · हटाई गई प्रविष्टियाँ: {n}',
   sealTitle: 'सील',
   sealText: 'रिकॉर्ड {id} · SHA-256 {hash}',
   verifySeal: 'सील जाँचें',
@@ -180,7 +186,7 @@ export const hi: Record<ShareKey, string> = {
 /** Hinglish: Hindi in Roman script, as people write it on WhatsApp (patient's choice; never letters to hospitals). */
 export const hinglish: Record<ShareKey, string> = {
   heading: 'Documents ki list, medical summary nahi',
-  notice: 'Yeh {brand} ko diye gaye records ki list hai, koi clinical summary nahin.',
+  notice: 'Is summary mein sirf woh records hain jo {brand} ko diye gaye. Yeh documents ki list hai, koi clinical summary nahin.',
   asOf: '{date} tak (seal kiya gaya record)',
   itemsTitle: 'Darj entries',
   itemsEmpty: 'Seal kiye gaye record mein abhi koi entry nahi hai.',
@@ -203,6 +209,9 @@ export const hinglish: Record<ShareKey, string> = {
   absentExpected: 'File mein nahi hai',
   absentRequested: 'Request kiya gaya',
   absentReceived: 'Mil gaya · confirm karna baaki',
+  errataTitle: 'Pichhle seal kiye gaye record ke baad ke sudhaar',
+  errataIntro: 'Ye documents pichhle seal kiye gaye record mein the, par galti se is record mein jode gaye the aur ab hata diye gaye hain. Inki entries ab list mein nahi hain.',
+  errataLine: '{label} · {date} ko hataya gaya · hatayi gayi entries: {n}',
   sealTitle: 'Seal',
   sealText: 'Record {id} · SHA-256 {hash}',
   verifySeal: 'Seal check karein',

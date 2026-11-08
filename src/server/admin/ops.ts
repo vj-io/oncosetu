@@ -78,21 +78,30 @@ async function upsertSettings(ctx: AdminCtx, set: Partial<typeof orgSettings.$in
   await ctx.db.insert(orgSettings).values({ orgId, ...set }).onConflictDoUpdate({ target: orgSettings.orgId, set: { ...set, updatedAt: new Date() } })
 }
 
-export async function saveSettings(ctx: AdminCtx, input: { flags?: OrgFlags; retentionDays?: number; llmBudget?: { calls: number; tokens: number } }) {
+type FlagSwitches = Omit<OrgFlags, 'questions'>
+
+export async function saveSettings(ctx: AdminCtx, input: { flags?: FlagSwitches; questions?: NonNullable<OrgFlags['questions']>; retentionDays?: number; llmBudget?: { calls: number; tokens: number } }) {
   const before = await loadSettings(ctx.db, ctx.session.orgId)
   if (input.retentionDays != null && input.retentionDays < MIN_RETENTION_DAYS) {
     throw new HttpError(400, 'retention_too_short', 'Retention cannot be shorter than 3 years (1095 days)')
   }
+  // flags is one JSON column: switches and the question setting are saved separately, so merge onto what is stored
+  const flags = input.flags || input.questions ? { ...before.flags, ...input.flags, ...(input.questions ? { questions: input.questions } : {}) } : null
   await upsertSettings(ctx, {
-    ...(input.flags ? { flags: input.flags } : {}), ...(input.retentionDays != null ? { retentionDays: input.retentionDays } : {}),
+    ...(flags ? { flags } : {}), ...(input.retentionDays != null ? { retentionDays: input.retentionDays } : {}),
     ...(input.llmBudget ? { llmDailyCalls: input.llmBudget.calls, llmDailyTokens: input.llmBudget.tokens } : {}),
   })
   if (input.llmBudget && (input.llmBudget.calls !== before.llmBudget.calls || input.llmBudget.tokens !== before.llmBudget.tokens)) {
     await ctx.audit('settings.llm_budget', 'org_settings', ctx.session.orgId, { from: [before.llmBudget.calls, before.llmBudget.tokens], to: [input.llmBudget.calls, input.llmBudget.tokens] })
   }
   if (input.flags) {
-    const changed = (Object.keys(input.flags) as (keyof OrgFlags)[]).filter((k) => input.flags![k] !== before.flags[k])
+    const changed = (Object.keys(input.flags) as (keyof FlagSwitches)[]).filter((k) => input.flags![k] !== before.flags[k])
     await ctx.audit('settings.flags', 'org_settings', ctx.session.orgId, { changed, ...input.flags })
+  }
+  if (input.questions) {
+    await ctx.audit('settings.questions', 'org_settings', ctx.session.orgId, {
+      order: input.questions.map((q) => q.id), off: input.questions.filter((q) => !q.on).map((q) => q.id),
+    })
   }
   if (input.retentionDays != null && input.retentionDays !== before.retentionDays) {
     await ctx.audit('settings.retention', 'org_settings', ctx.session.orgId, { from: before.retentionDays, to: input.retentionDays })

@@ -75,7 +75,13 @@ export const mergeState = pgEnum('merge_state', ['requested', 'approved', 'execu
 
 /** `team` (case discussion with a care team) was added later: rows written before it have no such key, which reads as off. */
 export type ConsentPurposes = { store: boolean; ai: boolean; share: boolean; abdm: boolean; metrics: boolean; team?: boolean }
-export type OrgFlags = { voice: boolean; tts: boolean; ai_extraction: boolean }
+export type OrgFlags = {
+  voice: boolean; tts: boolean; ai_extraction: boolean
+  /** FR-VOX-03 shadow mode: recordings are transcribed and kept for staff evaluation; the transcript never fills an answer. */
+  voice_shadow?: boolean
+  /** FR-VOX-01: pre-visit questions in the order asked, each on or off (absent: all five, default order). */
+  questions?: { id: string; on: boolean }[]
+}
 /** OCR word: text, confidence 0..1, char start/end in page text, optional bbox [x0,y0,x1,y1]. */
 export type OcrWord = { t: string; c: number; s: number; e: number; b?: [number, number, number, number] }
 

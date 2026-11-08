@@ -5,6 +5,8 @@ import { DAY_S, LLM_BUDGET_MAX, loadSettings, MIN_RETENTION_DAYS } from '@/serve
 import { sectionRoles } from '@/server/admin/sections'
 import { llmStatus } from '@/server/ai/provider'
 import { llmUsage, orgLlmUsage } from '@/server/ai/quota'
+import { questionSettings } from '@/server/portal/visit-model'
+import { en } from '@/i18n/patient'
 import { requireStaff } from '@/server/session'
 
 export const metadata = { title: 'Settings · Admin · OncoSetu' }
@@ -28,7 +30,10 @@ export default async function SettingsPage() {
         ]} />
       </section>
       <p className="text-[15px] text-muted"><a className="underline underline-offset-4" href="/security">Security & compliance</a>: what is built against HIPAA safeguards, the DPDP Act and ABDM, and what is planned.</p>
-      <SettingsForm flags={st.flags} retentionDays={st.retentionDays} minRetentionDays={MIN_RETENTION_DAYS} demo={st.demo} demoOffsetDays={Math.round(st.demoClockOffsetS / DAY_S)}
+      <SettingsForm
+        flags={{ voice: st.flags.voice, tts: st.flags.tts, ai_extraction: st.flags.ai_extraction, voice_shadow: !!st.flags.voice_shadow }}
+        questions={questionSettings(st.flags.questions).map((q) => ({ ...q, label: en[`q_${q.id}`] }))}
+        retentionDays={st.retentionDays} minRetentionDays={MIN_RETENTION_DAYS} demo={st.demo} demoOffsetDays={Math.round(st.demoClockOffsetS / DAY_S)}
         llmBudget={st.llmBudget} llmBudgetMax={LLM_BUDGET_MAX} />
     </div>
   )

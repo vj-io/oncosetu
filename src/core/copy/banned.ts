@@ -30,12 +30,24 @@ export const DIAGNOSIS_WORDS: readonly string[] = [
   'घातक', 'अर्बुद', 'रसौली', 'लिम्फोमा', 'ल्यूकेमिया', 'सारकोमा', 'मायलोमा', 'स्टेज', 'प्रशामक',
 ]
 
-export type Ruleset = 'radar' | 'legal' | 'diagnosis'
+/**
+ * Clinical-judgement words the system never generates anywhere in the UI, staff screens included (PRD §6.6 rule 3):
+ * a source document's own words with them are shown only inside a quote. The Radar list minus its administrative
+ * words (need, should), which staff screens use for workflow ("Password needed").
+ */
+export const JUDGEMENT_WORDS: readonly string[] = [
+  'urgent', 'urgently', 'urgency', 'concerning', 'abnormal*', 'progression', 'progressive', 'progressed',
+  'worse', 'worsening', 'worsened', 'risk', 'risks', 'risky', 'recommend*',
+  'तुरंत', 'फ़ौरन', 'चिंताजनक', 'असामान्य', 'बिगड़*', 'ख़तरा', 'खतरा', 'जोखिम', 'सिफ़ारिश', 'सिफारिश',
+]
+
+export type Ruleset = 'radar' | 'legal' | 'diagnosis' | 'judgement'
 
 const LISTS: Record<Ruleset, readonly string[]> = {
   radar: RADAR_BANNED,
   legal: LEGAL_BANNED,
   diagnosis: DIAGNOSIS_WORDS,
+  judgement: JUDGEMENT_WORDS,
 }
 
 const WORD = '[\\p{L}\\p{M}\\p{N}_]'

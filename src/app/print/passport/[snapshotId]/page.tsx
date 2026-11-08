@@ -114,6 +114,16 @@ export default async function PassportPage({ params, searchParams }: { params: P
         ) : <p className="mt-2 text-muted">{t('docsEmpty')}</p>}
       </section>
 
+      {p.errata && (
+        <section aria-labelledby="errata-h" className="mt-6">
+          <h2 id="errata-h" className="text-lg font-medium">{t('errataTitle')}</h2>
+          <p className="text-[13px] text-muted">{t('errataIntro')}</p>
+          <ul className="mt-2 grid list-disc gap-1 pl-6">
+            {p.errata.map((x, i) => <li key={i}>{t('errataLine', { label: inLang(x.label, lang), date: x.date ? formatDateIN(istDate(x.date), lang) : '—', n: x.withdrawn })}</li>)}
+          </ul>
+        </section>
+      )}
+
       <section aria-labelledby="seal-h" className="mt-8 flex items-start gap-5 border-t-2 border-ink pt-4 break-inside-avoid">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt={t('verifySeal')} width={120} height={120} className="shrink-0 border border-rule" />

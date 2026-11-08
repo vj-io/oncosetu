@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { lintText } from '@/core/copy'
+import { formatDateIN, istDate, lintText } from '@/core/copy'
 import { buildSnapshot } from '@/core/ledger'
 import type { CoreDocument, CoreEvent, EventType, FieldValue } from '@/core/types'
+import { ts } from '@/i18n/shares'
 import { buildSharePayload, type PayloadInput } from './payload'
 
 const ev = (id: string, eventType: EventType, fields: Record<string, FieldValue>, eventDate: string, documentId: string, verificationStatus: CoreEvent['verificationStatus'] = 'unverified'): CoreEvent => ({
@@ -41,14 +42,19 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
       expect(text).not.toContain('Regional')
       expect(p.items.every((i) => !i.quote)).toBe(true)
       expect(p.brand).toBe('Setu Records')
-      expect(p.notice.en).toBe('This is a list of records provided to Setu Records, not a clinical summary.')
+      // FR-PAS-03, in the PRD's words; the brand stays neutral until disclosure is cleared (FR-CON-07)
+      expect(p.notice.en).toBe('This summary contains only records provided to Setu Records. It is a list of documents, not a clinical summary.')
+      expect(p.notice.hi).toContain('केवल वे रिकॉर्ड हैं जो Setu Records को दिए गए')
+      expect(p.notice.hinglish).toContain('sirf woh records hain jo Setu Records ko diye gaye')
     }
   })
 
   it('has the heading, the as-of date, provenance per line and the absent-documents list', () => {
     const p = buildSharePayload(base)
     expect(p.heading.en).toBe('Document index, not a clinical summary')
-    expect(p.asOf).toBe('2026-10-20T06:00:00.000Z')
+    expect(p.asOf).toBe('2026-10-20T06:00:00.000Z') // the seal time: the viewer shows "As of 20 Oct 2026 (sealed record)"
+    expect(ts('en', 'asOf', { date: formatDateIN(istDate(p.asOf), 'en') })).toBe('As of 20 Oct 2026 (sealed record)')
+    expect(buildSharePayload({ ...base, disclosure: 'cleared' }).notice.en).toBe('This summary contains only records provided to OncoSetu. It is a list of documents, not a clinical summary.')
     expect(p.items).toHaveLength(3)
     expect(p.items.map((i) => i.date)).toEqual(['2026-03-10', '2026-03-12', '2026-06-12'])
     expect(p.items[1]).toMatchObject({ label: { en: 'Procedure note' }, source: { documentId: 'd-ds', page: 2, label: { en: 'Hospital discharge summary' } }, verification: 'records', institution: null })
@@ -75,5 +81,18 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
     expect(p.items.find((i) => i.verification === 'records')?.quote).toBe('wide local excision for carcinoma')
     expect(p.absent[0].text.en).toMatch(/^Histopathology report not in file/)
     expect(buildSharePayload({ ...base, disclosure: 'cleared' }).items.every((i) => !i.quote)).toBe(true)
+  })
+})
+
+describe('errata in the share and the passport (FR-ID-06)', () => {
+  it('a document taken out after the previous seal is listed with a neutral label; none → no errata key', () => {
+    const detached = docs.map((d) => (d.id === 'd-dc' ? { ...d, detachedAt: '2026-10-25T09:00:00.000Z' } : d))
+    const next = buildSnapshot({ patientId: 'p1', events, documents: detached, statements: [], missing }, '2026-10-26T06:00:00.000Z', snapshot)
+    const p = buildSharePayload({ ...base, snapshot: next })
+    expect(p.errata).toEqual([{ label: { en: 'Day-care record', hi: 'डे-केयर रिकॉर्ड', hinglish: expect.any(String) }, date: '2026-10-25T09:00:00.000Z', withdrawn: 1 }])
+    expect(lintText(JSON.stringify(p.errata), ['diagnosis'])).toEqual([])
+    expect(p.documents.map((d) => d.id)).toEqual(['d-ds'])
+    expect(buildSharePayload(base)).not.toHaveProperty('errata')
+    expect(ts('en', 'errataLine', { label: p.errata![0].label.en, date: formatDateIN(istDate(p.errata![0].date!)), n: 1 })).toBe('Day-care record · taken out on 25 Oct 2026 · items withdrawn: 1')
   })
 })

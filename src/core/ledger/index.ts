@@ -61,6 +61,8 @@ export interface Snapshot {
   documents: { id: string; docType: DocType; documentDate: string | null; receivedAt: string; institution: string | null; sha256: string | null }[]
   missing: { dedupeKey: string; ruleId: string; ruleVersion: number; state: MissingState; expectedTypes: DocType[]; wording: { en: string; hi: string } }[]
   statements: { id: string; questionId: string; transcript: string; confirmation: CoreStatement['confirmation']; capturedAt: string }[]
+  /** FR-ID-06: documents of the previous sealed snapshot taken out since; present only when there are any. */
+  errata?: LedgerErratum[]
 }
 
 const VERIFIED: VerificationStatus[] = ['verified_matches_source', 'edited']
@@ -82,8 +84,24 @@ const eventDay = (e: CoreEvent) => e.eventDate ?? e.documentDate
 
 const openMissing = (m: MissingLike) => m.mode !== 'shadow' && !['closed', 'dismissed'].includes(m.state ?? 'expected')
 
-/** Builds the immutable snapshot JSON for sealing (FR-LED-01). Verified and unverified items are separate, labelled lists. */
-export function buildSnapshot(record: LedgerRecord, sealedAt: string): Snapshot {
+/** Documents in the previous snapshot that have since been detached or removed, with the items they took with them (FR-ID-06). */
+function erratumList(prev: Snapshot, current: Pick<LedgerRecord, 'documents'>): LedgerErratum[] {
+  const docById = new Map(current.documents.map((d) => [d.id, d]))
+  return prev.documents.filter((d) => !docById.get(d.id) || docById.get(d.id)!.detachedAt).map((d) => ({
+    documentId: d.id,
+    docType: d.docType,
+    detachedAt: docById.get(d.id)?.detachedAt ?? null,
+    withdrawnEventIds: [...prev.verified, ...prev.unverified].filter((e) => e.documentId === d.id).map((e) => e.id).sort(),
+  }))
+}
+
+/**
+ * Builds the immutable snapshot JSON for sealing (FR-LED-01). Verified and unverified items are separate, labelled lists.
+ * With the previous snapshot, documents taken out since it are recorded as errata (FR-ID-06): the earlier seal is never
+ * altered, the next one says what was withdrawn.
+ */
+export function buildSnapshot(record: LedgerRecord, sealedAt: string, prev: Snapshot | null = null): Snapshot {
+  const errata = prev ? erratumList(prev, record) : []
   const events = currentEvents(record)
   const toSnap = (e: CoreEvent): SnapshotEvent => ({
     id: e.id,
@@ -123,6 +141,7 @@ export function buildSnapshot(record: LedgerRecord, sealedAt: string): Snapshot 
     statements: record.statements
       .map((s) => ({ id: s.id, questionId: s.questionId, transcript: s.transcript, confirmation: s.confirmation, capturedAt: s.capturedAt }))
       .sort(byDateThenId((s) => s.capturedAt)),
+    ...(errata.length ? { errata } : {}),
   }
 }
 
@@ -163,6 +182,7 @@ export interface LedgerConflict {
 
 export interface LedgerErratum {
   documentId: string
+  docType: DocType
   detachedAt: string | null
   withdrawnEventIds: string[]
 }
@@ -344,15 +364,7 @@ export function diffLedger(prev: Snapshot | null, current: LedgerRecord, now: st
   ledger.patient_said = current.statements.filter((s) => s.capturedAt > prev.sealedAt).sort(byDateThenId((s) => s.capturedAt))
 
   // Errata (FR-ID-06): documents in the snapshot that have since been detached or removed.
-  for (const d of prev.documents) {
-    const cur = docById.get(d.id)
-    if (cur && !cur.detachedAt) continue
-    ledger.errata.push({
-      documentId: d.id,
-      detachedAt: cur?.detachedAt ?? null,
-      withdrawnEventIds: [...prev.verified, ...prev.unverified].filter((e) => e.documentId === d.id).map((e) => e.id).sort(),
-    })
-  }
+  ledger.errata = erratumList(prev, current)
   return ledger
 }
 

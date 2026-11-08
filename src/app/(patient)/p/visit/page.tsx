@@ -8,6 +8,7 @@ import { patientStatements } from '@/db/schema'
 import { tp } from '@/i18n/patient'
 import { now } from '@/server/clock'
 import { loadPortal } from '@/server/portal/context'
+import { enabledQuestions } from '@/server/portal/visit-model'
 
 export default async function VisitPage({ searchParams }: { searchParams: Promise<{ lang?: string | string[]; station?: string | string[] }> }) {
   const ctx = await loadPortal(searchParams)
@@ -24,7 +25,10 @@ export default async function VisitPage({ searchParams }: { searchParams: Promis
       <p className="mt-3 max-w-prose text-muted">{tp(lang, 'visitIntro')}</p>
       <VisitFlow
         lang={lang}
-        canVoice={ctx.flags.voice}
+        questions={enabledQuestions(ctx.flags.questions)}
+        canVoice={ctx.flags.voice || !!ctx.flags.voice_shadow}
+        // shadow mode (FR-VOX-03): recordings are transcribed and kept for staff, never put into the answer
+        shadow={!!ctx.flags.voice_shadow}
         // Spoken read-back needs the org flag AND a cleared disclosure (FR-CON-07, V05-E2E-08); otherwise the control is not rendered at all.
         canSpeak={ctx.flags.tts && ctx.disclosure === 'cleared'}
         sarvam={!!process.env.SARVAM_API_KEY}

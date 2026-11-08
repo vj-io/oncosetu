@@ -58,6 +58,21 @@ export const FLAG_LABEL: Record<string, string> = {
   identity_warning: 'Attached by a person', date_from_document: 'Date = document date', conflict: 'Conflict', patient_confirmed: 'Patient confirmed',
 }
 
+/** Why the evidence gate left a proposed fact out (FR-EXT-02 rejection log; staff only). */
+export const REJECT_REASON: Record<string, string> = {
+  unknown_event_type: 'Not a kind of fact OncoSetu records',
+  event_type_not_extractable: 'This kind of fact is never read from a document',
+  forbidden_field: 'Asked for a judgement (stage, risk, response, advice): never recorded',
+  field_not_allowed: 'A detail this kind of fact does not have',
+  invalid_field_value: 'Empty or malformed value',
+  quote_too_short: 'Quote too short to find on the page',
+  quote_too_long: 'Quote longer than 300 characters',
+  quote_not_found: 'Quote not found on the page',
+  field_not_in_quote: 'A value is not in its quote',
+  date_not_in_quote: 'The date is not in its quote',
+  quote_has_instructions: 'The quote is an instruction to the reader, not a fact',
+}
+
 export const PRIORITY_GROUPS: { title: string; types: string[] }[] = [
   { title: 'Pathology & molecular', types: ['pathology_report', 'ihc_molecular_report'] },
   { title: 'Imaging reports', types: ['imaging_report'] },

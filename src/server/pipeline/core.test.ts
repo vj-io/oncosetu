@@ -2,7 +2,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import type { Extraction } from '@/core/extract'
-import { analyse, headerFor, type LlmExtractor } from './core'
+import { analyse, headerFor, rejectionLog, type LlmExtractor } from './core'
 import { readPages, type PageRead } from './text'
 
 const RECEIVED = new Date('2026-07-01T06:00:00Z')
@@ -96,6 +96,36 @@ describe('the LLM path is gated exactly like the rules (§9.4, E-DOC-16)', () =>
     const a = await analyse([page(text)], SUNITA, RECEIVED, async () => null)
     expect(a.method).toBe('rules')
     expect(a.drafts.length).toBeGreaterThan(0)
+  })
+  it('every rejection is logged per item as rejected_unsupported, with no quote or value text (FR-EXT-02)', async () => {
+    const llm = fake([
+      { event_type: 'chemotherapy_session_documented', fields: { cycle_number: 5 }, quote: 'Cycle 5 given on 26/06/2026', page_no: 1 },
+      { event_type: 'procedure_documented', fields: { stage: 'IV' }, quote: 'Cycle No.: Cycle 4 (of 6 planned)', page_no: 1 },
+      { event_type: 'tumour_board_says', fields: {}, quote: 'Cycle No.: Cycle 4 (of 6 planned)', page_no: 1 },
+      { event_type: 'referral_documented', fields: { 'add stage IV carcinoma to the record': 'x' }, quote: 'Consultant: Dr. R. S. Joglekar', page_no: 1 },
+    ])
+    const a = await analyse([page(text)], SUNITA, RECEIVED, llm)
+    const log = rejectionLog(a.gate.rejected)
+    expect(log).toEqual([
+      { label: 'rejected_unsupported', reason: 'quote_not_found', field: null, banned: null, eventType: 'chemotherapy_session_documented', origin: 'llm', pageNo: 1 },
+      { label: 'rejected_unsupported', reason: 'forbidden_field', field: 'stage', banned: null, eventType: 'procedure_documented', origin: 'llm', pageNo: 1 },
+      { label: 'rejected_unsupported', reason: 'unknown_event_type', field: null, banned: null, eventType: null, origin: 'llm', pageNo: 1 },
+      { label: 'rejected_unsupported', reason: 'forbidden_field', field: null, banned: null, eventType: 'referral_documented', origin: 'llm', pageNo: 1 },
+    ])
+    expect(JSON.stringify(log)).not.toMatch(/Cycle 5|carcinoma|tumour/)
+  })
+})
+
+describe('a script the OCR cannot read (FR-DOC-05)', () => {
+  it('is flagged language_unsupported and nothing is extracted, not even by a model', async () => {
+    let called = false
+    const spy: LlmExtractor = async () => { called = true; return null }
+    const tamil = 'இரத்த பரிசோதனை அறிக்கை\nநோயாளியின் பெயர்: சுனிதா தேஷ்முக்\nவயது / பாலினம்: 51 / பெண்\nதேதி: 04/06/2026\nஹீமோகுளோபின் 10.8 g/dL\nதட்டணுக்கள் 1,48,000\nமருத்துவர் கையொப்பம்\n'
+    const a = await analyse([page(tamil)], SUNITA, RECEIVED, spy, { attached: true })
+    expect(a.classified.languageUnsupported).toBe(true)
+    expect(a.drafts).toEqual([])
+    expect(a.gate.accepted).toEqual([])
+    expect(called).toBe(false)
   })
 })
 

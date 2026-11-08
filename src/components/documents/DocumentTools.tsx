@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { KeyRound, Plus, RefreshCw, Tag, Unlink } from 'lucide-react'
+import { Check, KeyRound, Plus, RefreshCw, Tag, Unlink } from 'lucide-react'
 import { Button, Field, Input, Select, StageTracker, Textarea, useToast } from '@/components/ui'
 import { EVENT_FIELDS, EXTRACTABLE_EVENT_TYPES } from '@/core/types'
 import { HeldStages } from './HeldStages'
@@ -127,6 +127,19 @@ export function ReprocessButton({ documentId }: { documentId: string }) {
   return (
     <span className="grid gap-1">
       <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/reprocess`, {}, 'Reprocessing')}>Reprocess</Button>
+      {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
+    </span>
+  )
+}
+
+/** FR-DOC-06: a person confirms a low-confidence fact against the page image; only then does it enter the record. */
+export function PageCheckButton({ eventId, rowVersion }: { eventId: string; rowVersion: number }) {
+  const a = useAction()
+  return (
+    <span className="grid gap-1">
+      <Button size="sm" variant="secondary" icon={<Check />} loading={a.busy} onClick={() => a.run(`/api/events/${eventId}/verify`, { action: 'verify', rowVersion }, 'Checked against the page: added to the record')}>
+        Checked against the page
+      </Button>
       {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
     </span>
   )

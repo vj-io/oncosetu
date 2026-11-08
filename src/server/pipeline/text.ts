@@ -16,6 +16,8 @@ import { unzipSync } from 'fflate'
 export const OCR_LOW_CONFIDENCE = 0.8
 export const TEXT_PROCESSOR = { name: 'unpdf', version: '2.1' } as const
 export const OCR_PROCESSOR = { name: 'tesseract.js', version: '7.0 eng+hin, eng re-read' } as const
+/** What made a stored page image (document_files.processor / processor_version on page_image rows, FR-DOC-08). */
+export const IMAGE_PROCESSOR = { name: 'sharp', version: `${sharp.versions.sharp ?? sharp.versions.vips} jpeg q85, long side <= 2400 px` } as const
 const MAX_SIDE = 2400
 
 export type Handwriting = {
@@ -244,7 +246,7 @@ function isPasswordError(e: unknown): e is { name: string; code?: number } {
   return !!e && typeof e === 'object' && (e as { name?: string }).name === 'PasswordException'
 }
 
-async function readPdf(bytes: Uint8Array, password?: string): Promise<ReadResult> {
+async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: OcrProvider): Promise<ReadResult> {
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>>
   try {
     pdf = await getDocumentProxy(bytes.slice(), password ? { password } : {})
@@ -295,7 +297,7 @@ async function readPdf(bytes: Uint8Array, password?: string): Promise<ReadResult
       }
       const jpeg = await sharp(Buffer.from(big.data), { raw: { width: big.width, height: big.height, channels: 4 } })
         .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer()
-      pages.push({ ...(await ocrPage(n, jpeg)), hidden: hidden.trim() || null })
+      pages.push({ ...(await ocrPage(n, jpeg, ocr)), hidden: hidden.trim() || null })
     }
     return { kind: 'pages', pages }
   } finally {
@@ -306,9 +308,12 @@ async function readPdf(bytes: Uint8Array, password?: string): Promise<ReadResult
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_TIFF_PAGES = 20
 
-/** Reads every page of a sniffed file (mime from sniffFile). `password` is used once and never stored (FR-ING-07). */
-export async function readPages(bytes: Uint8Array, mime: string, password?: string): Promise<ReadResult> {
-  if (mime === 'application/pdf') return readPdf(bytes, password)
+/**
+ * Reads every page of a sniffed file (mime from sniffFile). `password` is used once and never stored (FR-ING-07).
+ * `ocr` reads scanned pages and photos (FR-DOC-02, ADR-016); tesseract unless a caller passes another provider.
+ */
+export async function readPages(bytes: Uint8Array, mime: string, password?: string, ocr: OcrProvider = tesseractOcr): Promise<ReadResult> {
+  if (mime === 'application/pdf') return readPdf(bytes, password, ocr)
   if (mime === 'text/plain') return { kind: 'pages', pages: [typedPage(Buffer.from(bytes).toString('utf8'), 'plain-text')] }
   if (mime === DOCX) {
     try {
@@ -322,7 +327,7 @@ export async function readPages(bytes: Uint8Array, mime: string, password?: stri
   try {
     const count = mime === 'image/tiff' ? Math.min((await sharp(bytes).metadata()).pages ?? 1, MAX_TIFF_PAGES) : 1
     const pages: PageRead[] = []
-    for (let i = 0; i < count; i++) pages.push(await ocrPage(i + 1, await normaliseImage(bytes, i, heic)))
+    for (let i = 0; i < count; i++) pages.push(await ocrPage(i + 1, await normaliseImage(bytes, i, heic), ocr))
     return { kind: 'pages', pages }
   } catch {
     return { kind: 'unreadable', reason: heic ? 'heic_decode_unsupported' : 'image_decode_failed' }

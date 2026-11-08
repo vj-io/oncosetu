@@ -148,6 +148,13 @@
       "when": 1794700000000,
       "tag": "0020_offline_capture",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1794800000000,
+      "tag": "0021_immutable_originals",
+      "breakpoints": true
     }
   ]
 }

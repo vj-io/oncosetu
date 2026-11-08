@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Crosshair, ScanText } from 'lucide-react'
 import { Badge, Chip, Placard, StatusBadge, type Tone } from '@/components/ui'
+import { PageCheckButton } from './DocumentTools'
 import { EVENT_LABEL, FIELD_LABEL, FLAG_LABEL, fmtDate, shortId } from './labels'
 
 export type ViewerEvidence = { pageNo: number | null; charStart: number | null; charEnd: number | null; quote: string | null; bbox: number[][] | null }
@@ -11,7 +12,12 @@ export type ViewerEvent = {
   id: string; eventType: string; fields: Record<string, unknown>; eventDate: string | null; datePrecision: string; documentDate: string | null
   flags: Record<string, boolean>; verificationStatus: string; extractionMethod: string; withdrawnAt: string | null; withdrawnReason: string | null
   evidence: ViewerEvidence[]
+  rowVersion?: number
 }
+
+/** FR-DOC-06: a low-confidence fact nobody has checked is held out of the record (ledger, seal, shares) until a person checks it here. */
+export const needsPageCheck = (e: Pick<ViewerEvent, 'flags' | 'verificationStatus' | 'withdrawnAt'>) =>
+  !e.withdrawnAt && !!e.flags.low_confidence && e.verificationStatus === 'unverified'
 export type ViewerPage = { pageNo: number; text: string; words: { c: number; s: number; e: number }[] | null; lowConfidence: boolean; ocrConfidence: number | null }
 
 const METHOD: Record<string, string> = { text_layer: 'Typed PDF', ocr_llm: 'Read from a photo: check the numbers', manual: 'Entered by staff', structured_map: 'From a health record', asr: 'From speech' }
@@ -136,14 +142,15 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
           const flags = Object.keys(e.flags).filter((k) => e.flags[k] && FLAG_LABEL[k])
           const fields = Object.entries(e.fields).filter(([k]) => k !== 'event_date_text' && k !== 'institution_name')
           const withdrawn = !!e.withdrawnAt
+          const held = needsPageCheck(e)
           return (
-            <div key={e.id} id={`ev-${e.id}`} className="scroll-mt-24">
+            <div key={e.id} id={`ev-${e.id}`} className="scroll-mt-24" data-held={held || undefined}>
               <Placard
                 animate
                 delay={120 + i * 70}
                 className={clsx(active === e.id && 'outline-2 outline-offset-4 outline-brass', withdrawn && 'opacity-60')}
                 kicker={EVENT_LABEL[e.eventType] ?? e.eventType}
-                status={withdrawn ? <Badge tone="shadow">Withdrawn</Badge> : <StatusBadge status={e.verificationStatus as 'unverified'} />}
+                status={withdrawn ? <Badge tone="shadow">Withdrawn</Badge> : held ? <Badge tone="unverified" icon={<ScanText />}>Needs checking against the page</Badge> : <StatusBadge status={e.verificationStatus as 'unverified'} />}
                 title={headline(e)}
                 what={fields.length ? (
                   <span className="grid gap-0.5">
@@ -162,7 +169,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                     ) : null}
                   </span>
                 ) : undefined}
-                who={withdrawn ? `Withdrawn${e.withdrawnReason ? ` (${e.withdrawnReason.replace(/_/g, ' ')})` : ''}` : e.verificationStatus === 'unverified' ? 'Not yet verified by a person' : e.verificationStatus.replace(/_/g, ' ')}
+                who={withdrawn ? `Withdrawn${e.withdrawnReason ? ` (${e.withdrawnReason.replace(/_/g, ' ')})` : ''}` : held ? 'Not in the record until a person checks it against the page' : e.verificationStatus === 'unverified' ? 'Not yet verified by a person' : e.verificationStatus.replace(/_/g, ' ')}
                 when={
                   <span>
                     {e.eventDate ? fmtDate(e.eventDate) : 'Date not stated in the quote'}
@@ -176,6 +183,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                     <Chip kicker="Source" tone="setu">Document</Chip>
                     <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}</Chip>
                     {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
+                    {held && e.rowVersion !== undefined && <PageCheckButton eventId={e.id} rowVersion={e.rowVersion} />}
                     {ev && !withdrawn && (
                       <button type="button" onClick={() => pick(e.id)} className="ml-auto inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">
                         <Crosshair aria-hidden className="size-4" /> Show in source

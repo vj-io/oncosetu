@@ -32,6 +32,25 @@ export function hasEicar(b: Uint8Array): boolean {
   return Buffer.from(b).indexOf(EICAR, 0, 'latin1') !== -1
 }
 
+/**
+ * FR-ING-08: the malware scan behind one interface (docs/ADR/ADR-016-provider-interfaces.md), so a ClamAV host (or a
+ * cloud scanner) can replace the signature check without touching intake. `scan` gets the raw upload bytes before any
+ * other step reads them; `reason` is the code stored in the quarantine record; `label` says how thorough the scan is
+ * and is shown to staff beside every quarantined file.
+ */
+export interface MalwareScanner {
+  readonly name: string
+  readonly label: string
+  scan(bytes: Uint8Array): Promise<{ infected: boolean; reason: string | null }>
+}
+
+/** The default scanner: the EICAR test signature only. */
+export const eicarScanner: MalwareScanner = {
+  name: 'eicar-signature',
+  label: 'signature check; full AV scan out of scope on serverless',
+  scan: async (b) => (hasEicar(b) ? { infected: true, reason: 'eicar_signature' } : { infected: false, reason: null }),
+}
+
 // Active-content PDF names (E-DOC-05). Matched as whole names: `/JS` must not match `/JSFoo`.
 const ACTIVE_NAMES = ['JavaScript', 'JS', 'Launch', 'EmbeddedFile', 'EmbeddedFiles', 'RichMedia', 'AA'] as const
 const NAME_RE = /\/([A-Za-z0-9#]+)/g

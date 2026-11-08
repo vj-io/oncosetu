@@ -8,7 +8,9 @@ import {
 } from 'lucide-react'
 import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
 import { inBacklogOrder } from '@/core/backlog'
+import { MB } from '@/core/limits'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
+import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
 import { IdentityDecision } from './IdentityDecision'
@@ -19,7 +21,6 @@ export type Progress = { documents: number; pagesReceived: number; pagesProcesse
 type UploadItem = { key: string; name: string; size: number; state: 'preparing' | 'uploading' | 'done' | 'error'; pct: number; note?: string; documentId?: string }
 type Sample = { file: string; title: string; docType: string; demoStep: string; kind: string }
 
-const MAX_BATCH = 50
 const MAX_BYTES = 4 * 1024 * 1024
 const MAX_SIDE = 2400
 
@@ -69,6 +70,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   const [data, setData] = useState(initial)
   const [uploads, setUploads] = useState<UploadItem[]>([])
   const [drag, setDrag] = useState(false)
+  const [batchNote, setBatchNote] = useState<string | null>(null)
   const [samples, setSamples] = useState<{ backlog: string[]; items: Sample[] } | null>(null)
   const input = useRef<HTMLInputElement>(null)
 
@@ -98,8 +100,11 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
     })().catch(() => setSamples(null))
   }, [demo, patientName])
 
-  const upload = useCallback(async (files: { name: string; get: () => Promise<Blob> }[]) => {
-    const batch = inBacklogOrder(files, (f) => f.name).slice(0, MAX_BATCH) // FR-ONB-01: uploaded, so processed, pathology first
+  const upload = useCallback(async (files: { name: string; get: () => Promise<Blob> }[], bytes: number | null) => {
+    const problem = batchProblem(files.length, bytes)
+    setBatchNote(problem)
+    if (problem) return
+    const batch = inBacklogOrder(files, (f) => f.name) // FR-ONB-01: uploaded, so processed, pathology first
     const items: UploadItem[] = batch.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, size: 0, state: 'preparing', pct: 0 }))
     setUploads((u) => [...items, ...u].slice(0, 60))
     const patch = (key: string, p: Partial<UploadItem>) => setUploads((u) => u.map((x) => (x.key === key ? { ...x, ...p } : x)))
@@ -138,8 +143,8 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
     void refresh()
   }, [patientId, refresh])
 
-  const fromFiles = (list: FileList | File[]) => upload([...list].map((f) => ({ name: f.name, get: async () => f })))
-  const fromSamples = (names: string[]) => upload(names.map((n) => ({ name: n, get: () => fetch(`/demo-docs/${n}`).then((r) => r.blob()) })))
+  const fromFiles = (list: FileList | File[]) => upload([...list].map((f) => ({ name: f.name, get: async () => f })), [...list].reduce((a, f) => a + f.size, 0))
+  const fromSamples = (names: string[]) => upload(names.map((n) => ({ name: n, get: () => fetch(`/demo-docs/${n}`).then((r) => r.blob()) })), null)
 
   // Documents waiting for a person to confirm the patient sit in their own group, never under a clinical heading.
   const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing' && r.status !== 'quarantined'), [data.rows])
@@ -179,12 +184,13 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <Upload aria-hidden className="size-7 text-muted" strokeWidth={1.5} />
             <div className="grid gap-1">
               <p className="font-display text-lg tracking-[-0.015em]">Drop the patient’s records here</p>
-              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files · 50 MB per file, 200 MB per ZIP.</p>
+              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · 50 MB per file, 200 MB per ZIP.</p>
               <p className="text-sm text-muted">OncoSetu keeps the scan and reads the written report; it doesn’t interpret images.</p>
             </div>
             <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
             <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>Choose files</Button>
           </div>
+          {batchNote && <p role="alert" data-testid="batch-limit" className="border border-l-[3px] border-rule border-l-madder bg-surface px-4 py-3 text-sm text-madder-ink">{batchNote}</p>}
 
           {samples && (
             <details className="border border-rule bg-surface p-4">

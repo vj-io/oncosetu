@@ -1,7 +1,8 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
+import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { classifyHandwriting, detectLanguage, readPages } from './text'
+import { classifyHandwriting, detectLanguage, readPages, type OcrLangs, type OcrProvider } from './text'
 
 // ---- a password-protected PDF (Standard security handler R2, RC4-40), built by hand for FR-ING-07 ----
 const PAD = Buffer.from('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A', 'hex')
@@ -101,6 +102,35 @@ describe('handwriting classifier (FR-DOC-07)', () => {
   })
   it('too few lines to judge → not handwritten', () => {
     expect(classifyHandwriting([line(3, 0.3), line(3, 0.3)], 0.2).handwritten).toBe(false)
+  })
+})
+
+describe('the OCR provider is injectable (FR-DOC-02, ADR-016)', () => {
+  // A fake provider: no tesseract, a fixed reading. The pipeline's own policy (low-confidence flag, processor record) still applies.
+  const calls: OcrLangs[] = []
+  const line = 'Patient Name: Asha Rao Haemoglobin 10.8 g/dL'
+  const words = line.split(' ').reduce<{ t: string; c: number; s: number; e: number; b: [number, number, number, number] }[]>((acc, t) => {
+    const s = acc.length ? acc[acc.length - 1].e + 1 : 0
+    return [...acc, { t, c: 0.7, s, e: s + t.length, b: [s, 0, s + t.length, 10] }]
+  }, [])
+  const fake: OcrProvider = {
+    name: 'fake-ocr', version: '9.9',
+    recognize: async (_image, langs) => { calls.push(langs); return { text: line, words, lines: [{ text: line, conf: words.map((w) => w.c) }], mean: 0.7 } },
+  }
+  it('reads a photo and a scanned PDF page with the provider it is given', async () => {
+    const png = await sharp({ create: { width: 200, height: 100, channels: 3, background: '#ffffff' } }).png().toBuffer()
+    const r = await readPages(new Uint8Array(png), 'image/png', undefined, fake)
+    expect(r.kind).toBe('pages')
+    if (r.kind !== 'pages') return
+    expect(r.pages[0]).toMatchObject({ text: line, source: 'ocr', processor: 'fake-ocr', processorVersion: '9.9', ocrConfidence: 0.7, lowConfidence: true })
+    expect(r.pages[0].image).toBeInstanceOf(Buffer)
+    expect(calls).toEqual(['eng+hin', 'eng']) // the English re-read policy stays the pipeline's, whatever the provider
+
+    const doc = await PDFDocument.create()
+    const p = doc.addPage([400, 300])
+    p.drawImage(await doc.embedPng(png), { x: 0, y: 0, width: 400, height: 300 })
+    const scanned = await readPages(new Uint8Array(await doc.save()), 'application/pdf', undefined, fake)
+    expect(scanned.kind === 'pages' && scanned.pages[0]).toMatchObject({ text: line, processor: 'fake-ocr', source: 'ocr' })
   })
 })
 

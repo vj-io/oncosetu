@@ -179,9 +179,10 @@ export function coverageFor(docType: string | null): { recall: number; gold: num
 export async function documentDetail(tx: Tx, patientId: string, documentId: string) {
   const [d] = await tx.select().from(documents).where(and(eq(documents.id, documentId), eq(documents.patientId, patientId)))
   if (!d) return null
-  const pages = await tx.select().from(documentPages).where(eq(documentPages.documentId, d.id)).orderBy(asc(documentPages.pageNo))
+  // FR-DOC-08: the current version of each derived artefact; superseded readings stay stored, unread here.
+  const pages = await tx.select().from(documentPages).where(and(eq(documentPages.documentId, d.id), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
   const files = await tx.select({ id: documentFiles.id, kind: documentFiles.kind, pageNo: documentFiles.pageNo, mime: documentFiles.mime }).from(documentFiles)
-    .where(eq(documentFiles.documentId, d.id))
+    .where(and(eq(documentFiles.documentId, d.id), isNull(documentFiles.supersededAt)))
   const evs = await tx.select().from(events).where(eq(events.documentId, d.id)).orderBy(asc(events.createdAt))
   const ev = evs.length ? await tx.select().from(evidence).where(inArray(evidence.eventId, evs.map((e) => e.id))) : []
   const related = [d.amendmentOf, d.nearDupOf].filter(Boolean) as string[]

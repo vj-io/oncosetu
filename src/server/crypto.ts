@@ -30,7 +30,7 @@ function gcmEncrypt(key: Buffer, plain: Buffer): Buffer {
 }
 
 function gcmDecrypt(key: Buffer, blob: Buffer): Buffer {
-  const d = createDecipheriv('aes-256-gcm', key, blob.subarray(0, 12))
+  const d = createDecipheriv('aes-256-gcm', key, blob.subarray(0, 12), { authTagLength: 16 }) // a cut-short tag is refused, never checked on fewer bytes
   d.setAuthTag(blob.subarray(12, 28))
   return Buffer.concat([d.update(blob.subarray(28)), d.final()])
 }

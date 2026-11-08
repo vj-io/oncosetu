@@ -53,7 +53,7 @@ export async function* decrypt(src: AsyncIterable<Buffer>, keys: BackupKey[]): A
       const keyId = buf.subarray(6, 6 + buf[5]).toString('ascii')
       const k = keys.find((x) => x.id === keyId)
       if (!k) throw new Error(`backup was encrypted with key ${keyId}; BACKUP_KEY / BACKUP_KEY_PREVIOUS are ${keys.map((x) => x.id).join(', ') || 'unset'}`)
-      d = createDecipheriv('aes-256-gcm', k.key, buf.subarray(headerLen - 12, headerLen))
+      d = createDecipheriv('aes-256-gcm', k.key, buf.subarray(headerLen - 12, headerLen), { authTagLength: 16 })
       d.setAAD(buf.subarray(0, headerLen))
       buf = buf.subarray(headerLen)
     }

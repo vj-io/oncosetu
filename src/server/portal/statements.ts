@@ -6,7 +6,7 @@ import type { Lang } from '@/core/types'
 import type { Tx } from '@/db'
 import { events, evidence, patientStatements } from '@/db/schema'
 import { now } from '../clock'
-import { sha256Hex } from '../crypto'
+import { decryptField, encryptField, sha256Hex } from '../crypto'
 import { linkClips } from '../voice/clips'
 import { BROWSER_ASR, asr } from '../voice/provider'
 import {
@@ -15,6 +15,20 @@ import {
 } from './visit-model'
 
 export type VisitConfirmation = 'confirmed' | 'corrected' | 'unconfirmed'
+
+/**
+ * Voice shadow mode (FR-VOX-03): what Sarvam heard is sealed by the transcribe route into a token the browser holds but
+ * cannot read, so it can never fill the answer. The statement keeps the sealed tokens; only staff screens open them.
+ */
+export const sealShadow = (v: { clipId: string; patientId: string; text: string }) => encryptField(JSON.stringify(v))
+export function openShadow(token: string): { clipId: string; patientId: string; text: string } | null {
+  try {
+    const v = JSON.parse(decryptField(token)) as Record<string, unknown>
+    return typeof v.clipId === 'string' && typeof v.patientId === 'string' && typeof v.text === 'string' ? { clipId: v.clipId, patientId: v.patientId, text: v.text } : null
+  } catch {
+    return null // not sealed by this server: dropped
+  }
+}
 export type Saver = { orgId: string; patientId: string; actor: { kind: 'patient' | 'caregiver'; id: string }; lang: Lang }
 
 /**
@@ -22,12 +36,13 @@ export type Saver = { orgId: string; patientId: string; actor: { kind: 'patient'
  * voice typing was used) and one `patient_statement` event per "yes" or "anything else" answer, each with the patient's
  * words as its evidence. Relative dates stay in the words; only a month/year the patient picked becomes a date.
  */
-export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation: VisitConfirmation): Promise<{ batchId: string; statements: number; events: number }> {
+export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation: VisitConfirmation): Promise<{ batchId: string; statements: number; events: number; shadowClips: number }> {
   const at = await now(s.orgId)
   const batchId = uuidv7()
   const confirmed = confirmation !== 'unconfirmed'
   let nEvents = 0
   let nStatements = 0
+  let nShadow = 0
   for (const q of QUESTION_IDS) {
     const a = answers[q]
     if (!a) continue
@@ -37,12 +52,13 @@ export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation
     const scans = q === 'new_tests' && a.testKind === 'scan' ? (splitNames(a.names).length ? splitNames(a.names) : ['scan']) : []
     const institution = q !== 'anything_else' && a.place ? a.place : null
     const clips = a.clips ?? []
+    const shadow = (a.shadow ?? []).filter((t) => openShadow(t)?.patientId === s.patientId) // this patient's own recordings only
     const [row] = await tx.insert(patientStatements).values({
       orgId: s.orgId, patientId: s.patientId, questionId: q,
       // answer: everything the patient chose or typed, as given, plus the fields the Radar reads (see core CoreStatement)
       answer: {
-        ...a, clips: undefined, batchId, medicationNames: meds, scanNames: scans, institutionName: institution,
-        statedDate: sd?.iso ?? null, statedPrecision: sd?.precision ?? null,
+        ...a, clips: undefined, shadow: undefined, batchId, medicationNames: meds, scanNames: scans, institutionName: institution,
+        statedDate: sd?.iso ?? null, statedPrecision: sd?.precision ?? null, ...(shadow.length ? { asrShadow: shadow } : {}),
       },
       transcript, language: s.lang, readbackText: buildReadback({ [q]: a }, s.lang).lines[0]?.text ?? null,
       confirmation: confirmation === 'unconfirmed' ? 'pending' : confirmation, asrProvider: clips.length ? asr.name : a.voice ? BROWSER_ASR : null,
@@ -50,6 +66,7 @@ export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation
       createdByKind: s.actor.kind, createdById: s.actor.id, createdAt: at, confirmedAt: confirmed ? at : null,
     }).returning({ id: patientStatements.id })
     await linkClips(tx, s.patientId, clips, row.id)
+    nShadow += (await linkClips(tx, s.patientId, shadow.map((t) => openShadow(t)!.clipId), row.id)).length
     nStatements++
 
     if (!hasContent(q, a)) continue
@@ -73,7 +90,7 @@ export async function saveVisit(tx: Tx, s: Saver, answers: Answers, confirmation
     })
     nEvents++
   }
-  return { batchId, statements: nStatements, events: nEvents }
+  return { batchId, statements: nStatements, events: nEvents, shadowClips: nShadow }
 }
 
 export type StatementGroup = {
@@ -83,6 +100,8 @@ export type StatementGroup = {
     confirmation: 'pending' | 'confirmed' | 'corrected' | 'declined'; voice: boolean; language: string | null
     /** The kept recording (FR-VOX-05) and what transcribed it, when the answer was spoken through Sarvam. */
     audioId: string | null; asr: string | null
+    /** Voice shadow mode: recordings made beside a typed answer and what Sarvam heard (never part of the answer). */
+    shadow: { clipId: string; text: string }[]
     eventId: string | null; conflict: boolean
   }[]
 }
@@ -105,6 +124,10 @@ export async function loadStatementGroups(tx: Tx, patientId: string): Promise<St
     g.items.push({
       id: r.id, questionId: r.questionId, transcript: r.transcript, readback: r.readbackText, confirmation: r.confirmation,
       voice: !!r.asrProvider, language: r.language, audioId: r.audioId, asr: r.asrProvider ? [r.asrProvider, r.asrModel].filter(Boolean).join(' · ') : null, eventId: e?.eventId ?? null, conflict: !!e && (!!e.flags?.conflict || !!e.conflictGroup),
+      shadow: (Array.isArray(r.answer?.asrShadow) ? r.answer.asrShadow : []).flatMap((t) => {
+        const v = typeof t === 'string' ? openShadow(t) : null
+        return v && v.patientId === patientId ? [{ clipId: v.clipId, text: v.text }] : []
+      }),
     })
     groups.set(key, g)
   }

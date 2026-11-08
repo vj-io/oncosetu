@@ -6,7 +6,8 @@ import { DOC_TYPES, type Disclosure, type Lang } from '@/core/types'
 import { en, hi, hinglish, tp, type PatientKey } from '@/i18n/patient'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, type HomeData } from './summary'
-import { answersSchema, buildReadback, QUESTION_IDS, statedDate, transcriptOf, type Answers } from './visit-model'
+import { openShadow, sealShadow } from './statements'
+import { answersFor, answersSchema, buildReadback, enabledQuestions, missingQuestion, questionSettings, QUESTION_IDS, statedDate, transcriptOf, type Answers } from './visit-model'
 
 const strings = (v: unknown, out: string[] = []): string[] => {
   if (typeof v === 'string') out.push(v)
@@ -161,6 +162,45 @@ describe('answers schema', () => {
     expect(answersSchema.safeParse({ ...ok, admissions: { yn: 'yes', month: 13, year: 2026 } }).success).toBe(false)
     expect(answersSchema.safeParse({ ...ok, admissions: { yn: 'yes', month: 3, year: 2026 } }).success).toBe(true)
     expect(answersSchema.safeParse({ ...ok, admissions: { yn: 'maybe' } }).success).toBe(false)
+  })
+})
+
+describe('configurable questions (FR-VOX-01)', () => {
+  const ok: Answers = { other_hospital: { yn: 'no' }, new_medicines: { yn: 'no' }, new_tests: { yn: 'no' }, admissions: { yn: 'no' } }
+  const setting = [
+    { id: 'anything_else', on: true }, { id: 'new_tests', on: true }, { id: 'admissions', on: false }, { id: 'other_hospital', on: true }, { id: 'new_medicines', on: true },
+  ]
+  it('asks the switched-on questions in the org order; no setting is the default five', () => {
+    expect(enabledQuestions(null)).toEqual(QUESTION_IDS)
+    expect(enabledQuestions(setting)).toEqual(['anything_else', 'new_tests', 'other_hospital', 'new_medicines'])
+    expect(questionSettings(setting).map((q) => q.id)).toEqual(['anything_else', 'new_tests', 'admissions', 'other_hospital', 'new_medicines'])
+    // unknown ids are ignored, a question the setting leaves out stays on (at the end), all-off falls back to all five
+    expect(enabledQuestions([{ id: 'bogus', on: true }, { id: 'admissions', on: true }])).toEqual(['admissions', 'other_hospital', 'new_medicines', 'new_tests', 'anything_else'])
+    expect(enabledQuestions(QUESTION_IDS.map((id) => ({ id, on: false })))).toEqual(QUESTION_IDS)
+  })
+  it('a switched-off question is not required; anything else stays optional wherever it is', () => {
+    const asked = enabledQuestions(setting)
+    const withoutAdmissions: Answers = { ...ok, admissions: undefined }
+    expect(answersFor(asked).safeParse(withoutAdmissions).success).toBe(true)
+    expect(answersSchema.safeParse(withoutAdmissions).success).toBe(false)
+    expect(missingQuestion(withoutAdmissions, asked)).toBeNull()
+    expect(missingQuestion({ ...withoutAdmissions, new_tests: undefined }, asked)).toBe('new_tests')
+    expect(answersFor([]).safeParse({ anything_else: { yn: 'yes' } }).success).toBe(false) // words still required with yes
+  })
+  it('reads back in the order asked', () => {
+    const rb = buildReadback({ ...ok, anything_else: { yn: 'yes', free: 'Knee pain' } }, 'en', enabledQuestions(setting))
+    expect(rb.lines.map((l) => l.q)).toEqual(['anything_else', 'new_tests', 'other_hospital', 'new_medicines'])
+  })
+})
+
+describe('voice shadow tokens (FR-VOX-03)', () => {
+  it('seal what was heard so the browser cannot read it; only this server opens it', () => {
+    process.env.APP_MASTER_KEY ??= Buffer.alloc(32, 7).toString('base64')
+    const token = sealShadow({ clipId: 'c1', patientId: 'p1', text: 'Tab Capecitabine 500' })
+    expect(token).not.toContain('Capecitabine')
+    expect(openShadow(token)).toEqual({ clipId: 'c1', patientId: 'p1', text: 'Tab Capecitabine 500' })
+    expect(openShadow(`${token.slice(0, -2)}AA`)).toBeNull()
+    expect(openShadow('not a token')).toBeNull()
   })
 })
 

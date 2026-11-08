@@ -6,7 +6,7 @@ import { formatDateIN } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { tp, type PatientKey } from '@/i18n/patient'
 
-/** The five questions, in order. FR-VOX-01 says "configurable": edit this list (ids must match StatementQuestion). */
+/** The five questions in their default order (ids must match StatementQuestion). An org switches them off and reorders them on /admin/settings (FR-VOX-01). */
 export const QUESTIONS = [
   { id: 'other_hospital', placeKey: 'f_place_hospital' },
   { id: 'new_medicines', placeKey: 'f_place_prescriber' },
@@ -17,6 +17,25 @@ export const QUESTIONS = [
 
 export type QuestionId = (typeof QUESTIONS)[number]['id']
 export const QUESTION_IDS = QUESTIONS.map((q) => q.id) as QuestionId[]
+
+/** The org setting (org_settings.flags.questions): every question with on/off, in the order asked. */
+export type QuestionSetting = { id: string; on: boolean }
+const isQuestion = (id: string): id is QuestionId => (QUESTION_IDS as string[]).includes(id)
+
+/** All five questions in the org's order with on/off. No setting → the default order, all on; a question the setting omits is on, at the end. */
+export function questionSettings(setting?: readonly QuestionSetting[] | null): { id: QuestionId; on: boolean }[] {
+  const known = (setting ?? []).filter((x, i, all) => isQuestion(x.id) && all.findIndex((y) => y.id === x.id) === i)
+  return [...known.map((x) => ({ id: x.id as QuestionId, on: x.on })), ...QUESTION_IDS.filter((q) => !known.some((x) => x.id === q)).map((id) => ({ id, on: true }))]
+}
+
+/** The questions an org asks, in its order (all five if a setting would switch every one off). */
+export function enabledQuestions(setting?: readonly QuestionSetting[] | null): QuestionId[] {
+  const ids = questionSettings(setting).filter((x) => x.on).map((x) => x.id)
+  return ids.length ? ids : [...QUESTION_IDS]
+}
+
+/** The "first four need a tap" rule, for the questions actually asked: every enabled one except anything_else. */
+export const requiredQuestions = (enabled: readonly QuestionId[]) => enabled.filter((q) => q !== 'anything_else')
 export const TEST_KINDS = ['blood', 'scan', 'sample', 'other'] as const
 export type TestKind = (typeof TEST_KINDS)[number]
 
@@ -40,18 +59,26 @@ export const answerSchema = z.object({
   voice: z.boolean().optional(),
   /** Sarvam recordings behind this answer (voice_clips ids, FR-VOX-05); kept beside the statement. */
   clips: z.array(z.uuid()).max(6).optional(),
+  /** Voice shadow mode (FR-VOX-03): sealed tokens (clip id + what Sarvam heard) the browser cannot read; never the answer. */
+  shadow: z.array(z.string().max(8000)).max(6).optional(),
 }).refine((a) => a.month == null || a.year != null, { message: 'month needs a year', path: ['month'] })
 
 export type Answer = z.infer<typeof answerSchema>
 export type Answers = Partial<Record<QuestionId, Answer>>
 
-export const answersSchema = z.object(
+const answersShape = z.object(
   Object.fromEntries(QUESTION_IDS.map((q) => [q, answerSchema.optional()])) as Record<QuestionId, z.ZodOptional<typeof answerSchema>>,
-).superRefine((all, ctx) => {
-  for (const q of QUESTION_IDS.slice(0, 4)) if (!all[q]) ctx.addIssue({ code: 'custom', path: [q], message: 'answer required' })
+)
+
+/** Answers to the questions an org asks: each enabled question but anything_else needs a tap. `[]` checks the shape only. */
+export const answersFor = (enabled: readonly QuestionId[]) => answersShape.superRefine((all, ctx) => {
+  for (const q of requiredQuestions(enabled)) if (!all[q]) ctx.addIssue({ code: 'custom', path: [q], message: 'answer required' })
   const e = all.anything_else
   if (e?.yn === 'yes' && !(e.free ?? '').trim()) ctx.addIssue({ code: 'custom', path: ['anything_else', 'free'], message: 'words required' })
 })
+
+/** All five asked (the default set). */
+export const answersSchema = answersFor(QUESTION_IDS)
 
 const clean = (s: string | undefined) => (s ?? '').trim()
 
@@ -113,9 +140,9 @@ export type Readback = { intro: string; lines: { q: QuestionId; text: string }[]
  * What the system understood, as plain sentences in the chosen language (FR-VOX-04). Wording comes only from the
  * i18n catalogue; the patient's own words are passed through verbatim, nothing is interpreted or classified.
  */
-export function buildReadback(answers: Answers, lang: Lang): Readback {
+export function buildReadback(answers: Answers, lang: Lang, order: readonly QuestionId[] = QUESTION_IDS): Readback {
   const lines: Readback['lines'] = []
-  for (const q of QUESTION_IDS) {
+  for (const q of order) {
     const a = answers[q]
     if (!a) continue
     let key: string
@@ -133,7 +160,7 @@ export function buildReadback(answers: Answers, lang: Lang): Readback {
   return { intro: tp(lang, 'reviewIntro'), lines }
 }
 
-/** A complete set: the first four need a tap; anything_else may be left out (blank = nothing to add). */
-export function missingQuestion(answers: Answers): QuestionId | null {
-  return QUESTION_IDS.slice(0, 4).find((q) => !answers[q]) ?? null
+/** A complete set: every enabled question but anything_else needs a tap; anything_else may be left out (blank = nothing to add). */
+export function missingQuestion(answers: Answers, enabled: readonly QuestionId[] = QUESTION_IDS): QuestionId | null {
+  return requiredQuestions(enabled).find((q) => !answers[q]) ?? null
 }

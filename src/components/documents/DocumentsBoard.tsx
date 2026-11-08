@@ -7,6 +7,7 @@ import {
   Activity, ArrowRight, Camera, CopyCheck, FileImage, FileText, Fingerprint, Hand, KeyRound, Languages, Library, LoaderCircle, PauseCircle, PenLine, ScanLine, ScanText, ShieldAlert, Upload, Video,
 } from 'lucide-react'
 import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
+import { inBacklogOrder } from '@/core/backlog'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
@@ -98,7 +99,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   }, [demo, patientName])
 
   const upload = useCallback(async (files: { name: string; get: () => Promise<Blob> }[]) => {
-    const batch = files.slice(0, MAX_BATCH)
+    const batch = inBacklogOrder(files, (f) => f.name).slice(0, MAX_BATCH) // FR-ONB-01: uploaded, so processed, pathology first
     const items: UploadItem[] = batch.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, size: 0, state: 'preparing', pct: 0 }))
     setUploads((u) => [...items, ...u].slice(0, 60))
     const patch = (key: string, p: Partial<UploadItem>) => setUploads((u) => u.map((x) => (x.key === key ? { ...x, ...p } : x)))

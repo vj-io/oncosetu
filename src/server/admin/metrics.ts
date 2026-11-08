@@ -8,7 +8,7 @@ import { lintText } from '@/core/copy'
 import { RADAR_RULES } from '@/core/radar/rules'
 import { EXTRACTABLE_EVENT_TYPES } from '@/core/types'
 import {
-  clinicianReviewTime, correctionRates, disclosureAt, disclosurePrevalence, documentCensus, previsitCompletion, provenance, radarMetrics, requestFulfilment, safetyKpis,
+  clinicianReviewTime, correctionRates, disclosureAt, disclosurePrevalence, documentCensus, previsitCompletion, provenance, radarMetrics, recordPrepTime, requestFulfilment, safetyKpis,
   REVIEW_ACTIONS, type MissingRow,
 } from './metrics-compute'
 import { loadQa } from './qa'
@@ -36,17 +36,20 @@ export async function loadMetrics(tx: Tx) {
   }
   const radar = radarMetrics(items.map((i): MissingRow => ({ ...i, hasRequest: requested.has(i.id) })), snaps)
 
-  const fulfilment = requestFulfilment((await tx.select({ sentAt: recordRequests.sentAt, fulfilledAt: recordRequests.fulfilledAt }).from(recordRequests))
-    .map((r) => ({ ...r, institutionType: null }))) // record_requests.institution is free text: no institution type is captured
+  const fulfilment = requestFulfilment(await tx.select({
+    sentAt: recordRequests.sentAt, fulfilledAt: recordRequests.fulfilledAt, institutionType: recordRequests.institutionType,
+  }).from(recordRequests))
 
   const previsit = previsitCompletion(
     await tx.select({ id: encounters.id, patientId: encounters.patientId, type: encounters.type, startedAt: encounters.startedAt }).from(encounters),
     await tx.select({ patientId: patientStatements.patientId, encounterId: patientStatements.encounterId, confirmation: patientStatements.confirmation, createdAt: patientStatements.createdAt }).from(patientStatements),
   )
 
-  const review = clinicianReviewTime(await tx.select({
+  const visitRows = await tx.select({
     at: auditLog.at, action: auditLog.action, actorRole: auditLog.actorRole, targetId: auditLog.targetId, details: auditLog.details,
-  }).from(auditLog).where(inArray(auditLog.action, [...REVIEW_ACTIONS])))
+  }).from(auditLog).where(inArray(auditLog.action, [...REVIEW_ACTIONS]))
+  const review = clinicianReviewTime(visitRows)
+  const prep = recordPrepTime(visitRows)
 
   const ps = await tx.select({ d: patients.disclosureStatus }).from(patients).where(eq(patients.status, 'active'))
   const disclosure = disclosurePrevalence(ps.map((p) => p.d))
@@ -84,7 +87,7 @@ export async function loadMetrics(tx: Tx) {
     radarTemplates: RADAR_RULES.length * 2,
     diagnosisWordHits: hits.length, diagnosisSurfaceScanned: surfaces.length, diagnosisHitKinds: [...new Set(hits.map((h) => h.k))],
   })
-  return { prov, corrections, radar, fulfilment, previsit, review, disclosure, census, safety, qa, eventsTotal: evRows.length }
+  return { prov, corrections, radar, fulfilment, previsit, review, prep, disclosure, census, safety, qa, eventsTotal: evRows.length }
 }
 
 export type Metrics = Awaited<ReturnType<typeof loadMetrics>>

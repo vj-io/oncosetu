@@ -1,11 +1,13 @@
 import Link from 'next/link'
-import { Badge, EmptyState, SectionHeader, Table } from '@/components/ui'
+import { Download } from 'lucide-react'
+import { Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { QaReview } from '@/components/admin/QaReview'
 import { BarRows, Block, Stat, StackedBar } from '@/components/admin/charts'
 import { AsrReport, EvalReport } from '@/components/admin/EvalReport'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
-import type { DocType } from '@/core/types'
+import { INSTITUTION_TYPES, type DocType, type InstitutionType } from '@/core/types'
+import { tr } from '@/i18n/requests'
 import { daysText, istDate, minutesText, pctText } from '@/server/admin/format'
 import { loadMetrics } from '@/server/admin/metrics'
 import { PREVISIT_WINDOW_DAYS } from '@/server/admin/metrics-compute'
@@ -15,12 +17,13 @@ import { requireStaff } from '@/server/session'
 export const metadata = { title: 'Metrics · Admin · OncoSetu' }
 
 const docLabel = (t: string) => (t === 'no_document' ? 'No source document' : staffDocLabel(t as DocType))
+const institutionLabel = (t: string) => ((INSTITUTION_TYPES as readonly string[]).includes(t) ? tr('en', `instType_${t as InstitutionType}`) : 'Not recorded')
 const eventLabel = (t: string) => t.replace(/_documented$/, '').replace(/_/g, ' ')
 
 export default async function MetricsPage() {
   const s = await requireStaff(sectionRoles('metrics'))
   const m = await withOrg(s.orgId, (tx) => loadMetrics(tx))
-  const { prov, corrections, radar, fulfilment, previsit, review, disclosure, census, safety, qa } = m
+  const { prov, corrections, radar, fulfilment, previsit, review, prep, disclosure, census, safety, qa } = m
   const f = fulfilment.overall
   const unsupportedBad = prov.unsupported > 0
 
@@ -101,11 +104,20 @@ export default async function MetricsPage() {
             <thead><tr><th>Institution type</th><th>Sent</th><th>Fulfilled</th><th>Rate</th><th>Median days</th></tr></thead>
             <tbody>
               {fulfilment.byType.map((t) => (
-                <tr key={t.institutionType}><td>{t.institutionType === 'unknown' ? 'Not recorded' : t.institutionType}</td><td className="font-mono tabular-nums">{t.sent}</td><td className="font-mono tabular-nums">{t.fulfilled}</td><td className="font-mono tabular-nums">{pctText(t.rate)}</td><td className="font-mono tabular-nums">{daysText(t.medianDays)}</td></tr>
+                <tr key={t.institutionType}><td>{institutionLabel(t.institutionType)}</td><td className="font-mono tabular-nums">{t.sent}</td><td className="font-mono tabular-nums">{t.fulfilled}</td><td className="font-mono tabular-nums">{pctText(t.rate)}</td><td className="font-mono tabular-nums">{daysText(t.medianDays)}</td></tr>
               ))}
             </tbody>
           </Table>
-          <p className="text-sm text-faint">Institution type is not captured: a request records the institution as free text, so all requests fall under “Not recorded”.</p>
+          <p className="text-sm text-faint">The kind of place is chosen when the request is made. Requests made before it was asked, or where nobody was sure, show as “Not recorded”.</p>
+          <ButtonLink href="/api/measure/requests.csv" prefetch={false} variant="secondary" size="sm" icon={<Download aria-hidden />} className="w-fit">Export request outcomes (CSV)</ButtonLink>
+        </Block>
+
+        <Block kicker="Preparation time" title="From arrival to the clinician opening the record" note="Per visit: minutes from the desk opening the visit (the patient’s arrival) to a clinician first opening “What’s new” for that patient, within 12 hours and before the next visit. It includes any wait for the clinician, so it is an upper bound on preparation.">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+            <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(prep.returning.medianMinutes)} ({prep.returning.visits} {prep.returning.visits === 1 ? 'visit' : 'visits'})</dd>
+            <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(prep.firstVisit.medianMinutes)} ({prep.firstVisit.visits} {prep.firstVisit.visits === 1 ? 'visit' : 'visits'})</dd>
+          </dl>
+          <p className="text-sm text-faint">Target: 40% shorter than the time-motion baseline taken before go-live. A visit counts once a clinician has opened its record.</p>
         </Block>
 
         <Block kicker="Clinician time" title="Time on the record before sealing" note="Per visit: minutes from a clinician first opening “What’s new” during the visit to sealing it, from the activity log. Target for returning visits: a median of 3 minutes or less.">

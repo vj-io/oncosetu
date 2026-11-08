@@ -155,6 +155,47 @@ describe('intake and pipeline paths', () => {
     expect((await owner`select count(*)::int as n from events where document_id = ${up.documentId}`)[0].n).toBe(0)
   }, 60_000)
 
+  it('every proposal the gate discards is stored per item as rejected_unsupported, with no model text (FR-EXT-02)', async () => {
+    const c = await imp()
+    const { MockLanguageModelV4 } = await import('ai/test')
+    const { setLlmProviderForTests } = await import('../../src/server/ai/provider')
+    const reply = {
+      schema_version: 'extraction.v1', doc_type: 'chemo_daycare_record',
+      header: { name: null, age: null, sex: null, dob: null, mrn: null, report_date: null, institution: null, referring_doctor: null },
+      items: [
+        { event_type: 'chemotherapy_session_documented', fields: { cycle_number: 9 }, quote: 'Cycle 9 given on 01/01/2026 with full dose', page_no: 1 },
+        { event_type: 'procedure_documented', fields: { stage: 'IV', procedure_text: 'x' }, quote: 'KASTURI DAY-CARE CHEMOTHERAPY UNIT', page_no: 1 },
+        { event_type: 'lab_report_documented', fields: {}, quote: 'Cycle', page_no: 1 },
+      ],
+    }
+    const model = new MockLanguageModelV4({
+      provider: 'mock', modelId: 'mock-model',
+      doGenerate: async () => ({ content: [{ type: 'text', text: JSON.stringify(reply) }], finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 10, text: 10, reasoning: 0 } }, warnings: [] }),
+    })
+    const [settings] = await owner`select flags from org_settings where org_id = ${ORG}`
+    await owner`update org_settings set flags = flags || '{"ai_extraction": true}'::jsonb where org_id = ${ORG}`
+    await owner.begin(async (tx) => {
+      await tx`select set_config('app.org_id', ${ORG}, true)`
+      await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${pid}, 'grant', ${tx.json({ store: true, ai: true, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
+    })
+    setLlmProviderForTests({ provider: 'anthropic', modelId: 'mock-model', model } as never)
+    try {
+      const up = await upload('chemo.pdf', new Uint8Array(readFileSync('public/demo-docs/hero__02-chemo-daycare-cycle4.pdf')))
+      await c.proc.runDocument(up.documentId, ORG)
+      const gate = (await docRow(up.documentId)).flags.gate as { rejected: number; rejections: Record<string, unknown>[] }
+      expect(gate.rejected).toBe(3)
+      expect(gate.rejections).toEqual([
+        { label: 'rejected_unsupported', reason: 'quote_not_found', field: null, banned: null, eventType: 'chemotherapy_session_documented', origin: 'llm', pageNo: 1 },
+        { label: 'rejected_unsupported', reason: 'forbidden_field', field: 'stage', banned: null, eventType: 'procedure_documented', origin: 'llm', pageNo: 1 },
+        { label: 'rejected_unsupported', reason: 'quote_too_short', field: null, banned: null, eventType: 'lab_report_documented', origin: 'llm', pageNo: 1 },
+      ])
+      expect(JSON.stringify(gate)).not.toMatch(/Cycle 9|KASTURI/)
+    } finally {
+      setLlmProviderForTests(undefined)
+      await owner`update org_settings set flags = ${owner.json(settings.flags)} where org_id = ${ORG}`
+    }
+  }, 120_000)
+
   it('the same report forwarded twice (re-saved, so new bytes) is flagged as a near-duplicate of the first (FR-ING-06)', async () => {
     const c = await imp()
     const { PDFDocument } = await import('pdf-lib')

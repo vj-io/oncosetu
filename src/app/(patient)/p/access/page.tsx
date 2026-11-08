@@ -1,8 +1,11 @@
+import { eq } from 'drizzle-orm'
 import { Eye } from 'lucide-react'
 import { PortalFrame } from '@/components/portal/PortalFrame'
+import { StopCard } from '@/components/portal/StopCard'
 import { Kicker } from '@/components/portal/ui'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
+import { patients } from '@/db/schema'
 import { tp } from '@/i18n/patient'
 import { loadAccessLog } from '@/server/portal/access'
 import { loadPortal, type PortalSearch } from '@/server/portal/context'
@@ -10,7 +13,10 @@ import { loadPortal, type PortalSearch } from '@/server/portal/context'
 export default async function AccessPage({ searchParams }: { searchParams: PortalSearch }) {
   const ctx = await loadPortal(searchParams)
   const { lang } = ctx
-  const log = await withOrg(ctx.session.orgId, (tx) => loadAccessLog(tx, ctx.session.patientId, lang, ctx.session.kind === 'patient'))
+  const [log, [card]] = await withOrg(ctx.session.orgId, (tx) => Promise.all([
+    loadAccessLog(tx, ctx.session.patientId, lang, ctx.session.kind === 'patient'),
+    tx.select({ revokedAt: patients.tokenRevokedAt }).from(patients).where(eq(patients.id, ctx.session.patientId)),
+  ]))
   return (
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tp(lang, 'accessKicker')}</Kicker>
@@ -31,6 +37,17 @@ export default async function AccessPage({ searchParams }: { searchParams: Porta
           <p className="mt-4 text-[16px] text-muted">{tp(lang, 'accessNote')}</p>
         </>
       )}
+      <section aria-labelledby="card-h" className="mt-12 grid gap-3 border-t border-rule pt-8">
+        <h2 id="card-h" className="text-xl">{tp(lang, 'cardLostTitle')}</h2>
+        {card?.revokedAt ? (
+          <p role="status" className="text-[17px]">{tp(lang, 'cardStopped')}</p>
+        ) : (
+          <>
+            <p className="max-w-prose text-[16px] text-muted">{tp(lang, 'cardLostText')}</p>
+            <StopCard lang={lang} />
+          </>
+        )}
+      </section>
     </PortalFrame>
   )
 }

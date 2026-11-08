@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import { ArrowLeft, ArrowRight, Camera, CameraOff, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, CameraOff, Crop, ImagePlus, RefreshCw, Trash2, X } from "lucide-react";
 import { Badge, Button, EmptyState, Frame } from "@/components/ui";
-import { pageFromFile, pageFromSource, type CapturedPage } from "@/lib/offline/image";
+import { pageFromFile, pageFromSource, revokePage, switchCrop, type CapturedPage } from "@/lib/offline/image";
 import { ISSUE_TEXT } from "@/lib/offline/quality";
 import { Notice } from "./status";
 
 type Camera = "off" | "starting" | "on" | "unavailable";
 
-/** Multi-page capture: rear camera (or the file picker), a quality check per page, retake, reorder, delete. */
+/** Multi-page capture: rear camera (or the file picker), a quality check per page, cut to the page edges, retake, reorder, delete. */
 export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPages: React.Dispatch<React.SetStateAction<CapturedPage[]>> }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -56,7 +56,7 @@ export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPag
       if (retakeId) {
         const i = next.findIndex((p) => p.id === retakeId);
         const first = rest.shift();
-        if (i >= 0 && first) { URL.revokeObjectURL(next[i].url); next[i] = first; } else if (first) next.push(first);
+        if (i >= 0 && first) { revokePage(next[i]); next[i] = first; } else if (first) next.push(first);
       }
       next = [...next, ...rest];
       return next;
@@ -102,9 +102,10 @@ export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPag
     });
   const remove = (id: string) => {
     const p = pages.find((x) => x.id === id);
-    if (p) URL.revokeObjectURL(p.url);
+    if (p) revokePage(p);
     setPages((cur) => cur.filter((x) => x.id !== id));
   };
+  const toggleCrop = (id: string) => setPages((cur) => cur.map((x) => (x.id === id ? switchCrop(x) : x)));
 
   const flagged = pages.find((p) => p.id === promptId);
   const flaggedNo = flagged ? pages.indexOf(flagged) + 1 : 0;
@@ -195,6 +196,14 @@ export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPag
                 <Badge tone="unverified" className="justify-self-start">
                   Check: {p.quality.issues.map((q) => q.replace("_", " ")).join(", ")}
                 </Badge>
+              )}
+              {p.alt && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={p.cropped ? "verified" : "shadow"} icon={<Crop />}>{p.cropped ? "Cut to the page" : "Full photo"}</Badge>
+                  <Button size="sm" variant="ghost" onClick={() => toggleCrop(p.id)} aria-label={`${p.cropped ? "Use the full photo" : "Use the cut page"} for page ${i + 1}`}>
+                    {p.cropped ? "Use full photo" : "Use cut page"}
+                  </Button>
+                </div>
               )}
               <div className="flex" role="group" aria-label={`Page ${i + 1} actions`}>
                 <Button variant="ghost" className="w-10 px-0!" aria-label={`Move page ${i + 1} earlier`} disabled={i === 0} onClick={() => move(i, i - 1)} icon={<ArrowLeft aria-hidden />} />

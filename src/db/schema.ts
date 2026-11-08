@@ -105,6 +105,7 @@ export const staff = pgTable('staff', {
   passwordHash: text('password_hash').notNull(),
   totpSecretEnc: text('totp_secret_enc'),
   totpEnabled: boolean('totp_enabled').notNull().default(true),
+  totpLastStep: bigint('totp_last_step', { mode: 'number' }), // last accepted code's time step: a code is used once (0022)
   isDemo: boolean('is_demo').notNull().default(false),
   active: boolean('active').notNull().default(true),
   failedLogins: integer('failed_logins').notNull().default(0),

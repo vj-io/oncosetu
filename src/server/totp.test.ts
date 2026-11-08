@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { base32Encode } from './crypto'
-import { generateTotpSecret, hotp, totp, verifyTotp } from './totp'
+import { demoTotpSecret, generateTotpSecret, hotp, totp, totpStep, verifyTotp } from './totp'
 
 const KEY = Buffer.from('12345678901234567890') // RFC 4226 / RFC 6238 SHA-1 test key
 
@@ -34,5 +34,16 @@ describe('verifyTotp', () => {
     expect(verifyTotp(secret, totp(secret, t + 60_000), t)).toBe(false)
     expect(verifyTotp(secret, '12345', t)).toBe(false)
     expect(verifyTotp(secret, 'abcdef', t)).toBe(false)
+  })
+  it('names the step a code belongs to, so the login can accept each code once (ASVS 2.8.4)', () => {
+    const now = Math.floor(t / 30_000)
+    expect(totpStep(secret, totp(secret, t), t)).toBe(now)
+    expect(totpStep(secret, totp(secret, t - 30_000), t)).toBe(now - 1)
+    expect(totpStep(secret, totp(secret, t + 30_000), t)).toBe(now + 1)
+    expect(totpStep(secret, totp(secret, t + 60_000), t)).toBeNull()
+  })
+  it('derives one public demo secret per email (the seed and the E2E helper use this function)', () => {
+    expect(demoTotpSecret('desk@ganga.test')).toMatch(/^[A-Z2-7]{32}$/)
+    expect(demoTotpSecret('desk@ganga.test')).not.toBe(demoTotpSecret('records@ganga.test'))
   })
 })

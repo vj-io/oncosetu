@@ -83,3 +83,16 @@ describe('share payload (FR-PAS-01, FR-CON-07)', () => {
     expect(buildSharePayload({ ...base, disclosure: 'cleared' }).items.every((i) => !i.quote)).toBe(true)
   })
 })
+
+describe('errata in the share and the passport (FR-ID-06)', () => {
+  it('a document taken out after the previous seal is listed with a neutral label; none → no errata key', () => {
+    const detached = docs.map((d) => (d.id === 'd-dc' ? { ...d, detachedAt: '2026-10-25T09:00:00.000Z' } : d))
+    const next = buildSnapshot({ patientId: 'p1', events, documents: detached, statements: [], missing }, '2026-10-26T06:00:00.000Z', snapshot)
+    const p = buildSharePayload({ ...base, snapshot: next })
+    expect(p.errata).toEqual([{ label: { en: 'Day-care record', hi: 'डे-केयर रिकॉर्ड', hinglish: expect.any(String) }, date: '2026-10-25T09:00:00.000Z', withdrawn: 1 }])
+    expect(lintText(JSON.stringify(p.errata), ['diagnosis'])).toEqual([])
+    expect(p.documents.map((d) => d.id)).toEqual(['d-ds'])
+    expect(buildSharePayload(base)).not.toHaveProperty('errata')
+    expect(ts('en', 'errataLine', { label: p.errata![0].label.en, date: formatDateIN(istDate(p.errata![0].date!)), n: 1 })).toBe('Day-care record · taken out on 25 Oct 2026 · items withdrawn: 1')
+  })
+})

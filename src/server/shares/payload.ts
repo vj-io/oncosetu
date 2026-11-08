@@ -28,6 +28,8 @@ export type SharePayload = {
   }[]
   documents: { id: string; label: L2; date: string | null; institution: string | null; receivedAt: string }[]
   absent: { text: L2; state: MissingState }[]
+  /** FR-ID-06: documents of the previous seal taken out of this record since (only when there are any). */
+  errata?: { label: L2; date: string | null; withdrawn: number }[]
   seal: { snapshotId: string; sha256: string; verifyPath: string }
 }
 
@@ -113,6 +115,9 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
         ? m.wording
         : i.absentNeutral[m.dedupeKey] ?? both((l) => ts(l, 'absentFallback', { label: patientDocLabel(m.expectedTypes[0] ?? 'other', i.disclosure, l) })),
     })),
+    ...(i.snapshot.errata?.length
+      ? { errata: i.snapshot.errata.map((x) => ({ label: label(x.docType), date: x.detachedAt, withdrawn: x.withdrawnEventIds.length })) }
+      : {}),
     seal: { snapshotId: i.snapshotId, sha256: i.sha256, verifyPath: `/verify/${i.snapshotId}` },
   }
 }

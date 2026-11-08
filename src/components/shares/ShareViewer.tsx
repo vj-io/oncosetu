@@ -211,6 +211,19 @@ export function ShareViewer({ id }: { id: string }) {
                 ) : <p className="text-muted">{t('docsEmpty')}</p>}
               </section>
 
+              {p.errata && (
+                <section aria-labelledby="errata-h" className="grid gap-5">
+                  <SectionHeader title={<span id="errata-h">{t('errataTitle')}</span>} description={t('errataIntro')} />
+                  <ul className="grid gap-2">
+                    {p.errata.map((x, i) => (
+                      <li key={i} className="border-l-[3px] border-l-madder pl-3 text-[15px]">
+                        {t('errataLine', { label: inLang(x.label, lang), date: x.date ? formatDateIN(istDate(x.date), lang) : '—', n: x.withdrawn })}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
               <section aria-labelledby="seal-h" className="flex flex-wrap items-center gap-5 border-t border-rule pt-8">
                 <BrassSeal code={p.seal.sha256} size={96} />
                 <div className="grid min-w-0 gap-1">

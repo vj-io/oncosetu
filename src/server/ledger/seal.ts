@@ -8,7 +8,7 @@ import { sha256Hex, signEd25519, verifyEd25519 } from '../crypto'
 import { HttpError, type RouteCtx } from '../http'
 import { assertPatientAccess } from '../patients'
 import { assembleRecord } from './core'
-import { loadRecordRows } from './record'
+import { latestSnapshot, loadRecordRows } from './record'
 
 /** Canonical JSON → SHA-256 + Ed25519 signature over the same UTF-8 bytes. */
 export function sealBytes(snapshot: Snapshot) {
@@ -20,9 +20,10 @@ export function sealBytes(snapshot: Snapshot) {
 export async function sealSnapshot(ctx: RouteCtx<'staff', undefined, undefined>, patientId: string) {
   await assertPatientAccess(ctx, patientId)
   const at = await now(ctx.session.orgId)
-  const { record } = assembleRecord(await loadRecordRows(ctx.db, patientId))
-  const snapshot = buildSnapshot(record, at.toISOString())
-  if (!snapshot.verified.length && !snapshot.unverified.length && !snapshot.documents.length) {
+  const [rows, prev] = await Promise.all([loadRecordRows(ctx.db, patientId), latestSnapshot(ctx.db, patientId)])
+  // documents taken out since the last seal are recorded in this one as errata (FR-ID-06)
+  const snapshot = buildSnapshot(assembleRecord(rows).record, at.toISOString(), prev?.snapshot ?? null)
+  if (!snapshot.verified.length && !snapshot.unverified.length && !snapshot.documents.length && !snapshot.errata) {
     throw new HttpError(409, 'nothing_to_seal', 'The record is empty: nothing to seal yet.')
   }
   const { json, sha256, signature, keyId } = sealBytes(snapshot)

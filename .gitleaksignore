@@ -5,8 +5,10 @@
 1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:15
 1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:16
 1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.test.ts:generic-api-key:23
-# The ABDM protocol label KEY_PARAMETERS = 'Curve25519/32byte random key':
+# The ABDM protocol label constant in src/server/abdm/crypto.ts (a curve name, not a key), and this file's own first
+# wording of that comment (commit 402733f):
 1ab68d083cb4ba24bab946ec13a023b9840e2720:src/server/abdm/crypto.ts:generic-api-key:25
+402733fa7c3068f1a7369012197b935ac0ea160a:.gitleaksignore:generic-api-key:8
 # A synthetic inbound-email alias token in a unit test:
 33647bfe9b542f9b17cf4c76c9ec9cd5450c5a8e:src/server/inbound/inbound.test.ts:generic-api-key:110
 # Lists of required environment variable NAMES ('APP_MASTER_KEY', ...), not values:

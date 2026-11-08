@@ -13,8 +13,9 @@ import { SIGNED_IN_ROLES, scanApiRoutes, type ScannedRoute, type SignedInRole } 
 import { Api, anonymous, portalLogin, registerPatient } from './helpers/api'
 import { test, expect } from './helpers/fixtures'
 
-/** Allowed calls with a real effect even on random input (erasure sweep, own-record erasure request, sign-out). */
-const NOT_CALLED_AS_ALLOWED = new Set(['POST /api/admin/erasure/run-due', 'POST /api/p/erasure', 'POST /api/auth/logout'])
+/** Allowed calls with a real effect even on random input (erasure sweep, own-record erasure request, sign-out, and
+ *  signing out the shared demo account's other sessions, which parallel tests are using). */
+const NOT_CALLED_AS_ALLOWED = new Set(['POST /api/admin/erasure/run-due', 'POST /api/p/erasure', 'POST /api/auth/logout', 'POST /api/auth/sessions/revoke-others'])
 /** Handlers that narrow roles after parsing the body need a body that parses (aimed at a random id), or every role gets 400. */
 const VALID_BODY: Record<string, unknown> = {
   'POST /api/requests': { patientId: randomUUID(), institution: 'RBAC sweep hospital' },

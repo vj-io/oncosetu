@@ -25,7 +25,8 @@ export const PERMISSIONS = {
   // capture and documents
   'encounter.start': ['desk', 'records', 'clinician'],
   'document.upload': [...PATIENT_SIDE, 'desk', 'records', 'clinician'],
-  'document.attach': ['desk', 'records'],
+  'document.attach': ['desk', 'records'], // at capture or upload, after the header identity check
+  'document.identity_decision': ['records', 'clinician'], // FR-ID-05: confirm or reject a held document; needs its content, so not the desk
   'document.detach': ['records', 'clinician'],
   'document.view_content': [...PATIENT_SIDE, 'records', 'clinician'],
   'duplicate.resolve': ['records'],
@@ -44,6 +45,7 @@ export const PERMISSIONS = {
   // radar, requests, sharing
   'radar.read': [...PATIENT_SIDE, 'records', 'clinician'],
   'radar.update': ['records', 'clinician'],
+  'request.view': [...PATIENT_SIDE, 'desk', 'records', 'clinician'], // a request's status: the desk answers families about it
   'request.manage': [...PATIENT_SIDE, 'records', 'clinician'],
   'share.manage': [...PATIENT_SIDE, 'desk', 'records', 'clinician'], // staff create shares at the desk on the patient's behalf
   // admin, audit, metrics

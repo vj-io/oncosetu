@@ -3,7 +3,7 @@
 //   npx playwright test                      # all
 //   npx playwright test --project=main       # parallel specs (2 workers)
 //   npx playwright test --project=clock      # tests that move the org clock; they run alone, after `main`
-// tests/e2e/offline-capture.e2e.ts is a standalone tsx script (production server needed), so it is not matched here.
+// v05-offline.spec.ts needs a production build (an offline reload never hydrates on `next dev`).
 import { defineConfig, devices } from '@playwright/test'
 import { BASE } from './tests/e2e/helpers/env'
 

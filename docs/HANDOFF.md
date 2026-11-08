@@ -171,12 +171,14 @@ npm run test:e2e                                       # 97 Playwright tests (ma
 - Malware check is the EICAR signature behind the `MalwareScanner` interface (ADR-016); a ClamAV host is still needed.
 - CI (`.github/workflows/ci.yml`) has not run on GitHub yet. The database suites need a `CI_ENV_FILE` secret pointing at a
   dedicated CI Neon branch, never production. Semgrep has not been run locally.
-- ASVS L2 self-assessment (`docs/security/ASVS-L2-checklist.md`): 9 items not met, among them TOTP code reuse within its
-  window, staff accounts with TOTP off, keys in environment variables instead of a KMS, and the `X-Powered-By` header.
-- Two role mismatches to decide: `rbac.ts` `document.attach` names desk and records but the attach route allows records
-  and clinician; `GET /api/requests` lets the desk in while `request.manage` excludes it.
-- The records queue slows as pages grow (load test at 2,000 patients and 6,300 pages, `data/perf/load-test.json`;
-  roughly 18 s estimated at 50,000 pages). Optimise it before a pilot.
+- ASVS L2 self-assessment (`docs/security/ASVS-L2-checklist.md`): 4 rows not met, all needing something outside code: a
+  breached-password list or service (2.1.7), a way to email or text staff when their credentials change (2.2.3), and a
+  KMS for the keys (6.4.1, 6.4.2). Patients have no list of their own sign-ins (3.3.4, partly).
+- Staff sign-in: every account needs its authenticator; a real authenticator's code is accepted once (`staff.totp_last_step`).
+  The seeded demo and E2E accounts use public secrets (`demoTotpSecret`) and are exempt, so tests can sign in in parallel.
+  On HTTPS the cookie is `__Host-os_sid`; plain-http localhost keeps `os_sid`.
+- Load test (`scripts/load-test.ts`, `data/perf/load-test.json`): at 2,000 patients every page staff use answers in
+  about 3–4.5 s from a laptop to Neon Singapore, mostly round trips; the records queue shows the first 100 patients.
 - Cross-organisation identity: an ABHA links one person across organisations (0019), but `person_registered_elsewhere()`
   is not shown to staff until a patient-consent link to the other organisation exists (PRD §10.3).
 - Hindi is the only regional language; Hindi copy and Radar wording need review by a native speaker and the clinician

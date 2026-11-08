@@ -22,9 +22,9 @@ export default async function SettingsPage() {
         <h2 id="llm-h" className="font-display text-xl">AI-assisted reading</h2>
         <p className="text-muted">{llm.label}. Only for patients who consented; every result still passes the same evidence check and a person verifies it.</p>
         <KeyValue items={[
-          ...(usage ? [{ label: 'Shared daily limit (all organisations)', value: `${usage.today} of ${usage.limits.rpd} used` }] : []),
-          { label: 'This organisation today: calls', value: `${n(orgUse.calls)} of ${n(st.llmBudget.calls)}` },
-          { label: 'This organisation today: tokens', value: `${n(orgUse.tokens)} of ${n(st.llmBudget.tokens)}` },
+          ...(usage ? [{ label: 'Shared key', value: `${usage.today} of ${usage.limits.rpd} calls used today (all organisations)` }] : []),
+          { label: 'Calls', value: `${n(orgUse.calls)} of ${n(st.llmBudget.calls)} used today` },
+          { label: 'Tokens', value: `${n(orgUse.tokens)} of ${n(st.llmBudget.tokens)} used today` },
         ]} />
       </section>
       <p className="text-[15px] text-muted"><a className="underline underline-offset-4" href="/security">Security & compliance</a>: what is built against HIPAA safeguards, the DPDP Act and ABDM, and what is planned.</p>

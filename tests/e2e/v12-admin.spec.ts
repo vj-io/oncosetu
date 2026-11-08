@@ -228,7 +228,7 @@ test('FR-REQ-04/06 the daily requests cron sends the day-7 reminder unread; the 
   await expect(metrics.getByRole('heading', { name: 'From arrival to the clinician opening the record' })).toBeVisible()
 })
 
-test('FR-ID-07 the overview shows the ABHA status and "registered at another hospital" as yes/no only', async ({ staff, ui }) => {
+test('FR-ID-07 one ABHA links both orgs\' records to one person; the overview shows the ABHA status and nothing about the other org', async ({ staff, ui }) => {
   const records = await staff('records')
   const digits = `00${randomInt(10 ** 11, 10 ** 12 - 1)}`.padEnd(14, '0').slice(0, 14) // synthetic, 00- prefix
   const p = await registerPatient(records, { base: 'hero', abhaNumber: digits })
@@ -236,7 +236,6 @@ test('FR-ID-07 the overview shows the ABHA status and "registered at another hos
   await page.goto(`/patients/${p.id}/overview`)
   const status = page.getByTestId('abha-status')
   await expect(status).toContainText('ABHA on file (unverified)')
-  await expect(status).toContainText('Also registered at another OncoSetu hospital: no')
 
   // The same ABHA becomes a patient of another organisation (written directly: E2E never registers in Narmada).
   const twin = randomUUID()
@@ -246,8 +245,8 @@ test('FR-ID-07 the overview shows the ABHA status and "registered at another hos
     expect(mine.personId).not.toBeNull()
     expect(theirs.personId).toBe(mine.personId)
     await page.reload()
-    await expect(status).toContainText('Also registered at another OncoSetu hospital: yes')
-    await expect(page.locator('main')).not.toContainText(/Narmada/i)
+    await expect(status).toHaveText('ABHA on file (unverified).') // PRD §10.3: no hint of the other org without the patient's consent
+    await expect(page.locator('main')).not.toContainText(/Narmada|registered at another/i)
   } finally {
     await adminDb.delete(patients).where(eq(patients.id, twin))
   }

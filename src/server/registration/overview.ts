@@ -21,9 +21,10 @@ export type Overview = {
   steps: OverviewStep[]
   encounter: { id: string; type: string; startedAt: Date } | null
   snapshot: { seq: number; sha256: string; sealedAt: Date } | null
-  /** FR-ID-07: ABHA captured (verified only through ABDM M1, not built), and whether the same person is an active patient
-   *  of another organisation: yes/no only, never which one or anything from its record (drizzle/0019). */
-  abha: { verified: boolean; elsewhere: boolean } | null
+  /** FR-ID-07: ABHA captured (verified only through ABDM M1, not built). Whether the same person is a patient of another
+   *  organisation is not shown: PRD §10.3 gives another organisation's data only through a patient consent link, and
+   *  person_registered_elsewhere() (drizzle/0019) stays unused until that consent exists. */
+  abha: { verified: boolean } | null
 }
 
 const isDocType = (t: string | null): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
@@ -51,7 +52,7 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     tx.select().from(encounters).where(eq(encounters.patientId, patientId)).orderBy(desc(encounters.startedAt)).limit(1),
     tx.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(desc(snapshots.seq)).limit(1),
     primaryContactTarget(tx, patientId),
-    tx.select({ onFile: sql<boolean>`${patients.abhaHmac} is not null`, verified: patients.abhaVerified, elsewhere: sql<boolean>`person_registered_elsewhere(${patients.id})` })
+    tx.select({ onFile: sql<boolean>`${patients.abhaHmac} is not null`, verified: patients.abhaVerified })
       .from(patients).where(eq(patients.id, patientId)),
   ])
   const docs = byType.map((r) => ({ type: r.type ?? 'unclassified', label: isDocType(r.type) ? staffDocLabel(r.type) : 'Not yet classified', count: r.n }))
@@ -75,6 +76,6 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     })),
     steps, encounter: enc ? { id: enc.id, type: enc.type, startedAt: enc.startedAt } : null,
     snapshot: snap ? { seq: snap.seq, sha256: snap.sha256, sealedAt: snap.sealedAt } : null,
-    abha: abha?.onFile ? { verified: abha.verified, elsewhere: abha.elsewhere } : null,
+    abha: abha?.onFile ? { verified: abha.verified } : null,
   }
 }

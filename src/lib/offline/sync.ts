@@ -104,7 +104,9 @@ let inflight: Promise<SyncOutcome> | null = null
 
 /** Single-flight in this tab, and across tabs via Web Locks, so two syncs never race on the same item. */
 export function syncQueue(key: CryptoKey, deviceId: string | null, onChange: () => void): Promise<SyncOutcome> {
-  inflight ??= (async () => {
+  // A caller that joins a run already in flight gets its flags but not its counts: only the starter reports "N synced".
+  if (inflight) return inflight.then((o) => ({ ...o, synced: 0, failed: 0 }))
+  inflight = (async () => {
     const go = () => run(key, deviceId, onChange)
     if (!navigator.locks) return go()
     const r = await navigator.locks.request('oncosetu-capture-sync', { ifAvailable: true }, (lock) => (lock ? go() : null))

@@ -13,8 +13,8 @@ export async function finishUpload(a: {
 }) {
   const { bytes, session } = await assemble(a.db, a.sessionId, a.patientId, a.uploader)
   const up = await ingestUpload(a.db, {
-    orgId: a.orgId, patientId: a.patientId, uploadedBy: a.uploader, intakeRoute: session.intakeRoute as 'desk' | 'bulk' | 'patient_link',
-    encounterId: session.encounterId, fileName: session.fileNameEnc ? decryptField(session.fileNameEnc) : 'upload', bytes, audit: a.audit,
+    orgId: a.orgId, patientId: a.patientId, uploadedBy: a.uploader, intakeRoute: session.intakeRoute as 'desk' | 'bulk' | 'patient_link' | 'offline_sync',
+    encounterId: session.encounterId, clientFileId: session.clientFileId, clientCapturedAt: session.clientCapturedAt, fileName: session.fileNameEnc ? decryptField(session.fileNameEnc) : 'upload', bytes, audit: a.audit,
   })
   await closeSession(a.db, session.id, up.rejected ? 'aborted' : 'done') // the chunks are removed either way
   if (up.rejected) return NextResponse.json({ error: { code: up.rejected.code, message: up.rejected.message } }, { status: up.rejected.status }) // audited in intake; returned so it commits

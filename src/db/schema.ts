@@ -220,6 +220,8 @@ export const encounters = pgTable('encounters', {
   clientCapturedAt: tsz('client_captured_at'),
   sealedSnapshotId: uuid('sealed_snapshot_id'),
   closedAt: tsz('closed_at'),
+  /** Opened offline by a records/clinician device (client UUIDv7, 0020); never the desk's verified visit (FR-ID-02). */
+  offlineCreated: boolean('offline_created').notNull().default(false),
 }, (t) => [index('encounters_patient_idx').on(t.patientId)])
 
 // ── documents ────────────────────────────────────────────────────────────────
@@ -804,6 +806,8 @@ export const uploadSessions = pgTable('upload_sessions', {
   sha256: text('sha256').notNull(),
   intakeRoute: text('intake_route').notNull(),
   encounterId: uuid('encounter_id'),
+  clientFileId: text('client_file_id'), // offline queue: idempotency key, passed to intake when the file is assembled (0020)
+  clientCapturedAt: tsz('client_captured_at'),
   state: text('state').$type<'open' | 'done' | 'aborted'>().notNull().default('open'),
   createdAt: createdAt(),
   expiresAt: tsz('expires_at').notNull(),
@@ -826,6 +830,8 @@ export const voiceClips = pgTable('voice_clips', {
   orgId: orgId(),
   patientId: patientId(),
   statementId: uuid('statement_id'),
+  /** A desk audio note of this encounter (0020); null for a voice answer. */
+  encounterId: uuid('encounter_id').references(() => encounters.id, { onDelete: 'set null' }),
   mime: text('mime').notNull(),
   size: integer('size').notNull(),
   seconds: integer('seconds').notNull().default(0),
@@ -836,7 +842,7 @@ export const voiceClips = pgTable('voice_clips', {
   createdByKind: text('created_by_kind').notNull(),
   createdById: uuid('created_by_id').notNull(),
   createdAt: createdAt(),
-}, (t) => [index('voice_clips_patient_idx').on(t.patientId, t.createdAt), index('voice_clips_statement_idx').on(t.statementId)])
+}, (t) => [index('voice_clips_patient_idx').on(t.patientId, t.createdAt), index('voice_clips_statement_idx').on(t.statementId), index('voice_clips_encounter_idx').on(t.encounterId)])
 
 export const signedConsents = pgTable('signed_consents', {
   id: pk(),

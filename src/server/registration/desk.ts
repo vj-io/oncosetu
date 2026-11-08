@@ -16,9 +16,9 @@ const REUSE_WINDOW_MS = 12 * 3_600_000
 
 /** Starts the visit's encounter: onboarding for a first visit, returning otherwise. An open one from today is reused. */
 export async function openEncounter(tx: Tx, audit: AuditFn, p: { orgId: string; patientId: string; staffId: string }): Promise<{ id: string; type: 'onboarding' | 'returning' | 'between'; reused: boolean }> {
-  const prior = await tx.select({ id: encounters.id, type: encounters.type, startedAt: encounters.startedAt, closedAt: encounters.closedAt })
+  const prior = await tx.select({ id: encounters.id, type: encounters.type, startedAt: encounters.startedAt, closedAt: encounters.closedAt, offlineCreated: encounters.offlineCreated })
     .from(encounters).where(eq(encounters.patientId, p.patientId)).orderBy(desc(encounters.startedAt))
-  const open = prior[0]
+  const open = prior.find((e) => !e.offlineCreated) // an offline-opened visit was never verified: verifying now opens a real one
   if (open && !open.closedAt && Date.now() - open.startedAt.getTime() < REUSE_WINDOW_MS) return { id: open.id, type: open.type, reused: true }
   const type = prior.length ? 'returning' : 'onboarding'
   const [enc] = await tx.insert(encounters).values({ orgId: p.orgId, patientId: p.patientId, type, startedBy: p.staffId }).returning({ id: encounters.id })

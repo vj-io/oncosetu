@@ -57,6 +57,9 @@ async function seedPatient(tx: TransactionSql, staff: { records: string; admin: 
   await tx`insert into evidence (org_id, patient_id, event_id, statement_id) values (${ORG}, ${id}, ${ev2.id}, ${st.id})`
   await tx`insert into voice_clips (org_id, patient_id, statement_id, mime, size, bytes_enc, dek_wrapped, asr_provider, asr_model, created_by_kind, created_by_id)
     values (${ORG}, ${id}, ${st.id}, 'audio/webm', 1, ${Buffer.from('x')}, 'v1.dek', 'sarvam', 'saaras:v4', 'patient', ${id})`
+  // a desk audio note on the visit (0020): its encounter link must not block deleting the encounter
+  await tx`insert into voice_clips (org_id, patient_id, encounter_id, mime, size, bytes_enc, dek_wrapped, asr_provider, asr_model, created_by_kind, created_by_id)
+    values (${ORG}, ${id}, ${enc.id}, 'audio/webm', 1, ${Buffer.from('x')}, 'v1.dek', 'none', 'none', 'staff', ${staff.records})`
   const [ver] = await tx`insert into verifications (org_id, patient_id, event_id, action, to_status, actor_id, role, reason)
     values (${ORG}, ${id}, ${ev2.id}, 'verify', 'verified_matches_source', ${staff.records}, 'records', 'free text') returning id`
   await tx`insert into verification_qa_reviews (org_id, patient_id, verification_id, event_id, reviewer_id, outcome)

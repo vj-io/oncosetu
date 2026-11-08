@@ -6,6 +6,7 @@ import {
   timestamp, unique, uniqueIndex, uuid,
 } from 'drizzle-orm/pg-core'
 import { v7 as uuidv7 } from 'uuid'
+import type { InstitutionType } from '../core/types'
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({ dataType: () => 'bytea' })
 
@@ -142,6 +143,8 @@ export const patients = pgTable('patients', {
   abhaNumberEnc: text('abha_number_enc'),
   abhaHmac: text('abha_hmac'),
   abhaVerified: boolean('abha_verified').notNull().default(false),
+  /** Set by a trigger from abha_hmac (0019): the cross-org person; read only through person_registered_elsewhere(). */
+  personId: uuid('person_id'),
   nameEnc: text('name_enc').notNull(),
   dobEnc: text('dob_enc'),
   phoneEnc: text('phone_enc'),
@@ -440,6 +443,7 @@ export const recordRequests = pgTable('record_requests', {
   patientId: patientId(),
   missingRecordId: uuid('missing_record_id').references(() => missingRecords.id),
   institution: text('institution').notNull(),
+  institutionType: text('institution_type').$type<InstitutionType>(), // FR-REQ-06; null = not recorded
   documents: jsonb('documents').$type<string[]>().notNull().default([]),
   dateRange: jsonb('date_range').$type<{ from?: string; to?: string }>(),
   lang: lang('lang').notNull().default('en'),
@@ -565,6 +569,9 @@ export const breakGlass = pgTable('break_glass', {
   reason: text('reason').notNull(),
   createdAt: createdAt(),
   expiresAt: tsz('expires_at').notNull(),
+  /** FR-ID-10: an alert on /admin until an org_admin marks the grant reviewed (0019). */
+  reviewedAt: tsz('reviewed_at'),
+  reviewedBy: uuid('reviewed_by').references(() => staff.id),
 }, (t) => [index('break_glass_lookup_idx').on(t.patientId, t.staffId, t.expiresAt)])
 
 /** Consultation-level baseline measurement form (PRD §16.4). No PHI. */
@@ -590,6 +597,9 @@ export const orgSettings = pgTable('org_settings', {
   flags: jsonb('flags').$type<OrgFlags>().notNull().default({ voice: false, tts: false, ai_extraction: false }),
   demoClockOffsetS: integer('demo_clock_offset_s').notNull().default(0),
   retentionDays: integer('retention_days').notNull().default(3650),
+  /** PRD §9.6 per-org daily LLM budget (India day), every provider. */
+  llmDailyCalls: integer('llm_daily_calls').notNull().default(1000),
+  llmDailyTokens: integer('llm_daily_tokens').notNull().default(10_000_000),
   updatedAt: tsz('updated_at').notNull().defaultNow(),
 })
 

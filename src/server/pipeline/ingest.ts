@@ -1,7 +1,7 @@
 // Intake (FR-ING-02/06/07/08, E-DOC-01/02/05/18/19): validate → hash → dedupe → safety scan → store encrypted →
 // queue. Processing runs after the response (scheduleProcessing → process.ts), never inside the upload request.
 import { after } from 'next/server'
-import { and, eq, isNotNull, ne } from 'drizzle-orm'
+import { and, count, eq, gt, isNotNull, ne, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, encounters } from '@/db/schema'
 import { writeAudit, type AuditDetails } from '@/server/audit'
@@ -198,19 +198,28 @@ function afterResponse(run: () => Promise<unknown>): void {
 export const BATCH_CONCURRENCY = 3
 
 /**
- * FR-ONB-01: the documents of one batch (a ZIP, an email's attachments), passed in backlog order (src/core/backlog.ts),
- * are processed in that order BATCH_CONCURRENCY at a time instead of all at once. Same after() and claim rules as
- * scheduleProcessing.
+ * FR-ONB-01: newly queued documents (a ZIP, an email's attachments, a bulk upload) are processed in the patient's queue
+ * order (runPatientQueue: upload order, each batch in backlog order), BATCH_CONCURRENCY runners at a time.
  */
-// ponytail: per-request queue only. A document the documents screen polls (needsRunner) can still start early on its own
-// runner — harmless, the claim lets one runner work on it; a cross-request priority queue needs a jobs table.
-export function scheduleBatch(documentIds: readonly string[], orgId: string): void {
-  const queue = [...documentIds]
-  if (!queue.length) return
-  afterResponse(() => import('./process').then(({ runDocument }) => {
-    const worker = async () => {
-      for (let id = queue.shift(); id; id = queue.shift()) await runDocument(id, orgId).catch((err) => log.error('pipeline.schedule_failed', { documentId: id, err }))
-    }
-    return Promise.all(Array.from({ length: Math.min(BATCH_CONCURRENCY, queue.length) }, worker))
-  }).catch((err) => log.error('pipeline.schedule_failed', { documents: queue.length, err })))
+export function scheduleBatch(patientId: string, count: number, orgId: string): void {
+  if (count < 1) return
+  schedulePatientQueue(patientId, orgId, Math.min(BATCH_CONCURRENCY, count))
+}
+
+/**
+ * A screen poll found a queued (or stale) document: start one more runner on the patient's queue unless
+ * BATCH_CONCURRENCY are already working. Polls run every few seconds, so without the cap runners would pile up.
+ */
+export async function pollRunner(tx: Tx, patientId: string, orgId: string): Promise<void> {
+  const { STALE_LOCK_MINUTES } = await import('./process')
+  const [{ n }] = await tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), eq(documents.status, 'processing'),
+    gt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`)))
+  if (n < BATCH_CONCURRENCY) schedulePatientQueue(patientId, orgId)
+}
+
+/** `runners` more runners on the patient's queue, after the response. A poll uses this too, so it never jumps the queue. */
+export function schedulePatientQueue(patientId: string, orgId: string, runners = 1): void {
+  afterResponse(() => import('./process').then(({ runPatientQueue }) =>
+    Promise.all(Array.from({ length: runners }, () => runPatientQueue(patientId, orgId))))
+    .catch((err) => log.error('pipeline.schedule_failed', { patientId, err })))
 }

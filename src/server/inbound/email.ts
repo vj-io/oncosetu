@@ -73,6 +73,6 @@ export async function receiveEmail(p: PostmarkPayload, domain: string, requestId
     })
     return { accepted: true, documents, skipped }
   })
-  if (out.accepted) scheduleBatch(out.documents.filter((d) => !d.duplicateOf && d.status === 'queued').map((d) => d.documentId), orgId)
+  if (out.accepted) scheduleBatch(patientId, out.documents.filter((d) => !d.duplicateOf && d.status === 'queued').length, orgId)
   return out
 }

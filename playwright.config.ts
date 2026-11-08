@@ -2,6 +2,7 @@
 // Everything runs in the second organisation (Ganga Valley Hospital); Narmada holds the live demo data.
 //   npx playwright test                      # all
 //   npx playwright test --project=main       # parallel specs (2 workers)
+//   npx playwright test --project=webkit     # the Safari subset (needs `npx playwright install webkit`)
 //   npx playwright test --project=clock      # tests that move the org clock; they run alone, after `main`
 // tests/e2e/offline-capture.e2e.ts is a standalone tsx script (production server needed), so it is not matched here.
 import { defineConfig, devices } from '@playwright/test'
@@ -22,7 +23,10 @@ export default defineConfig({
   use: { channel: process.env.PW_CHANNEL ?? 'chromium', baseURL: BASE, trace: 'retain-on-failure', screenshot: 'only-on-failure', actionTimeout: 20_000, navigationTimeout: 60_000 },
   projects: [
     { name: 'main', grepInvert: /@clock/, use: { ...devices['Desktop Chrome'] } },
+    // PRD §6.8 browser support includes Safari on iOS: the V01 smoke, the patient portal (caregiver upload), the 375 px
+    // a11y/responsive pages and the CSP/cookie checks also run in WebKit (`npx playwright install webkit`).
+    { name: 'webkit', testMatch: ['v01-foundation.spec.ts', 'v05-caregiver.spec.ts', 'a11y-responsive.spec.ts', 'security-headers.spec.ts'], grepInvert: /@clock/, use: { ...devices['Desktop Safari'], channel: '' } }, // '' clears the Chromium channel set above
     // The org clock is shared by every test in the org, so tests that move it must not overlap with anything else.
-    { name: 'clock', grep: /@clock/, workers: 1, dependencies: ['main'], use: { ...devices['Desktop Chrome'] } },
+    { name: 'clock', grep: /@clock/, workers: 1, dependencies: ['main', 'webkit'], use: { ...devices['Desktop Chrome'] } },
   ],
 })

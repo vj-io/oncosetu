@@ -38,6 +38,8 @@ export const EXPECTED: Record<string, Expect> = {
   'GET /api/auth/demo-accounts': 'public',
   'POST /api/auth/logout': 'public',
   'GET /api/auth/me': `${FRONT} ${AUDIT} ${FAMILY}`,
+  'GET /api/auth/sessions': `${FRONT} ${AUDIT}`,
+  'POST /api/auth/sessions/revoke-others': `${FRONT} ${AUDIT}`,
   'POST /api/auth/patient/demo-code': 'public',
   'POST /api/auth/patient/otp/start': 'public',
   'POST /api/auth/patient/otp/verify': 'public',
@@ -72,7 +74,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/devices/register': `${FRONT} org_admin`,
   'GET /api/devices/status': `${FRONT} ${AUDIT}`,
   // documents and ledger items
-  'POST /api/documents/[id]/attach': CLINICAL,
+  'POST /api/documents/[id]/attach': CLINICAL, // rbac 'document.identity_decision' (FR-ID-05), not 'document.attach'
   'POST /api/documents/[id]/detach': CLINICAL,
   'GET /api/documents/[id]/file': originals,
   'GET /api/documents/[id]/preview': originals,
@@ -143,7 +145,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/patients/[id]/uploads/[sid]/finish': FRONT,
   'POST /api/patients/[id]/verify-bulk': CLINICAL,
   // records requests and shares
-  'GET /api/requests': FRONT,
+  'GET /api/requests': FRONT, // rbac 'request.view'; changing a request is 'request.manage'
   'POST /api/requests': requestManage,
   'POST /api/requests/[id]/sent': requestManage,
   'POST /api/requests/[id]/unobtainable': requestManage,

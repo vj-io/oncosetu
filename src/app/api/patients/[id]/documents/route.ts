@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { assertDeviceActive } from '@/server/devices/check'
 import { HttpError, route } from '@/server/http'
 import { assertPatientAccess } from '@/server/patients'
-import { scheduleBatch, scheduleProcessing, type IntakeRoute } from '@/server/pipeline/ingest'
+import { pollRunner, scheduleBatch, type IntakeRoute } from '@/server/pipeline/ingest'
 import { ingestUpload } from '@/server/pipeline/upload'
 import { listDocuments } from '@/server/pipeline/queries'
 import { patientIdParam } from '@/server/registration/http'
@@ -33,7 +33,7 @@ export const POST = route({ auth: 'staff', roles: ['desk', 'records', 'clinician
     audit: ctx.audit,
   })
   if (up.rejected) return NextResponse.json({ error: { code: up.rejected.code, message: up.rejected.message } }, { status: up.rejected.status })
-  scheduleBatch(up.documents.filter((r) => r.status === 'queued' && !r.duplicateOf && !r.idempotent).map((r) => r.documentId), ctx.session.orgId) // FR-ONB-01 order
+  scheduleBatch(patientId, up.documents.filter((r) => r.status === 'queued' && !r.duplicateOf && !r.idempotent).length, ctx.session.orgId) // FR-ONB-01 order
   // a single file keeps the old response shape; a ZIP also lists what was skipped
   return up.expandedZip ? { documents: up.documents, skipped: up.skipped } : { ...up.documents[0], skipped: up.skipped }
 })
@@ -43,6 +43,6 @@ export const GET = route({ auth: 'staff', roles: ['desk', 'records', 'clinician'
   const patientId = patientIdParam(ctx)
   await assertPatientAccess(ctx, patientId)
   const out = await listDocuments(ctx.db, patientId)
-  for (const r of out.rows) if (r.needsRunner) scheduleProcessing(r.id, ctx.session.orgId)
+  if (out.rows.some((r) => r.needsRunner)) await pollRunner(ctx.db, patientId, ctx.session.orgId) // next in queue order, capped
   return out
 })

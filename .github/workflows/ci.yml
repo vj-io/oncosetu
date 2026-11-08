@@ -48,6 +48,12 @@ jobs:
         with:
           node-version: 24
       - run: npm audit --audit-level=high
+      # ASVS 14.2.5: a software bill of materials (CycloneDX, runtime dependencies) for every run
+      - run: npm sbom --sbom-format cyclonedx --package-lock-only --omit dev > sbom.cdx.json
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sbom-cyclonedx
+          path: sbom.cdx.json
 
   gitleaks:
     name: Secret scan (gitleaks, full history)

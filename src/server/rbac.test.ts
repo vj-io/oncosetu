@@ -12,6 +12,14 @@ describe('RBAC matrix (PRD §6.1)', () => {
     expect(can('desk', 'ledger.headlines')).toBe(true)
     expect(can('desk', 'document.attach')).toBe(true)
   })
+  it('the routes W5 found wider or narrower than the table match a named permission (PRD §6.1)', async () => {
+    const { EXPECTED } = await import('../../tests/security/api-roles')
+    const staffHolders = (p: Permission) => holders(p).filter((r) => r !== 'patient' && r !== 'caregiver').join(' ')
+    expect(EXPECTED['POST /api/documents/[id]/attach']).toBe(staffHolders('document.identity_decision'))
+    expect(can('desk', 'document.identity_decision')).toBe(false) // the desk sees no document content
+    expect(EXPECTED['GET /api/requests']).toBe(staffHolders('request.view'))
+    expect(can('desk', 'request.manage')).toBe(false)
+  })
   it('records cannot verify clinician-tier items; clinician can', () => {
     expect(can('records', 'verify.records_tier')).toBe(true)
     expect(can('records', 'verify.clinician_tier')).toBe(false)

@@ -15,7 +15,12 @@ export type QueueRow = {
 
 const accession = (id: string) => `OS·${id.replace(/-/g, '').slice(-6).toUpperCase()}`
 
-export async function loadRecordsQueue(tx: Tx): Promise<{ rows: QueueRow[]; withoutConsent: number; buckets: readonly string[] }> {
+/** Rows shown at once. The tallies count every patient; only the shown rows' names are decrypted (NFR scale: 2,000 patients). */
+export const QUEUE_PAGE = 100
+
+export type QueueTotals = { patients: number; identity: number; lowConfidence: number; unverified: number }
+
+export async function loadRecordsQueue(tx: Tx, limit = QUEUE_PAGE): Promise<{ rows: QueueRow[]; totals: QueueTotals; withoutConsent: number; buckets: readonly string[] }> {
   const next = alias(events, 'next_version')
   const [identity, lowConf, unverified] = await Promise.all([
     tx.select({ patientId: documents.patientId, n: count() }).from(documents)
@@ -46,7 +51,8 @@ export async function loadRecordsQueue(tx: Tx): Promise<{ rows: QueueRow[]; with
     r.firstBucket = Math.min(r.firstBucket, b)
   }
   const ids = [...byPatient.keys()]
-  if (!ids.length) return { rows: [], withoutConsent: 0, buckets: PRIORITY_BUCKETS }
+  const totals: QueueTotals = { patients: 0, identity: 0, lowConfidence: 0, unverified: 0 }
+  if (!ids.length) return { rows: [], totals, withoutConsent: 0, buckets: PRIORITY_BUCKETS }
 
   const [people, latest] = await Promise.all([
     tx.select({ id: patients.id, nameEnc: patients.nameEnc, mrn: patients.mrn, status: patients.status }).from(patients).where(inArray(patients.id, ids)),
@@ -56,16 +62,21 @@ export async function loadRecordsQueue(tx: Tx): Promise<{ rows: QueueRow[]; with
   const consented = new Set(latest.filter((c) => c.action !== 'withdraw' && (c.purposes as ConsentPurposes).store).map((c) => c.patientId))
   let withoutConsent = 0
   const rows: QueueRow[] = []
+  const nameEnc = new Map<string, string>()
   for (const p of people) {
     if (p.status !== 'active') continue
     if (!consented.has(p.id)) { withoutConsent++; continue }
     const r = byPatient.get(p.id)!
-    r.name = decryptField(p.nameEnc)
+    nameEnc.set(p.id, p.nameEnc)
     r.mrn = p.mrn
-    r.total = r.identity + r.lowConfidence + r.unverified.reduce((a, b) => a + b, 0)
+    const unverified = r.unverified.reduce((a, b) => a + b, 0)
+    r.total = r.identity + r.lowConfidence + unverified
+    totals.patients++; totals.identity += r.identity; totals.lowConfidence += r.lowConfidence; totals.unverified += unverified
     rows.push(r)
   }
   // Administrative order (FR-ONB-01): pending identity decisions first, then the highest-priority document type waiting, then volume.
   rows.sort((a, b) => Number(b.identity > 0) - Number(a.identity > 0) || a.firstBucket - b.firstBucket || b.total - a.total || a.accession.localeCompare(b.accession))
-  return { rows, withoutConsent, buckets: PRIORITY_BUCKETS }
+  const shown = rows.slice(0, limit)
+  for (const r of shown) r.name = decryptField(nameEnc.get(r.patientId)!)
+  return { rows: shown, totals, withoutConsent, buckets: PRIORITY_BUCKETS }
 }

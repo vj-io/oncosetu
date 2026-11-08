@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ArrowUpRight, Check, CircleDashed } from 'lucide-react'
+import { SourceWords } from '@/components/ledger/LedgerItem'
 import { EXPLAIN, Explainer } from '@/components/ui'
 import type { Fact, OncologyView } from '@/core/doctor/oncology'
 
@@ -11,7 +12,7 @@ function FactRow({ f, showKind = false }: { f: Fact; showKind?: boolean }) {
         {showKind && <span className="font-medium text-ink">{f.kind}</span>}
       </div>
       <div className="grid min-w-0 gap-1">
-        <p className="text-[15px] leading-snug break-words">{f.text}</p>
+        <p className="text-[15px] leading-snug break-words"><SourceWords quoted={f.quoted}>{f.text}</SourceWords></p>
         {f.quote && f.quote !== f.text && <q className="font-display text-[15px] leading-snug text-muted">{f.quote}</q>}
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
           {f.verified

@@ -8,7 +8,7 @@ patients. Every "met" below points at the code or the test that shows it; nothin
 Status: **met** (evidence in code and, where noted, a test) · **partly** (some of it, or only on the deployed host) ·
 **not met** · **n.a.** (the feature does not exist here). Requirements that only apply at Level 3 are left out.
 
-Summary: 144 rows — 96 met, 32 partly, 9 not met, 7 n.a. The not-met items are listed at the end with
+Summary: 144 rows — 103 met, 30 partly, 4 not met, 7 n.a. The not-met items are listed at the end with
 the change each needs.
 
 ## V1 Architecture, design and threat modelling
@@ -49,10 +49,10 @@ the change each needs.
 | 2.7.6 | Out-of-band code from a CSPRNG, 20+ bits | met | `crypto.randomInt` six digits (~20 bits) |
 | 2.8.1 | Time-based OTP has a defined lifetime | met | RFC 6238, 30 s step, ±1 step (src/server/totp.ts, totp.test.ts) |
 | 2.8.3 | Approved algorithms for OTP | met | HMAC-SHA1 TOTP per RFC 6238 |
-| 2.8.4 | TOTP usable once within its validity period | not met | No record of the last accepted step: a code can be replayed within ~90 s |
+| 2.8.4 | TOTP usable once within its validity period | met | `staff.totp_last_step` (0022): the login accepts a code only from a later step than the last accepted one. The seeded demo/E2E accounts are exempt: their secrets are public by design (`demoTotpSecret`) |
 | 2.10.1 | Service authentication without default credentials | met | Cron: `Bearer CRON_SECRET`, timing-safe compare; Postmark: basic auth; Twilio: request signature |
 | 2.10.4 | Service secrets not in source | met | Environment variables; gitleaks over full history in CI (.gitleaksignore lists reviewed false positives) |
-| — | Multi-factor for staff | partly | TOTP is checked when `staff.totp_enabled` is set; an account without it signs in with a password alone (login route line `!s.totpEnabled \|\| …`) |
+| — | Multi-factor for staff | met | Every staff sign-in needs a TOTP code; an account without a secret cannot sign in (`totp_enabled` no longer skips the check) |
 
 ## V3 Session management
 
@@ -64,12 +64,12 @@ the change each needs.
 | 3.2.3 | Token stored securely in the browser | met | HttpOnly cookie; asserted in tests/e2e/security-headers.spec.ts |
 | 3.3.1 | Logout invalidates the session | met | Row revoked and cookie cleared (`destroySession`); asserted (me → 401 after sign-out) |
 | 3.3.2 | Idle and absolute timeouts | met | Staff 12 h / 30 min idle; patients 2 h / 30 min; desk station 30 / 5 min |
-| 3.3.3 | Option to end other sessions after a credential change | not met | |
-| 3.3.4 | Users can see and end their active sessions | not met | |
+| 3.3.3 | Option to end other sessions after a credential change | met | "Where you are signed in" (`/account/sessions`) ends every other sign-in; an administrator's authenticator reset or deactivation ends all of them |
+| 3.3.4 | Users can see and end their active sessions | partly | Staff: `/account/sessions` lists live sign-ins and ends the others. Patients and caregivers have no such list (their sessions last 2 h at most) |
 | 3.4.1 | Cookie `Secure` | met | Set on every deployed host; dropped only for plain-http localhost (`cookieSecure`, src/server/session.test.ts) |
 | 3.4.2 | Cookie `HttpOnly` | met | security-headers.spec.ts |
 | 3.4.3 | Cookie `SameSite` | met | `Lax`; security-headers.spec.ts |
-| 3.4.4 | `__Host-` cookie prefix | not met | Cookie is `os_sid`; host-only (no Domain), Path=/, so the prefix could be added |
+| 3.4.4 | `__Host-` cookie prefix | met | `__Host-os_sid` wherever the cookie is Secure, and only that name is read there; plain-http localhost (E2E) keeps `os_sid` |
 | 3.4.5 | Cookie path precise | met | One app per host, Path=/ |
 | 3.5.x | Token-based sessions | n.a. | No JWTs or bearer tokens for users |
 | 3.7.1 | Re-authentication for sensitive actions | partly | Break-glass needs a written reason and expires in 4 h; consent changes need patient OTP or a witness; no password re-entry |
@@ -84,7 +84,7 @@ the change each needs.
 | 4.1.5 | Fails securely | met | 401/403 before the handler runs; RLS denial (42501) answered 403 |
 | 4.2.1 | Protection against IDOR | met | `assertPatientAccess` + RLS on `org_id`; tests/integration/rls.test.ts, portal-privacy.test.ts, V01-E2E-06 |
 | 4.2.2 | CSRF protection | met | Origin must equal Host on every non-GET (`checkRequest` in http.ts) plus SameSite=Lax |
-| 4.3.1 | MFA for administrative interfaces | partly | As 2.x MFA: TOTP when enabled on the account |
+| 4.3.1 | MFA for administrative interfaces | met | As the staff MFA row: TOTP on every staff sign-in |
 | 4.3.2 | Directory browsing off, no metadata exposed | met | No static directory listing; .git not deployed |
 | 4.3.3 | Extra checks for high-value actions | partly | Erasure execution is admin-only and queued; break-glass notifies the patient; no second approver |
 
@@ -211,9 +211,9 @@ the change each needs.
 | 14.2.1 | Components up to date, no known vulnerable ones | partly | `npm audit --audit-level=high` clean after the zod override (8 Nov 2026); 12 moderate advisories remain, all in the Vercel CLI chain and dev tooling |
 | 14.2.2 | Unneeded features removed | partly | Demo endpoints (`/api/auth/demo-accounts`, demo codes, demo outbox) answer 404 unless `DEMO_MODE`; the public demo runs with it on by decision |
 | 14.2.3 | SRI for third-party assets | n.a. | No third-party scripts or styles |
-| 14.2.5 | Software bill of materials | not met | |
+| 14.2.5 | Software bill of materials | met | CI job "npm audit" writes a CycloneDX SBOM of the runtime dependencies (`npm sbom`) and keeps it as an artifact |
 | 14.3.2 | Debug modes off in production | met | Production builds only; no source maps served |
-| 14.3.3 | Headers expose no version details | partly | `X-Powered-By: Next.js` is sent (no version); set `poweredByHeader: false` in next.config.ts |
+| 14.3.3 | Headers expose no version details | met | `poweredByHeader: false`; `tests/e2e/security-headers.spec.ts` checks there is no `X-Powered-By` |
 | 14.4.1 | Content-Type with charset | partly | HTML has `charset=utf-8`; JSON responses carry `application/json` without a charset |
 | 14.4.2 | Content-Disposition for file APIs | partly | Originals are sent `inline` under a sandbox CSP so they can be previewed; `attachment` would be stricter |
 | 14.4.3 | Content-Security-Policy | met | Nonce + strict-dynamic, object-src 'none', frame-ancestors 'none' (src/proxy.ts, src/proxy.test.ts, security-headers.spec.ts) |
@@ -231,19 +231,15 @@ the change each needs.
 |---|---|
 | 2.1.7 | Check new staff passwords against a breached-password list (k-anonymity range query or an offline list) |
 | 2.2.3 | Notify a staff member (email or SMS) when their password or TOTP changes |
-| 2.8.4 | Store the last accepted TOTP step per staff member and refuse a code at or before it |
-| 3.3.3, 3.3.4 | A "your sessions" list with "sign out everywhere"; revoke other sessions on a password reset |
-| 3.4.4 | Rename the cookie to `__Host-os_sid` (it already meets the prefix's conditions on HTTPS) |
 | 6.4.1, 6.4.2 | Move the master, HMAC, signing and backup keys into a KMS or HSM-backed secret manager |
-| 14.2.5 | Generate an SBOM in CI (`npm sbom` or CycloneDX) |
 
-Also before a pilot: make TOTP mandatory for every staff account (2.x MFA, 4.3.1), remove the demo accounts and the
-9-character demo password (2.1.1), and turn `DEMO_MODE` off (14.2.2).
+Also before a pilot: remove the demo accounts and the 9-character demo password (2.1.1), turn `DEMO_MODE` off (14.2.2),
+and give patients a list of their own sign-ins (3.3.4).
 
 ## What this review did not cover
 
 - No penetration test, no dynamic scan (OWASP ZAP baseline is in PRD §12 and not yet run), no review of the hosting
   provider's controls.
-- Semgrep and gitleaks run in CI from 8 Nov 2026; the first Semgrep results on GitHub had not been triaged when this was
-  written.
+- Semgrep and gitleaks run in CI from 8 Nov 2026. The first Semgrep run found 14 items (unpinned workflow actions, AES-GCM
+  decryption without a fixed tag length); all were fixed the same day (PR #5).
 - ASVS 5.0 (May 2025) renumbers and extends these requirements; mapping to it is still to do.

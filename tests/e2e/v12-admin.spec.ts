@@ -12,7 +12,7 @@ import { abhaHmac } from '../../src/server/registration/duplicates'
 import { totp } from '../../src/server/totp'
 import { anonymous, Api, portalLogin, registerPatient } from './helpers/api'
 import { auditOf, patientRow, smsTo, staffId } from './helpers/db'
-import { EMAIL, NARMADA_RECORDS, ORG } from './helpers/env'
+import { BASE, EMAIL, NARMADA_RECORDS, ORG } from './helpers/env'
 import { test, expect } from './helpers/fixtures'
 import { parseCsv } from './helpers/flows'
 import { diagnosisHits } from './helpers/text'
@@ -51,10 +51,11 @@ test('FR-ADM-01 staff accounts: create, sign in, change role, reset the authenti
   expect(row.passwordHash).not.toContain(password)
 
   const contexts: Awaited<ReturnType<typeof anonymous>>[] = []
-  const signIn = async (secret: string) => {
+  // aheadMs: a later step's code (the window accepts +1 step); code: send exactly this code again
+  const signIn = async (secret: string, aheadMs = 0, code = totp(secret, Date.now() + aheadMs)) => {
     const c = await anonymous()
     contexts.push(c)
-    const status = (await c.post('/api/auth/staff/login', { data: { email, password, totp: totp(secret, Date.now()) } })).status()
+    const status = (await c.post('/api/auth/staff/login', { data: { email, password, totp: code } })).status()
     return { c, status, me: async () => { const r = await c.get('/api/auth/me'); return { status: r.status(), role: r.ok() ? (await r.json()).session.role : null } } }
   }
   try {
@@ -72,15 +73,18 @@ test('FR-ADM-01 staff accounts: create, sign in, change role, reset the authenti
     expect(secret2).not.toBe(secret1)
     expect((await first.me()).status).toBe(401)
     expect((await signIn(secret1)).status).toBe(401)
-    const second = await signIn(secret2)
+    const code2 = totp(secret2, Date.now())
+    const second = await signIn(secret2, 0, code2)
     expect(second.status).toBe(200)
+    // ASVS 2.8.4: the same code a second time is refused (a real authenticator, not a seeded public secret)
+    expect((await signIn(secret2, 0, code2)).status).toBe(401)
 
     // Deactivated: signed out at once and cannot sign in; reactivated: can again.
     expect((await admin.post(`/api/admin/staff/${id}`, { action: 'deactivate' })).ok).toBe(true)
     expect((await second.me()).status).toBe(401)
     expect((await signIn(secret2)).status).toBe(401)
     expect((await admin.post(`/api/admin/staff/${id}`, { action: 'reactivate' })).ok).toBe(true)
-    expect((await signIn(secret2)).status).toBe(200)
+    expect((await signIn(secret2, 30_000)).status).toBe(200) // the next step's code
 
     // Guards: not oneself, and another organisation's account looks like a missing one.
     expect((await admin.post(`/api/admin/staff/${await staffId(EMAIL.admin)}`, { action: 'deactivate' })).body.error.code).toBe('self_deactivate')
@@ -94,6 +98,42 @@ test('FR-ADM-01 staff accounts: create, sign in, change role, reset the authenti
   } finally {
     await admin.post(`/api/admin/staff/${id}`, { action: 'deactivate' })
     await Promise.all(contexts.map((c) => c.dispose()))
+  }
+})
+
+test('ASVS 3.3.3 / 3.3.4 a staff member sees where they are signed in and ends the other sign-ins', async ({ staff, browser }) => {
+  const admin = await staff('admin')
+  const email = `itest-${randomUUID().slice(0, 8)}@ganga.test`, password = `Pw-${randomUUID()}`
+  const made = await admin.post('/api/admin/staff', { name: 'Test Sessions Person', email, role: 'desk', password })
+  expect(made.status).toBe(200)
+  const secret: string = made.body.enrollment.secret
+  const signIn = async (aheadMs: number) => { // a real authenticator: each sign-in needs a code from a later step
+    const c = await anonymous()
+    expect((await c.post('/api/auth/staff/login', { data: { email, password, totp: totp(secret, Date.now() + aheadMs) } })).status()).toBe(200)
+    return c
+  }
+  const here = await signIn(0), lost = await signIn(30_000) // "lost": a phone left signed in
+  try {
+    const list = await (await here.get('/api/auth/sessions')).json()
+    expect(list.sessions).toHaveLength(2)
+    expect(list.sessions.filter((x: { current: boolean }) => x.current)).toHaveLength(1)
+    expect((await (await lost.get('/api/auth/sessions')).json()).sessions).toHaveLength(2)
+
+    const page = await (await browser.newContext({ storageState: await here.storageState(), baseURL: BASE })).newPage()
+    await page.goto('/account/sessions')
+    await expect(page.getByRole('heading', { name: 'Where you are signed in' })).toBeVisible()
+    await expect(page.getByText('This browser')).toHaveCount(1)
+    await page.getByRole('button', { name: 'Sign out everywhere else' }).click()
+    await expect(page.getByText('Signed out everywhere else')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sign out everywhere else' })).toBeDisabled()
+    await page.context().close()
+
+    expect((await lost.get('/api/auth/me')).status()).toBe(401) // the other sign-in ended
+    expect((await here.get('/api/auth/me')).status()).toBe(200) // this one stays
+    expect(await auditOf(made.body.id, 'auth.sessions_revoked')).toHaveLength(1)
+  } finally {
+    await here.dispose(); await lost.dispose()
+    await admin.post(`/api/admin/staff/${made.body.id}`, { action: 'deactivate' })
   }
 })
 

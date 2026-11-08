@@ -23,6 +23,9 @@ describe('oncologyView', () => {
     expect(v.medicines.map((f) => f.id)).toEqual(['g'])
     expect(v.followUp.map((f) => f.id)).toEqual(['h'])
     expect(Object.values(v).flat().find((f) => f.id === 'i')).toBeUndefined() // labs are not in the strip
+    // PRD §6.6 rule 3: copied stage, marker, margin and diagnosis lines render as quotes; a pathology report or a
+    // prescription is an ordinary line
+    expect(Object.fromEntries(Object.values(v).flat().map((f) => [f.id, f.quoted]))).toMatchObject({ a: true, c: true, d: true, e: true, b: false, g: false })
   })
   it('orders treatment oldest first with undated last', () => {
     const v = oncologyView([

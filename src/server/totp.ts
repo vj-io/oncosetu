@@ -1,6 +1,6 @@
 // RFC 6238 TOTP (HMAC-SHA1, 30 s step, 6 digits), ±1 step tolerance.
 import { createHmac } from 'node:crypto'
-import { base32Decode, randomToken, timingSafeEqualStr } from './crypto'
+import { base32Decode, base32Encode, randomToken, sha256Hex, timingSafeEqualStr } from './crypto'
 
 export const TOTP_STEP_S = 30
 
@@ -20,11 +20,23 @@ export function totp(secret: string | Buffer, timeMs = Date.now(), digits = 6): 
 }
 
 export function verifyTotp(secret: string | Buffer, code: string, timeMs = Date.now()): boolean {
-  if (!/^\d{6}$/.test(code)) return false
-  let ok = false
-  for (const d of [-1, 0, 1]) ok = timingSafeEqualStr(totp(secret, timeMs + d * TOTP_STEP_S * 1000), code) || ok
-  return ok
+  return totpStep(secret, code, timeMs) !== null
 }
+
+/** The time step (counter) the code belongs to within ±1 step, or null. All three steps are always compared. */
+export function totpStep(secret: string | Buffer, code: string, timeMs = Date.now()): number | null {
+  if (!/^\d{6}$/.test(code)) return null
+  const now = Math.floor(timeMs / 1000 / TOTP_STEP_S)
+  let hit: number | null = null
+  for (const d of [-1, 0, 1]) if (timingSafeEqualStr(totp(secret, timeMs + d * TOTP_STEP_S * 1000), code)) hit = now + d
+  return hit
+}
+
+/**
+ * The seeded demo and E2E accounts' secret: derived from the email, so anyone with the source can compute its codes, and
+ * the demo sign-in panel hands them out. A code from it proves nothing more after its first use, so it is not tracked.
+ */
+export const demoTotpSecret = (email: string) => base32Encode(Buffer.from(sha256Hex(`oncosetu-demo-totp:${email}`), 'hex').subarray(0, 20))
 
 /** 160-bit base32 secret. */
 export function generateTotpSecret(): string {

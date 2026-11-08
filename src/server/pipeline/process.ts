@@ -2,7 +2,7 @@
 // advances documents.stage received → text → classified → identity → extracted → gate → completeness and ends in
 // done | needs_review | failed | quarantined | unreadable. A lock older than 3 minutes is re-claimable, so the status
 // poll (GET /api/documents/[id]/status) or "reprocess" restarts a runner that died.
-import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import { withOrg, type Tx } from '@/db'
 import { aiRuns, documentFiles, documentPages, documents, events, evidence, patientAliases, patients, verifications } from '@/db/schema'
 import { sha256Hex } from '@/core/hash'
@@ -39,6 +39,33 @@ export async function claimDocument(orgId: string, documentId: string): Promise<
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+/**
+ * The patient's next document to process, in queue order: UUIDv7 ids follow upload order, and every batch is uploaded and
+ * ingested in backlog order (src/core/backlog.ts). Queued, or processing with a stale lock (the claim's own rule).
+ * `skip`: documents this runner already tried (a document put back to 'queued' by an abort must not loop forever).
+ */
+export async function nextWaiting(tx: Tx, patientId: string, skip: readonly string[] = []): Promise<string | null> {
+  const [r] = await tx.select({ id: documents.id }).from(documents).where(and(
+    eq(documents.patientId, patientId),
+    or(eq(documents.status, 'queued'), and(eq(documents.status, 'processing'), lt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`))),
+    skip.length ? notInArray(documents.id, [...skip]) : undefined,
+  )).orderBy(asc(documents.id)).limit(1)
+  return r?.id ?? null
+}
+
+/**
+ * FR-ONB-01, strict order: work through the patient's waiting documents in queue order until none is left. Every runner
+ * (a batch's workers, the documents screen's poll) takes the next one, so documents start in order whoever runs them;
+ * the claim keeps two runners off one document.
+ */
+export async function runPatientQueue(patientId: string, orgId: string): Promise<void> {
+  const tried: string[] = []
+  for (let id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId)); id; id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId, tried))) {
+    tried.push(id)
+    await runDocument(id, orgId)
+  }
+}
 
 /** Claim + process with retries and backoff (E-DOC-20). Never throws. */
 export async function runDocument(documentId: string, orgId: string, opts: { password?: string } = {}): Promise<void> {

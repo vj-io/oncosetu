@@ -63,6 +63,7 @@ const WORDS: Record<string, string> = {
   'auth.login': 'Signed in',
   'auth.login_failed': 'Failed sign-in',
   'auth.logout': 'Signed out',
+  'auth.sessions_revoked': 'Signed out other devices',
   'auth.patient_login': 'Patient signed in',
   'auth.otp_sent': 'Sign-in code sent',
   'auth.otp_failed': 'Wrong sign-in code',

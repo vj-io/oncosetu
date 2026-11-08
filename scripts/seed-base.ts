@@ -3,8 +3,9 @@
 //   npx tsx --env-file=.env.local scripts/seed-base.ts
 import { adminDb, closeDb } from '../src/db'
 import { organisations, orgSettings, staff } from '../src/db/schema'
-import { base32Encode, encryptField, hashPassword, sha256Hex } from '../src/server/crypto'
+import { encryptField, hashPassword } from '../src/server/crypto'
 import { DEMO_PASSWORD, ORG_GANGA_ID, ORG_NARMADA_ID } from '../src/server/demo'
+import { demoTotpSecret } from '../src/server/totp'
 
 const ORGS = [
   { id: ORG_NARMADA_ID, slug: 'narmada', name: 'Narmada Regional Cancer Centre', isDemo: true },
@@ -29,8 +30,7 @@ const E2E_STAFF = [
 ] as const
 
 /** Known demo TOTP secret: base32(first 20 bytes of sha256("oncosetu-demo-totp:" + email)). */
-export const demoTotpSecret = (email: string) =>
-  base32Encode(Buffer.from(sha256Hex(`oncosetu-demo-totp:${email}`), 'hex').subarray(0, 20))
+export { demoTotpSecret }
 
 async function main() {
   for (const o of ORGS) {

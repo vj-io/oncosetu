@@ -11,6 +11,12 @@ import { decryptField, randomToken, sha256Hex } from './crypto'
 import type { Role, StaffRole } from './rbac'
 
 export const SESSION_COOKIE = 'os_sid'
+/**
+ * ASVS 3.4.4: wherever the cookie is Secure it is named `__Host-os_sid`, so the browser refuses one set by another
+ * subdomain or over http, and only that name is read there. Plain-http localhost (E2E) keeps `os_sid`: the prefix needs Secure.
+ */
+export const sessionCookieName = (secure: boolean) => (secure ? `__Host-${SESSION_COOKIE}` : SESSION_COOKIE)
+const requestCookieName = async () => { const h = await headers(); return sessionCookieName(cookieSecure(h.get('host'), h.get('x-forwarded-proto'))) }
 const LIMITS = {
   staff: { maxS: 12 * 3600, idleS: 30 * 60 },
   patient: { maxS: 2 * 3600, idleS: 30 * 60 },
@@ -72,7 +78,7 @@ export async function sessionFromToken(token: string): Promise<Session | null> {
 
 /** Current session (memoised per request), or null. */
 export const getSession = cache(async (): Promise<Session | null> => {
-  const token = (await cookies()).get(SESSION_COOKIE)?.value
+  const token = (await cookies()).get(await requestCookieName())?.value
   return token ? sessionFromToken(token) : null
 })
 
@@ -116,16 +122,16 @@ export async function createSession(input: CreateSessionInput): Promise<{ sessio
     caregiverId: input.kind === 'caregiver' ? input.caregiverId : null,
   }).returning({ id: sessions.id })
   const h = await headers()
-  ;(await cookies()).set(SESSION_COOKIE, token, {
-    httpOnly: true, secure: cookieSecure(h.get('host'), h.get('x-forwarded-proto')), sameSite: 'lax', path: '/', maxAge: maxS,
-  })
+  const secure = cookieSecure(h.get('host'), h.get('x-forwarded-proto'))
+  ;(await cookies()).set(sessionCookieName(secure), token, { httpOnly: true, secure, sameSite: 'lax', path: '/', maxAge: maxS })
   return { sessionId: row.id, expiresAt }
 }
 
 /** Route handlers only. Revokes the current session row and clears the cookie. */
 export async function destroySession(): Promise<void> {
   const jar = await cookies()
-  const token = jar.get(SESSION_COOKIE)?.value
+  const name = await requestCookieName()
+  const token = jar.get(name)?.value
   if (token) await db.update(sessions).set({ revokedAt: new Date() }).where(eq(sessions.tokenHash, sha256Hex(token)))
-  jar.delete(SESSION_COOKIE)
+  jar.delete(name)
 }

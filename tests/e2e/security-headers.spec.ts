@@ -41,6 +41,7 @@ test('pages: nonce + strict-dynamic CSP without unsafe-inline scripts, HSTS, nos
     expect(h['x-content-type-options']).toBe('nosniff')
     expect(h['x-frame-options']).toBe('DENY')
     expect(h['referrer-policy']).toBe('no-referrer')
+    expect(h['x-powered-by'], 'no framework banner (ASVS 14.3.3)').toBeUndefined()
   }
   expect(new Set(nonces).size, 'a fresh nonce per response').toBe(nonces.length)
 })

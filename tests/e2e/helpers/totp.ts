@@ -1,8 +1,7 @@
-// RFC 6238 codes for the seeded E2E staff: same deterministic secret formula as scripts/seed-base.ts (demoTotpSecret).
-import { base32Encode, sha256Hex } from '../../../src/server/crypto'
-import { totp } from '../../../src/server/totp'
+// RFC 6238 codes for the seeded E2E staff: their secret is the public demoTotpSecret (src/server/totp.ts).
+import { demoTotpSecret, totp } from '../../../src/server/totp'
 
-export const secretFor = (email: string) => base32Encode(Buffer.from(sha256Hex(`oncosetu-demo-totp:${email}`), 'hex').subarray(0, 20))
+export const secretFor = demoTotpSecret
 export const totpFor = (email: string, timeMs = Date.now()) => totp(secretFor(email), timeMs)
 /** A well-formed code that is outside the ±1 step window of the real one. */
 export const wrongTotpFor = (email: string) => {

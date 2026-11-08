@@ -1,6 +1,6 @@
 // Oncology-ordered view of the facts already in the record, for the clinician overview.
 // Pure and quote-only: it only regroups existing fact types in a fixed order. It never infers, scores or summarises.
-import type { EventType } from '../types'
+import { STAFF_ONLY_EVENT_TYPES, type EventType } from '../types'
 
 /** The part of a ledger item this grouping needs (a structural subset of the server's ItemView). */
 export type FactItem = {
@@ -20,6 +20,8 @@ export type Fact = {
   kind: string
   /** The words of the document: a headline made of its own fields, or its quote. Never reworded. */
   text: string
+  /** A staff-only line copied word for word (stage, markers, margins, diagnosis...): shown as a quote, never as a statement. */
+  quoted: boolean
   quote: string | null
   where: string | null
   href: string | null
@@ -99,6 +101,7 @@ export function toFact(i: FactItem): Fact {
     id: i.id,
     kind: KIND[i.eventType] ?? 'Fact',
     text,
+    quoted: STAFF_ONLY_EVENT_TYPES.has(i.eventType),
     quote: q?.quote.trim() ?? null,
     where: src ? `${src.docLabel}${src.pageNo ? `, p.${src.pageNo}` : ''}` : null,
     href: src?.href ?? null,

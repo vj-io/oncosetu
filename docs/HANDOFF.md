@@ -11,7 +11,7 @@ design decision and test evidence: `docs/BUILD-REPORT.md`. Operations: `docs/RUN
 | Live app (production) | https://oncosetu-zeta.vercel.app — demo mode, synthetic data only |
 | Code | https://github.com/vj-io/oncosetu (private), branch `main` |
 | Hosting | Vercel project `oncosetu` (team "vaibhav700c's projects"), functions pinned to `sin1` (Singapore) in `vercel.json` |
-| Database | Neon project `mute-salad-65632065` ("oncosetu", `aws-ap-southeast-1`), branch `main`, Postgres 18 |
+| Database | Neon project `icy-cloud-44319946` ("oncosetu-nov", `aws-ap-southeast-1`), branch `main`, Postgres 18. Until 10 Nov 2026 the database was project `mute-salad-65632065`, which had used its free 5 GB of monthly network transfer; see `docs/RUNBOOK.md` |
 | Backups | Private Vercel Blob store `oncosetu-backups` (bom1 / Mumbai), `backups/YYYY/MM/DD/*.bak`, 35-day retention |
 | Product name | OncoSetu (was "OncoBridge" in PRD v1.0). Patient-facing surfaces show **"Setu Records"** until disclosure is cleared |
 

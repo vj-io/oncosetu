@@ -11,14 +11,14 @@ Two layers:
 | | Layer 1: point-in-time (Neon) | Layer 2: weekly encrypted backups (off the database) |
 |---|---|---|
 | What | Neon keeps the write-ahead log, so any moment inside the **history window** can be restored (PITR) | A logical export of every table, gzipped and encrypted with `BACKUP_KEY` (AES-256-GCM), in the private Vercel Blob store `oncosetu-backups` (region `bom1`, Mumbai) |
-| How far back | `history_retention_seconds`: **21600 s (6 hours)** on the free plan. Read it with `neonctl projects get mute-salad-65632065 -o json` | **35 days** (`BACKUP_RETENTION_DAYS`, default 35); the 7 newest are kept whatever their age, so a stopped job never empties the store |
+| How far back | `history_retention_seconds`: **21600 s (6 hours)** on the free plan. Read it with `neonctl projects get icy-cloud-44319946 -o json` | **35 days** (`BACKUP_RETENTION_DAYS`, default 35); the 7 newest are kept whatever their age, so a stopped job never empties the store |
 | Granularity | Any second inside the window | One snapshot a week: Vercel Cron `GET /api/cron/backup` on Sundays at 03:00 UTC (`vercel.json`). Up to 7 days of writes are lost once the 6 h window has passed. Weekly because each run reads every stored file from Neon (most of the database) and the free plan allows 5 GB of network transfer per project per month; daily runs would take about 4 GB a month of it. On a paid plan (500 GB) go back to daily: `0 3 * * *` |
 | Where | Neon itself: lost with the Neon project | Outside Neon, in another provider and region |
 | Restore | Section 1, A and B; drill in section 2 | Section 1, C; `scripts/restore-from-backup.ts` |
 
 | | |
 |---|---|
-| Database | Neon Postgres (project `mute-salad-65632065`, organisation `org-shiny-star-64825025`, region `aws-ap-southeast-1` Singapore), branch `main` |
+| Database | Neon Postgres (project `icy-cloud-44319946` "oncosetu-nov", organisation `org-shiny-star-64825025`, region `aws-ap-southeast-1` Singapore), branch `main`. Moved there on 10 Nov 2026 from `mute-salad-65632065`, which had used its free 5 GB of monthly network transfer: a fresh encrypted backup was loaded and every table re-exported to the backup's bytes (48 tables, 40,385 rows) before the switch. The old project is kept, unused |
 | What is in a restore | Everything in the database: patients, events and evidence, documents (original files as encrypted `bytea`), audit log, snapshots with their signatures, shares, sessions. Each backup also carries a manifest: the applied migration hashes, row count and SHA-256 per table, and the audit-chain head per organisation. |
 | What is not | Environment secrets (`APP_MASTER_KEY`, `HMAC_KEY`, `SIGNING_KEY_ED25519`, `SIGNING_KEY_ID`, `BACKUP_KEY`) and the code. Both must be kept separately (sections 3 and 4, and "Backup key" below). A restore without `APP_MASTER_KEY` gives unreadable names, phone numbers and files. |
 | Encryption | PII columns and original files are encrypted by the app (AES-256-GCM envelope) before they reach Neon, so a restored copy is only readable with the same `APP_MASTER_KEY`. Each backup is encrypted again as a whole with `BACKUP_KEY`; the PII and files inside stay `APP_MASTER_KEY` ciphertext, so reading one needs **both** keys. |
@@ -49,10 +49,10 @@ Pick the timestamp first: the last moment you trust (before the bad deploy, the 
 
 ```bash
 # 1. restore main as it was at <ISO time> into a new branch with its own compute
-neonctl branches create --project-id mute-salad-65632065 --name restore-<date> --parent 2026-11-02T09:30:00Z
+neonctl branches create --project-id icy-cloud-44319946 --name restore-<date> --parent 2026-11-02T09:30:00Z
 # 2. connection strings (owner). Role and database are the ones in DATABASE_URL_UNPOOLED (neondb_owner, neondb)
-neonctl connection-string restore-<date> --project-id mute-salad-65632065 --role-name neondb_owner --database-name neondb
-neonctl connection-string restore-<date> --project-id mute-salad-65632065 --role-name neondb_owner --database-name neondb --pooled
+neonctl connection-string restore-<date> --project-id icy-cloud-44319946 --role-name neondb_owner --database-name neondb
+neonctl connection-string restore-<date> --project-id icy-cloud-44319946 --role-name neondb_owner --database-name neondb --pooled
 ```
 
 The app role `oncosetu_app` exists on the branch with the same password as on `main`. Its URL is `DATABASE_URL_APP` with the host replaced by the branch's pooled host (`-pooler` in the name).
@@ -64,7 +64,7 @@ To go live on the restored data, set `DATABASE_URL`, `DATABASE_URL_UNPOOLED` and
 **B. In place (the connection strings stay the same).**
 
 ```bash
-neonctl branches restore main ^self@2026-11-02T09:30:00Z --project-id mute-salad-65632065 --preserve-under-name main_before_restore_<date>
+neonctl branches restore main ^self@2026-11-02T09:30:00Z --project-id icy-cloud-44319946 --preserve-under-name main_before_restore_<date>
 ```
 
 `main` goes back to that moment and its previous state is kept under the preserve name. Use this when you cannot change environment variables quickly. **This path has not been exercised by the drill**; try it on a throwaway branch first (`neonctl branches restore <branch> ^self@<time>`).
@@ -95,7 +95,7 @@ What it does: takes a restore point and a reference from `main`, restores into a
 
 The backup layer has its own drill: `npx tsx --env-file=.env.local scripts/restore-from-backup.ts --blob latest` (about 2 minutes; section 1 C). Run both.
 
-Run it once per release (PRD §10.2: restore drill documented per version from v0.6), and after any change to the database layout, the keys or the Neon plan. Run it when nothing else writes to `main`: the reference needs about 10 s of quiet and the script retries a few times. If a run is killed hard (SIGKILL) a branch named `restore-drill-…` may be left; delete it with `neonctl branches delete <name> --project-id mute-salad-65632065` (the free plan allows 10 branches).
+Run it once per release (PRD §10.2: restore drill documented per version from v0.6), and after any change to the database layout, the keys or the Neon plan. Run it when nothing else writes to `main`: the reference needs about 10 s of quiet and the script retries a few times. If a run is killed hard (SIGKILL) a branch named `restore-drill-…` may be left; delete it with `neonctl branches delete <name> --project-id icy-cloud-44319946` (the free plan allows 10 branches).
 
 A FAIL means the restored copy cannot be trusted as-is. Read the failed row in the report; do not delete the evidence until someone has looked at it.
 
@@ -134,7 +134,7 @@ Fill in the times as you go; the 72-hour clock runs from the moment the organisa
 
 - [ ] **T0 recorded:** date and time (IST) we became aware: ______. Deadline for the detailed report (T0 + 72 h): ______. Incident lead: ______. Counsel: ______. Hospital contact: ______.
 - [ ] **Contain.** Stop the leak without destroying evidence: revoke affected sessions (delete the rows in `sessions` for the organisation), revoke share links (`POST /api/shares/{id}/revoke`, or in Admin), revoke devices (`/api/devices/{id}/revoke`), disable staff accounts (Admin → Staff), set `DEMO_MODE` off if it was on, take the deployment offline on Vercel if the hole is not closed. Rotate any secret that may have been exposed (sections 3 and 4).
-- [ ] **Preserve evidence, first.** The free-plan history window is 6 hours (weekly encrypted backups go back 35 days, section 1), so make a branch of the current state **before** any repair: `neonctl branches create --project-id mute-salad-65632065 --name incident-<date>`. Export the audit log (`/api/admin/audit.csv`) and run the chain check (Admin → Audit, `/api/admin/audit/verify`). The audit log is append-only and hash-chained; a broken chain is itself a finding. Save Vercel logs for the window (logs hold ids only, never names or phone numbers).
+- [ ] **Preserve evidence, first.** The free-plan history window is 6 hours (weekly encrypted backups go back 35 days, section 1), so make a branch of the current state **before** any repair: `neonctl branches create --project-id icy-cloud-44319946 --name incident-<date>`. Export the audit log (`/api/admin/audit.csv`) and run the chain check (Admin → Audit, `/api/admin/audit/verify`). The audit log is append-only and hash-chained; a broken chain is itself a finding. Save Vercel logs for the window (logs hold ids only, never names or phone numbers).
 - [ ] **Scope.** Which organisation(s), which patients, which data (identifiers, documents, quotes, phone numbers, shared links), which time range, which access path. Use the audit log by actor, target and time, `share_views`, and `break_glass`. State what is not known yet.
 - [ ] **Tell the hospital now** (the data fiduciary): what happened, when we became aware, what is known and unknown, what we have done. The hospital decides the Board filing with us; we supply the facts.
 - [ ] **Intimate the Data Protection Board of India without delay**, in writing, with what is known: the nature of the breach, its extent, when and where it happened, the likely impact on the people affected. Keep a copy and the filing reference: ______.

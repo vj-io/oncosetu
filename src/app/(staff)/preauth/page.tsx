@@ -5,6 +5,7 @@ import { FileCheck2 } from 'lucide-react'
 import { EmptyState, SectionHeader, Table } from '@/components/ui'
 import { PREAUTH_LINES } from '@/core/preauth'
 import { withOrg } from '@/db'
+import { QUEUE_PAGE } from '@/server/ledger/queue'
 import { loadPreauthWorklist } from '@/server/preauth/worklist'
 import { requireStaff } from '@/server/session'
 
@@ -12,9 +13,12 @@ export const metadata = { title: 'Pre-auth files · OncoSetu' }
 
 const link = 'font-mono text-[12px] tabular-nums text-setu-ink underline decoration-brass underline-offset-4 whitespace-nowrap'
 
-export default async function PreauthWorklistPage() {
+export default async function PreauthWorklistPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const session = await requireStaff(['records'])
-  const { rows, patients, withoutConsent } = await withOrg(session.orgId, (tx) => loadPreauthWorklist(tx))
+  const page = Math.max(1, Math.floor(Number((await searchParams).page)) || 1)
+  const offset = (page - 1) * QUEUE_PAGE
+  const { rows, patients, withoutConsent } = await withOrg(session.orgId, (tx) => loadPreauthWorklist(tx, offset))
+  const pages = Math.ceil(patients / QUEUE_PAGE)
   return (
     <div className="grid grid-cols-1 gap-10">
       <SectionHeader
@@ -58,8 +62,17 @@ export default async function PreauthWorklistPage() {
             ))}
           </tbody>
         </Table>
+      ) : page > 1 && patients ? (
+        <p className="text-sm text-muted">There is no page {page}. <Link className={link} href="/preauth">Back to the first page</Link></p>
       ) : (
         <EmptyState icon={<FileCheck2 />} title="No files yet" description="Patients appear here once a document is in their file." />
+      )}
+      {pages > 1 && rows.length > 0 && (
+        <nav aria-label="Pages of the worklist" className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-muted">
+          <span>Showing {offset + 1}–{offset + rows.length} of {patients}, in this order.</span>
+          {page > 1 && <Link className={link} href={page === 2 ? '/preauth' : `/preauth?page=${page - 1}`}>Previous {QUEUE_PAGE}</Link>}
+          {page < pages && <Link className={link} href={`/preauth?page=${page + 1}`}>Next {Math.min(QUEUE_PAGE, patients - offset - rows.length)}</Link>}
+        </nav>
       )}
       <p className="max-w-3xl text-[13px] text-faint">
         {patients} patient{patients === 1 ? '' : 's'} with documents{withoutConsent ? `; ${withoutConsent} more without a storage consent are not listed` : ''}.

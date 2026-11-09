@@ -161,18 +161,21 @@ npm run test:e2e                                       # 99 Playwright tests (ma
 
 **Known limits worth improving**
 
-- Extraction recall on layouts the rules have not seen is about 0.7 (target 0.85): the second blind set (24 documents,
-  9 Nov, `data/eval/heldout2/`) gave recall 0.691 and precision 0.785 with rules, and Gemini added nothing (0.691). Both
-  held-out sets have now been used for fixes (0.969 and 0.755 are second looks), so the next honest number needs a third
-  fresh set, written by someone who has not seen the rules (`scripts/demo-docs/heldout2-docs.ts` shows the format; do not
-  run `generate-heldout.ts`, which would overwrite the audited `gold-heldout.json` with older labels). Identity holds
-  true documents for a person (12 of 40 and 5 of 24, one blocked as a name mismatch) but attached none to the wrong
-  patient. OCR CER on phone photos is 7.5% (target 5%). Gold labels need the clinician advisor's review.
+- Extraction recall on layouts the rules have not seen is about 0.65–0.7 (target 0.85): blind recall 0.709 (held-out,
+  1 Nov), 0.691 (second blind set, 9 Nov) and 0.651 with precision 0.800 (third blind set, 10 Nov,
+  `data/eval/heldout3-blind-run.json`). All three sets have now been used for fixes (0.979, 0.873 and 0.714 are second
+  looks), so the next honest number needs a fourth fresh set from an author who has not seen the rules, given an empty
+  scratch folder of its own (`scripts/demo-docs/heldout3-docs.ts` shows the format; do not run `generate-heldout.ts`,
+  which would overwrite the audited `gold-heldout.json` with older labels). Identity holds true documents for a person
+  (7 of 40, 3 of 24 and 5 of 24) but attached none to the wrong patient. OCR CER on phone photos is 7.4% (target 5%).
+  Gold labels need the clinician advisor's review.
   Drug-name accuracy for voice is measured on 50 synthetic clips only; real voices need the pilot (shadow mode exists). The three fact types added on 5 Nov (allergy, follow-up date, lab result
   rows) have no gold labels yet, so the eval counts them without scoring them. The `--llm` report predates them.
 - Malware check is the EICAR signature behind the `MalwareScanner` interface (ADR-016); a ClamAV host is still needed.
-- CI (`.github/workflows/ci.yml`) has not run on GitHub yet. The database suites need a `CI_ENV_FILE` secret pointing at a
-  dedicated CI Neon branch, never production. Semgrep has not been run locally.
+- CI (`.github/workflows/ci.yml`) runs on every pull request: typecheck, lint and unit tests, `npm audit` (high and
+  critical), a gitleaks scan of the full history and Semgrep (OWASP Top 10) all passed on PR #7 (9 Nov). The integration
+  and Playwright jobs skip until a `CI_ENV_FILE` secret points at a dedicated CI Neon branch, never production; until then
+  those suites run by hand on a temporary Neon branch before each merge (build report §5 and §6).
 - ASVS L2 self-assessment (`docs/security/ASVS-L2-checklist.md`): 4 rows not met, all needing something outside code: a
   breached-password list or service (2.1.7), a way to email or text staff when their credentials change (2.2.3), and a
   KMS for the keys (6.4.1, 6.4.2). Patients have no list of their own sign-ins (3.3.4, partly).

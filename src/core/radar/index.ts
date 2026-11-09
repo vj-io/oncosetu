@@ -297,6 +297,21 @@ export function runRadar(input: RadarInput): RadarOutput {
     }
   }
 
+  // One paper, one item: two triggers in the same document can expect the same paper (an operation note's procedure
+  // and its "specimen sent for HPE"; "HPE awaited" and "sent for histopathology" in one discharge summary). Items from
+  // one source document that expect the same document types in overlapping windows collapse into one: a rule in
+  // production mode wins over a shadow one, then the rule listed first in rules.yaml, then the earlier trigger.
+  const rank = new Map((input.rules ?? RADAR_RULES).map((r, i) => [r.id, i]))
+  const docOf = new Map(triggers.map((t) => [t.id, t.documentId]))
+  const kept: RadarItem[] = []
+  for (const it of [...items].sort((a, b) => Number(a.mode === 'shadow') - Number(b.mode === 'shadow') || rank.get(a.ruleId)! - rank.get(b.ruleId)! || (a.window.from ?? '').localeCompare(b.window.from ?? ''))) {
+    const doc = it.triggerKind === 'event' && !it.grouped ? docOf.get(it.triggerEventId) : null
+    const same = (k: RadarItem) => !k.grouped && k.triggerKind === 'event' && docOf.get(k.triggerEventId) === doc
+      && [...k.expectedTypes].sort().join() === [...it.expectedTypes].sort().join()
+      && (k.window.from ?? '') <= (it.window.to ?? '\uffff') && (it.window.from ?? '') <= (k.window.to ?? '\uffff')
+    if (!doc || !kept.some(same)) kept.push(it)
+  }
+  items.splice(0, items.length, ...kept)
   items.sort((a, b) => a.ruleId.localeCompare(b.ruleId) || (a.window.from ?? '').localeCompare(b.window.from ?? '') || a.dedupeKey.localeCompare(b.dedupeKey))
   closureProposals.sort((a, b) => a.dedupeKey.localeCompare(b.dedupeKey) || a.documentId.localeCompare(b.documentId))
   return { items, closureProposals }

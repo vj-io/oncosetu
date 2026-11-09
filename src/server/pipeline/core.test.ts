@@ -172,3 +172,35 @@ describe('hybrid extraction (free-tier LLM augments the rules)', () => {
     expect(a.drafts).toHaveLength(0)
   })
 })
+
+describe('dates of done things (10 Nov 2026)', () => {
+  it('a cycle, scan or procedure dated after the document is a plan, not a record', async () => {
+    const a = await analyse([page(`${HEAD}Cycle 3 of 6 given today.\nNext: Cycle 4 on 26/06/2026 with CBC.\nPET-CT on 30/06/2026 after cycle 4.\n`)], SUNITA, RECEIVED)
+    const dated = a.drafts.filter((d) => ['chemotherapy_session_documented', 'imaging_report_documented'].includes(d.eventType)).map((d) => d.eventDate)
+    expect(dated.every((d) => !d || d <= '2026-06-05')).toBe(true)
+  })
+  it('an operation note dates its operation by the note when the line itself has no date', async () => {
+    const a = await analyse([page('CITY CANCER HOSPITAL\nOPERATION RECORD\nPatient\tSunita Deshmukh, 51 Y / F\nDate of Operation\t21 May 2026\nSurgeon\tDr. A. Rao\nOperation performed\tWide local excision, left breast\nSpecimen sent for HPE.\n')], SUNITA, RECEIVED)
+    expect(a.identified.identity.result).toBe('match') // "Patient <TAB> name, age / sex" header table
+    expect(a.identified.documentDate?.iso).toBe('2026-05-21')
+    expect(a.drafts.find((d) => d.eventType === 'procedure_documented')?.eventDate).toBe('2026-05-21')
+    expect(a.drafts.some((d) => d.eventType === 'report_pending_documented' && /HPE/.test(d.evidence.quote))).toBe(true)
+    const note = await analyse([page('CITY CANCER HOSPITAL\nOPERATION NOTE\nName: Sunita Deshmukh\tAge / Sex: 51 / F\nDate: 21/05/2026\nSurgeon: Dr. A. Rao\nAnaesthesia: GA\nPre-op diagnosis: Ca left breast\nAssistant: Dr. B. Nair\nOperation: Wide local excision, left breast\nBlood loss 50 mL.\n')], SUNITA, RECEIVED)
+    expect(note.drafts.find((d) => d.eventType === 'procedure_documented')).toMatchObject({ eventDate: '2026-05-21', flags: expect.objectContaining({ date_from_document: true }) })
+  })
+  it('reads D.O.D. as the discharge date of a discharge summary', () => {
+    expect(headerFor('DISCHARGE SUMMARY\nName: Sunita Deshmukh\nD.O.A.: 22.06.2026\nD.O.D.: 27.06.2026\n').reportDate).toMatchObject({ value: '27.06.2026', label: 'discharge date' })
+  })
+})
+
+describe('reports named in a note (10 Nov 2026)', () => {
+  it('a dated biopsy result is the pathology report, and dated markers are lab reports; plans are neither', async () => {
+    const note = 'CITY CANCER HOSPITAL\nMEDICAL ONCOLOGY OPD\nName: Sunita Deshmukh\tAge / Sex: 51 / F\nDate: 20/04/2026\n' +
+      'Investigations\n• HPE (core biopsy) dtd 28/03/2026: invasive ductal carcinoma, grade 2.\n• CA 125 (12/04/2026): 48 U/mL.\n• CBC to be repeated on 30/04/2026.\n'
+    const a = await analyse([page(note)], SUNITA, RECEIVED)
+    const of = (t: string) => a.drafts.filter((d) => d.eventType === t).map((d) => d.eventDate)
+    expect(of('pathology_report_documented')).toEqual(['2026-03-28'])
+    expect(of('procedure_documented')).toEqual([]) // the biopsy line names the report, not a second procedure
+    expect(of('lab_report_documented')).toEqual(['2026-04-12'])
+  })
+})

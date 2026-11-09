@@ -4,12 +4,12 @@ import { z } from 'zod'
 import type { Tx } from '@/db'
 import { documentPages, documents, events, evidence, snapshots } from '@/db/schema'
 import { parseDate } from '@/core/dates'
-import { DOC_TYPES, EXTRACTABLE_EVENT_TYPES } from '@/core/types'
+import { DOC_TYPES, EXTRACTABLE_EVENT_TYPES, type DocType } from '@/core/types'
 import type { AuditDetails } from '@/server/audit'
 import { HttpError } from '@/server/http'
 import { assertPatientAccess } from '@/server/patients'
 import type { Session } from '@/server/session'
-import { gateAndDate, type Classified } from './core'
+import { gateAndDate, type GatedPages } from './core'
 import { scheduleProcessing } from './ingest'
 import { needsRunner } from './queries'
 import { recomputeRadar } from './radar'
@@ -140,7 +140,7 @@ export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manu
     pageNo: page.pageNo, text: page.text, words: page.words ?? null, ocrConfidence: page.ocrConfidence, lowConfidence: page.lowConfidence,
     source: page.words ? 'ocr' : 'text_layer', handwriting: null, hidden: null, image: null, processor: page.processor ?? '', processorVersion: page.processorVersion ?? '',
   }
-  const classified = { usable: [pr] } as Classified
+  const classified: GatedPages = { usable: [pr], docType: (d.docType as DocType | null) ?? undefined }
   const docDate = d.documentDate ? parseDate(d.documentDate) : null
   const { gate, drafts } = gateAndDate([{ event_type: body.eventType, fields: body.fields, quote: body.quote, page_no: body.pageNo }], classified, { documentDate: docDate }, d.receivedAt, 'rules')
   if (!drafts.length) {

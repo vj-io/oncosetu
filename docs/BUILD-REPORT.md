@@ -61,7 +61,7 @@ Opus orchestrated (plans, contracts in `docs/ARCHITECTURE.md` and `docs/AGENT-RU
 | | Restore drill + perf (**Sonnet**) | Neon PITR restore drill, 500-event perf gate, loader pipelining |
 | | Inbound channels (**Opus**) | Email drop (Postmark) + WhatsApp intake (Twilio) with code-confirmed holds |
 | | ABDM HIU (**Opus**) | Transport interface, X25519/HKDF/AES-GCM, consent-gated decrypt, FHIR mapping |
-| | Backups (**Opus**) | Encrypted daily backups to private Blob (Mumbai) + verified restore |
+| | Backups (**Opus**) | Encrypted weekly backups to private Blob (Mumbai) + verified restore |
 | | Perf probe (**Sonnet**) | Co-located FR-LED-07 measurement on Vercel sin1 |
 | Completion | Held-out eval (**Sonnet**) | 40 documents written after the rules froze, gold labels, OCR ground truth, CER and macro-F1 in `scripts/eval.ts` |
 
@@ -113,3 +113,5 @@ Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified f
 | Pre-auth: CBC / LFT / RFT checked one by one; cross-patient **Pre-auth files** worklist (`/preauth`, records) | Unit tests in `src/core/preauth.test.ts`; E2E V13-E2E-02; added to the 375 px / axe sweep |
 | OCR clean-up experiment (grey, normalise, 1.5× and 2× upscale, sharpen) | On the 11 photo pages of the earlier sets, every variant raised the mean CER (7.46% as is; 7.9–8.4% with clean-up); not adopted |
 | Stale claim corrected | CI does run on GitHub (typecheck, lint, unit, npm audit, gitleaks, Semgrep passed on PR #7); the database suites skip there until a CI database secret exists |
+| Tests (10 Nov, production build) | Unit 1,360 of 1,360 (90 files); integration 79 of 79 (17 files); E2E 100 of 100 (77 Chromium, 16 WebKit, 7 clock). Two E2E tests passed on their retry after the connection to Neon dropped; the server log shows `write CONNECTION_CLOSED`, not an app error |
+| Neon network transfer | The project reached the free plan's 5 GB monthly transfer on 9 Nov (5.27 GB: about 3.7 GB from test branches, 1.6 GB from `main`, mostly the daily backup reading every stored file). Backup cron moved to weekly (`vercel.json`); docs say how to go back to daily on a paid plan |

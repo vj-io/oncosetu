@@ -115,9 +115,9 @@ browser ──> route handlers (src/app/api/**, wrapped by route() in src/server
 ## 5. Testing
 
 ```bash
-npm run typecheck && npm run lint && npm test          # 1,344 unit tests (90 files; includes the eval regression guard and the RBAC table)
+npm run typecheck && npm run lint && npm test          # 1,360 unit tests (90 files; includes the eval regression guard and the RBAC table)
 npm run build && npm run test:integration              # 79 live-DB tests (17 files); the log-redaction test starts `next start` from the build
-npm run test:e2e                                       # 99 Playwright tests (main, webkit, clock) against BASE_URL (default :3000)
+npm run test:e2e                                       # 100 Playwright tests (main, webkit, clock) against BASE_URL (default :3000)
 ```
 
 - E2E runs entirely in the **Ganga** org with `*@ganga.test` staff; the two clock-moving tests run alone in the `clock`

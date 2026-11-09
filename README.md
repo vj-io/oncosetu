@@ -29,6 +29,7 @@ Around the loop:
 
 - **Patient and caregiver portal:** OTP sign-in, caregiver-primary accounts, and pre-visit questions answered by tap or by voice, with text read-back. Voice goes to Sarvam (`saaras:v4`, with the patient's own medicines and hospitals as keyterms); the recording is kept encrypted beside the answer for records and clinicians to play. Spoken read-back (Sarvam `bulbul:v3`) is offered only when the hospital turns it on and the diagnosis has been disclosed. A desk-station mode (`/p/login?station=1`) runs the questions on a clinic tablet that signs itself out. Home shows only what the papers say: papers received, papers not in the file with where to ask (the hospital or lab that mentioned them), the doctor named on the latest papers, and dates already written down (next visit, suture removal); no treatment choices or outcomes. The send page leads with forwarding from WhatsApp or email. Languages: English, Hindi and Hinglish (Hindi in Roman script) on patient pages, share links and patient SMS; letters to hospitals stay English or Hindi. Before sign-in, the portal, share links and the public verify page open in Hindi when the browser prefers Hindi; after sign-in, the patient's own language applies.
 - **Offline desk capture (PWA):** an encrypted local queue that syncs when the network returns.
+- **PM-JAY pre-auth file (9 Nov):** a patient tab for the insurance desk (records, clinicians, administrators). For chemotherapy, surgery or radiotherapy it lists the documents NHA's oncology Standard Treatment Guidelines (prepared with Tata Memorial Hospital and the National Cancer Grid) ask for before pre-authorisation and for the claim, each marked in the file, not in the file, or not a paper OncoSetu holds (the signed treatment plan approval form, drug bar codes). A document not in the file that the missing-papers list is already chasing says which hospital to ask. Printable. Document completeness only: it does not judge eligibility or choose a package (`src/core/preauth.ts`).
 - **Admin console:** rule review, the audit-chain view, metrics, and the measurement study.
 - **ABDM pull (J6, FR-ING-ABDM-01/02):** records staff request FHIR records linked to the patient's ABHA, the patient approves in the portal, and the encrypted bundles become structured facts (`external_structured`, evidence = the FHIR resource) that feed the ledger and the Radar. Runs against an in-process consent manager and HIP (see ABDM below).
 
@@ -166,6 +167,23 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 - Reports: `data/eval/report.json` (rules, 5 November 2026) and `data/eval/report-llm.json` (rules + Gemini `gemini-3.5-flash-lite`, hybrid mode, 4 November 2026, before the 5 November extractor changes: 58 calls through the shared budget, 52 ok and 6 provider errors that fell back to the next model or to the rules). The admin metrics page shows both against the PRD thresholds.
 - Only event types that a set's gold labels at all are scored. The types added on 5 and 6 November (allergy statements, follow-up dates, lab result rows, diagnosis sections, history sentences) are still not labelled: they are counted, pass the hard gates, and are scored once someone labels them. The six types added on 7 November are labelled and scored.
 
+**9 November: a second blind set.** `data/eval/heldout2/` holds 24 new documents (6 patients, 110 gold facts; gold `data/eval/gold-heldout2.json`), written on 9 November by a separate author: an AI assistant working without access to the rules, which read only the document generator and the labelling convention. It weights the types the held-out set found weakest: consultation notes, radiotherapy summaries, operation notes, discharge summaries with medicine lists and histopathology. Before it ran, the rules were fixed for the held-out set's misses (commit `3ce6279`), so the held-out set is now a second look, not a blind one.
+
+| PRD §9.5 metric | Target | Tuned · rules | Held-out · rules (second look) | New blind set · rules, blind run | New blind set · rules after its fixes (second look) | New blind set · rules + Gemini, blind run |
+|---|---|---|---|---|---|---|
+| Unsupported facts reaching the record | 0 | 0 | 0 | 0 | 0 | 0 |
+| Handwritten pages auto-extracted | 0 | 0 | 0 | 0 | 0 | 0 |
+| Event precision | ≥ 0.95 | 0.984 | 1.000 | 0.785 | 0.820 | 0.788 |
+| Event recall (omission) | ≥ 0.85 | 1.000 | 0.979 | 0.691 | 0.791 | 0.691 |
+| Classification macro-F1 | ≥ 0.85 | 1.000 | 1.000 | 0.820 | 0.926 | 0.820 |
+| Identity decision as expected | held, never wrong | 20 / 20 | 28 / 40 | 19 / 24 | 19 / 24 | 19 / 24 |
+
+What it found. Rules fixed on one set's misses did not carry over to new layouts: blind recall stayed at about 0.7 (0.709 on the first held-out set, 0.691 here). AI-assisted reading (Gemini `gemini-3.5-flash-lite`, hybrid mode, 22 calls, all ok; `data/eval/report-llm-heldout2.json`) added nothing on this set. Precision fell below target too, mostly from procedure mentions: one operation counted as several items, and a planned operation ("tentatively on …") counted as done. No document was attached to the wrong patient: 4 true documents were held for a person and 1 was blocked as a name mismatch. OCR character error rate over all 11 printed photo pages of the three sets: 7.5% mean, 10.8% worst.
+
+The fixes it led to (commit `94a1ece`, so the right-hand rules column is a second look): one procedure item per sentence, planned-surgery words, tab-separated "Operation performed" labels, upper-case medicine tables (TAB., SYP., INJ.), and a one-word heading line such as "Rx" counted as a title. The plan for layouts no set has seen is per-site tuning during the pilot's shadow weeks, before anything is shown to staff.
+
+The record as of 8 November follows.
+
 | PRD §9.5 metric | Target | Tuned · rules | Held-out · rules, untouched labels | Held-out · rules, after adding oncology fact types (rules tuned using some of these documents) | Held-out · rules + Gemini (4 Nov, older) |
 |---|---|---|---|---|---|
 | Unsupported facts reaching the record | 0 | 0 | 0 | 0 | 0 |
@@ -222,7 +240,7 @@ Caveats:
 - The eval scores a held document as if a person attached it, which is when production extracts it.
 - PRD §9.5 also names a 200-pair identity set and 150 date strings: those live in the unit tests (`src/core/identity/identity.test.ts`, 360 generated pairs, mismatch recall 100%; `src/core/dates/dates.test.ts`, ≥ 150 cases). The 30-document adversarial set and the 20-page handwritten set are not built: the two sets hold 2 injection documents and 4 handwritten pages.
 
-Rerun with `npx tsx --env-file=.env.local scripts/eval.ts` (both sets; `--set tuned|heldout` for one, written to `report-<set>.json`; `--llm` for the Gemini path). It exits with code 1 if a hard gate fails. Regenerate the held-out documents with `npx tsx scripts/demo-docs/generate-heldout.ts`.
+Rerun with `npx tsx --env-file=.env.local scripts/eval.ts` (tuned, held-out and the second blind set; `--set tuned|heldout|heldout2` for one, written to `report-<set>.json`; `--llm` for the Gemini path). It exits with code 1 if a hard gate fails. Regenerate the held-out documents with `npx tsx scripts/demo-docs/generate-heldout.ts`.
 
 ## Run locally
 
@@ -337,7 +355,7 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for all ten rules (until 5 Nov 2026 `RAD-IMG-PT-01` stayed in shadow to show the mechanism, which hid the PET-CT a returning patient mentioned from clinicians). The wording still needs review by the team's clinician advisor before any pilot.
 - **Erasure runs after the retention period, in the database.** `erase_patient()` (SECURITY DEFINER) refuses unless the request is due, consent is withdrawn and the org matches; it then deletes 20 tables of patient data in one transaction and leaves a PII-free tombstone, the consent history and the audit trail. A daily Vercel cron runs due requests; admins can run them from `/admin/erasure`. Default retention is 10 years (configurable, minimum 3).
 - **Voice is measured on synthetic speech only.** With keyterms, Sarvam `saaras:v4` got the medicine name wrong in 1 of 50 synthetic clips (2%; 36% without keyterms), and that miss was a different listed drug (Capecitabine heard as Carboplatin): see `/admin/metrics` and `data/eval/asr-report.json`. Studio-clean TTS speech is an upper bound; real voices from a consented shadow phase are needed before voice is used with real patients (FR-VOX-03). Every spoken answer is read back for confirmation and stays marked as patient-reported. Recordings are kept encrypted beside the answer and erased with the patient. Desk-station mode signs itself out, but locking the tablet to the browser is the device's job.
-- **Extraction recall is below target on new documents.** On the 40-document held-out set, recall is 0.73 with Gemini (4 Nov run, not re-run) and 0.76 with rules alone after the 7 Nov changes (0.66 before; target 0.85), and OCR error on phone photos is 7.9% (target 5%). See the Evaluation section.
+- **Extraction recall is below target on new documents.** On the second blind set (24 documents, 9 Nov) recall is 0.691 and precision 0.785 with rules, and Gemini adds nothing; the first held-out set was 0.709 when blind (target 0.85). Fixing what each set found lifts it (0.979 and 0.791), but those are second looks. OCR error on phone photos is 7.5% (target 5%). See the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.
 

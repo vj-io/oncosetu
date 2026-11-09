@@ -200,6 +200,14 @@ Sign in as Admin (Farhan Sheikh).
 - **Mohd. Abdul Rahim Khan** has a synthetic ABHA and is also registered at the second organisation; the overview shows
   "ABHA on file (unverified)" only. Whether a person is registered elsewhere is not shown (PRD §10.3).
 
+## Added in the 9 Nov final round (30 seconds, right after the missing-papers item)
+
+- **PM-JAY pre-auth file** (Records): Sunita Deshmukh → **Pre-auth file**. Chemotherapy shows "Biopsy report or surgical
+  pathology report: Not in the file. On the missing-papers list: ask at Triveni Multispeciality Hospital", while the lab
+  reports, imaging and the day-care record are in the file. Switch to **Surgery** or **Radiotherapy** for those lists;
+  **Print this list** gives the insurance desk a paper copy. Say: the same missing-papers list that helps the patient
+  speeds the hospital's PM-JAY pre-authorisation, which is who pays.
+
 ## What to notice (safety)
 
 - **No diagnosis words where disclosure is not cleared.** Sunita and Lakshmi are `unknown`: SMS, portal, request

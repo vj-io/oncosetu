@@ -161,11 +161,13 @@ npm run test:e2e                                       # 98 Playwright tests (ma
 
 **Known limits worth improving**
 
-- Extraction recall on the 40-document held-out set is 0.73 with Gemini (4 Nov run), 0.66 rules-only (target 0.85);
-  consultation notes and radiotherapy summaries are not extracted, pathology is 0.57. Identity returns `insufficient` for 13 of 40
-  documents that are the patient's (header formats such as "Patient: X, 55 Y / M", Hindi headers). OCR CER on phone
-  photos is 7.9% (target 5%). Improving any of these on the held-out set makes it no longer blind: write a fresh set
-  first (`scripts/demo-docs/heldout-docs.ts` shows the format). Gold labels need the clinician advisor's review.
+- Extraction recall on layouts the rules have not seen is about 0.7 (target 0.85): the second blind set (24 documents,
+  9 Nov, `data/eval/heldout2/`) gave recall 0.691 and precision 0.785 with rules, and Gemini added nothing (0.691). Both
+  held-out sets have now been used for fixes (0.979 and 0.791 are second looks), so the next honest number needs a third
+  fresh set, written by someone who has not seen the rules (`scripts/demo-docs/heldout2-docs.ts` shows the format; do not
+  run `generate-heldout.ts`, which would overwrite the audited `gold-heldout.json` with older labels). Identity holds
+  true documents for a person (12 of 40 and 5 of 24, one blocked as a name mismatch) but attached none to the wrong
+  patient. OCR CER on phone photos is 7.5% (target 5%). Gold labels need the clinician advisor's review.
   Drug-name accuracy for voice is measured on 50 synthetic clips only; real voices need the pilot (shadow mode exists). The three fact types added on 5 Nov (allergy, follow-up date, lab result
   rows) have no gold labels yet, so the eval counts them without scoring them. The `--llm` report predates them.
 - Malware check is the EICAR signature behind the `MalwareScanner` interface (ADR-016); a ClamAV host is still needed.

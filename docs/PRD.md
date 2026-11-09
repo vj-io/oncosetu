@@ -561,6 +561,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-REQ-04 | Reminders to the patient/caregiver at `reminder_due` and `open_21d` (SMS/WhatsApp template), with an optional one-page information sheet on escalation routes (State Medical Council complaint; consumer commission; hospital grievance officer) — informational, no legal advice, reviewed by the health-law advisor | S | **PRD gap round, 8 Nov 2026:** daily cron `/api/cron/requests` (10:00 IST) sends the day-7 and day-21 reminders without anyone opening the list; real SMS still needs Twilio + DLT. |
 | FR-REQ-05 | No automatic sending to institutions in MVP; the patient or caregiver sends it (they hold the right) | M | |
 | FR-REQ-06 | Request outcomes feed the measurement study: per institution type, median days to fulfilment and fulfilment rate (anonymised) | M | Metrics exported (§16.4) **PRD gap round, 8 Nov 2026:** kind of institution chosen in the request builder; fulfilment rate and median days per kind on `/admin/metrics`; anonymised CSV `/api/measure/requests.csv`. |
+| FR-REQ-07 | **Final round, 9 Nov 2026 (new).** A pre-authorisation file check for PM-JAY oncology packages: for chemotherapy, surgery or radiotherapy, the documents NHA's oncology Standard Treatment Guidelines (prepared with Tata Memorial Hospital and the National Cancer Grid; breast examples MO001A/B, SC059A, MR004B) ask for before pre-authorisation and for the claim, each marked in the file, not in the file, or not a document OncoSetu holds (the signed Oncology Treatment Plan Approval form, drug bar codes). A missing document already on the missing-papers list names the hospital to ask. Records, clinicians and administrators; printable. Document completeness only: no eligibility, no package choice | S | `src/core/preauth.ts` (unit tests), patient tab `preauth`, E2E `v13-preauth.spec.ts` |
 
 #### Continuity Passport and sharing (PAS)
 
@@ -826,6 +827,8 @@ Claim discipline: say "every displayed fact is traceable to a verbatim source qu
 | Handwritten auto-extraction | 20 handwritten pages | 0 extracted medication events |
 
 Datasets are synthetic, authored by the team, reviewed by the clinician, stored in `data/eval/` with a README; no real patient data in the repo (constitution).
+
+**Final round, 9 Nov 2026:** a second blind set, `data/eval/heldout2/` (24 documents, 110 facts), written by a separate author (an AI assistant without access to the rules). Blind run on the frozen rules: precision 0.785, recall 0.691, both hard gates 0; Gemini-assisted reading also 0.691. The first held-out set was 0.709 when blind and is 0.979 after its fixes (a second look). Rules plateau near 0.7 on unseen layouts, so the pilot's shadow weeks tune them per site before anything is shown. The clinician has not reviewed these labels yet.
 
 ### 9.6 Prompt-injection and model-safety controls
 
@@ -1450,6 +1453,15 @@ OncoSetu has no validated payer. This section states the hypotheses and how the 
 | P3 | An insurer or TPA pays to reduce duplicate testing | Repeat-test evidence (23–33% in a Dutch second-opinion cohort) | No Indian measurement; claims data integration needed | Repeat-test rate from §16.4 is the input to any conversation |
 | P4 | An existing PHR app (Eka Care, DRiefcase) licenses the Radar/Request layer as an oncology module | They have intake and distribution but no completeness or request features | They can build it; they may prefer to | One partnership conversation after shadow data exists (FR-ING-09) |
 | P5 | Patients/caregivers pay | High out-of-pocket spend already; second opinions common | Indian patient-pay PHRs monetise through clinics, not patients | Not tested in pilot |
+
+**Final round, 9 Nov 2026: the hospital as buyer (P1 sharpened), with sources.**
+- PM-JAY paid for more than 68 lakh cancer treatments worth over ₹13,000 crore, across 200+ packages (Health Minister, via IANS, 19 Mar 2025). Every cancer package needs pre-authorisation; NHA's oncology guidelines list a biopsy or HPE report among the mandatory documents, and NHA asks for a signed Oncology Treatment Plan Approval form (FR-REQ-07).
+- The CAG performance audit found 39.57 lakh claims took more than the 12-hour target for pre-authorisation approval, and hospitals delaying claim submission in six States/UT (Report No. 11 of 2023).
+- Patient navigators are a paid role: 130 navigators across nine Tata Memorial Centre hospitals have supported about 600,000 patients in five years (Cancerworld, Sep 2026); the TMC–ECHO programme aims to train about 17,500 professionals.
+- Channel: the National Cancer Grid has 380 members, Phase II funding of ₹177 crore for 2023–28, and sets criteria for oncology EMR platforms for its members (Rajya Sabha unstarred Q1285, 31 Jul 2025).
+- Repeat testing is real: one Indian breast centre repeated more than half of outside imaging and about a quarter of outside biopsies (12,156 patients, presented at SABCS; IndiaMedToday, 5 Jan 2026). Mean out-of-pocket cost per cancer hospitalisation is ₹39,085 (Prinja et al., Front Public Health, 2023).
+- Price hypothesis to test in the pilot: ₹12,000–15,000 a month per facility (about ₹50 per new patient at 300 new patients a month), against an estimated ₹6,000–10,000 running cost. A cloud hospital management system starts at ₹54,000 a year (Healthray pricing page), so the price must be justified by pre-authorisation time and navigator time, measured in §16.4. Not validated.
+- Non-dilutive funding to try first: DST NIDHI PRAYAS 2.0 (up to ₹20 lakh, or ₹40 lakh at level 2; Startup India schemes playbook, Jun 2026). BIRAC BIG (up to ₹50 lakh) excludes projects without a significant biotech component, so its fit must be checked first.
 
 Gate K5 (§5.5): three paid-pilot conversations and one LOI before any incorporation or fundraising. Until then OncoSetu is an academic project with a clinician-led pilot, and all materials say so.
 

@@ -72,3 +72,18 @@ All ten problems from the test as Dr. Meera were fixed and redeployed:
 - Clinicians land on the patient list.
 
 Patient pages follow the browser's language, and Hinglish is a third language for patient pages, share links and SMS.
+
+## Who pays (final round, 9 Nov)
+
+Say it as a hypothesis with sources, not a sale:
+
+- The buyer is the hospital. PM-JAY paid for more than 68 lakh cancer treatments, and every cancer package needs
+  pre-authorisation with a biopsy or HPE report. The CAG found 39.57 lakh PM-JAY claims missed the 12-hour
+  pre-authorisation target. The **Pre-auth file** tab shows the same missing-papers list working for the insurance desk.
+- The user is already paid for: Tata Memorial has 130 patient navigators across nine hospitals.
+- The channel is the National Cancer Grid: 380 members, already setting EMR standards for them.
+- Price to test in the pilot: ₹12,000–15,000 a month per facility, against ₹6,000–10,000 running cost.
+- Be plain about evaluation: on a second blind set written by a separate author, recall was 0.691, the same as the first
+  blind set. Rules plateau on layouts they have not seen; the pilot's shadow weeks tune them per site.
+
+Sources are in PRD §19.

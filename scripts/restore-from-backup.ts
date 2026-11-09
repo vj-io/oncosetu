@@ -46,7 +46,7 @@ import { exportRows, listTables, rowLoader, type Table } from '../src/server/bac
 import { decryptBytes, decryptField, sha256Hex, verifyEd25519 } from '../src/server/crypto'
 import { runRestoreSmoke } from './restore-smoke'
 
-const PROJECT = process.env.NEON_PROJECT_ID ?? 'mute-salad-65632065'
+const PROJECT = process.env.NEON_PROJECT_ID ?? 'icy-cloud-44319946'
 const REPORT = 'docs/releases/v1.0/BACKUP-RESTORE.md'
 const exec = promisify(execFile)
 const log = (m: string) => console.log(`[restore ${new Date().toISOString().slice(11, 19)}] ${m}`)

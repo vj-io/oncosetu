@@ -84,11 +84,11 @@ const span = (s?: Span): HeaderField | undefined => (s ? { value: s.value, start
 const DOC_DATE_LABELS: [string, RegExp][] = [
   ['report date', /(?<![\p{L}])(?:Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+(?:of\s+)?Report(?:ed|ing)?|Reporting\s+Date|Reported(?:\s+on)?|Summary\s+(?:Date|issued(?:\s+on)?))\s*[:：]/giu],
   ['addendum date', /(?<![\p{L}])Addendum\s+Date\s*[:：]/giu],
-  ['discharge date', /(?<![\p{L}])(?:Date\s+of\s+Discharge|Discharge\s+Date)\s*[:：]/giu],
+  ['discharge date', /(?<![\p{L}])(?:Date\s+of\s+Discharge|Discharge\s+Date|D\.?\s?O\.?\s?D\.?)\s*[:：]/giu],
   ['visit date', /(?<![\p{L}])(?:Date\s+of\s+(?:Visit|Study|Scan|Consultation|Procedure|Examination|Surgery|Operation)|(?<!(?:next|follow[\s-]?up|review|subsequent|last|previous|prior)\s+)Visit(?:\s+Date)?|Scan\s+Date)\s*[:：]/giu],
   ['collection date', /(?<![\p{L}])(?:(?:Sample\s+)?Collect(?:ed|ion)\s*(?:Date|On)?|Date\s+(?:of\s+)?Collect(?:ed|ion))\s*[:：]/giu],
   ['date', /(?<![\p{L}])(?:Date|Dated|Dt\.?|दिनांक|तारीख़?)\s*[:：]/giu],
-  ['admission date', /(?<![\p{L}])(?:Date\s+of\s+Admission|Admission\s+Date)\s*[:：]/giu],
+  ['admission date', /(?<![\p{L}])(?:Date\s+of\s+Admission|Admission\s+Date|D\.?\s?O\.?\s?A\.?)\s*[:：]/giu],
 ]
 
 /** Between a date label and its date: separators, and a weekday as printed ("Visit: Thursday, 7 May 2026"). */
@@ -132,10 +132,18 @@ function pickInstitution(text: string): Span | undefined {
 }
 
 // ponytail: "Patient:" label the core header parser does not know yet; fold into core/extract/header NAME_LABEL.
-const PATIENT_LABEL = /(?<![\p{L}])(?:Patient|Pt\.?)\s*[:：][ \t]*([\p{L}][\p{L}\p{M}.'’ ]*?)[ ]*(?=\t|\s{2,}|\n|$)/u
+const PATIENT_LABEL = /(?<![\p{L}])(?:Patient|Pt\.?)\s*[:：][ \t]*([\p{L}][\p{L}\p{M}.'’ ]*?)[ ]*(?=\t|\s{2,}|,|\n|$)/u
+
+/**
+ * Two-column header tables ("Date of Operation <TAB> 21 Jul 2026", "Patient <TAB> Ghulam Nabi Dar, 67 Y / M"): the tab after
+ * a label cell that starts a line reads as the colon the label pickers require. Same length, so every offset still
+ * points into the page text.
+ */
+const tableLabels = (text: string) => text.replace(/^[ \t]*[\p{L}][^\t\n:：]{1,39}?[ ]*\t/gmu, (m) => `${m.slice(0, -1)}:`)
 
 /** Core header + the pipeline's document-date and letterhead pickers (offsets into the page). */
-export function headerFor(text: string): ParsedHeader {
+export function headerFor(page: string): ParsedHeader {
+  const text = tableLabels(page)
   const parsed = parseHeader(text)
   if (!parsed.name) {
     const m = PATIENT_LABEL.exec(text)
@@ -145,7 +153,7 @@ export function headerFor(text: string): ParsedHeader {
     }
   }
   parsed.reportDate = pickDocumentDate(text) ?? parsed.reportDate
-  parsed.institution = pickInstitution(text) ?? (parsed.institution && INST_WORD.test(parsed.institution.value) ? parsed.institution : undefined)
+  parsed.institution = pickInstitution(page) ?? (parsed.institution && INST_WORD.test(parsed.institution.value) ? parsed.institution : undefined)
   return parsed
 }
 
@@ -311,6 +319,15 @@ const DOC_DATED: ReadonlySet<string> = new Set([
   'addendum_documented', 'regimen_documented',
 ])
 
+/**
+ * Things a document reports as done or resulted. One dated after the document's own date is a plan ("C2D1 on 11/09/2026"
+ * in a note of 28/08/2026, "RT planning CT on 13/04/2026" in the OPD note of 8 April), never a record of it.
+ */
+const DONE_TYPES: ReadonlySet<string> = new Set([
+  'chemotherapy_session_documented', 'procedure_documented', 'radiotherapy_documented', 'pathology_report_documented',
+  'molecular_test_documented', 'imaging_report_documented', 'lab_report_documented',
+])
+
 /** One fact per document: the same type + key (cycle, date, test, procedure) found twice keeps the dated, earliest quote. */
 function dedupeKey(d: DraftEvent): string {
   const f = d.fields
@@ -330,9 +347,12 @@ function dedupeKey(d: DraftEvent): string {
   }
 }
 
+/** What the gate and the dates need of a classified document; a person keying one fact (actions.ts) has no page classes. */
+export type GatedPages = Pick<Classified, 'usable'> & Partial<Pick<Classified, 'docType' | 'pageTypes'>>
+
 /** Stage 7–8: the evidence gate, then dates (FR-EXT-03/04, E-DOC-11..15). Only accepted items become drafts. */
 export function gateAndDate(
-  candidates: Candidate[], c: Classified, ident: Pick<Identified, 'documentDate'>, receivedAt: Date, method: ExtractionMethodUsed,
+  candidates: Candidate[], c: GatedPages, ident: Pick<Identified, 'documentDate'>, receivedAt: Date, method: ExtractionMethodUsed,
 ): { gate: GateResult; drafts: DraftEvent[] } {
   const gatePages: GatePage[] = c.usable.map((p) => ({ pageNo: p.pageNo, text: p.text, ...(p.words ? { words: p.words } : {}) }))
   const gate = runGate(candidates, gatePages)
@@ -362,7 +382,10 @@ export function gateAndDate(
     let eventDate = parsed?.iso ?? null
     let precision: ParsedDate['precision'] = parsed?.precision ?? 'unknown'
     let dateFlags = parsed ? [...parsed.flags] : []
-    if (!parsed && doc && DOC_DATED.has(candidate.event_type)) {
+    // An operation note documents the operation of its own date.
+    const pageClass = c.pageTypes?.find((x) => x.pageNo === evidence.pageNo)?.docType ?? c.docType
+    const docDated = DOC_DATED.has(candidate.event_type) || (candidate.event_type === 'procedure_documented' && pageClass === 'procedure_note')
+    if (!parsed && doc && docDated) {
       eventDate = doc.iso
       precision = doc.precision
       dateFlags = [...doc.flags]
@@ -384,14 +407,15 @@ export function gateAndDate(
       extractionMethod: page.source === 'text_layer' ? 'text_layer' : 'ocr_llm', flags: out, evidence,
     }
   })
+  const done = all.filter((d) => !(DONE_TYPES.has(d.eventType) && d.eventDate && d.documentDate && d.datePrecision === 'day' && doc?.precision === 'day' && d.eventDate > d.documentDate))
   const best = new Map<string, DraftEvent>()
-  for (const d of all) {
+  for (const d of done) {
     const k = dedupeKey(d)
     const cur = best.get(k)
     const score = (x: DraftEvent) => (x.flags.date_from_document || !x.eventDate ? 1 : 0)
     if (!cur || score(d) < score(cur) || (score(d) === score(cur) && (d.evidence.pageNo - cur.evidence.pageNo || d.evidence.charStart - cur.evidence.charStart) < 0)) best.set(k, d)
   }
-  const drafts = all.filter((d) => best.get(dedupeKey(d)) === d)
+  const drafts = done.filter((d) => best.get(dedupeKey(d)) === d)
   return { gate, drafts }
 }
 

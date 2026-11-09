@@ -110,6 +110,7 @@ test('a11y/responsive: the key staff, portal and share pages fit a 375 px phone,
   const sp = await staffCtx.newPage()
   watch(sp, errors)
   for (const tab of ['overview', 'documents', 'ledger', 'timeline', 'completeness', 'preauth', 'consent']) await check(sp, errors, `/patients/[id]/${tab}`, `/patients/${p.id}/${tab}`)
+  await check(sp, errors, '/preauth', '/preauth')
   await staffCtx.close()
   const deskCtx = await (await staff('desk')).browserContext(browser, PHONE)
   const dp = await deskCtx.newPage()

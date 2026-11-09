@@ -79,11 +79,13 @@ Say it as a hypothesis with sources, not a sale:
 
 - The buyer is the hospital. PM-JAY paid for more than 68 lakh cancer treatments, and every cancer package needs
   pre-authorisation with a biopsy or HPE report. The CAG found 39.57 lakh PM-JAY claims missed the 12-hour
-  pre-authorisation target. The **Pre-auth file** tab shows the same missing-papers list working for the insurance desk.
+  pre-authorisation target. The **Pre-auth file** tab shows the same missing-papers list working for the insurance desk, and the **Pre-auth files** worklist gives that desk every patient's file on one page.
 - The user is already paid for: Tata Memorial has 130 patient navigators across nine hospitals.
 - The channel is the National Cancer Grid: 380 members, already setting EMR standards for them.
 - Price to test in the pilot: ₹12,000–15,000 a month per facility, against ₹6,000–10,000 running cost.
-- Be plain about evaluation: on a second blind set written by a separate author, recall was 0.691, the same as the first
-  blind set. Rules plateau on layouts they have not seen; the pilot's shadow weeks tune them per site.
+- Be plain about evaluation: on three blind sets, each written by an author who never saw the rules, recall was 0.709,
+  0.691 and 0.651 (target 0.85); precision on the newest was 0.800. The safety gates held on every set: no invented
+  fact reached a record and no document went to the wrong patient. Rules plateau on layouts they have not seen; the
+  pilot's shadow weeks tune them per site.
 
 Sources are in PRD §19.

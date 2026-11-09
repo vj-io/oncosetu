@@ -61,7 +61,7 @@ Opus orchestrated (plans, contracts in `docs/ARCHITECTURE.md` and `docs/AGENT-RU
 | | Restore drill + perf (**Sonnet**) | Neon PITR restore drill, 500-event perf gate, loader pipelining |
 | | Inbound channels (**Opus**) | Email drop (Postmark) + WhatsApp intake (Twilio) with code-confirmed holds |
 | | ABDM HIU (**Opus**) | Transport interface, X25519/HKDF/AES-GCM, consent-gated decrypt, FHIR mapping |
-| | Backups (**Opus**) | Encrypted daily backups to private Blob (Mumbai) + verified restore |
+| | Backups (**Opus**) | Encrypted weekly backups to private Blob (Mumbai) + verified restore |
 | | Perf probe (**Sonnet**) | Co-located FR-LED-07 measurement on Vercel sin1 |
 | Completion | Held-out eval (**Sonnet**) | 40 documents written after the rules froze, gold labels, OCR ground truth, CER and macro-F1 in `scripts/eval.ts` |
 
@@ -101,3 +101,17 @@ Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified f
 | Fixes from the blind set (`94a1ece`) | 0.812 / 0.755 on that set (a second look); tuned and held-out unchanged. One rule ("specimen sent for HPE") was reverted on 9 Nov because it doubled the hero patient's histopathology item on the missing-papers list |
 | PM-JAY pre-auth file (`fcf78f5`, FR-REQ-07) | Unit tests for the requirement lists; E2E `v13-preauth.spec.ts`; added to the 375 px / axe sweep |
 | Business case | Sourced buyer, channel, price hypothesis and funding routes: PRD §19 |
+
+## 6. Deadline extension round (10 Nov 2026)
+
+| What | Result |
+|---|---|
+| General extraction fixes, from causes the first two sets shared (plans dated after their document, operation-note dates, two-column header tables, D.O.A. / D.O.D., OPD headings, institution letterheads not read as titles, Tamil -tchi = -kshi) | Tuned 0.984 / 1.000 (precision / recall); held-out 1.000 / 0.979, identity 28 → 33 of 40; second blind set 0.895 / 0.827, types 24/24 (second looks). No false identity match in any set |
+| One paper, one item on the missing-papers list (`src/core/radar/index.ts`) | Two items from one document that expect the same paper in overlapping windows collapse (production mode first, then rule order). "Specimen sent for HPE" is detected again, without the duplicate that made us revert it on 9 Nov |
+| Third blind set (`data/eval/heldout3/`, 24 documents, 126 facts, separate author without access to the rules) | Blind run on the frozen rules: 0.800 / 0.651, types 21/24, identity 18/24, 0 unsupported facts, 0 handwritten pages extracted (`data/eval/heldout3-blind-run.json`). It found one loose identity rule: a surname alone matched an initials-and-surname alias (the patient's own document, so nothing misfiled); fixed |
+| Fixes from the third set (dated report and marker mentions, radiotherapy dose lines, result-only margins in operation notes and radiotherapy summaries, same-line "Seen by") | Third set 0.854 / 0.714, with Gemini 0.856 / 0.738 (24 calls, 21 ok); second blind set 0.953 / 0.873 (second looks); red-team set identity 28/28, 0 unsupported facts |
+| Pre-auth: CBC / LFT / RFT checked one by one; cross-patient **Pre-auth files** worklist (`/preauth`, records) | Unit tests in `src/core/preauth.test.ts`; E2E V13-E2E-02; added to the 375 px / axe sweep |
+| OCR clean-up experiment (grey, normalise, 1.5× and 2× upscale, sharpen) | On the 11 photo pages of the earlier sets, every variant raised the mean CER (7.46% as is; 7.9–8.4% with clean-up); not adopted |
+| Stale claim corrected | CI does run on GitHub (typecheck, lint, unit, npm audit, gitleaks, Semgrep passed on PR #7); the database suites skip there until a CI database secret exists |
+| Tests (10 Nov, production build) | Unit 1,360 of 1,360 (90 files); integration 79 of 79 (17 files); E2E 100 of 100 (77 Chromium, 16 WebKit, 7 clock). Two E2E tests passed on their retry after the connection to Neon dropped; the server log shows `write CONNECTION_CLOSED`, not an app error |
+| Neon network transfer | The project reached the free plan's 5 GB monthly transfer on 9 Nov (5.27 GB: about 3.7 GB from test branches, 1.6 GB from `main`, mostly the daily backup reading every stored file). Backup cron moved to weekly (`vercel.json`); docs say how to go back to daily on a paid plan. The live database moved to a new project (`icy-cloud-44319946`, same region and version): a fresh encrypted backup loaded and every table re-exported to the backup's bytes (48 tables, 40,385 rows), then a local sign-in, records queue, pre-auth worklist and document files checked before the switch |

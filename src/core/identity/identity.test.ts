@@ -105,6 +105,8 @@ describe('compareNames', () => {
     ['Sunita Sharma', 'Sunita Devi Sharma', 'match'],
     ['Sunil K. Sharma', 'Sunil Kumar Sharma', 'match'],
     ['Choudhary Ramesh', 'Ramesh Chaudhary', 'match'],
+    ['Mrs. MEENATCHI SUNDARESAN', 'Meenakshi Sundaresan', 'match'], // Tamil -tchi for -kshi
+    ['Kamatchi Raman', 'Meenakshi Raman', 'mismatch'],
     ['Sunita Verma', 'Sunita Sharma', 'mismatch'],
     ['Anita Sharma', 'Sunita Sharma', 'mismatch'],
     ['Priya Gupta', 'Piya Gupta', 'mismatch'],
@@ -112,6 +114,8 @@ describe('compareNames', () => {
     ['Sunita', 'Sunita Sharma', 'insufficient'],
     ['S. Sharma', 'Sunita Sharma', 'insufficient'],
     ['S.S.', 'Sunita Sharma', 'insufficient'],
+    ['Mr. SHETTY', 'Mr. R. V. Shetty', 'insufficient'], // a surname alone against an initials-and-surname alias
+    ['R. V. Shetty', 'Mr. R. V. Shetty', 'match'],
     ['', 'Sunita Sharma', 'insufficient'],
   ])('%s vs %s → %s', (h, p, verdict) => expect(compareNames(h, p).verdict).toBe(verdict))
 })

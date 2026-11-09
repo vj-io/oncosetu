@@ -151,6 +151,7 @@ export function phoneticKey(token: string): string {
     .replace(/x/g, 'ks')
     .replace(/ph/g, 'f')
     .replace(/chh/g, 'ch')
+    .replace(/tch/g, 'ks') // Tamil -kshi written -tchi (Meenatchi, Kamatchi)
     .replace(/sh/g, 's')
     .replace(/th/g, 't')
     .replace(/dh/g, 'd')
@@ -297,7 +298,9 @@ function compareTokens(h: string[], hi: string[], p: string[], pi: string[]): Na
   if (m === 0) return { verdict: 'mismatch', score: 0, reason: 'name_mismatch', variant }
   if (unH.length && unP.length) return { verdict: 'mismatch', score, reason: 'name_mismatch', variant }
   const strongP = p.filter((t) => !WEAK.has(t)).length
-  if (m < 2 && strongP >= 2) return { verdict: 'insufficient', score, reason: 'single_name_token', variant }
+  // One name in common is not enough when the other side has more: "Mr. SHETTY" against "R. V. Shetty" names no person
+  // (the patient's initials count as name parts; header initials that fit them do settle it).
+  if (m < 2 && (strongP >= 2 || (strongP + pi.length >= 2 && !hi.length))) return { verdict: 'insufficient', score, reason: 'single_name_token', variant }
   return { verdict: 'match', score, variant }
 }
 

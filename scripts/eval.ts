@@ -11,7 +11,7 @@
  * ground-truth text the generators write (data/eval/ocr-truth.json, data/eval/heldout/ocr-truth.json).
  *
  *   npx tsx --env-file=.env.local scripts/eval.ts                    # rule-based path (no LLM), tuned + held-out
- *   npx tsx --env-file=.env.local scripts/eval.ts --set heldout      # tuned | heldout | heldout2 | redteam | all (default all: tuned, heldout, heldout2); a partial run writes report[-llm]-<set>.json
+ *   npx tsx --env-file=.env.local scripts/eval.ts --set heldout      # tuned | heldout | heldout2 | heldout3 | redteam | all (default all: tuned, heldout, heldout2, heldout3); a partial run writes report[-llm]-<set>.json
  *   npx tsx --env-file=.env.local scripts/eval.ts --llm              # LLM path, if a provider is configured
  *
  * Exit code 1 when a hard gate fails in any set that ran: an unsupported fact reached the record, or a handwritten page was auto-extracted.
@@ -27,8 +27,8 @@ import { meanOf, ROOT, runSet, SETS, type SetName } from './eval-set'
 
 const setAt = process.argv.findIndex((a) => a === '--set' || a.startsWith('--set='))
 const setChoice = setAt < 0 ? 'all' : process.argv[setAt].startsWith('--set=') ? process.argv[setAt].slice(6) : process.argv[setAt + 1]
-if (setChoice !== 'all' && !(setChoice in SETS)) throw new Error(`--set must be tuned, heldout, redteam or all (got ${setChoice})`)
-const setsToRun: SetName[] = setChoice === 'all' ? ['tuned', 'heldout', 'heldout2'] : [setChoice as SetName]
+if (setChoice !== 'all' && !(setChoice in SETS)) throw new Error(`--set must be tuned, heldout, heldout2, heldout3, redteam or all (got ${setChoice})`)
+const setsToRun: SetName[] = setChoice === 'all' ? ['tuned', 'heldout', 'heldout2', 'heldout3'] : [setChoice as SetName]
 
 const useLlm = process.argv.includes('--llm')
 const provider = useLlm ? llmProvider() : null
@@ -64,6 +64,7 @@ async function main() {
     aiRuns: runs.map((r) => ({ outcome: r.outcome, latencyMs: r.latencyMs, tokensIn: r.tokensIn, tokensOut: r.tokensOut })),
     ...(results.heldout && { heldout: results.heldout.summary }),
     ...(results.heldout2 && { heldout2: results.heldout2.summary }),
+    ...(results.heldout3 && { heldout3: results.heldout3.summary }),
     ...(results.redteam && { redteam: results.redteam.summary }),
     ocr,
   }

@@ -208,6 +208,14 @@ Sign in as Admin (Farhan Sheikh).
   **Print this list** gives the insurance desk a paper copy. Say: the same missing-papers list that helps the patient
   speeds the hospital's PM-JAY pre-authorisation, which is who pays.
 
+## Added on 10 Nov (20 seconds, after the pre-auth file)
+
+- **Pre-auth files worklist** (Records): top bar → **Pre-auth files**. Every patient's chemotherapy, surgery and
+  radiotherapy files on one page ("3 of 4"), the files with the most papers still to find first, and what is missing
+  in each. Click a count to open that patient's list. The blood-test row now checks CBC, LFT and RFT one by one: a lab
+  report that names only liver and kidney tests shows "Partly in the file: no lab report here names CBC". Say: this is
+  the insurance desk's morning list.
+
 ## What to notice (safety)
 
 - **No diagnosis words where disclosure is not cleared.** Sunita and Lakshmi are `unknown`: SMS, portal, request

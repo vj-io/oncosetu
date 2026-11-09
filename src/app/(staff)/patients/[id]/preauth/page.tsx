@@ -1,14 +1,16 @@
 import { RoleRestricted } from '@/components/shell/RoleRestricted'
 // Pre-authorisation file check (PM-JAY oncology packages): which documents the package asks for are in the file, for the
 // hospital's insurance desk. Document completeness only, never eligibility or package choice (src/core/preauth.ts).
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowUpRight, CircleCheck, CircleDashed, FileQuestion } from 'lucide-react'
+import { ArrowUpRight, CircleAlert, CircleCheck, CircleDashed, FileQuestion } from 'lucide-react'
 import { PrintButton } from '@/components/requests/PrintButton'
 import { Badge, SectionHeader } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
 import { PREAUTH_LINES, preauthFile, type PreauthLine, type PreauthRow } from '@/core/preauth'
 import type { DocType } from '@/core/types'
+import { events } from '@/db/schema'
 import { listDocuments } from '@/server/pipeline/queries'
 import { loadCompleteness } from '@/server/radar-ui/completeness'
 import { withPatientAccess } from '@/server/registration/page'
@@ -30,9 +32,17 @@ function Row({ r, patientId, chase }: { r: PreauthRow; patientId: string; chase:
         {r.note && <p className="text-[13px] text-faint">{r.note}</p>}
       </div>
       <div className="grid content-start gap-1.5">
-        {r.status === 'in_file' && (
+        {(r.status === 'in_file' || r.status === 'partial') && (
           <>
-            <Badge tone="verified" icon={<CircleCheck />}>In the file</Badge>
+            {r.status === 'in_file'
+              ? <Badge tone="verified" icon={<CircleCheck />}>In the file</Badge>
+              : <Badge tone="conflict" icon={<CircleAlert />}>Partly in the file</Badge>}
+            {r.status === 'partial' && (
+              <p className="text-[14px]" data-testid="preauth-missing-panels">
+                No lab report here names {r.missingPanels!.join(' or ')}. Ask the family, or{' '}
+                <Link href={`/patients/${patientId}/requests`} className="underline decoration-brass underline-offset-4 print:no-underline">request it</Link>.
+              </p>
+            )}
             <ul className="grid gap-1 text-[14px]">
               {r.docs.slice(0, 3).map((d) => (
                 <li key={d.id}>
@@ -72,12 +82,25 @@ export default async function PreauthPage({ params, searchParams }: { params: Pr
   if (!UUID.test(id)) notFound()
   const session = await requireStaff()
   if (!(ROLES as readonly string[]).includes(session.role)) return <RoleRestricted roles={[...ROLES]} role={session.role} backHref={`/patients/${id}/overview`} />
-  const data = await withPatientAccess(id, async (tx, s) => ({ docs: (await listDocuments(tx, id)).rows, missing: (await loadCompleteness(tx, id, s)).open }))
+  const data = await withPatientAccess(id, async (tx, s) => ({
+    docs: (await listDocuments(tx, id)).rows,
+    missing: (await loadCompleteness(tx, id, s)).open,
+    // Test names extracted from lab reports, for the CBC / LFT / RFT check.
+    labs: await tx.select({ documentId: events.documentId, fields: events.fields }).from(events)
+      .where(and(eq(events.patientId, id), inArray(events.eventType, ['lab_report_documented', 'lab_results_documented']), isNull(events.withdrawnAt))),
+  }))
   if (!data) return null // the workspace layout explains the denial
-  const { docs, missing } = data
+  const { docs, missing, labs } = data
+  const labNames = new Map<string, string[]>()
+  for (const e of labs) {
+    if (!e.documentId) continue
+    const f = e.fields as { test_name?: unknown; test_names?: unknown }
+    const names = [f.test_name, ...(Array.isArray(f.test_names) ? f.test_names : [])].filter((x): x is string => typeof x === 'string')
+    labNames.set(e.documentId, [...(labNames.get(e.documentId) ?? []), ...names])
+  }
   const line: PreauthLine = PREAUTH_LINES.some((l) => l.key === sp.line) ? (sp.line as PreauthLine) : 'chemotherapy'
   const inFile = docs.filter((d) => !d.flags.detached && !d.flags.quarantined && d.attachState !== 'rejected' && d.attachState !== 'pending_decision')
-    .map((d) => ({ id: d.id, docType: d.docType as DocType | null, documentDate: d.documentDate, institution: d.institution, title: d.title }))
+    .map((d) => ({ id: d.id, docType: d.docType as DocType | null, documentDate: d.documentDate, institution: d.institution, title: d.title, labNames: labNames.get(d.id) }))
   const f = preauthFile(line, inFile)
   const open = missing.filter((m) => m.state === 'expected' || m.state === 'requested')
   const chaseFor = (r: PreauthRow): Chase | undefined => {

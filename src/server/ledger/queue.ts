@@ -20,6 +20,16 @@ export const QUEUE_PAGE = 100
 
 export type QueueTotals = { patients: number; identity: number; lowConfidence: number; unverified: number }
 
+/** Active patients among `ids` and which of them have an active 'store' consent (the rest may be counted, never named). */
+export async function peopleWithConsent(tx: Tx, ids: string[]) {
+  const [people, latest] = await Promise.all([
+    tx.select({ id: patients.id, nameEnc: patients.nameEnc, mrn: patients.mrn, status: patients.status }).from(patients).where(inArray(patients.id, ids)),
+    tx.selectDistinctOn([consents.patientId], { patientId: consents.patientId, action: consents.action, purposes: consents.purposes })
+      .from(consents).where(inArray(consents.patientId, ids)).orderBy(consents.patientId, sql`${consents.recordedAt} desc`, sql`${consents.id} desc`),
+  ])
+  return { people, consented: new Set(latest.filter((c) => c.action !== 'withdraw' && (c.purposes as ConsentPurposes).store).map((c) => c.patientId)) }
+}
+
 export async function loadRecordsQueue(tx: Tx, limit = QUEUE_PAGE): Promise<{ rows: QueueRow[]; totals: QueueTotals; withoutConsent: number; buckets: readonly string[] }> {
   const next = alias(events, 'next_version')
   const [identity, lowConf, unverified] = await Promise.all([
@@ -54,12 +64,7 @@ export async function loadRecordsQueue(tx: Tx, limit = QUEUE_PAGE): Promise<{ ro
   const totals: QueueTotals = { patients: 0, identity: 0, lowConfidence: 0, unverified: 0 }
   if (!ids.length) return { rows: [], totals, withoutConsent: 0, buckets: PRIORITY_BUCKETS }
 
-  const [people, latest] = await Promise.all([
-    tx.select({ id: patients.id, nameEnc: patients.nameEnc, mrn: patients.mrn, status: patients.status }).from(patients).where(inArray(patients.id, ids)),
-    tx.selectDistinctOn([consents.patientId], { patientId: consents.patientId, action: consents.action, purposes: consents.purposes })
-      .from(consents).where(inArray(consents.patientId, ids)).orderBy(consents.patientId, sql`${consents.recordedAt} desc`, sql`${consents.id} desc`),
-  ])
-  const consented = new Set(latest.filter((c) => c.action !== 'withdraw' && (c.purposes as ConsentPurposes).store).map((c) => c.patientId))
+  const { people, consented } = await peopleWithConsent(tx, ids)
   let withoutConsent = 0
   const rows: QueueRow[] = []
   const nameEnc = new Map<string, string>()

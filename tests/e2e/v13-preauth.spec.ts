@@ -25,3 +25,25 @@ test('V13-E2E-01 pre-auth file: the biopsy report is not in the file and points 
   await desk.goto(`/patients/${p.id}/preauth`)
   await expect(desk.getByText('This page is for administrators, clinicians and records staff')).toBeVisible()
 })
+
+test('V13-E2E-02 blood tests are checked panel by panel, and the insurance desk sees every file on one worklist', async ({ staff, ui }) => {
+  const records = await staff('records')
+  const p = await registerPatient(records, { base: 'hero' })
+  await uploadAndWait(records, p.id, 'hero__08-lab-report-injection.pdf') // liver and kidney tests, no blood count
+
+  const page = await ui('records')
+  await page.goto(`/patients/${p.id}/preauth?line=chemotherapy`)
+  const blood = page.getByRole('listitem').filter({ hasText: 'Blood tests: CBC, LFT, RFT' })
+  await expect(blood).toContainText('Partly in the file')
+  await expect(blood.getByTestId('preauth-missing-panels')).toHaveText(/No lab report here names CBC\./)
+
+  await page.goto('/preauth')
+  await expect(page.getByRole('heading', { name: 'Pre-authorisation files' })).toBeVisible()
+  const row = page.getByTestId('preauth-row').filter({ has: page.getByRole('link', { name: /^Chemotherapy: / }) }).filter({ has: page.locator(`a[href="/patients/${p.id}/preauth?line=chemotherapy"]`) })
+  await expect(row).toContainText('Blood tests: CBC, LFT, RFT')
+  await expect(row.getByRole('link', { name: /^Surgery: 0 of 3 in the file$/ })).toBeVisible()
+
+  const clinician = await ui('clinician')
+  await clinician.goto('/preauth')
+  await expect(clinician.getByRole('heading', { name: 'Pre-authorisation files' })).toHaveCount(0)
+})

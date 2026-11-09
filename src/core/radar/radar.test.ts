@@ -381,3 +381,25 @@ describe('transitionMissing (FR-RAD-03)', () => {
     expect(transitionMissing('expected', { type: 'unobtainable', reason: '' })).toEqual({ ok: false, error: 'reason_required' })
   })
 })
+
+describe('one paper, one item (10 Nov 2026)', () => {
+  const PEND = ev('report_pending_documented', { test_name: 'HPE' }, '2026-03-12', 'd-ds', { id: 'e-pend' })
+  it('a procedure and its "sent for HPE" in the same document ask for one histopathology report, not two', () => {
+    const out = run({ events: [WLE, PEND], documents: [DS] })
+    const hpe = out.items.filter((i) => i.expectedTypes.includes('pathology_report'))
+    expect(hpe.map((i) => i.ruleId)).toEqual(['RAD-SURG-HPE-01']) // the rule listed first in rules.yaml
+  })
+  it('two pending mentions of the same report in one document make one item', () => {
+    const again = ev('report_pending_documented', { test_name: 'histopathology' }, '2026-03-16', 'd-ds', { id: 'e-pend2' })
+    expect(run({ events: [PEND, again], documents: [DS] }).items.filter((i) => i.ruleId === 'RAD-PEND-01')).toHaveLength(1)
+  })
+  it('a rule in production mode keeps the item over a shadow one', () => {
+    const out = run({ events: [WLE, PEND], documents: [DS], ruleModes: { 'RAD-PEND-01': 'production' } })
+    expect(out.items.filter((i) => i.expectedTypes.includes('pathology_report')).map((i) => i.ruleId)).toEqual(['RAD-PEND-01'])
+  })
+  it('the same paper asked for by two different documents stays two items', () => {
+    const OPD = doc('d-opd', 'consult_note', '2026-03-14')
+    const other = ev('report_pending_documented', { test_name: 'HPE' }, '2026-03-14', 'd-opd', { id: 'e-pend3' })
+    expect(run({ events: [WLE, other], documents: [DS, OPD] }).items.filter((i) => i.expectedTypes.includes('pathology_report'))).toHaveLength(2)
+  })
+})

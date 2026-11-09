@@ -31,7 +31,7 @@ import { decryptBytes, decryptField, publicKeys, sha256Hex, verifyEd25519 } from
 import { ORG_GANGA_ID } from '../src/server/demo'
 import { runRestoreSmoke } from './restore-smoke'
 
-const PROJECT = process.env.NEON_PROJECT_ID ?? 'mute-salad-65632065'
+const PROJECT = process.env.NEON_PROJECT_ID ?? 'icy-cloud-44319946'
 const NEON_ORG = process.env.NEON_ORG_ID ?? 'org-shiny-star-64825025'
 /** Tables that hold no patient data and have no RLS by design: login and tenancy plumbing (drizzle/0001_rls_roles.sql). */
 const NO_RLS_BY_DESIGN = ['organisations', 'org_settings', 'otp_challenges', 'sessions', 'staff']

@@ -50,7 +50,7 @@ const TESTS = [
 ].join('|')
 const STATUS = String.raw`to\s+follow|awaited|awaiting|pending|will\s+follow|sent(?:\s+for)?|dispatched|under\s+process|being\s+processed|in\s+process|not\s+(?:yet\s+)?received|(?:will\s+be|to\s+be)\s+(?:reported|issued)\s+separately`
 const PENDING_A = new RegExp(String.raw`(?<![\p{L}])(${TESTS})(?![\p{L}])[^.\n;]{0,40}?(?<![\p{L}])(${STATUS})(?![\p{L}])`, 'giu')
-const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
+const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending|sent\s+for)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
 /** "IHC will be performed on request …", "… if required": an option, not a report on its way. */
 const CONDITIONAL = /(?<![\p{L}])(?:on\s+request|if\s+(?:required|needed|indicated|requested))(?![\p{L}])/iu
 const MOLECULAR = /^(?:molecular|NGS|EGFR|ALK|ROS|KRAS|BRAF|BRCA|PD-?L1|MSI|FISH|PCR)/i
@@ -76,7 +76,13 @@ const IMAGING = new RegExp(
   String.raw`(?<![\p{L}])(?:(?:(?:ECG|EKG)\s*(?:\/|&|and)\s*)?(?:chest\s+)?(?:PET[\s-]?CT|CECT|NCCT|CT(?:\s+scan)?|MRI|USG|ultrasound|ultrasonography|X-?ray)${BODY}|mammogra(?:m|phy)|sonomammography|bone\s+scan|2D\s*echo|MUGA)(?![\p{L}])(?![\s-]+guided)`,
   'giu',
 )
-const PATH_MENTION = /(?<![\p{L}])((?:HPE|histopatholog\w*)(?:\s+report)?|biopsy\s+report)\s+(?:dated|dt\.?|on|of)\s+/giu
+// A dated pathology result named in another document: "HPE dated 2/3/2026", "HPE (punch biopsy) dtd 28/03/2026: …",
+// "biopsy HPE (08/04/2026): …", "FNAC dated 14/02/2026: Bethesda VI" (the date must follow at once: dateAfter).
+const DATED_BY = String.raw`(?:\(\s*(?:reports?\s+)?(?:(?:dated|dtd\.?|dt\.?|on|of)\s+)?|(?:reports?\s+)?(?:dated|dtd\.?|dt\.?|on|of)\s+)`
+const PATH_MENTION = new RegExp(String.raw`(?<![\p{L}])((?:HPE|histopatholog\w*)(?:\s+report)?|biopsy\s+report|FNAC|cytology(?:\s+report)?)(?![\p{L}])\s*(?:\([^()\d]{1,40}\)\s*)?${DATED_BY}`, 'giu')
+// A dated blood test or tumour marker named in a note: "PSA (12/04/2026): 48 ng/mL", "CBC and RFT (reports of 06/04/2026)".
+const LAB_MENTION = new RegExp(String.raw`(?<![\p{L}])(CBC|LFT|RFT|KFT|PSA|CEA|AFP|LDH|TSH|(?:beta|β)[\s-]?hCG|CA[\s-]?125|CA[\s-]?19[.-]9|[Ss]erum\s+creatinine|[Hh]a?emogram|[Cc]omplete\s+blood\s+count)(?![\p{L}])[^.\n:;()]{0,25}?${DATED_BY}`, 'gu')
+const LAB_NOT_DONE = /(?<![\p{L}])(?:to\s+be|will\s+be|due|repeat|next|before|planned|advised|awaited|pending)(?![\p{L}])/iu
 /** "Addendum to histopathology report dated …" points at the report it amends, which is its own document. */
 const AMENDS = /(?:addendum|amendment|corrigendum|supplement(?:ary)?)\s+(?:report\s+)?to\s+$/iu
 
@@ -110,7 +116,13 @@ const NOT_A_MEDICINE = /^(?:medicine|drug|name|sr\.?\s*no|dose|duration|instruct
 
 // Quote-only oncology lines: each is a sentence or table row copied word for word. Nothing is derived from them.
 const STAGE_TOKEN = /(?<![\p{L}\d])(?:[yra]{0,2}[pc]T(?:[0-4]|X|is)[a-d]?(?:\s*[yra]{0,2}[pc]?N(?:[0-3]|X)[a-c]?)?(?:\s*[pc]?M(?:[01]|X)[a-d]?)?|T(?:[0-4]|X|is)[a-d]?\s*N(?:[0-3]|X)[a-c]?(?:\s*M(?:[01]|X))?|[pc]N(?:[0-3]|X)[a-c]?(?:\s*[pc]?M(?:[01]|X))?|[pc]M(?:[01]|X)|FIGO\s+stage\s*(?:[0-4]|[IV]{1,3})[A-C]?\d?|[Ss]tage\s*(?:[0-4]|[IV]{1,3})[A-C]?|TNM)(?![\p{L}\d])/gu
-const MARGIN = /(?<![p{L}])margins?(?![p{L}])/iu
+const MARGIN = /(?<![\p{L}])margins?(?![\p{L}])/iu
+// An operation note's intended margin ("with a 1 cm bony margin") and a radiotherapy planning margin are not results:
+// in those documents a margin line counts only when it states one.
+const MARGIN_RESULT = /(?<![\p{L}])(?:free|clear|clearance|negative|positive|involved|uninvolved|close|closest|frozen|R[012])(?![\p{L}\d])/iu
+const MARGIN_RESULT_DOCS: ReadonlySet<DocType> = new Set(['procedure_note', 'radiotherapy_summary'])
+// The delivered course in a radiotherapy summary: "Dose  20 Gy in 5 fractions", "25 Gy / 5 #".
+const RT_DOSE = /(?<![\p{L}\d.])\d+(?:\.\d+)?\s*Gy\s*(?:in|\/)\s*\d+\s*(?:fractions?|#|fr\.?)/iu
 const MARKER_START = /^\s*(?:(?:Estrogen|Oestrogen)\s+receptor|Progesterone\s+receptor|HER-?2(?:\/neu)?|Ki-?67|ER|PR|MLH1|PMS2|MSH2|MSH6|MSI)(?![\p{L}\d])/iu
 const MMR_PROTEIN = /^\s*(?:MLH1|PMS2|MSH2|MSH6)(?![\p{L}\d])/u
 const MARKER_RESULT = /POSITIVE|NEGATIVE|DETECTED|Detected|Not detected|Positive|Negative|Equivocal|EQUIVOCAL|Score\s*\d|\d\s*%|[Rr]etained|[Ll]oss\b|[Ll]ost\b|[Ii]ntact|[Pp]roficient|[Dd]eficient|MSI-?(?:H|L)|\bMSS\b/u
@@ -129,6 +141,7 @@ const SIGNATURE = /^\s*(?:Dr\.?\s|Reg\.|Consultant\b|Reported\s+by|Computer|Veri
 const REGIMEN_PART = /(?<![\p{L}])(Regimen|Protocol)(?:\s*:\s*|[ ]*\t\s*)/iu
 
 const SEEN_BY = /^\s*(?:Seen\s+by|Consulting\s+(?:doctor|physician|oncologist)|Consultant|Doctor|Treating\s+(?:doctor|consultant)|Oncologist)\s*[:：]/iu
+const SEEN_BY_INLINE = new RegExp(SEEN_BY.source.replace('^\\s*', '(?<![\\p{L}])'), 'iu') // later on the date's own line
 
 const TITLES: Partial<Record<DocType, RegExp>> = {
   pathology_report: /(?<![\p{L}])(?:histopatholog\w*(?:\s+(?:report|examination))?|surgical\s+pathology(?:\s+report)?|biopsy\s+report|cytology\s+report|HPE\s+report|pathology\s+report|frozen\s+section(?:\s+report)?|cytopathology(?:\s+report)?)(?![\p{L}])/iu,
@@ -268,6 +281,8 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         }
       }
 
+      const pathRefs = [...t.matchAll(PATH_MENTION)].map((m) => ({ m, d: dateAfter(t, m.index! + m[0].length) })).filter((x) => x.d && !AMENDS.test(t.slice(0, x.m.index!)))
+
       // Procedures: a labelled "Procedure:" line, dated by the note's "Date of surgery / procedure" line nearby
       const pl = PROC_LABEL_DOCS.has(docType) ? PROC_LABEL.exec(t) : null
       if (pl && !PROC_NOT_DONE.test(t)) {
@@ -282,6 +297,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         // One procedure item per sentence: "composite resection (wide excision + segmental mandibulectomy) + neck dissection"
         // is one operation, quoted whole, not three.
         for (const m of [...t.matchAll(PROC)].slice(0, 1)) {
+          if (pathRefs.length && /biopsy|FNAC/i.test(m[0])) continue // "biopsy HPE (08/04/2026): adenocarcinoma" is the report
           const d = absDates(t)[0]
           if (d) {
             add('procedure_documented', page, seg.start, seg.end, { procedure_text: m[0], event_date_text: d.raw })
@@ -332,9 +348,12 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       const dates = absDates(t)
       if (dates.length) {
         for (const m of t.matchAll(IMAGING)) add('imaging_report_documented', page, seg.start, seg.end, { test_name: m[0], event_date_text: dates[0].raw })
-        for (const m of t.matchAll(PATH_MENTION)) {
-          const d = dateAfter(t, m.index! + m[0].length)
-          if (d && !AMENDS.test(t.slice(0, m.index!))) add('pathology_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d.raw })
+        for (const { m, d } of pathRefs) add('pathology_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d!.raw })
+        if (docType !== 'lab_report' && !LAB_NOT_DONE.test(t)) {
+          for (const m of t.matchAll(LAB_MENTION)) {
+            const d = dateAfter(t, m.index! + m[0].length)
+            if (d) add('lab_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d.raw })
+          }
         }
       }
 
@@ -386,7 +405,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       for (const part of seg.text.split(/(?<=[.;!?])\s+/)) {
         const at = seg.text.indexOf(part, from)
         from = at + part.length
-        if (MARGIN.test(part)) add('margins_documented', page, seg.start + at, seg.start + from, { margins_text: part.replace(/\s+/g, ' ') })
+        if (MARGIN.test(part) && (!MARGIN_RESULT_DOCS.has(docType) || MARGIN_RESULT.test(part))) add('margins_documented', page, seg.start + at, seg.start + from, { margins_text: part.replace(/\s+/g, ' ') })
       }
     }
 
@@ -561,7 +580,8 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       const s = title ? Math.min(lineStart(title.start), date.labelStart) : date.labelStart
       let e = Math.max(title ? lineEnd(title.end) : 0, date.end)
       const next = first.text.slice(lineEnd(date.end) + 1, lineEnd(lineEnd(date.end) + 1))
-      if (SEEN_BY.test(next)) e = Math.max(e, lineEnd(lineEnd(date.end) + 1))
+      if (SEEN_BY_INLINE.test(first.text.slice(date.end, lineEnd(date.end)))) e = Math.max(e, lineEnd(date.end)) // "Date: … <TAB> Seen by: Dr. …" on one line
+      else if (SEEN_BY.test(next)) e = Math.max(e, lineEnd(lineEnd(date.end) + 1))
       const [qs, qe] = e - s <= MAX_QUOTE ? [s, e] : [date.labelStart, date.end]
       add(type, first, qs, qe, { event_date_text: date.value })
     } else if (date) {
@@ -573,6 +593,15 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       const lineStart = first.text.lastIndexOf('\n', title.start) + 1
       const lineEnd = first.text.indexOf('\n', title.end)
       add(type, first, lineStart, lineEnd === -1 ? first.text.length : lineEnd, { test_name: title.value })
+    }
+  }
+  // A radiotherapy summary that never says "completed": its dose line is the course given.
+  if (docType === 'radiotherapy_summary' && !out.some((c) => c.event_type === 'radiotherapy_documented')) {
+    for (const page of pages) {
+      for (const seg of segments(page)) {
+        const m = RT_DOSE.exec(seg.text)
+        if (m && !RT_NOT_DONE.test(seg.text) && !PROC_NOT_DONE.test(seg.text)) add('radiotherapy_documented', page, seg.start, seg.end, { treatment_text: m[0] })
+      }
     }
   }
   return out

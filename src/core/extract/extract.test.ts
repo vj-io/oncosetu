@@ -198,6 +198,14 @@ describe('classifyDocument', () => {
     expect(c.handwrittenHint).toBe(false)
     expect(c.confidence).toBeGreaterThan(0)
   })
+  it('the last kind named in a heading line wins; a letterhead naming the institution is not a title', () => {
+    const opd = 'AMRIT CANCER CARE\nRadiation Oncology | Day-Care Chemotherapy\nRADIATION ONCOLOGY OPD\nHistory\nc/o bleeding. Examination: growth on cervix.\nPlan\nEBRT 50 Gy / 25 # with brachytherapy; simulation next week.'
+    expect(classifyDocument([opd]).docType).toBe('consult_note')
+    const rt = 'AMRIT CANCER CARE\nRADIATION ONCOLOGY - TREATMENT SUMMARY\nStaging: PET-CT 05/03/2026\nDose 41.4 Gy in 23 fractions, VMAT\nCompleted on 17 Apr 2026'
+    expect(classifyDocument([rt]).docType).toBe('radiotherapy_summary')
+    const letterhead = 'YUKSOM ONCOLOGY & DAY-CARE CENTRE\nMEDICAL ONCOLOGY - OUT-PATIENT RECORD\nHistory\nNeck swelling. Examination: nodes. Plan: ABVD, review in a week.'
+    expect(classifyDocument([letterhead]).docType).toBe('consult_note')
+  })
   it('falls back to other', () => {
     expect(classifyDocument(['Hello world, nothing here.']).docType).toBe('other')
     expect(classifyDocument([]).docType).toBe('other')

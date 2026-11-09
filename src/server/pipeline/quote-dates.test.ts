@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { Candidate } from '@/core/gate'
-import { gateAndDate, type Classified } from './core'
+import { gateAndDate, type GatedPages } from './core'
 
 // Dates on facts: an LLM-extracted fact keeps the date that is in its quote, and a document's own day-first dates settle
-// the ambiguity flag. `Classified` is only read for its usable pages here, so a minimal object stands in for it.
+// the ambiguity flag. Only the usable pages are given, as when a person keys one fact (actions.ts): no class, no page classes.
 const page = (text: string) => ({ pageNo: 1, text, source: 'text_layer', lowConfidence: false }) as never
-const classified = (text: string) => ({ usable: [page(text)] }) as unknown as Classified
+const classified = (text: string): GatedPages => ({ usable: [page(text)] })
 const DOC = { documentDate: { iso: '2026-05-12', precision: 'day' as const, flags: [], raw: '12/05/2026' } }
 const NO_DOC = { documentDate: null }
 const RECEIVED = new Date('2026-11-07T06:00:00Z')

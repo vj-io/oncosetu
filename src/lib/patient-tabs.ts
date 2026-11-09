@@ -6,6 +6,7 @@ export const PATIENT_TAB_ROLES = {
   timeline: ['records', 'clinician'],
   ledger: ['desk', 'records', 'clinician'],
   completeness: ['desk', 'records', 'clinician', 'org_admin'],
+  preauth: ['records', 'clinician', 'org_admin'],
   requests: ['desk', 'records', 'clinician'],
   shares: ['desk', 'records', 'clinician'],
 } as const satisfies Partial<Record<string, readonly StaffRole[]>>

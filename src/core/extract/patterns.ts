@@ -34,6 +34,9 @@ const PROC = new RegExp(
 const PROC_DONE = /(?<![\p{L}])(?:done|performed|underwent|undergone|s\/p|status\s+post|post|operated|taken\s+up|carried\s+out|h\/o|history\s+of)(?![\p{L}])/iu
 const PROC_NOT_DONE = /(?<![\p{L}])(?:advised|advise|plan|planned|recommend\w*|to\s+be\s+done|scheduled|suggested|candidate\s+for|consider\w*|awaiting|will\s+undergo|posted\s+for|planned\s+for)(?![\p{L}])/iu
 const SURGERY_DATE_LABEL = /(?:date\s+of\s+(?:surgery|operation|procedure)|surgery\s+date|operation\s+date|DOS)\s*[:\-–]?\s*$/iu
+// "Procedure: Insertion of a totally implantable venous access port, …" in an operation / procedure note: the label's own value.
+const PROC_LABEL = /^(?:Procedure|Operation|Surgery|Name\s+of\s+(?:the\s+)?(?:procedure|operation|surgery))(?:\s+(?:done|performed))?\s*[:：]\s*(\S[^\n]{2,})/iu
+const PROC_LABEL_DOCS: ReadonlySet<DocType> = new Set(['procedure_note', 'discharge_summary'])
 
 const TESTS = [
   String.raw`ER\s*/\s*PR(?:\s*/\s*HER-?2(?:\s*/\s*neu)?)?`, String.raw`HER-?2(?:\s*/\s*neu)?(?:\s+FISH)?`, String.raw`Ki-?67`, 'IHC', 'immunohistochemistry',
@@ -45,9 +48,11 @@ const TESTS = [
   String.raw`PET[\s-]?CT(?:\s+report)?`, String.raw`CT(?:\s+scan)?\s+report`, String.raw`MRI(?:\s+report)?`, String.raw`USG(?:\s+report)?`, String.raw`bone\s+scan`,
   String.raw`mammogra(?:m|phy)`, String.raw`2D\s*echo`, 'MUGA', String.raw`lab(?:oratory)?(?=\s+reports?(?![\p{L}]))`,
 ].join('|')
-const STATUS = String.raw`to\s+follow|awaited|awaiting|pending|will\s+follow|sent(?:\s+for)?|dispatched|under\s+process|being\s+processed|in\s+process|not\s+(?:yet\s+)?received`
+const STATUS = String.raw`to\s+follow|awaited|awaiting|pending|will\s+follow|sent(?:\s+for)?|dispatched|under\s+process|being\s+processed|in\s+process|not\s+(?:yet\s+)?received|(?:will\s+be|to\s+be)\s+(?:reported|issued)\s+separately`
 const PENDING_A = new RegExp(String.raw`(?<![\p{L}])(${TESTS})(?![\p{L}])[^.\n;]{0,40}?(?<![\p{L}])(${STATUS})(?![\p{L}])`, 'giu')
-const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
+const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending|sent\s+for)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
+/** "IHC will be performed on request …", "… if required": an option, not a report on its way. */
+const CONDITIONAL = /(?<![\p{L}])(?:on\s+request|if\s+(?:required|needed|indicated|requested))(?![\p{L}])/iu
 const MOLECULAR = /^(?:molecular|NGS|EGFR|ALK|ROS|KRAS|BRAF|BRCA|PD-?L1|MSI|FISH|PCR)/i
 
 const CYCLE = /(?<![\p{L}])(?:cycle|cy)\.?\s*(?:no\.?\s*)?[:#-]?\s*(\d{1,2})(?!\d)|(?<![\p{L}\d])C\s?(\d{1,2})\s?D\s?(\d{1,2})(?!\d)|(?<![\p{L}\d])(\d{1,2})(?:st|nd|rd|th)\s+cycle(?![\p{L}])/giu
@@ -59,9 +64,11 @@ const CHEMO_CONTEXT = /chemo|regimen|infusion|day\s*care|daycare/iu
 const RT_WORD = String.raw`[Rr]adiotherapy|RADIOTHERAPY|[Rr]adiation(?:\s+[Tt]herapy)?|RADIATION|EBRT|IMRT|VMAT|IGRT|SBRT|[Bb]rachytherapy|[Cc]hemo-?radiation|CTRT|CCRT|RT`
 const RT_DONE = String.raw`[Cc]ompleted|COMPLETED|[Cc]oncluded|[Ff]inished`
 const RT_A = new RegExp(String.raw`(?<![\p{L}])(${RT_WORD})(?![\p{L}])[^.\n]{0,60}?(?<![\p{L}])(${RT_DONE})(?![\p{L}])`, 'gu')
-const RT_B = new RegExp(String.raw`(?<![\p{L}])(${RT_DONE}|[Cc]ompletion\s+of)\s+(?:[\p{L}]+\s+){0,3}?(${RT_WORD})(?![\p{L}])`, 'gu')
-const RT_DATE_LABEL = /(?<![\p{L}])(date\s+of\s+completion|completion\s+date|treatment\s+completed\s+on|completed\s+on)\s*[:\-–]?\s*/giu
-const RT_NOT_DONE = /(?<![\p{L}])(?:not|to\s+be|will\s+be|yet\s+to\s+be)\s+complet/iu
+const RT_B = new RegExp(String.raw`(?<![\p{L}])(${RT_DONE}|[Cc]ompletion\s+of|[Rr]eceived|[Uu]nderwent)\s+(?:[\p{L}]+\s+){0,3}?(${RT_WORD})(?![\p{L}])`, 'gu')
+const RT_DATE_LABEL = /(?<![\p{L}])(date\s+of\s+completion|completion\s+date|treatment\s+completed\s+on|completed\s+on|(?:date\s+of\s+)?last\s+fraction|completed(?=\s*[:\-–]))\s*[:\-–]?\s*/giu
+const RT_NOT_DONE = /(?<![\p{L}])(?:(?:not|to\s+be|will\s+be|yet\s+to\s+be)\s+complet|not\s+(?:yet\s+)?(?:received|undergone))/iu
+// In a radiotherapy summary, "Treatment was completed as planned" is the radiotherapy itself.
+const RT_SUMMARY_DONE = /(?<![\p{L}])([Tt]reatment|[Cc]ourse)(?![\p{L}])[^.\n]{0,30}?(?<![\p{L}])(completed|concluded|finished)(?![\p{L}])/u
 
 const BODY = String.raw`(?:\s+(?:of\s+)?(?:the\s+)?(?:thorax|chest|abdomen\s+(?:and|&)\s+pelvis|abdomen|pelvis|neck|brain|head|whole\s+body|bilateral\s+breasts?|breasts?|spine|liver))?`
 // "ECG / Chest X-ray" is kept as written (the ECG half is not dropped); standalone ECG is not an imaging report.
@@ -75,8 +82,8 @@ const AMENDS = /(?:addendum|amendment|corrigendum|supplement(?:ary)?)\s+(?:repor
 
 const REFERRAL = /(?<![\p{L}])(?:referred|refer|referral|ref\.?)\s+to\s+((?:Dr\.?\s*)?[\p{L}][\p{L}\p{M}.&'’\- ]{2,80}?)(?=\s+for(?![\p{L}])|\s+(?:on|dated)\s|[,;:\n(]|\.\s|\.$|$)/giu
 
-const ADMISSION = /(?<![\p{L}])(?:D\.?O\.?A\.?|Date\s+of\s+Admission|Admission\s+Date|Admitted\s+on|Date\s+of\s+Adm\.?)(?![\p{L}])\s*[:\-–]?\s*/giu
-const DISCHARGE = /(?<![\p{L}])(?:D\.?O\.?D\.?|Date\s+of\s+Discharge|Discharge\s+Date|Discharged\s+on)(?![\p{L}])\s*[:\-–]?\s*/giu
+const ADMISSION = /(?<![\p{L}])(?:D\.?O\.?A\.?|Date\s+of\s+Admission|Admission\s+Date|Admitted\s+on|Date\s+of\s+Adm\.?|Admitted(?=\s*[:：]))(?![\p{L}])\s*[:\-–]?\s*/giu
+const DISCHARGE = /(?<![\p{L}])(?:D\.?O\.?D\.?|Date\s+of\s+Discharge|Discharge\s+Date|Discharged\s+on|Discharged(?=\s*[:：]))(?![\p{L}])\s*[:\-–]?\s*/giu
 
 const ALLERGY = /(?<![\p{L}])(?:(?:no|nil)\s+known\s+(?:drug\s+|food\s+)?allerg(?:y|ies)|NKDA|(?:known\s+)?allergic\s+to\s+[^.;\n\t]{2,60}?(?=\s*(?:[.;\n\t]|$))|allerg(?:y|ies)\s*[:\-–]\s*[^.;\n\t]{2,60}?(?=\s*(?:[.;\n\t]|$)))/iu
 // A date already written down for something still to come (review visit, suture removal, dressing, next cycle).
@@ -111,6 +118,7 @@ const MARKER_NARRATIVE = /(?:evaluated|reported\s+separately|performed\s+on|sent
 const MMR_STATUS = /\b(?:pMMR|dMMR|MSI-?H|MSI-?L|MSS)\b|mismatch\s+repair\s+(?:proficient|deficient)/iu
 const LABEL_NEXT = /^[\p{Lu}][\p{L}\s/().-]{1,40}:/u
 const ADDENDUM_TITLE = /^\s*(?:ADDENDUM|AMENDED|CORRIGENDUM|SUPPLEMENTARY)(?:\s+REPORT)?\s*$/
+const ADDENDUM_TEST = /(?:immunohistochemistry|IHC|molecular|FISH|NGS)[^.]{0,80}?(?<![\p{L}])(?:was|were)\s+(?:performed|done|carried\s+out)(?![\p{L}])/iu
 const ADDENDUM_CHANGE = /(?:diagnosis|report|findings?)[^.]{0,80}?\b(?:unchanged|revised|amended|modified|corrected|changed)\b/i
 const IMPRESSION_HEAD = /^\s*(?:impression|conclusion|opinion)\s*:?\s*$/i
 const IMPRESSION_INLINE = /^\s*(?:impression|conclusion)\s*[:\-–]\s*(\S[\s\S]*)$/i
@@ -120,10 +128,13 @@ const IMPRESSION_DOCS: ReadonlySet<DocType> = new Set(['imaging_report', 'pathol
 const SIGNATURE = /^\s*(?:Dr\.?\s|Reg\.|Consultant\b|Reported\s+by|Computer|Verified|\*{2,}|\+\s*End)/i
 const REGIMEN_PART = /(?<![\p{L}])(Regimen|Protocol)(?:\s*:\s*|[ ]*\t\s*)/iu
 
+const SEEN_BY = /^\s*(?:Seen\s+by|Consulting\s+(?:doctor|physician|oncologist)|Consultant|Doctor|Treating\s+(?:doctor|consultant)|Oncologist)\s*[:：]/iu
+
 const TITLES: Partial<Record<DocType, RegExp>> = {
   pathology_report: /(?<![\p{L}])(?:histopatholog\w*(?:\s+(?:report|examination))?|surgical\s+pathology(?:\s+report)?|biopsy\s+report|cytology\s+report|HPE\s+report|pathology\s+report|frozen\s+section(?:\s+report)?|cytopathology(?:\s+report)?)(?![\p{L}])/iu,
   ihc_molecular_report: /(?<![\p{L}])(?:immunohistochemistry(?:\s+report)?|IHC(?:\s+report)?|molecular\s+(?:pathology|diagnostics|report)|NGS(?:\s+report)?|next[\s-]generation\s+sequencing|EGFR\s+mutation(?:\s+analysis)?|FISH(?:\s+report)?|PD-?L1(?:\s+report)?)(?![\p{L}])/iu,
   imaging_report: IMAGING,
+  consult_note: /(?<![\p{L}])(?:(?:out-?\s?patient\s+)?consultation\s+(?:note|record|sheet)|OPD\s+(?:notes?|record|card|consultation)|(?:OP|OPD)\s+consultation|clinic\s+note|follow[\s-]?up\s+note)(?![\p{L}])/iu,
   lab_report: /(?<![\p{L}])(?:complete\s+blood\s+count|CBC|haemogram|hemogram|liver\s+function\s+tests?|LFT|kidney\s+function\s+tests?|KFT|renal\s+function\s+tests?|RFT|lipid\s+profile|thyroid\s+profile|tumou?r\s+markers?|blood\s+sugar|HbA1c|urine\s+routine|coagulation\s+profile|serum\s+[\p{L}]+|CA[\s-]?125|CA[\s-]?15[.-]3|CEA|PSA|biochemistry|haematology|hematology)(?![\p{L}])/iu,
 }
 
@@ -257,8 +268,17 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         }
       }
 
-      // Procedures
-      if (!PROC_NOT_DONE.test(t)) {
+      // Procedures: a labelled "Procedure:" line, dated by the note's "Date of surgery / procedure" line nearby
+      const pl = PROC_LABEL_DOCS.has(docType) ? PROC_LABEL.exec(t) : null
+      if (pl && !PROC_NOT_DONE.test(t)) {
+        const what = pl[1].split(/[,;(]|\s+(?:under|with|via|using)\s+/)[0].trim()
+        const own = absDates(t)[0]
+        const nb = own ? null : segs.slice(Math.max(0, i - 3), i + 4).find((s) => s !== seg && s.page === page && SURGERY_DATE_LABEL.test(s.text.slice(0, absDates(s.text)[0]?.start ?? 0)) && absDates(s.text)[0])
+        if (own) add('procedure_documented', page, seg.start, seg.end, { procedure_text: what, event_date_text: own.raw })
+        else if (nb && Math.max(nb.end, seg.end) - Math.min(nb.start, seg.start) <= MAX_QUOTE) add('procedure_documented', page, Math.min(nb.start, seg.start), Math.max(nb.end, seg.end), { procedure_text: what, event_date_text: absDates(nb.text)[0].raw })
+        else add('procedure_documented', page, seg.start, seg.end, { procedure_text: what })
+      }
+      if (!pl && !PROC_NOT_DONE.test(t)) {
         for (const m of t.matchAll(PROC)) {
           const d = absDates(t)[0]
           if (d) {
@@ -274,6 +294,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
 
       // Pending / sent reports
       for (const m of [...t.matchAll(PENDING_A)].map((m) => ({ test: m[1], status: m[2], m })).concat([...t.matchAll(PENDING_B)].map((m) => ({ test: m[2], status: m[1], m })))) {
+        if (CONDITIONAL.test(t)) continue
         const sent = /^(?:sent|dispatched)/i.test(m.status)
         const type = sent && MOLECULAR.test(m.test) ? 'molecular_test_documented' : 'report_pending_documented'
         add(type, page, seg.start, seg.end, { test_name: m.test, status_text: m.status, event_date_text: absDates(t)[0]?.raw })
@@ -300,6 +321,8 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
             const d = dateAfter(t, m.index! + m[0].length)
             if (d) add('radiotherapy_documented', page, at(m.index!), at(d.end), { status_text: m[1], event_date_text: d.raw })
           }
+          const sd = RT_SUMMARY_DONE.exec(t)
+          if (sd) add('radiotherapy_documented', page, seg.start, seg.end, { treatment_text: sd[1], status_text: sd[2], event_date_text: absDates(t)[0]?.raw })
         }
       }
 
@@ -520,13 +543,26 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
     lab_report: 'lab_report_documented',
     consult_note: 'consultation_documented',
   }
-  const type = docEvent[docType]
+  // An addendum to a pathology report that reports an added test (IHC, molecular) documents that test, not a new report.
+  const addedTest = docType === 'pathology_report' && first.text.split('\n').slice(0, HEADER_LINES).some((l) => ADDENDUM_TITLE.test(l)) &&
+    pages.some((p) => ADDENDUM_TEST.test(p.text))
+  const type = addedTest ? 'molecular_test_documented' : docEvent[docType]
   if (type) {
     const date: LabelledSpan | undefined = docType === 'lab_report' ? header.collectionDate ?? header.reportDate : header.reportDate
-    const titleRe = TITLES[docType]
+    const titleRe = TITLES[addedTest ? 'ihc_molecular_report' : docType]
     const tm = titleRe ? new RegExp(titleRe.source, titleRe.flags.replace('g', '')).exec(first.text) : null
     const title = tm && first.text.slice(0, tm.index).split('\n').length <= HEADER_LINES ? { value: tm[0], start: tm.index, end: tm.index + tm[0].length } : null
-    if (date) {
+    if (date && type === 'consultation_documented') {
+      // The consultation as the note names it: its title line, the visit date and, on the next line, who saw the patient.
+      const lineStart = (at: number) => first.text.lastIndexOf('\n', at - 1) + 1
+      const lineEnd = (at: number) => (first.text.indexOf('\n', at) + 1 || first.text.length + 1) - 1
+      const s = title ? Math.min(lineStart(title.start), date.labelStart) : date.labelStart
+      let e = Math.max(title ? lineEnd(title.end) : 0, date.end)
+      const next = first.text.slice(lineEnd(date.end) + 1, lineEnd(lineEnd(date.end) + 1))
+      if (SEEN_BY.test(next)) e = Math.max(e, lineEnd(lineEnd(date.end) + 1))
+      const [qs, qe] = e - s <= MAX_QUOTE ? [s, e] : [date.labelStart, date.end]
+      add(type, first, qs, qe, { event_date_text: date.value })
+    } else if (date) {
       const s = title ? Math.min(title.start, date.labelStart) : date.labelStart
       const e = title ? Math.max(title.end, date.end) : date.end
       const [qs, qe] = e - s <= MAX_QUOTE ? [s, e] : [date.labelStart, date.end]

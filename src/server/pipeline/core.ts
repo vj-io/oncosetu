@@ -82,21 +82,24 @@ const span = (s?: Span): HeaderField | undefined => (s ? { value: s.value, start
 // Document-date labels in priority order (FR-EXT-04 `document_date` = the report's own date). A colon is required so
 // references such as "(reported 18/03/2026)" to another report never win.
 const DOC_DATE_LABELS: [string, RegExp][] = [
-  ['report date', /(?<![\p{L}])(?:Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+(?:of\s+)?Report(?:ed|ing)?|Reporting\s+Date|Reported\s+on)\s*[:：]/giu],
+  ['report date', /(?<![\p{L}])(?:Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+(?:of\s+)?Report(?:ed|ing)?|Reporting\s+Date|Reported(?:\s+on)?|Summary\s+(?:Date|issued(?:\s+on)?))\s*[:：]/giu],
   ['addendum date', /(?<![\p{L}])Addendum\s+Date\s*[:：]/giu],
   ['discharge date', /(?<![\p{L}])(?:Date\s+of\s+Discharge|Discharge\s+Date)\s*[:：]/giu],
-  ['visit date', /(?<![\p{L}])(?:Date\s+of\s+(?:Visit|Study|Scan|Consultation|Procedure|Examination)|Visit\s+Date|Scan\s+Date)\s*[:：]/giu],
+  ['visit date', /(?<![\p{L}])(?:Date\s+of\s+(?:Visit|Study|Scan|Consultation|Procedure|Examination|Surgery|Operation)|(?<!(?:next|follow[\s-]?up|review|subsequent|last|previous|prior)\s+)Visit(?:\s+Date)?|Scan\s+Date)\s*[:：]/giu],
   ['collection date', /(?<![\p{L}])(?:(?:Sample\s+)?Collect(?:ed|ion)\s*(?:Date|On)?|Date\s+(?:of\s+)?Collect(?:ed|ion))\s*[:：]/giu],
   ['date', /(?<![\p{L}])(?:Date|Dated|Dt\.?|दिनांक|तारीख़?)\s*[:：]/giu],
   ['admission date', /(?<![\p{L}])(?:Date\s+of\s+Admission|Admission\s+Date)\s*[:：]/giu],
 ]
+
+/** Between a date label and its date: separators, and a weekday as printed ("Visit: Thursday, 7 May 2026"). */
+const LABEL_TO_DATE = /^[\s\-–=.]*(?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day,?\s*)?$/i
 
 function pickDocumentDate(text: string): LabelledSpan | undefined {
   for (const [label, re] of DOC_DATE_LABELS) {
     for (const m of text.matchAll(re)) {
       const after = m.index! + m[0].length
       const window = text.slice(after, after + 40)
-      const d = findDates(window).find((s) => s.kind === 'absolute' && /^[\s\-–=.]*$/.test(window.slice(0, s.start)))
+      const d = findDates(window).find((s) => s.kind === 'absolute' && LABEL_TO_DATE.test(window.slice(0, s.start)))
       if (d) return { value: d.raw, start: after + d.start, end: after + d.end, label, labelStart: m.index! }
     }
   }
@@ -202,7 +205,19 @@ export function identify(pages: PageRead[], c: Classified, patient: PatientIdent
 // Chemo "cycle" mentions that are not a session given: future plans, due dates, intervals (core patterns over-match).
 // ponytail: candidate hygiene that belongs in core/extract/patterns; kept here until the extractor learns it.
 const NOT_A_SESSION = /\bnext\s+(?:visit|cycle)\b|\bdue\s+on\b|\bdeferred\b|\bscheduled\b|\binterval\b|\bfrom\s+last\s+cycle\b|\bwill\s+(?:be|receive)\b/i
-const MED_ROW = /^[ \t]*(?:\d{1,2}[.)]?[ \t]+)?(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syrup|Susp)\.?[ \t]+([A-Za-z][A-Za-z-]*)/
+/** The sentence of a cycle quote that names the cycle ("Cycle 2 of 4. Interval from the last cycle: 21 days." is a session given). */
+function cycleClause(c: Candidate): string {
+  const n = String(c.fields.cycle_number ?? '')
+  const parts = c.quote.split(/(?<=[.;])\s+(?=[\p{Lu}])/u)
+  return (n && parts.find((p) => new RegExp(String.raw`(?:cycle|cy)\.?\s*(?:no\.?\s*)?[:#-]?\s*${n}(?!\d)|C\s?${n}\s?D|${n}(?:st|nd|rd|th)\s+cycle`, 'iu').test(p))) || c.quote
+}
+// "Tab. X", "T. X" / "C. X" (the dot required), at a line start or after "; " in a run-on advice line.
+const MED_PREFIX = String.raw`(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syrup|Susp|T\.|C\.)\.?[ \t]+([A-Za-z][A-Za-z-]*)`
+const MED_ROW = new RegExp(String.raw`^[ \t]*(?:\d{1,2}[.)]?[ \t]+)?${MED_PREFIX}`)
+const MED_INLINE = new RegExp(String.raw`[;,][ \t]*${MED_PREFIX}`, 'g')
+// A medicine table row without Tab./Cap. ("ORS sachets <tab> One sachet in a litre of water ..."): taken only directly
+// after a medicine row, when the next cell reads as dosing.
+const DOSING_ROW = /^[ \t]*([A-Za-z][A-Za-z0-9 %+-]{2,40}?)[ \t]*\t[^\t]*\b(?:sachets?|tablets?|tabs?|capsules?|once|twice|thrice|daily|apply|after|before|OD|BD|TDS|QID|HS|SOS|times?\s+a\s+day)\b/i
 
 /** Printed medication rows ("1  Tab. Ondansetron 4 mg …", discharge-medication tables) grouped into ≤ 300-char blocks. */
 function prescriptionRows(page: { pageNo: number; text: string }): Candidate[] {
@@ -213,14 +228,19 @@ function prescriptionRows(page: { pageNo: number; text: string }): Candidate[] {
     block = null
   }
   let offset = 0
+  let prevWasMed = false
   for (const line of page.text.split('\n')) {
     const start = offset
     offset += line.length + 1
     const m = MED_ROW.exec(line)
-    if (!m) continue
+    const names = [...(m ? [m[1]] : []), ...[...line.matchAll(MED_INLINE)].map((x) => x[1])]
+    const dosing = !names.length && prevWasMed ? DOSING_ROW.exec(line) : null
+    if (dosing) names.push(dosing[1].trim())
+    prevWasMed = names.length > 0
+    if (!names.length) continue
     const end = start + line.length
     if (block && end - block.start > 300) flush()
-    if (block) { block.end = end; block.names.push(m[1]) } else block = { start, end, names: [m[1]] }
+    if (block) { block.end = end; block.names.push(...names) } else block = { start, end, names }
   }
   flush()
   return out
@@ -232,7 +252,7 @@ function rulesCandidates(pages: PageRead[], docType: DocType): Candidate[] {
   if ((docType === 'prescription_printed' || docType === 'discharge_summary') && !out.some((c) => c.event_type === 'prescription_documented')) {
     out = out.concat(ps.flatMap(prescriptionRows))
   }
-  return out.filter((c) => !(c.event_type === 'chemotherapy_session_documented' && NOT_A_SESSION.test(c.quote)))
+  return out.filter((c) => !(c.event_type === 'chemotherapy_session_documented' && NOT_A_SESSION.test(cycleClause(c))))
 }
 
 /** Stage 6: candidate events. LLM if given (falls back on null), else the deterministic pattern extractor. */

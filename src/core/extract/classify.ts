@@ -60,6 +60,7 @@ const VOCAB: Partial<Record<DocType, Vocab>> = {
 }
 
 const TITLE_WEIGHT = 6
+const HEADING_BONUS = 3
 const BODY_CAP = 10
 const MIN_SCORE = 3
 const TITLE_LINES = 15
@@ -76,13 +77,21 @@ const COMPILED = Object.entries(VOCAB).map(([docType, v]) => ({
   body: v!.body.map(termRe),
 }))
 
+function upperShare(line: string): number {
+  const letters = line.match(/\p{L}/gu) ?? []
+  return letters.length < 4 ? 0 : letters.filter((ch) => ch === ch.toUpperCase() && ch !== ch.toLowerCase()).length / letters.length
+}
+
 /** Classifies a document from its page texts (FR-DOC-04). Unknown/weak evidence → `other`. */
 export function classifyDocument(pages: string[]): Classification {
   const all = pages.join('\n')
   const head = (pages[0] ?? '').split(/\r?\n/).slice(0, TITLE_LINES).join('\n')
+  // Upper-case heading lines ("HISTOPATHOLOGY REPORT - PROSTATE NEEDLE BIOPSY") outrank a term in a sentence of the header
+  // ("Clinical details: ... MRI prostate ...").
+  const headings = head.split('\n').filter((l) => !/[:：]/.test(l) && l.length <= 80 && upperShare(l) >= 0.7).join('\n')
   const scores: Partial<Record<DocType, number>> = {}
   for (const c of COMPILED) {
-    const title = c.title.some((re) => re.test(head)) ? TITLE_WEIGHT : 0
+    const title = c.title.some((re) => re.test(headings)) ? TITLE_WEIGHT + HEADING_BONUS : c.title.some((re) => re.test(head)) ? TITLE_WEIGHT : 0
     const body = Math.min(BODY_CAP, c.body.filter((re) => re.test(all)).length)
     scores[c.docType] = title + body
   }

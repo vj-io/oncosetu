@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { PREAUTH_LINES, PREAUTH_REQUIREMENTS, preauthFile, type FileDoc } from './preauth'
+import { labPanels, PREAUTH_LINES, PREAUTH_REQUIREMENTS, preauthFile, preauthSummary, type FileDoc } from './preauth'
 
 const doc = (id: string, docType: FileDoc['docType'], documentDate: string | null = null): FileDoc => ({ id, docType, documentDate, institution: null, title: id })
 
 describe('PM-JAY oncology pre-authorisation file check', () => {
   it('marks each asked-for document in the file or not, newest matching document first', () => {
-    const f = preauthFile('chemotherapy', [doc('old-hpe', 'pathology_report', '2026-01-02'), doc('new-hpe', 'pathology_report', '2026-03-04'), doc('cbc', 'lab_report')])
+    const f = preauthFile('chemotherapy', [doc('old-hpe', 'pathology_report', '2026-01-02'), doc('new-hpe', 'pathology_report', '2026-03-04'), doc('Complete Blood Count', 'lab_report')])
     const biopsy = f.rows.find((r) => r.asked.startsWith('Biopsy'))!
     expect(biopsy.status).toBe('in_file')
     expect(biopsy.docs.map((d) => d.id)).toEqual(['new-hpe', 'old-hpe'])
@@ -29,5 +29,28 @@ describe('PM-JAY oncology pre-authorisation file check', () => {
       expect(reqs.some((r) => r.stage === 'preauth' && r.accepts.includes('pathology_report')), key).toBe(true)
       expect(reqs.some((r) => r.asked.startsWith('Oncology Treatment Plan Approval form')), key).toBe(true)
     }
+  })
+  it('the blood-test row is complete only when CBC, LFT and RFT are each named on a lab report', () => {
+    const cbc = doc('CBC report', 'lab_report', '2026-03-01')
+    const chem = { ...doc('Biochemistry', 'lab_report', '2026-03-01'), labNames: ['S. Bilirubin (Total)', 'SGPT (ALT)', 'SGOT (AST)'] }
+    const row = (docs: FileDoc[]) => preauthFile('chemotherapy', docs).rows.find((r) => r.panels)!
+    expect(row([cbc])).toMatchObject({ status: 'partial', missingPanels: ['LFT', 'RFT'] })
+    expect(row([cbc, chem])).toMatchObject({ status: 'partial', missingPanels: ['RFT'] })
+    const rft = { ...doc('Kidney Function Test', 'lab_report', '2026-03-02') }
+    expect(row([cbc, chem, rft])).toMatchObject({ status: 'in_file', missingPanels: [] })
+    // a partial row is not counted as in the file
+    expect(preauthFile('chemotherapy', [cbc, chem, rft]).inFile - preauthFile('chemotherapy', [cbc, chem]).inFile).toBe(1)
+  })
+  it('names panels from titles or from two of their tests, never from one stray word', () => {
+    expect(labPanels(['संपूर्ण रक्त गणना (CBC) रिपोर्ट'])).toEqual(['CBC'])
+    expect(labPanels(['Haemogram'])).toEqual(['CBC'])
+    expect(labPanels(['Haemoglobin', 'Platelet count'])).toEqual(['CBC'])
+    expect(labPanels(['Serum creatinine', 'Blood urea'])).toEqual(['RFT'])
+    expect(labPanels(['Serum creatinine'])).toEqual([])
+    expect(labPanels(['Thyroid profile'])).toEqual([])
+  })
+  it('worklist summary counts only the papers asked for before pre-authorisation', () => {
+    const s = preauthSummary('surgery', [doc('Consultation', 'consult_note', '2026-03-01'), doc('Biopsy', 'pathology_report', '2026-03-02')])
+    expect(s).toEqual({ line: 'surgery', inFile: 2, checkable: 3, missing: ['Imaging named for the package (mammography in the breast example; CT or MRI optional)'] })
   })
 })

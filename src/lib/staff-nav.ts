@@ -10,6 +10,7 @@ export const STAFF_NAV: { href: string; label: string; roles: StaffRole[] }[] = 
   { href: '/desk', label: 'Desk', roles: CLINICAL },
   { href: '/patients', label: 'Patients', roles: CLINICAL },
   { href: '/records', label: 'Records queue', roles: ['records'] },
+  { href: '/preauth', label: 'Pre-auth files', roles: ['records'] },
   { href: '/capture', label: 'Capture', roles: ['desk', 'records'] },
   { href: '/admin/duplicates', label: 'Duplicates', roles: ['records'] },
   { href: '/admin', label: 'Admin', roles: ['org_admin', 'auditor'] },

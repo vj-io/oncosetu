@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T08:28:11.261Z",
+  "generatedAt": "2026-11-09T09:04:13.613Z",
   "method": "rules",
   "note": "Precision counts an extracted event correct when it matches at least one gold fact (type, date, text); recall counts gold facts found. Held documents (identity not matched) are scored on what would be extracted after a person attaches them; nothing from them reaches the record. Top-level numbers are the TUNED set (the rule library was tuned on it: optimistic); `heldout` was written after the rules were frozen.",
   "dataset": "20 synthetic documents in public/demo-docs (gold: data/eval/gold.json)",
@@ -123,10 +123,10 @@
     "accuracy": 1
   },
   "classification": {
-    "correct": 19,
+    "correct": 20,
     "total": 20,
-    "accuracy": 0.95,
-    "macroF1": 0.947,
+    "accuracy": 1,
+    "macroF1": 1,
     "perClass": {
       "other": {
         "precision": 1,
@@ -179,17 +179,17 @@
       },
       "pathology_report": {
         "precision": 1,
-        "recall": 0.75,
-        "f1": 0.857,
+        "recall": 1,
+        "f1": 1,
         "support": 4,
-        "predicted": 3
+        "predicted": 4
       },
       "ihc_molecular_report": {
-        "precision": 0.5,
+        "precision": 1,
         "recall": 1,
-        "f1": 0.667,
+        "f1": 1,
         "support": 1,
-        "predicted": 2
+        "predicted": 1
       }
     }
   },
@@ -221,7 +221,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 861,
+      "ms": 1714,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -245,7 +245,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 57,
+      "ms": 102,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -269,7 +269,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 61,
+      "ms": 289,
       "reachesRecord": true,
       "gold": 12,
       "found": 11,
@@ -298,7 +298,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 36,
+      "ms": 80,
       "reachesRecord": true,
       "gold": 2,
       "found": 2,
@@ -322,7 +322,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 8510,
+      "ms": 14994,
       "reachesRecord": true,
       "gold": 2,
       "found": 2,
@@ -346,7 +346,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 44,
+      "ms": 62,
       "reachesRecord": true,
       "gold": 6,
       "found": 6,
@@ -372,7 +372,7 @@
       },
       "handwritten": true,
       "method": "rules",
-      "ms": 3180,
+      "ms": 9786,
       "reachesRecord": false,
       "gold": 0,
       "found": 0,
@@ -396,7 +396,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 3218,
+      "ms": 18720,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -424,7 +424,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 19,
+      "ms": 62,
       "reachesRecord": false,
       "gold": 1,
       "found": 1,
@@ -448,7 +448,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 20,
+      "ms": 73,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -472,7 +472,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 14,
+      "ms": 55,
       "reachesRecord": true,
       "gold": 2,
       "found": 2,
@@ -496,7 +496,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 17,
+      "ms": 65,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -520,7 +520,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 23,
+      "ms": 83,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -550,7 +550,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 19,
+      "ms": 77,
       "reachesRecord": true,
       "gold": 8,
       "found": 7,
@@ -579,7 +579,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 12,
+      "ms": 55,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -603,7 +603,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 17,
+      "ms": 72,
       "reachesRecord": true,
       "gold": 2,
       "found": 2,
@@ -627,7 +627,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 5184,
+      "ms": 12352,
       "reachesRecord": true,
       "gold": 1,
       "found": 1,
@@ -651,7 +651,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 26,
+      "ms": 54,
       "reachesRecord": true,
       "gold": 3,
       "found": 3,
@@ -675,7 +675,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 18,
+      "ms": 43,
       "reachesRecord": true,
       "gold": 6,
       "found": 6,
@@ -690,7 +690,7 @@
       "file": "returning__07-histopathology-addendum.pdf",
       "docType": {
         "expected": "pathology_report",
-        "got": "ihc_molecular_report"
+        "got": "pathology_report"
       },
       "identity": {
         "expected": "match",
@@ -699,7 +699,7 @@
       },
       "handwritten": false,
       "method": "rules",
-      "ms": 25,
+      "ms": 41,
       "reachesRecord": true,
       "gold": 5,
       "found": 5,
@@ -719,22 +719,22 @@
       "handwrittenAutoExtracted": 0,
       "pass": true
     },
-    "precision": 0.935,
-    "recall": 0.76,
+    "precision": 1,
+    "recall": 0.969,
     "counts": {
       "gold": 96,
-      "found": 73,
-      "pred": 62,
-      "correct": 58
+      "found": 93,
+      "pred": 71,
+      "correct": 71
     },
     "untouchedLabels": {
-      "precision": 0.915,
-      "recall": 0.709,
+      "precision": 1,
+      "recall": 0.962,
       "counts": {
         "gold": 79,
-        "found": 56,
-        "pred": 47,
-        "correct": 43
+        "found": 76,
+        "pred": 56,
+        "correct": 56
       },
       "excludesTypes": [
         "stage_documented",
@@ -753,11 +753,11 @@
     },
     "recallByClass": {
       "pathology_report": {
-        "recall": 0.625,
+        "recall": 1,
         "gold": 8
       },
       "ihc_molecular_report": {
-        "recall": 0.923,
+        "recall": 1,
         "gold": 13
       },
       "imaging_report": {
@@ -777,23 +777,23 @@
         "gold": 0
       },
       "discharge_summary": {
-        "recall": 0.733,
+        "recall": 1,
         "gold": 30
       },
       "consult_note": {
-        "recall": 0.25,
+        "recall": 1,
         "gold": 4
       },
       "chemo_daycare_record": {
-        "recall": 0.8,
+        "recall": 1,
         "gold": 5
       },
       "radiotherapy_summary": {
-        "recall": 0,
+        "recall": 1,
         "gold": 2
       },
       "procedure_note": {
-        "recall": 0,
+        "recall": 0.667,
         "gold": 3
       },
       "bill_insurance": {
@@ -807,12 +807,12 @@
     },
     "precisionByClass": {
       "pathology_report": {
-        "precision": 0.714,
-        "extracted": 7
+        "precision": 1,
+        "extracted": 8
       },
       "ihc_molecular_report": {
         "precision": 1,
-        "extracted": 10
+        "extracted": 11
       },
       "imaging_report": {
         "precision": 1,
@@ -832,23 +832,23 @@
       },
       "discharge_summary": {
         "precision": 1,
-        "extracted": 21
+        "extracted": 20
       },
       "consult_note": {
-        "precision": 0.333,
-        "extracted": 3
-      },
-      "chemo_daycare_record": {
         "precision": 1,
         "extracted": 4
       },
+      "chemo_daycare_record": {
+        "precision": 1,
+        "extracted": 5
+      },
       "radiotherapy_summary": {
-        "precision": null,
-        "extracted": 0
+        "precision": 1,
+        "extracted": 4
       },
       "procedure_note": {
-        "precision": null,
-        "extracted": 0
+        "precision": 1,
+        "extracted": 2
       },
       "bill_insurance": {
         "precision": null,
@@ -860,29 +860,29 @@
       }
     },
     "identity": {
-      "correct": 27,
+      "correct": 28,
       "total": 40,
-      "accuracy": 0.675
+      "accuracy": 0.7
     },
     "classification": {
-      "correct": 39,
+      "correct": 40,
       "total": 40,
-      "accuracy": 0.975,
-      "macroF1": 0.983,
+      "accuracy": 1,
+      "macroF1": 1,
       "perClass": {
         "pathology_report": {
           "precision": 1,
-          "recall": 0.8,
-          "f1": 0.889,
+          "recall": 1,
+          "f1": 1,
           "support": 5,
-          "predicted": 4
+          "predicted": 5
         },
         "imaging_report": {
-          "precision": 0.8,
+          "precision": 1,
           "recall": 1,
-          "f1": 0.889,
+          "f1": 1,
           "support": 4,
-          "predicted": 5
+          "predicted": 4
         },
         "procedure_note": {
           "precision": 1,
@@ -969,6 +969,7 @@
         "expected": true,
         "flagged": true,
         "patterns": [
+          "add_fact",
           "ignore_instructions"
         ],
         "hiddenChars": 0,
@@ -992,7 +993,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 30,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -1016,7 +1017,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 5550,
+        "ms": 11706,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1042,18 +1043,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 24,
+        "ms": 37,
         "reachesRecord": false,
         "gold": 2,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
         "missed": [
-          {
-            "type": "procedure_documented",
-            "date": "2026-06-02",
-            "match": "anterior resection"
-          },
           {
             "type": "report_pending_documented",
             "match": "HPE"
@@ -1076,7 +1072,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 22,
+        "ms": 31,
         "reachesRecord": true,
         "gold": 5,
         "found": 5,
@@ -1102,18 +1098,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 29,
+        "ms": 35,
         "reachesRecord": false,
         "gold": 7,
-        "found": 6,
-        "extracted": 6,
-        "correct": 6,
-        "missed": [
-          {
-            "type": "prescription_documented",
-            "match": "Ursodeoxycholic"
-          }
-        ],
+        "found": 7,
+        "extracted": 5,
+        "correct": 5,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1133,19 +1124,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 20,
+        "ms": 24,
         "reachesRecord": false,
         "gold": 1,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "procedure_documented",
-            "date": "2026-05-12",
-            "match": "port"
-          }
-        ],
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1163,7 +1148,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 23,
+        "ms": 29,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1189,7 +1174,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3614,
+        "ms": 6384,
         "reachesRecord": false,
         "gold": 2,
         "found": 0,
@@ -1222,7 +1207,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 13,
+        "ms": 36,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1246,18 +1231,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
+        "ms": 38,
         "reachesRecord": true,
         "gold": 3,
-        "found": 2,
-        "extracted": 2,
-        "correct": 2,
-        "missed": [
-          {
-            "type": "report_pending_documented",
-            "match": "Immunohistochemistry"
-          }
-        ],
+        "found": 3,
+        "extracted": 3,
+        "correct": 3,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1277,30 +1257,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 18,
+        "ms": 34,
         "reachesRecord": false,
         "gold": 9,
-        "found": 5,
-        "extracted": 7,
-        "correct": 7,
-        "missed": [
-          {
-            "type": "prescription_documented",
-            "match": "Paracetamol"
-          },
-          {
-            "type": "prescription_documented",
-            "match": "Pantoprazole"
-          },
-          {
-            "type": "prescription_documented",
-            "match": "Cefixime"
-          },
-          {
-            "type": "prescription_documented",
-            "match": "Ondansetron"
-          }
-        ],
+        "found": 9,
+        "extracted": 6,
+        "correct": 6,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1318,7 +1281,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 12,
+        "ms": 30,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1333,7 +1296,7 @@
         "file": "harpreet__01-prostate-biopsy-histopathology.pdf",
         "docType": {
           "expected": "pathology_report",
-          "got": "imaging_report"
+          "got": "pathology_report"
         },
         "identity": {
           "expected": "match",
@@ -1342,25 +1305,14 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 11,
+        "ms": 26,
         "reachesRecord": true,
         "gold": 1,
-        "found": 0,
+        "found": 1,
         "extracted": 1,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "pathology_report_documented",
-            "date": "2026-04-09"
-          }
-        ],
-        "extra": [
-          {
-            "type": "imaging_report_documented",
-            "date": "2026-04-04",
-            "quote": "Sample collected: 04/04/2026\nReported: 9th April 2026\nReferred by: Dr. Gurpreet Sethi (Uro"
-          }
-        ],
+        "correct": 1,
+        "missed": [],
+        "extra": [],
         "gateRejected": 0,
         "unsupported": []
       },
@@ -1377,7 +1329,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 12,
+        "ms": 31,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1401,26 +1353,14 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 10,
+        "ms": 35,
         "reachesRecord": true,
         "gold": 2,
-        "found": 1,
+        "found": 2,
         "extracted": 2,
-        "correct": 1,
-        "missed": [
-          {
-            "type": "consultation_documented",
-            "date": "2026-04-14",
-            "match": "Sethi"
-          }
-        ],
-        "extra": [
-          {
-            "type": "consultation_documented",
-            "date": "2026-04-14",
-            "quote": "Date of visit: 14-04-2026"
-          }
-        ],
+        "correct": 2,
+        "missed": [],
+        "extra": [],
         "gateRejected": 0,
         "unsupported": []
       },
@@ -1432,24 +1372,18 @@
         },
         "identity": {
           "expected": "match",
-          "got": "insufficient",
-          "reasons": [
-            "no_corroborating_field"
-          ]
+          "got": "match",
+          "reasons": []
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 15,
-        "reachesRecord": false,
+        "ms": 35,
+        "reachesRecord": true,
         "gold": 1,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "radiotherapy_documented"
-          }
-        ],
+        "found": 1,
+        "extracted": 2,
+        "correct": 2,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1467,7 +1401,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 12,
+        "ms": 24,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1491,7 +1425,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 14,
+        "ms": 26,
         "reachesRecord": true,
         "gold": 4,
         "found": 4,
@@ -1515,7 +1449,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 16,
+        "ms": 23,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1539,7 +1473,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 16,
+        "ms": 24,
         "reachesRecord": true,
         "gold": 0,
         "found": 0,
@@ -1565,19 +1499,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 12,
+        "ms": 20,
         "reachesRecord": false,
         "gold": 1,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "consultation_documented",
-            "date": "2026-05-07",
-            "match": "Oncology"
-          }
-        ],
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1595,7 +1523,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 11,
+        "ms": 18,
         "reachesRecord": true,
         "gold": 3,
         "found": 3,
@@ -1621,22 +1549,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 13,
+        "ms": 27,
         "reachesRecord": false,
         "gold": 7,
-        "found": 5,
-        "extracted": 4,
-        "correct": 4,
-        "missed": [
-          {
-            "type": "admission_documented",
-            "date": "2026-06-15"
-          },
-          {
-            "type": "discharge_documented",
-            "date": "2026-06-18"
-          }
-        ],
+        "found": 7,
+        "extracted": 5,
+        "correct": 5,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1656,7 +1575,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 2180,
+        "ms": 4711,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,
@@ -1680,7 +1599,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3272,
+        "ms": 6807,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1704,18 +1623,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 10,
+        "ms": 26,
         "reachesRecord": true,
         "gold": 4,
-        "found": 3,
-        "extracted": 2,
-        "correct": 2,
-        "missed": [
-          {
-            "type": "report_pending_documented",
-            "match": "ALK"
-          }
-        ],
+        "found": 4,
+        "extracted": 3,
+        "correct": 3,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1733,7 +1647,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 4896,
+        "ms": 7461,
         "reachesRecord": true,
         "gold": 1,
         "found": 1,
@@ -1759,7 +1673,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 4306,
+        "ms": 4940,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,
@@ -1783,7 +1697,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 31,
+        "ms": 21,
         "reachesRecord": true,
         "gold": 2,
         "found": 2,
@@ -1809,7 +1723,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 19,
+        "ms": 16,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -1835,18 +1749,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 26,
+        "ms": 23,
         "reachesRecord": false,
         "gold": 7,
-        "found": 6,
+        "found": 7,
         "extracted": 4,
         "correct": 4,
-        "missed": [
-          {
-            "type": "prescription_documented",
-            "match": "ORS"
-          }
-        ],
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1864,7 +1773,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 25,
+        "ms": 16,
         "reachesRecord": true,
         "gold": 4,
         "found": 4,
@@ -1888,25 +1797,14 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 22,
+        "ms": 19,
         "reachesRecord": true,
         "gold": 1,
-        "found": 0,
+        "found": 1,
         "extracted": 1,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "pathology_report_documented",
-            "date": "2026-03-06"
-          }
-        ],
-        "extra": [
-          {
-            "type": "pathology_report_documented",
-            "date": "2026-03-02",
-            "quote": "Collected: 02.03.2026"
-          }
-        ],
+        "correct": 1,
+        "missed": [],
+        "extra": [],
         "gateRejected": 0,
         "unsupported": []
       },
@@ -1923,7 +1821,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 33,
+        "ms": 21,
         "reachesRecord": true,
         "gold": 5,
         "found": 5,
@@ -1949,19 +1847,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 36,
+        "ms": 19,
         "reachesRecord": false,
         "gold": 2,
-        "found": 1,
-        "extracted": 1,
-        "correct": 1,
-        "missed": [
-          {
-            "type": "chemotherapy_session_documented",
-            "date": "2026-04-28",
-            "match": "Cycle 2"
-          }
-        ],
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -1981,7 +1873,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 3317,
+        "ms": 5198,
         "reachesRecord": false,
         "gold": 4,
         "found": 4,
@@ -2005,26 +1897,14 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 32,
+        "ms": 21,
         "reachesRecord": true,
         "gold": 1,
-        "found": 0,
+        "found": 1,
         "extracted": 1,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "consultation_documented",
-            "date": "2026-05-05",
-            "match": "Head"
-          }
-        ],
-        "extra": [
-          {
-            "type": "consultation_documented",
-            "date": "2026-05-05",
-            "quote": "Date: 5th May 2026"
-          }
-        ],
+        "correct": 1,
+        "missed": [],
+        "extra": [],
         "gateRejected": 0,
         "unsupported": []
       },
@@ -2043,17 +1923,13 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 30,
+        "ms": 20,
         "reachesRecord": false,
         "gold": 1,
-        "found": 0,
-        "extracted": 0,
-        "correct": 0,
-        "missed": [
-          {
-            "type": "radiotherapy_documented"
-          }
-        ],
+        "found": 1,
+        "extracted": 2,
+        "correct": 2,
+        "missed": [],
         "extra": [],
         "gateRejected": 0,
         "unsupported": []
@@ -2073,7 +1949,7 @@
         },
         "handwritten": false,
         "method": "rules",
-        "ms": 6186,
+        "ms": 5153,
         "reachesRecord": false,
         "gold": 1,
         "found": 1,
@@ -2099,7 +1975,7 @@
         },
         "handwritten": true,
         "method": "rules",
-        "ms": 2447,
+        "ms": 2736,
         "reachesRecord": false,
         "gold": 0,
         "found": 0,
@@ -2112,15 +1988,1052 @@
       }
     ]
   },
+  "heldout2": {
+    "dataset": "24 synthetic documents in data/eval/heldout2 (gold: data/eval/gold-heldout2.json)",
+    "gates": {
+      "unsupportedFactsReachingRecord": 0,
+      "handwrittenAutoExtracted": 0,
+      "pass": true
+    },
+    "precision": 0.812,
+    "recall": 0.755,
+    "counts": {
+      "gold": 110,
+      "found": 83,
+      "pred": 85,
+      "correct": 69
+    },
+    "untouchedLabels": {
+      "precision": 0.787,
+      "recall": 0.713,
+      "counts": {
+        "gold": 87,
+        "found": 62,
+        "pred": 61,
+        "correct": 48
+      },
+      "excludesTypes": [
+        "stage_documented",
+        "marker_results_documented",
+        "margins_documented",
+        "impression_documented",
+        "addendum_documented",
+        "regimen_documented"
+      ]
+    },
+    "unscoredTypes": {
+      "diagnosis_documented": 15,
+      "lab_results_documented": 6,
+      "follow_up_documented": 6,
+      "history_documented": 2
+    },
+    "recallByClass": {
+      "pathology_report": {
+        "recall": 0.857,
+        "gold": 14
+      },
+      "ihc_molecular_report": {
+        "recall": 1,
+        "gold": 5
+      },
+      "imaging_report": {
+        "recall": 0.8,
+        "gold": 5
+      },
+      "lab_report": {
+        "recall": 1,
+        "gold": 1
+      },
+      "prescription_printed": {
+        "recall": 1,
+        "gold": 5
+      },
+      "prescription_handwritten": {
+        "recall": null,
+        "gold": 0
+      },
+      "discharge_summary": {
+        "recall": 0.9,
+        "gold": 40
+      },
+      "consult_note": {
+        "recall": 0.526,
+        "gold": 19
+      },
+      "chemo_daycare_record": {
+        "recall": 0.5,
+        "gold": 4
+      },
+      "radiotherapy_summary": {
+        "recall": 0.8,
+        "gold": 10
+      },
+      "procedure_note": {
+        "recall": 0,
+        "gold": 7
+      }
+    },
+    "precisionByClass": {
+      "pathology_report": {
+        "precision": 1,
+        "extracted": 13
+      },
+      "ihc_molecular_report": {
+        "precision": 1,
+        "extracted": 5
+      },
+      "imaging_report": {
+        "precision": 0.667,
+        "extracted": 6
+      },
+      "lab_report": {
+        "precision": 1,
+        "extracted": 1
+      },
+      "prescription_printed": {
+        "precision": 0.667,
+        "extracted": 3
+      },
+      "prescription_handwritten": {
+        "precision": null,
+        "extracted": 0
+      },
+      "discharge_summary": {
+        "precision": 1,
+        "extracted": 23
+      },
+      "consult_note": {
+        "precision": 0.611,
+        "extracted": 18
+      },
+      "chemo_daycare_record": {
+        "precision": 0.667,
+        "extracted": 3
+      },
+      "radiotherapy_summary": {
+        "precision": 0.889,
+        "extracted": 9
+      },
+      "procedure_note": {
+        "precision": 0,
+        "extracted": 4
+      }
+    },
+    "identity": {
+      "correct": 19,
+      "total": 24,
+      "accuracy": 0.792
+    },
+    "classification": {
+      "correct": 22,
+      "total": 24,
+      "accuracy": 0.917,
+      "macroF1": 0.926,
+      "perClass": {
+        "pathology_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 3,
+          "predicted": 3
+        },
+        "radiotherapy_summary": {
+          "precision": 0.75,
+          "recall": 1,
+          "f1": 0.857,
+          "support": 3,
+          "predicted": 4
+        },
+        "procedure_note": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 3,
+          "predicted": 3
+        },
+        "discharge_summary": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 4,
+          "predicted": 4
+        },
+        "imaging_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 2,
+          "predicted": 2
+        },
+        "consult_note": {
+          "precision": 1,
+          "recall": 0.5,
+          "f1": 0.667,
+          "support": 4,
+          "predicted": 2
+        },
+        "prescription_handwritten": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        },
+        "lab_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        },
+        "ihc_molecular_report": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        },
+        "chemo_daycare_record": {
+          "precision": 0.5,
+          "recall": 1,
+          "f1": 0.667,
+          "support": 1,
+          "predicted": 2
+        },
+        "prescription_printed": {
+          "precision": 1,
+          "recall": 1,
+          "f1": 1,
+          "support": 1,
+          "predicted": 1
+        }
+      }
+    },
+    "injection": [],
+    "docs": [
+      {
+        "file": "bhupen__01-oesophagus-biopsy-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 28,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bhupen__02-nacrt-radiotherapy-summary.pdf",
+        "docType": {
+          "expected": "radiotherapy_summary",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 32,
+        "reachesRecord": true,
+        "gold": 3,
+        "found": 3,
+        "extracted": 4,
+        "correct": 3,
+        "missed": [],
+        "extra": [
+          {
+            "type": "margins_documented",
+            "date": "2026-04-20",
+            "quote": "Target \tPrimary tumour and involved nodes with 4 cm cranio-caudal and 1.5 cm radial margin"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bhupen__03-oesophagectomy-operation-note.pdf",
+        "docType": {
+          "expected": "procedure_note",
+          "got": "procedure_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 23,
+        "reachesRecord": true,
+        "gold": 2,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-05-26",
+            "match": "oesophagectomy"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "HPE"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": null,
+            "quote": "Operation: Minimally invasive three-stage (McKeown) oesophagectomy with two-field lymphade"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "bhupen__04-discharge-summary-oesophagectomy.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 39,
+        "reachesRecord": false,
+        "gold": 10,
+        "found": 8,
+        "extracted": 5,
+        "correct": 5,
+        "missed": [
+          {
+            "type": "imaging_report_documented",
+            "date": "2026-06-01",
+            "match": "swallow"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Chlorhexidine"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ghulam__01-cect-abdomen.pdf",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 24,
+        "reachesRecord": true,
+        "gold": 3,
+        "found": 2,
+        "extracted": 4,
+        "correct": 2,
+        "missed": [
+          {
+            "type": "imaging_report_documented",
+            "date": "2026-07-04",
+            "match": "CECT"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-06-26",
+            "quote": "UGI endoscopic biopsy (HPE\ndated 26.06.2026): adenocarcinoma, antrum."
+          },
+          {
+            "type": "imaging_report_documented",
+            "date": "2026-07-04",
+            "quote": "Dated: \t04/07/2026"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ghulam__02-gastrectomy-operation-record.pdf",
+        "docType": {
+          "expected": "procedure_note",
+          "got": "procedure_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": false,
+        "gold": 3,
+        "found": 0,
+        "extracted": 1,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-07-21",
+            "match": "gastrectomy"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "histopatholog"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "cytology"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": null,
+            "quote": "Operation performed \tOpen radical distal (subtotal) gastrectomy with D2 lymphadenectomy an"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ghulam__03-gastrectomy-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 27,
+        "reachesRecord": true,
+        "gold": 7,
+        "found": 6,
+        "extracted": 6,
+        "correct": 6,
+        "missed": [
+          {
+            "type": "report_pending_documented",
+            "match": "Mismatch repair"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ghulam__04-discharge-summary-his.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 30,
+        "reachesRecord": true,
+        "gold": 10,
+        "found": 10,
+        "extracted": 6,
+        "correct": 6,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "hansa__01-radiation-oncology-opd.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 24,
+        "reachesRecord": true,
+        "gold": 6,
+        "found": 2,
+        "extracted": 4,
+        "correct": 2,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-04-08",
+            "match": "Desai"
+          },
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-03-28"
+          },
+          {
+            "type": "lab_report_documented",
+            "date": "2026-04-06"
+          },
+          {
+            "type": "impression_documented",
+            "match": "Ca cervix"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-03-28",
+            "quote": "• HPE (cervical punch biopsy) dtd 28/03/2026: keratinising squamous cell carcinoma, modera"
+          },
+          {
+            "type": "imaging_report_documented",
+            "date": "2026-04-13",
+            "quote": "• RT planning CT simulation on 13/04/2026; bladder and bowel protocol explained."
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "hansa__02-prescription-handwritten.jpg",
+        "docType": {
+          "expected": "prescription_handwritten",
+          "got": "prescription_handwritten"
+        },
+        "identity": {
+          "expected": "insufficient",
+          "got": "insufficient",
+          "reasons": [
+            "handwritten_header"
+          ]
+        },
+        "handwritten": true,
+        "method": "rules",
+        "ms": 4290,
+        "reachesRecord": false,
+        "gold": 0,
+        "found": 0,
+        "extracted": 0,
+        "correct": 0,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "hansa__03-cbc-rft-photo.jpg",
+        "docType": {
+          "expected": "lab_report",
+          "got": "lab_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 8577,
+        "reachesRecord": true,
+        "gold": 1,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "hansa__04-radiotherapy-completion-note.pdf",
+        "docType": {
+          "expected": "radiotherapy_summary",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": true,
+        "gold": 3,
+        "found": 1,
+        "extracted": 1,
+        "correct": 1,
+        "missed": [
+          {
+            "type": "radiotherapy_documented",
+            "match": "EBRT"
+          },
+          {
+            "type": "radiotherapy_documented",
+            "match": "brachytherapy"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "meenakshi__01-breast-clinic-opd.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "consult_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 25,
+        "reachesRecord": true,
+        "gold": 4,
+        "found": 3,
+        "extracted": 4,
+        "correct": 4,
+        "missed": [
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-06-09"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "meenakshi__02-discharge-summary-mrm.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "no_corroborating_field"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 26,
+        "reachesRecord": false,
+        "gold": 11,
+        "found": 11,
+        "extracted": 7,
+        "correct": 7,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "meenakshi__03-mrm-histopathology.pdf",
+        "docType": {
+          "expected": "pathology_report",
+          "got": "pathology_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "mismatch",
+          "reasons": [
+            "name_mismatch"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 25,
+        "reachesRecord": false,
+        "gold": 6,
+        "found": 5,
+        "extracted": 6,
+        "correct": 6,
+        "missed": [
+          {
+            "type": "margins_documented",
+            "match": "All surgical margins"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "meenakshi__04-ihc-breast-prognostic.pdf",
+        "docType": {
+          "expected": "ihc_molecular_report",
+          "got": "ihc_molecular_report"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 21,
+        "reachesRecord": true,
+        "gold": 5,
+        "found": 5,
+        "extracted": 5,
+        "correct": 5,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ramesh__01-head-neck-opd-bilingual-photo.jpg",
+        "docType": {
+          "expected": "consult_note",
+          "got": "consult_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 6811,
+        "reachesRecord": true,
+        "gold": 4,
+        "found": 3,
+        "extracted": 7,
+        "correct": 3,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-03-03",
+            "match": "Sinha"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-02-24",
+            "quote": "Reports: Biopsy HPE dated 24/02/2026 - well differentiated squamous cell carcinoma."
+          },
+          {
+            "type": "procedure_documented",
+            "date": "2026-03-15",
+            "quote": "+ Composite resection (wide excision + segmental mandibulectomy) + left neck dissection + "
+          },
+          {
+            "type": "stage_documented",
+            "date": "2026-03-03",
+            "quote": "stage IVA"
+          },
+          {
+            "type": "consultation_documented",
+            "date": "2026-03-03",
+            "quote": "_OPD CONSULTATION | ओ.पी.डी. परामर्श\nनाम / Name:\tRAMESH PRASAD YADAV\tदिनांक / Date:\t03-03-"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ramesh__02-composite-resection-operative-note.pdf",
+        "docType": {
+          "expected": "procedure_note",
+          "got": "procedure_note"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 19,
+        "reachesRecord": true,
+        "gold": 2,
+        "found": 0,
+        "extracted": 2,
+        "correct": 0,
+        "missed": [
+          {
+            "type": "procedure_documented",
+            "date": "2026-03-17",
+            "match": "composite resection"
+          },
+          {
+            "type": "report_pending_documented",
+            "match": "HPE"
+          }
+        ],
+        "extra": [
+          {
+            "type": "procedure_documented",
+            "date": null,
+            "quote": "Procedure: Left composite resection (wide excision of the buccal mucosa growth with segmen"
+          },
+          {
+            "type": "margins_documented",
+            "date": "2026-03-17",
+            "quote": "Segmental mandibulectomy from the 33 region to the\nangle with a 1 cm bony margin;"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ramesh__03-discharge-summary-romanised-hindi.pdf",
+        "docType": {
+          "expected": "discharge_summary",
+          "got": "discharge_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": true,
+        "gold": 9,
+        "found": 7,
+        "extracted": 5,
+        "correct": 5,
+        "missed": [
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-03-24"
+          },
+          {
+            "type": "prescription_documented",
+            "match": "Chlorhexidine"
+          }
+        ],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "ramesh__04-adjuvant-radiotherapy-summary.pdf",
+        "docType": {
+          "expected": "radiotherapy_summary",
+          "got": "radiotherapy_summary"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 21,
+        "reachesRecord": true,
+        "gold": 4,
+        "found": 4,
+        "extracted": 4,
+        "correct": 4,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "tenzin__01-medical-oncology-opd.pdf",
+        "docType": {
+          "expected": "consult_note",
+          "got": "chemo_daycare_record"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "insufficient",
+          "reasons": [
+            "name_missing"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": false,
+        "gold": 5,
+        "found": 2,
+        "extracted": 3,
+        "correct": 2,
+        "missed": [
+          {
+            "type": "consultation_documented",
+            "date": "2026-08-10",
+            "match": "Lepcha"
+          },
+          {
+            "type": "pathology_report_documented",
+            "date": "2026-07-30"
+          },
+          {
+            "type": "lab_report_documented",
+            "date": "2026-08-07"
+          }
+        ],
+        "extra": [
+          {
+            "type": "chemotherapy_session_documented",
+            "date": "2026-08-14",
+            "quote": "• C1D1 on 14/08/2026 in day-care."
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "tenzin__02-abvd-daycare-c1d15.pdf",
+        "docType": {
+          "expected": "chemo_daycare_record",
+          "got": "chemo_daycare_record"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 22,
+        "reachesRecord": true,
+        "gold": 4,
+        "found": 2,
+        "extracted": 3,
+        "correct": 2,
+        "missed": [
+          {
+            "type": "chemotherapy_session_documented",
+            "date": "2026-08-28",
+            "match": "Cycle 1"
+          },
+          {
+            "type": "lab_report_documented",
+            "date": "2026-08-27"
+          }
+        ],
+        "extra": [
+          {
+            "type": "chemotherapy_session_documented",
+            "date": "2026-09-11",
+            "quote": "Next: C2D1 on 11/09/2026\nwith CBC."
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "tenzin__03-prescription-opd.pdf",
+        "docType": {
+          "expected": "prescription_printed",
+          "got": "prescription_printed"
+        },
+        "identity": {
+          "expected": "match",
+          "got": "match",
+          "reasons": []
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 16,
+        "reachesRecord": true,
+        "gold": 5,
+        "found": 5,
+        "extracted": 3,
+        "correct": 2,
+        "missed": [],
+        "extra": [
+          {
+            "type": "chemotherapy_session_documented",
+            "date": "2026-09-11",
+            "quote": "• Next chemotherapy C2D1 on 11/09/2026;"
+          }
+        ],
+        "gateRejected": 0,
+        "unsupported": []
+      },
+      {
+        "file": "tenzin__04-ct-thorax-wrong-patient.pdf",
+        "docType": {
+          "expected": "imaging_report",
+          "got": "imaging_report"
+        },
+        "identity": {
+          "expected": "mismatch",
+          "got": "mismatch",
+          "reasons": [
+            "sex_mismatch",
+            "age_mismatch"
+          ]
+        },
+        "handwritten": false,
+        "method": "rules",
+        "ms": 15,
+        "reachesRecord": false,
+        "gold": 2,
+        "found": 2,
+        "extracted": 2,
+        "correct": 2,
+        "missed": [],
+        "extra": [],
+        "gateRejected": 0,
+        "unsupported": []
+      }
+    ]
+  },
   "ocr": {
     "note": "CER = Levenshtein(normalised OCR text, normalised ground truth) / length(truth), per printed image page of the sets that ran; whitespace is the only normalisation (case and punctuation count). Truth = the text the generator drew on the page (data/eval/ocr-truth.json, data/eval/heldout/ocr-truth.json). Handwritten pages are excluded; `devanagari` = the page contains Devanagari text. PRD FR-DOC-02: CER <= 5% on a printed-report eval set.",
     "prdThreshold": 0.05,
-    "cer": 0.0793,
+    "cer": 0.0747,
     "maxCer": 0.1078,
-    "pagesScored": 9,
-    "excludedHandwritten": 4,
-    "cerLatin": 0.076,
-    "cerDevanagari": 0.082,
+    "pagesScored": 11,
+    "excludedHandwritten": 5,
+    "cerLatin": 0.0774,
+    "cerDevanagari": 0.0724,
     "pages": [
       {
         "set": "tuned",
@@ -2211,6 +3124,26 @@
         "truthChars": 744,
         "ocrChars": 761,
         "ocrConfidence": 0.837
+      },
+      {
+        "set": "heldout2",
+        "file": "hansa__03-cbc-rft-photo.jpg",
+        "page": 1,
+        "script": "latin",
+        "cer": 0.083,
+        "truthChars": 964,
+        "ocrChars": 954,
+        "ocrConfidence": 0.843
+      },
+      {
+        "set": "heldout2",
+        "file": "ramesh__01-head-neck-opd-bilingual-photo.jpg",
+        "page": 1,
+        "script": "devanagari",
+        "cer": 0.0243,
+        "truthChars": 1523,
+        "ocrChars": 1552,
+        "ocrConfidence": 0.912
       }
     ]
   }

@@ -12,11 +12,12 @@ describe('patient workspace tabs by role', () => {
     for (const k of Object.keys(PATIENT_TAB_ROLES)) expect(keys).toContain(k)
     for (const r of STAFF_ROLES) { expect(tabAllowed('overview', r)).toBe(true); expect(tabAllowed('documents', r)).toBe(true) }
   })
-  it('desk staff do not see the timeline but do see the ledger, requests and shares', () => {
+  it('desk staff do not see the timeline or the pre-auth file but do see the ledger, requests and shares', () => {
     expect(tabAllowed('timeline', 'desk')).toBe(false)
+    expect(tabAllowed('preauth', 'desk')).toBe(false)
     for (const t of ['ledger', 'requests', 'shares']) expect(tabAllowed(t, 'desk')).toBe(true)
   })
-  it('administrators only get the checklist among the role-limited tabs', () => {
+  it('administrators only get the checklist and the pre-auth file among the role-limited tabs', () => {
     expect(PATIENT_TABS.map(([k]) => k).filter((k) => !tabAllowed(k, 'org_admin') ).sort()).toEqual(['ledger', 'requests', 'shares', 'timeline'])
   })
   it('words the roles in a sentence', () => {

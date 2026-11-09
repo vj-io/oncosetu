@@ -1186,3 +1186,6 @@ export const heldDocs: HeldDoc[] = [
       }),
   },
 ]
+
+// shared with heldout2-docs.ts (second blind set)
+export { HEAD, title, h, p, kv, grid, ul, table, sig, END, handwrittenRx }

@@ -91,3 +91,13 @@ Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified f
 | SMS / WhatsApp out | Demo mode by decision: messages recorded in the outbox and shown on the demo phone. Twilio adapter built and wire-tested; enable with `TWILIO_*` |
 | WhatsApp in / email drop | Demo mode by decision: endpoints built and E2E-tested with signed payloads; enable with Twilio / Postmark accounts |
 | ABDM | Demo mode by decision: PRD-specified in-process gateway with real X25519/HKDF/AES-GCM; sandbox client built; enable with HIU registration (`ABDM_*`) |
+
+## 5. Final round (9 Nov 2026)
+
+| What | Result |
+|---|---|
+| Extraction rules fixed for the first held-out set's misses (`3ce6279`) | Tuned set 0.983 / 0.973 (precision / recall), types 20/20; held-out 1.000 / 0.969 (a second look, no longer blind) |
+| Second blind set (`data/eval/heldout2/`, 24 documents, 110 facts, a separate author without access to the rules) | Blind run: 0.785 / 0.691, types 21/24, identity 19/24, 0 unsupported facts, 0 handwritten pages extracted. Gemini-assisted: 0.788 / 0.691 (22 calls, all ok) |
+| Fixes from the blind set (`94a1ece`) | 0.812 / 0.755 on that set (a second look); tuned and held-out unchanged. One rule ("specimen sent for HPE") was reverted on 9 Nov because it doubled the hero patient's histopathology item on the missing-papers list |
+| PM-JAY pre-auth file (`fcf78f5`, FR-REQ-07) | Unit tests for the requirement lists; E2E `v13-preauth.spec.ts`; added to the 375 px / axe sweep |
+| Business case | Sourced buyer, channel, price hypothesis and funding routes: PRD §19 |

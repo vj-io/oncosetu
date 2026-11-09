@@ -10,6 +10,7 @@ export const PATIENT_TABS = [
   ["timeline", "Timeline"],
   ["ledger", "What’s new"],
   ["completeness", "Missing papers"],
+  ["preauth", "Pre-auth file"],
   ["requests", "Requests"],
   ["shares", "Share links"],
   ["statements", "Patient’s own answers"],

@@ -79,7 +79,7 @@ export async function setStaffRole(ctx: AdminCtx, id: string, role: StaffRole) {
 export async function resetStaffTotp(ctx: AdminCtx, id: string) {
   const s = await target(ctx, id)
   const { enrollment, secretEnc } = await enrol(s.email)
-  await ctx.db.update(staff).set({ totpSecretEnc: secretEnc, totpEnabled: true, failedLogins: 0, lockedUntil: null }).where(eq(staff.id, id))
+  await ctx.db.update(staff).set({ totpSecretEnc: secretEnc, totpEnabled: true, totpLastStep: null, failedLogins: 0, lockedUntil: null }).where(eq(staff.id, id))
   await ctx.db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.staffId, id), isNull(sessions.revokedAt)))
   await ctx.audit('staff.totp_reset', 'staff', id)
   return { id, enrollment }

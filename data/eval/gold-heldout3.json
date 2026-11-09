@@ -1,0 +1,735 @@
+{
+  "version": 1,
+  "about": "Hand-authored gold for the THIRD HELD-OUT set in data/eval/heldout3, written 9 Nov 2026 by a separate author from the document definitions in scripts/demo-docs/heldout3-docs.ts, without seeing the extraction rules (blind). Same convention as data/eval/gold-heldout2.json. One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions and discharge medication lists: one entry per medication (medicines named only in a history, an advice line or a chemotherapy administration table are not prescriptions). A study, specimen, procedure or chemotherapy dose the document only refers to is listed when the document gives it its own date or says its report is awaited (\"sent for HPE\" counts); planned or future events (tentative surgery, next cycle, review dates) are not facts. Radiotherapy courses carry no date (external beam and brachytherapy are separate courses). Handwritten prescriptions list none (never auto-extracted). Quote-only facts: every stage statement (clinical or pathological), every statement of a pathological resection-margin result wherever it appears (radiotherapy planning margins and intended surgical margins in an operation note are not margin facts), every marker result row of an IHC report, the conclusion of an imaging report (Impression / Opinion) and a consultation section headed Impression, and the regimen line of a chemotherapy record (a regimen given concurrently with radiotherapy or planned in a note is not labelled). Headings \"Diagnosis\" / \"Final diagnosis\" are not impressions. `identity` is the expected header decision against the patient in patients.json (a handwritten header is `insufficient` and held); `held` = the document must not reach the record without a person's decision.",
+  "docs": {
+    "rosalind__01-pet-ct-staging.pdf": {
+      "patientKey": "rosalind",
+      "docType": "imaging_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-03-03",
+          "match": "PET"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-02-18",
+          "match": "CECT"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-26"
+        },
+        {
+          "type": "impression_documented",
+          "match": "FDG-avid left upper lobe mass"
+        }
+      ]
+    },
+    "rosalind__02-ihc-lung-alk-pdl1.pdf": {
+      "patientKey": "rosalind",
+      "docType": "ihc_molecular_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "molecular_test_documented",
+          "date": "2026-03-12"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-26"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "TTF-1"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "Napsin A"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "p40"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "ALK"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "ROS1"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "PD-L1"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "EGFR"
+        }
+      ]
+    },
+    "rosalind__03-oncology-letter-to-pulmonologist.pdf": {
+      "patientKey": "rosalind",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-03-16",
+          "match": "Kamat"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-02-18",
+          "match": "CECT"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-26"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-03-03",
+          "match": "PET"
+        },
+        {
+          "type": "molecular_test_documented",
+          "date": "2026-03-12",
+          "match": "Immunohistochemistry"
+        },
+        {
+          "type": "molecular_test_documented",
+          "date": "2026-03-15",
+          "match": "EGFR"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-03-14",
+          "match": "MRI"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT2b N2 M1c"
+        }
+      ]
+    },
+    "rosalind__04-prescription-alectinib.pdf": {
+      "patientKey": "rosalind",
+      "docType": "prescription_printed",
+      "identity": "match",
+      "events": [
+        {
+          "type": "prescription_documented",
+          "match": "Alectinib"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Denosumab"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Calcium"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Paracetamol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Lactulose"
+        }
+      ]
+    },
+    "raghavendra__01-colonoscopy-report.pdf": {
+      "patientKey": "raghavendra",
+      "docType": "procedure_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "procedure_documented",
+          "date": "2026-01-07",
+          "match": "Colonoscopy"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        }
+      ]
+    },
+    "raghavendra__02-mri-pelvis-rectal-protocol.pdf": {
+      "patientKey": "raghavendra",
+      "docType": "imaging_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-01-14",
+          "match": "MRI"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-01-07",
+          "match": "Colonoscopy"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Mid-rectal carcinoma"
+        },
+        {
+          "type": "stage_documented",
+          "match": "mrT3c N2a"
+        }
+      ]
+    },
+    "raghavendra__03-cea-lft-photo-partial-header.jpg": {
+      "patientKey": "raghavendra",
+      "docType": "lab_report",
+      "identity": "insufficient",
+      "held": true,
+      "events": [
+        {
+          "type": "lab_report_documented",
+          "date": "2026-01-09",
+          "match": "CEA"
+        }
+      ]
+    },
+    "raghavendra__04-short-course-rt-summary.pdf": {
+      "patientKey": "raghavendra",
+      "docType": "radiotherapy_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "radiotherapy_documented",
+          "match": "25 Gy"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-01-16"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT3c N2a"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-01-14",
+          "match": "MRI"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-01-19",
+          "match": "CECT"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-01-09",
+          "match": "CEA"
+        }
+      ]
+    },
+    "nandita__01-total-thyroidectomy-operation-note.pdf": {
+      "patientKey": "nandita",
+      "docType": "procedure_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-03",
+          "match": "thyroidectomy"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-14",
+          "match": "FNAC"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        }
+      ]
+    },
+    "nandita__02-thyroid-histopathology.pdf": {
+      "patientKey": "nandita",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-03-11"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-03",
+          "match": "thyroidectomy"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Uninvolved by carcinoma"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT2 pN1a"
+        }
+      ]
+    },
+    "nandita__03-radioiodine-discharge-summary.pdf": {
+      "patientKey": "nandita",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-04-20"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-04-23"
+        },
+        {
+          "type": "radiotherapy_documented",
+          "match": "I-131"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-04-22",
+          "match": "Whole-body"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-04-17",
+          "match": "TSH"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT2 pN1a"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-03",
+          "match": "thyroidectomy"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Levothyroxine"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Calcium"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Calcitriol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Ondansetron"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        }
+      ]
+    },
+    "nandita__04-thyroid-profile-bilingual-photo.jpg": {
+      "patientKey": "nandita",
+      "docType": "lab_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "lab_report_documented",
+          "date": "2026-04-17"
+        }
+      ]
+    },
+    "saiteja__01-bone-marrow-flow-report.pdf": {
+      "patientKey": "saiteja",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-06-08"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-06-06",
+          "match": "trephine"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-06-04",
+          "match": "CBC"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "FISH"
+        }
+      ]
+    },
+    "saiteja__02-induction-discharge-summary.pdf": {
+      "patientKey": "saiteja",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-06-05"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-06-19"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-06-06",
+          "match": "trephine"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-06-08"
+        },
+        {
+          "type": "molecular_test_documented",
+          "date": "2026-06-12",
+          "match": "FISH"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "Karyotype"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-06-07",
+          "match": "PICC"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-06-08",
+          "match": "Day 1"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-06-11",
+          "match": "Day 4"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-06-15",
+          "match": "Day 8"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Prednisolone"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Cotrimoxazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Fluconazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Lactulose"
+        }
+      ]
+    },
+    "saiteja__03-daycare-induction-day15.pdf": {
+      "patientKey": "saiteja",
+      "docType": "chemo_daycare_record",
+      "identity": "match",
+      "events": [
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-06-22",
+          "match": "Day 15"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-06-15",
+          "match": "Day 8"
+        },
+        {
+          "type": "regimen_documented",
+          "match": "Phase 1A"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-06-21"
+        }
+      ]
+    },
+    "saiteja__04-usg-abdomen-wrong-patient.pdf": {
+      "patientKey": "saiteja",
+      "docType": "imaging_report",
+      "identity": "mismatch",
+      "held": true,
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-24",
+          "match": "Ultrasound"
+        },
+        {
+          "type": "impression_documented",
+          "match": "mesenteric lymphadenitis"
+        }
+      ]
+    },
+    "deviram__01-uro-oncology-opd-bullets.pdf": {
+      "patientKey": "deviram",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-04-14",
+          "match": "Negi"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-04-12",
+          "match": "PSA"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-04-08"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-04-13",
+          "match": "Bone scan"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Ca prostate"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT3a Nx M1b"
+        }
+      ]
+    },
+    "deviram__02-bone-scan-mdp.pdf": {
+      "patientKey": "deviram",
+      "docType": "imaging_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-04-13",
+          "match": "bone scan"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-04-12",
+          "match": "PSA"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Multiple osteoblastic"
+        }
+      ]
+    },
+    "deviram__03-prescription-handwritten.jpg": {
+      "patientKey": "deviram",
+      "docType": "prescription_handwritten",
+      "identity": "insufficient",
+      "handwritten": true,
+      "held": true,
+      "events": []
+    },
+    "deviram__04-palliative-rt-summary.pdf": {
+      "patientKey": "deviram",
+      "docType": "radiotherapy_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "radiotherapy_documented",
+          "match": "20 Gy"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-05-10",
+          "match": "MRI"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-05-15",
+          "match": "PSA"
+        }
+      ]
+    },
+    "amit__01-orchidectomy-discharge-summary.pdf": {
+      "patientKey": "amit",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-07-02"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-07-03",
+          "match": "orchidectomy"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-07-05"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-29",
+          "match": "USG scrotum"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-07-01",
+          "match": "AFP"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Cefuroxime"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Paracetamol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Povidone-iodine"
+        }
+      ]
+    },
+    "amit__02-orchidectomy-histopathology.pdf": {
+      "patientKey": "amit",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-07-10"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-07-03",
+          "match": "orchidectomy"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Spermatic cord resection margin"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT2"
+        }
+      ]
+    },
+    "amit__03-medical-oncology-opd-tabular.pdf": {
+      "patientKey": "amit",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-07-16",
+          "match": "Hembrom"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-29",
+          "match": "USG scrotum"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-07-01",
+          "match": "pre-op"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-07-10",
+          "match": "HPE"
+        },
+        {
+          "type": "margins_documented",
+          "match": "cord margin free"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-07-14",
+          "match": "CECT"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-07-15",
+          "match": "post-op"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT2 N2 M1a S2"
+        }
+      ]
+    },
+    "amit__04-bep-daycare-c2d1.pdf": {
+      "patientKey": "amit",
+      "docType": "chemo_daycare_record",
+      "identity": "match",
+      "events": [
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-08-10",
+          "match": "Cycle 2"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-07-20",
+          "match": "C1D1"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-07-27",
+          "match": "bleomycin"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-08-03",
+          "match": "bleomycin"
+        },
+        {
+          "type": "regimen_documented",
+          "match": "BEP"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-08-09",
+          "match": "AFP"
+        },
+        {
+          "type": "stage_documented",
+          "match": "stage IIIB"
+        }
+      ]
+    }
+  }
+}

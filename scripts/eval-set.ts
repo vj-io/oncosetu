@@ -6,7 +6,10 @@
  *   heldout  40 documents in data/eval/heldout (gold: data/eval/gold-heldout.json), written after the rules were frozen.
  *   redteam  28 adversarial documents in data/eval/redteam (gold: data/eval/gold-redteam.json): prompt injection, hidden
  *            and tiny text, fake diagnoses, wrong-patient headers, unicode tricks, conflicting dates (PRD §9.5).
- *   heldout2 24 documents in data/eval/heldout2, written 9 Nov 2026 by a separate author who did not see the rules; blind.
+ *   heldout2 24 documents in data/eval/heldout2, written 9 Nov 2026 by a separate author who did not see the rules; blind
+ *            on its first run, then used for fixes (9 and 10 Nov), so a second look now.
+ *   heldout3 24 documents in data/eval/heldout3, written 9-10 Nov 2026 by a separate author who did not see the rules,
+ *            after the 10 Nov rules were frozen; blind.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -32,6 +35,7 @@ export const SETS = {
   heldout: { dir: 'data/eval/heldout', gold: 'data/eval/gold-heldout.json', truth: 'data/eval/heldout/ocr-truth.json' },
   redteam: { dir: 'data/eval/redteam', gold: 'data/eval/gold-redteam.json', truth: 'data/eval/redteam/ocr-truth.json' },
   heldout2: { dir: 'data/eval/heldout2', gold: 'data/eval/gold-heldout2.json', truth: 'data/eval/heldout2/ocr-truth.json' },
+  heldout3: { dir: 'data/eval/heldout3', gold: 'data/eval/gold-heldout3.json', truth: 'data/eval/heldout3/ocr-truth.json' },
 } as const
 export type SetName = keyof typeof SETS
 

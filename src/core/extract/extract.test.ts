@@ -264,7 +264,9 @@ describe('extractPatterns: what is found', () => {
     expect(ev).toContainEqual(expect.objectContaining({ type: 'imaging_report_documented', test_name: 'CECT thorax', event_date_text: '02/03/2026' }))
     expect(ev).toContainEqual(expect.objectContaining({ type: 'referral_documented', referred_to_text: 'Dr. Rao' }))
     // "Plan: … chemotherapy" / "Mastectomy not advised" / discharge medications are not events
-    expect(ev.filter((e) => e.type === 'procedure_documented')).toHaveLength(2) // WLE + sentinel node biopsy on the same line
+    // One operation per sentence: "WLE + sentinel node biopsy" on one line is one item, quoted whole (the second blind set
+    // counted a composite resection as three items before this).
+    expect(ev.filter((e) => e.type === 'procedure_documented')).toHaveLength(1)
     expect(ev.some((e) => e.type === 'prescription_documented')).toBe(false)
     expect(ev.some((e) => e.type === 'chemotherapy_session_documented')).toBe(false)
   })

@@ -173,8 +173,8 @@ FR-ING-ABDM-01/02, PRD v1.1. Code in `src/server/abdm/**` (transport, crypto, co
 |---|---|---|---|---|---|---|
 | Unsupported facts reaching the record | 0 | 0 | 0 | 0 | 0 | 0 |
 | Handwritten pages auto-extracted | 0 | 0 | 0 | 0 | 0 | 0 |
-| Event precision | ≥ 0.95 | 0.984 | 1.000 | 0.785 | 0.820 | 0.788 |
-| Event recall (omission) | ≥ 0.85 | 1.000 | 0.979 | 0.691 | 0.791 | 0.691 |
+| Event precision | ≥ 0.95 | 0.983 | 1.000 | 0.785 | 0.812 | 0.788 |
+| Event recall (omission) | ≥ 0.85 | 0.973 | 0.969 | 0.691 | 0.755 | 0.691 |
 | Classification macro-F1 | ≥ 0.85 | 1.000 | 1.000 | 0.820 | 0.926 | 0.820 |
 | Identity decision as expected | held, never wrong | 20 / 20 | 28 / 40 | 19 / 24 | 19 / 24 | 19 / 24 |
 
@@ -355,7 +355,7 @@ Scripts and commands (from `package.json` and `scripts/`):
 - **Radar rules need a recorded clinician review.** The YAML library ships unreviewed (shadow mode). In the demo organisation the seed records a review for all ten rules (until 5 Nov 2026 `RAD-IMG-PT-01` stayed in shadow to show the mechanism, which hid the PET-CT a returning patient mentioned from clinicians). The wording still needs review by the team's clinician advisor before any pilot.
 - **Erasure runs after the retention period, in the database.** `erase_patient()` (SECURITY DEFINER) refuses unless the request is due, consent is withdrawn and the org matches; it then deletes 20 tables of patient data in one transaction and leaves a PII-free tombstone, the consent history and the audit trail. A daily Vercel cron runs due requests; admins can run them from `/admin/erasure`. Default retention is 10 years (configurable, minimum 3).
 - **Voice is measured on synthetic speech only.** With keyterms, Sarvam `saaras:v4` got the medicine name wrong in 1 of 50 synthetic clips (2%; 36% without keyterms), and that miss was a different listed drug (Capecitabine heard as Carboplatin): see `/admin/metrics` and `data/eval/asr-report.json`. Studio-clean TTS speech is an upper bound; real voices from a consented shadow phase are needed before voice is used with real patients (FR-VOX-03). Every spoken answer is read back for confirmation and stays marked as patient-reported. Recordings are kept encrypted beside the answer and erased with the patient. Desk-station mode signs itself out, but locking the tablet to the browser is the device's job.
-- **Extraction recall is below target on new documents.** On the second blind set (24 documents, 9 Nov) recall is 0.691 and precision 0.785 with rules, and Gemini adds nothing; the first held-out set was 0.709 when blind (target 0.85). Fixing what each set found lifts it (0.979 and 0.791), but those are second looks. OCR error on phone photos is 7.5% (target 5%). See the Evaluation section.
+- **Extraction recall is below target on new documents.** On the second blind set (24 documents, 9 Nov) recall is 0.691 and precision 0.785 with rules, and Gemini adds nothing; the first held-out set was 0.709 when blind (target 0.85). Fixing what each set found lifts it (0.969 and 0.755), but those are second looks. OCR error on phone photos is 7.5% (target 5%). See the Evaluation section.
 - **Data location.** The database is in Singapore. `docs/BRIEF.md` §6 prefers India-hosted inference. The LLM hosting choice is an open decision (D12 in `docs/BRIEF.md` §10).
 - **No real patient data.** The pilot requires IEC approval first. DPDP obligations apply from 13 May 2027.
 

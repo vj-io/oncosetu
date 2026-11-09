@@ -163,7 +163,7 @@ npm run test:e2e                                       # 98 Playwright tests (ma
 
 - Extraction recall on layouts the rules have not seen is about 0.7 (target 0.85): the second blind set (24 documents,
   9 Nov, `data/eval/heldout2/`) gave recall 0.691 and precision 0.785 with rules, and Gemini added nothing (0.691). Both
-  held-out sets have now been used for fixes (0.979 and 0.791 are second looks), so the next honest number needs a third
+  held-out sets have now been used for fixes (0.969 and 0.755 are second looks), so the next honest number needs a third
   fresh set, written by someone who has not seen the rules (`scripts/demo-docs/heldout2-docs.ts` shows the format; do not
   run `generate-heldout.ts`, which would overwrite the audited `gold-heldout.json` with older labels). Identity holds
   true documents for a person (12 of 40 and 5 of 24, one blocked as a name mismatch) but attached none to the wrong

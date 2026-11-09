@@ -828,7 +828,7 @@ Claim discipline: say "every displayed fact is traceable to a verbatim source qu
 
 Datasets are synthetic, authored by the team, reviewed by the clinician, stored in `data/eval/` with a README; no real patient data in the repo (constitution).
 
-**Final round, 9 Nov 2026:** a second blind set, `data/eval/heldout2/` (24 documents, 110 facts), written by a separate author (an AI assistant without access to the rules). Blind run on the frozen rules: precision 0.785, recall 0.691, both hard gates 0; Gemini-assisted reading also 0.691. The first held-out set was 0.709 when blind and is 0.979 after its fixes (a second look). Rules plateau near 0.7 on unseen layouts, so the pilot's shadow weeks tune them per site before anything is shown. The clinician has not reviewed these labels yet.
+**Final round, 9 Nov 2026:** a second blind set, `data/eval/heldout2/` (24 documents, 110 facts), written by a separate author (an AI assistant without access to the rules). Blind run on the frozen rules: precision 0.785, recall 0.691, both hard gates 0; Gemini-assisted reading also 0.691. The first held-out set was 0.709 when blind and is 0.969 after its fixes (a second look). Rules plateau near 0.7 on unseen layouts, so the pilot's shadow weeks tune them per site before anything is shown. The clinician has not reviewed these labels yet.
 
 ### 9.6 Prompt-injection and model-safety controls
 

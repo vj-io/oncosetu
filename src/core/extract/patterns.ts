@@ -50,7 +50,7 @@ const TESTS = [
 ].join('|')
 const STATUS = String.raw`to\s+follow|awaited|awaiting|pending|will\s+follow|sent(?:\s+for)?|dispatched|under\s+process|being\s+processed|in\s+process|not\s+(?:yet\s+)?received|(?:will\s+be|to\s+be)\s+(?:reported|issued)\s+separately`
 const PENDING_A = new RegExp(String.raw`(?<![\p{L}])(${TESTS})(?![\p{L}])[^.\n;]{0,40}?(?<![\p{L}])(${STATUS})(?![\p{L}])`, 'giu')
-const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending|sent\s+for)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
+const PENDING_B = new RegExp(String.raw`(?<![\p{L}])(awaited|awaiting|pending)\s*[:\-–]?\s*(?:for\s+)?(${TESTS})(?![\p{L}])`, 'giu')
 /** "IHC will be performed on request …", "… if required": an option, not a report on its way. */
 const CONDITIONAL = /(?<![\p{L}])(?:on\s+request|if\s+(?:required|needed|indicated|requested))(?![\p{L}])/iu
 const MOLECULAR = /^(?:molecular|NGS|EGFR|ALK|ROS|KRAS|BRAF|BRCA|PD-?L1|MSI|FISH|PCR)/i

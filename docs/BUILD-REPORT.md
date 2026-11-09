@@ -96,8 +96,8 @@ Totals: 13 Opus (correctness- or security-critical), 12 Sonnet (well-specified f
 
 | What | Result |
 |---|---|
-| Extraction rules fixed for the first held-out set's misses (`3ce6279`) | Tuned set 0.984 / 1.000 (precision / recall), types 20/20; held-out 1.000 / 0.979 (a second look, no longer blind) |
+| Extraction rules fixed for the first held-out set's misses (`3ce6279`) | Tuned set 0.983 / 0.973 (precision / recall), types 20/20; held-out 1.000 / 0.969 (a second look, no longer blind) |
 | Second blind set (`data/eval/heldout2/`, 24 documents, 110 facts, a separate author without access to the rules) | Blind run: 0.785 / 0.691, types 21/24, identity 19/24, 0 unsupported facts, 0 handwritten pages extracted. Gemini-assisted: 0.788 / 0.691 (22 calls, all ok) |
-| Fixes from the blind set (`94a1ece`) | 0.820 / 0.791 on that set (a second look); tuned and held-out unchanged |
+| Fixes from the blind set (`94a1ece`) | 0.812 / 0.755 on that set (a second look); tuned and held-out unchanged. One rule ("specimen sent for HPE") was reverted on 9 Nov because it doubled the hero patient's histopathology item on the missing-papers list |
 | PM-JAY pre-auth file (`fcf78f5`, FR-REQ-07) | Unit tests for the requirement lists; E2E `v13-preauth.spec.ts`; added to the 375 px / axe sweep |
 | Business case | Sourced buyer, channel, price hypothesis and funding routes: PRD §19 |

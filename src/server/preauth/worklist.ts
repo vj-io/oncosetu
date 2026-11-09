@@ -12,7 +12,7 @@ import { peopleWithConsent, QUEUE_PAGE } from '../ledger/queue'
 
 export type PreauthWorkRow = { patientId: string; name: string; accession: string; mrn: string | null; documents: number; lines: PreauthLineSummary[]; missing: number }
 
-export async function loadPreauthWorklist(tx: Tx, limit = QUEUE_PAGE): Promise<{ rows: PreauthWorkRow[]; patients: number; withoutConsent: number }> {
+export async function loadPreauthWorklist(tx: Tx, offset = 0, limit = QUEUE_PAGE): Promise<{ rows: PreauthWorkRow[]; patients: number; withoutConsent: number }> {
   const [docs, labs] = await Promise.all([
     tx.select({ id: documents.id, patientId: documents.patientId, docType: documents.docType, documentDate: documents.documentDate, institution: documents.institutionName })
       .from(documents).where(and(inArray(documents.attachState, ['auto', 'attached']), notInArray(documents.status, ['quarantined', 'failed']))),
@@ -44,6 +44,6 @@ export async function loadPreauthWorklist(tx: Tx, limit = QUEUE_PAGE): Promise<{
   }
   // Most papers still to find first: that file needs the desk soonest.
   rows.sort((a, b) => b.missing - a.missing || a.accession.localeCompare(b.accession))
-  const shown = rows.slice(0, limit).map(({ nameEnc, ...r }) => ({ ...r, name: decryptField(nameEnc) }))
+  const shown = rows.slice(offset, offset + limit).map(({ nameEnc, ...r }) => ({ ...r, name: decryptField(nameEnc) }))
   return { rows: shown, patients: rows.length, withoutConsent }
 }

@@ -39,7 +39,12 @@ test('V13-E2E-02 blood tests are checked panel by panel, and the insurance desk 
 
   await page.goto('/preauth')
   await expect(page.getByRole('heading', { name: 'Pre-authorisation files' })).toBeVisible()
-  const row = page.getByTestId('preauth-row').filter({ has: page.getByRole('link', { name: /^Chemotherapy: / }) }).filter({ has: page.locator(`a[href="/patients/${p.id}/preauth?line=chemotherapy"]`) })
+  const mine = page.locator(`a[href="/patients/${p.id}/preauth?line=chemotherapy"]`)
+  for (let n = 2; !(await mine.count()); n++) { // 100 files a page; the test org holds hundreds, so page on to this patient
+    await page.getByRole('link', { name: /^Next \d+$/ }).click()
+    await page.waitForURL(new RegExp(`/preauth\\?page=${n}$`))
+  }
+  const row = page.getByTestId('preauth-row').filter({ has: page.getByRole('link', { name: /^Chemotherapy: / }) }).filter({ has: mine })
   await expect(row).toContainText('Blood tests: CBC, LFT, RFT')
   await expect(row.getByRole('link', { name: /^Surgery: 0 of 3 in the file$/ })).toBeVisible()
 

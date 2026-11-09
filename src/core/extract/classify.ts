@@ -88,7 +88,7 @@ export function classifyDocument(pages: string[]): Classification {
   const head = (pages[0] ?? '').split(/\r?\n/).slice(0, TITLE_LINES).join('\n')
   // Upper-case heading lines ("HISTOPATHOLOGY REPORT - PROSTATE NEEDLE BIOPSY") outrank a term in a sentence of the header
   // ("Clinical details: ... MRI prostate ...").
-  const headings = head.split('\n').filter((l) => !/[:：]/.test(l) && l.length <= 80 && upperShare(l) >= 0.7).join('\n')
+  const headings = head.split('\n').filter((l) => !/[:：]/.test(l) && l.length <= 80 && (upperShare(l) >= 0.7 || /^\s*\S{1,12}\s*$/.test(l))).join('\n') // or a one-word heading line ("Rx")
   const scores: Partial<Record<DocType, number>> = {}
   for (const c of COMPILED) {
     const title = c.title.some((re) => re.test(headings)) ? TITLE_WEIGHT + HEADING_BONUS : c.title.some((re) => re.test(head)) ? TITLE_WEIGHT : 0

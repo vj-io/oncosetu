@@ -32,10 +32,10 @@ const PROC = new RegExp(
   'giu',
 )
 const PROC_DONE = /(?<![\p{L}])(?:done|performed|underwent|undergone|s\/p|status\s+post|post|operated|taken\s+up|carried\s+out|h\/o|history\s+of)(?![\p{L}])/iu
-const PROC_NOT_DONE = /(?<![\p{L}])(?:advised|advise|plan|planned|recommend\w*|to\s+be\s+done|scheduled|suggested|candidate\s+for|consider\w*|awaiting|will\s+undergo|posted\s+for|planned\s+for)(?![\p{L}])/iu
+const PROC_NOT_DONE = /(?<![\p{L}])(?:advised|advise|plan|planned|recommend\w*|to\s+be\s+done|scheduled|suggested|candidate\s+for|consider\w*|awaiting|will\s+undergo|posted\s+for|planned\s+for|tentative(?:ly)?|subject\s+to|proposed)(?![\p{L}])/iu
 const SURGERY_DATE_LABEL = /(?:date\s+of\s+(?:surgery|operation|procedure)|surgery\s+date|operation\s+date|DOS)\s*[:\-–]?\s*$/iu
 // "Procedure: Insertion of a totally implantable venous access port, …" in an operation / procedure note: the label's own value.
-const PROC_LABEL = /^(?:Procedure|Operation|Surgery|Name\s+of\s+(?:the\s+)?(?:procedure|operation|surgery))(?:\s+(?:done|performed))?\s*[:：]\s*(\S[^\n]{2,})/iu
+const PROC_LABEL = /^(?:Procedure|Operation|Surgery|Name\s+of\s+(?:the\s+)?(?:procedure|operation|surgery))(?:\s+(?:done|performed))?\s*(?:[:：]|\t)\s*(\S[^\n]{2,})/iu
 const PROC_LABEL_DOCS: ReadonlySet<DocType> = new Set(['procedure_note', 'discharge_summary'])
 
 const TESTS = [
@@ -102,7 +102,7 @@ const HISTORY = /^(?:no\s+)?(?:k\/c\/o\b|known\s+(?!(?:drug|food)\b|allerg)|h\/o
 const RESULT_ROW = /^[\s•*-]*([\p{L}][\p{L}\p{M}\d ()/.,'+-]{1,44}?)\s*[:\-–]?\s+[<>]?\s*\d[\d,]*(?:\.\d+)?(?:\s*[HL*](?![\p{L}]))?\s*(?:g\/dl|gm\/dl|gm?%|mg\/dl|mg\/l|mmol\/l|meq\/l|[iu]u\/l|u\/l|iu\/ml|ng\/ml|pg\/ml|[µu]g\/l|[µu]iu\/ml|fl|pg|%|\/\s?cu\.?\s?mm|\/\s?cumm|\/\s?[µu]l|\/\s?mm3|lakhs?|million|x\s?10|sec(?:onds)?|mm\/(?:1st\s+)?hr?)(?![\p{L}])/iu
 const RESULT_DOCS: ReadonlySet<DocType> = new Set(['lab_report', 'discharge_summary', 'chemo_daycare_record', 'consult_note', 'procedure_note'])
 
-const MED_LINE = /^\s*(?:\d{1,2}(?:[.)]|\s*\t)\s*)?(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syr|Syrup|Susp|Oint|Gel|Drops?|Sachet|Neb)\.?\s+([A-Za-z][\w+-]*(?:\s+(?!(?:OD|BD|BID|TDS|TID|QID|HS|SOS|PRN|STAT|x|X|for|after|before|daily|once|twice|thrice|morning|night|with|mg|ml|mcg|g|IU|units?)\b)[A-Za-z][\w+-]*){0,2})/u
+const MED_LINE = /^\s*(?:\d{1,2}(?:[.)]|\s*\t)\s*)?(?:Tab|TAB|Tablet|Cap|CAP|Capsule|Inj|INJ|Injection|Syp|SYP|Syr|Syrup|Susp|Oint|Gel|Drops?|Sachet|Neb)\.?\s+([A-Za-z][\w+-]*(?:\s+(?!(?:OD|BD|BID|TDS|TID|QID|HS|SOS|PRN|STAT|x|X|for|after|before|daily|once|twice|thrice|morning|night|with|mg|ml|mcg|g|IU|units?)\b)[A-Za-z][\w+-]*){0,2})/u
 // A numbered table row whose first cell names the medicine without Tab./Cap./Inj. ("5 <tab>Urea 10% emollient cream <tab>Apply on ...").
 // The whole first cell is the name, as written; header rows ("# <tab>Medicine") and rows with no letters never match.
 const MED_ROW = /^\s*\d{1,2}\s*\t\s*([\p{L}][^\t\n]{2,70}?)\s*(?:\t|$)/u
@@ -279,7 +279,9 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         else add('procedure_documented', page, seg.start, seg.end, { procedure_text: what })
       }
       if (!pl && !PROC_NOT_DONE.test(t)) {
-        for (const m of t.matchAll(PROC)) {
+        // One procedure item per sentence: "composite resection (wide excision + segmental mandibulectomy) + neck dissection"
+        // is one operation, quoted whole, not three.
+        for (const m of [...t.matchAll(PROC)].slice(0, 1)) {
           const d = absDates(t)[0]
           if (d) {
             add('procedure_documented', page, seg.start, seg.end, { procedure_text: m[0], event_date_text: d.raw })

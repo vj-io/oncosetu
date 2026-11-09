@@ -213,8 +213,8 @@ function cycleClause(c: Candidate): string {
 }
 // "Tab. X", "T. X" / "C. X" (the dot required), at a line start or after "; " in a run-on advice line.
 const MED_PREFIX = String.raw`(?:Tab|Tablet|Cap|Capsule|Inj|Injection|Syp|Syrup|Susp|T\.|C\.)\.?[ \t]+([A-Za-z][A-Za-z-]*)`
-const MED_ROW = new RegExp(String.raw`^[ \t]*(?:\d{1,2}[.)]?[ \t]+)?${MED_PREFIX}`)
-const MED_INLINE = new RegExp(String.raw`[;,][ \t]*${MED_PREFIX}`, 'g')
+const MED_ROW = new RegExp(String.raw`^[ \t]*(?:\d{1,2}[.)]?[ \t]+)?${MED_PREFIX}`, 'i') // "TAB. PARACETAMOL" tables too
+const MED_INLINE = new RegExp(String.raw`[;,][ \t]*${MED_PREFIX}`, 'gi')
 // A medicine table row without Tab./Cap. ("ORS sachets <tab> One sachet in a litre of water ..."): taken only directly
 // after a medicine row, when the next cell reads as dosing.
 const DOSING_ROW = /^[ \t]*([A-Za-z][A-Za-z0-9 %+-]{2,40}?)[ \t]*\t[^\t]*\b(?:sachets?|tablets?|tabs?|capsules?|once|twice|thrice|daily|apply|after|before|OD|BD|TDS|QID|HS|SOS|times?\s+a\s+day)\b/i

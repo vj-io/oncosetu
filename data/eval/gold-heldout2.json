@@ -1,0 +1,640 @@
+{
+  "version": 1,
+  "about": "Hand-authored gold for the SECOND HELD-OUT set in data/eval/heldout2, written 9 Nov 2026 by a separate author from the document definitions in scripts/demo-docs/heldout2-docs.ts, without seeing the extraction rules (blind). Same convention as data/eval/gold-heldout.json. One entry per fact a records officer would list, restricted to PRD §7.2 event types. `date` = the event's own date (YYYY-MM-DD); `match` = text that must appear in the extracted quote or fields (case-insensitive). Prescriptions and discharge medication lists: one entry per medication (medicines named only in a history, an advice line or a chemotherapy administration table are not prescriptions). A study, specimen, procedure or chemotherapy dose the document only refers to is listed when the document gives it its own date or says its report is awaited (\"sent for HPE\" counts); planned or future events (tentative surgery, next cycle, review dates) are not facts. Radiotherapy courses carry no date (external beam and brachytherapy are separate courses). Handwritten prescriptions list none (never auto-extracted). Quote-only facts: every stage statement (clinical or pathological), every statement of a pathological resection-margin result wherever it appears (radiotherapy planning margins and intended surgical margins in an operation note are not margin facts), every marker result row of an IHC report, the conclusion of an imaging report (Impression / Opinion) and a consultation section headed Impression, and the regimen line of a chemotherapy record (a regimen given concurrently with radiotherapy or planned in a note is not labelled). Headings \"Diagnosis\" / \"Final diagnosis\" are not impressions. `identity` is the expected header decision against the patient in patients.json (a handwritten header is `insufficient` and held); `held` = the document must not reach the record without a person's decision.",
+  "docs": {
+    "meenakshi__01-breast-clinic-opd.pdf": {
+      "patientKey": "meenakshi",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-06-12",
+          "match": "Senthilkumar"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-02",
+          "match": "Mammogram"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-06-09"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT2 N1"
+        }
+      ]
+    },
+    "meenakshi__02-discharge-summary-mrm.pdf": {
+      "patientKey": "meenakshi",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-06-22"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-06-27"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-06-23",
+          "match": "mastectomy"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-16",
+          "match": "Bone scan"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-17",
+          "match": "CECT"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Tramadol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Cephalexin"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Metformin"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Telmisartan"
+        }
+      ]
+    },
+    "meenakshi__03-mrm-histopathology.pdf": {
+      "patientKey": "meenakshi",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-06-30"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-06-23",
+          "match": "mastectomy"
+        },
+        {
+          "type": "margins_documented",
+          "match": "All surgical margins"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Closest margin"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT2 pN1a"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "IHC"
+        }
+      ]
+    },
+    "meenakshi__04-ihc-breast-prognostic.pdf": {
+      "patientKey": "meenakshi",
+      "docType": "ihc_molecular_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "molecular_test_documented",
+          "date": "2026-07-06"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "Oestrogen receptor"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "Progesterone receptor"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "HER2/neu"
+        },
+        {
+          "type": "marker_results_documented",
+          "match": "Ki-67"
+        }
+      ]
+    },
+    "bhupen__01-oesophagus-biopsy-histopathology.pdf": {
+      "patientKey": "bhupen",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-21"
+        }
+      ]
+    },
+    "bhupen__02-nacrt-radiotherapy-summary.pdf": {
+      "patientKey": "bhupen",
+      "docType": "radiotherapy_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "radiotherapy_documented"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-03-05",
+          "match": "PET"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT3 N1"
+        }
+      ]
+    },
+    "bhupen__03-oesophagectomy-operation-note.pdf": {
+      "patientKey": "bhupen",
+      "docType": "procedure_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "procedure_documented",
+          "date": "2026-05-26",
+          "match": "oesophagectomy"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        }
+      ]
+    },
+    "bhupen__04-discharge-summary-oesophagectomy.pdf": {
+      "patientKey": "bhupen",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-05-25"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-05-26",
+          "match": "oesophagectomy"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-06-01",
+          "match": "swallow"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-06-05"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Paracetamol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Metoclopramide"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Enoxaparin"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Chlorhexidine"
+        }
+      ]
+    },
+    "hansa__01-radiation-oncology-opd.pdf": {
+      "patientKey": "hansa",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-04-08",
+          "match": "Desai"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-03-28"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-04-02",
+          "match": "MRI"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-04-06"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Ca cervix"
+        },
+        {
+          "type": "stage_documented",
+          "match": "IIIB"
+        }
+      ]
+    },
+    "hansa__02-prescription-handwritten.jpg": {
+      "patientKey": "hansa",
+      "docType": "prescription_handwritten",
+      "identity": "insufficient",
+      "handwritten": true,
+      "held": true,
+      "events": []
+    },
+    "hansa__03-cbc-rft-photo.jpg": {
+      "patientKey": "hansa",
+      "docType": "lab_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "lab_report_documented",
+          "date": "2026-05-20"
+        }
+      ]
+    },
+    "hansa__04-radiotherapy-completion-note.pdf": {
+      "patientKey": "hansa",
+      "docType": "radiotherapy_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "radiotherapy_documented",
+          "match": "EBRT"
+        },
+        {
+          "type": "radiotherapy_documented",
+          "match": "brachytherapy"
+        },
+        {
+          "type": "stage_documented",
+          "match": "IIIB"
+        }
+      ]
+    },
+    "ghulam__01-cect-abdomen.pdf": {
+      "patientKey": "ghulam",
+      "docType": "imaging_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-07-04",
+          "match": "CECT"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-06-26"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Circumferential antral"
+        }
+      ]
+    },
+    "ghulam__02-gastrectomy-operation-record.pdf": {
+      "patientKey": "ghulam",
+      "docType": "procedure_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "procedure_documented",
+          "date": "2026-07-21",
+          "match": "gastrectomy"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "histopatholog"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "cytology"
+        }
+      ]
+    },
+    "ghulam__03-gastrectomy-histopathology.pdf": {
+      "patientKey": "ghulam",
+      "docType": "pathology_report",
+      "identity": "match",
+      "events": [
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-07-29"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-07-21",
+          "match": "gastrectomy"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Proximal resection margin"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Distal resection margin"
+        },
+        {
+          "type": "margins_documented",
+          "match": "Both resection margins"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT3 pN2"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "Mismatch repair"
+        }
+      ]
+    },
+    "ghulam__04-discharge-summary-his.pdf": {
+      "patientKey": "ghulam",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-07-19"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-07-30"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-07-21",
+          "match": "gastrectomy"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-07-29"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Paracetamol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Ondansetron"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Sucralfate"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Amoxicillin"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Methylcobalamin"
+        }
+      ]
+    },
+    "ramesh__01-head-neck-opd-bilingual-photo.jpg": {
+      "patientKey": "ramesh",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-03-03",
+          "match": "Sinha"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-02-24"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-02-27",
+          "match": "CECT"
+        },
+        {
+          "type": "stage_documented",
+          "match": "cT4a"
+        }
+      ]
+    },
+    "ramesh__02-composite-resection-operative-note.pdf": {
+      "patientKey": "ramesh",
+      "docType": "procedure_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-17",
+          "match": "composite resection"
+        },
+        {
+          "type": "report_pending_documented",
+          "match": "HPE"
+        }
+      ]
+    },
+    "ramesh__03-discharge-summary-romanised-hindi.pdf": {
+      "patientKey": "ramesh",
+      "docType": "discharge_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "admission_documented",
+          "date": "2026-03-15"
+        },
+        {
+          "type": "discharge_documented",
+          "date": "2026-03-26"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-17",
+          "match": "composite resection"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-03-24"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Amoxicillin"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Paracetamol"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Chlorhexidine"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Multivitamin"
+        }
+      ]
+    },
+    "ramesh__04-adjuvant-radiotherapy-summary.pdf": {
+      "patientKey": "ramesh",
+      "docType": "radiotherapy_summary",
+      "identity": "match",
+      "events": [
+        {
+          "type": "radiotherapy_documented"
+        },
+        {
+          "type": "procedure_documented",
+          "date": "2026-03-17",
+          "match": "composite resection"
+        },
+        {
+          "type": "stage_documented",
+          "match": "pT4a pN2b"
+        },
+        {
+          "type": "margins_documented",
+          "match": "closest 3 mm"
+        }
+      ]
+    },
+    "tenzin__01-medical-oncology-opd.pdf": {
+      "patientKey": "tenzin",
+      "docType": "consult_note",
+      "identity": "match",
+      "events": [
+        {
+          "type": "consultation_documented",
+          "date": "2026-08-10",
+          "match": "Lepcha"
+        },
+        {
+          "type": "pathology_report_documented",
+          "date": "2026-07-30"
+        },
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-08-06",
+          "match": "PET"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-08-07"
+        },
+        {
+          "type": "stage_documented",
+          "match": "stage IIB"
+        }
+      ]
+    },
+    "tenzin__02-abvd-daycare-c1d15.pdf": {
+      "patientKey": "tenzin",
+      "docType": "chemo_daycare_record",
+      "identity": "match",
+      "events": [
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-08-28",
+          "match": "Cycle 1"
+        },
+        {
+          "type": "chemotherapy_session_documented",
+          "date": "2026-08-14",
+          "match": "C1D1"
+        },
+        {
+          "type": "regimen_documented",
+          "match": "ABVD"
+        },
+        {
+          "type": "lab_report_documented",
+          "date": "2026-08-27"
+        }
+      ]
+    },
+    "tenzin__03-prescription-opd.pdf": {
+      "patientKey": "tenzin",
+      "docType": "prescription_printed",
+      "identity": "match",
+      "events": [
+        {
+          "type": "prescription_documented",
+          "match": "Ondansetron"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Dexamethasone"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Pantoprazole"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Lactulose"
+        },
+        {
+          "type": "prescription_documented",
+          "match": "Benzydamine"
+        }
+      ]
+    },
+    "tenzin__04-ct-thorax-wrong-patient.pdf": {
+      "patientKey": "tenzin",
+      "docType": "imaging_report",
+      "identity": "mismatch",
+      "held": true,
+      "events": [
+        {
+          "type": "imaging_report_documented",
+          "date": "2026-09-02",
+          "match": "CT"
+        },
+        {
+          "type": "impression_documented",
+          "match": "Spiculated right upper lobe"
+        }
+      ]
+    }
+  }
+}

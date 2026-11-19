@@ -19,17 +19,16 @@ export default async function SettingsPage() {
   const n = (x: number) => x.toLocaleString('en-IN')
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Settings" title="Organisation settings" description="Feature flags, the retention period and, in demo mode only, the demo clock." />
+      <SectionHeader as="h1" kicker="Admin · Settings" title="Settings" description="Switches for this hospital, how long records are kept and the daily AI limit. In demo mode there is also a demo clock." />
       <section aria-labelledby="llm-h" className="grid gap-3 border border-rule bg-matte p-5 shadow-frame">
         <h2 id="llm-h" className="font-display text-xl">AI-assisted reading</h2>
-        <p className="text-muted">{llm.label}. Only for patients who consented; every result still passes the same evidence check and a person verifies it.</p>
+        <p className="text-muted">{llm.label}. Only for patients who consented. Every result still needs its exact quote and a person to check it.</p>
         <KeyValue items={[
           ...(usage ? [{ label: 'Shared key', value: `${usage.today} of ${usage.limits.rpd} calls used today (all organisations)` }] : []),
           { label: 'Calls', value: `${n(orgUse.calls)} of ${n(st.llmBudget.calls)} used today` },
-          { label: 'Tokens', value: `${n(orgUse.tokens)} of ${n(st.llmBudget.tokens)} used today` },
         ]} />
       </section>
-      <p className="text-[15px] text-muted"><a className="underline underline-offset-4" href="/security">Security & compliance</a>: what is built against HIPAA safeguards, the DPDP Act and ABDM, and what is planned.</p>
+      <p className="text-[15px] text-muted"><a className="underline underline-offset-4" href="/security">Security & compliance</a>: what is built for India&apos;s DPDP Act and ABDM, what follows HIPAA&apos;s safeguards, and what is planned.</p>
       <SettingsForm
         flags={{ voice: st.flags.voice, tts: st.flags.tts, ai_extraction: st.flags.ai_extraction, voice_shadow: !!st.flags.voice_shadow }}
         questions={questionSettings(st.flags.questions).map((q) => ({ ...q, label: en[`q_${q.id}`] }))}

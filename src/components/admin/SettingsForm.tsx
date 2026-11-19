@@ -32,25 +32,25 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
   return (
     <div className="grid grid-cols-1 gap-10">
       <section aria-labelledby="flags-h" className="grid gap-3 bg-matte p-5 shadow-frame sm:p-6">
-        <h2 id="flags-h" className="text-xl tracking-[-0.02em]">Feature flags</h2>
-        <p className="max-w-prose text-sm text-muted">Each flag applies to this organisation only. Spoken read-back is still withheld from anyone whose disclosure is not cleared.</p>
+        <h2 id="flags-h" className="text-xl tracking-[-0.02em]">Switches</h2>
+        <p className="max-w-prose text-sm text-muted">Each switch applies to this hospital only. Spoken read-back is still withheld from anyone whose disclosure is not cleared.</p>
         <div className="divide-y divide-rule">
-          <Switch label="Voice input" description="Patients and desk staff can answer pre-visit questions by voice." checked={flags.voice} onChange={toggle('voice')} />
-          <Switch label="Voice shadow mode" description="Patients may record an answer; it is transcribed and kept for staff to compare with what they typed (statements tab). The transcript never fills the answer. For measuring drug-name accuracy before voice input goes live." checked={flags.voice_shadow} onChange={toggle('voice_shadow')} />
-          <Switch label="Spoken read-back" description="Read the confirmed answers aloud (text read-back is always available)." checked={flags.tts} onChange={toggle('tts')} />
-          <Switch label="AI-assisted reading (only for patients who consented)" description="Off: documents are read by fixed rules only. Every result passes the same evidence check." checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
+          <Switch label="Voice input" description={flags.voice ? 'On: patients and desk staff can answer pre-visit questions by speaking.' : 'Off: pre-visit questions are answered by typing or tapping only.'} checked={flags.voice} onChange={toggle('voice')} />
+          <Switch label="Voice shadow mode" description={flags.voice_shadow ? 'On: a patient may also record an answer. Staff can compare it with what was typed. It never fills in the answer. Used to test how well drug names are heard.' : 'Off: voice recordings are not kept.'} checked={flags.voice_shadow} onChange={toggle('voice_shadow')} />
+          <Switch label="Spoken read-back" description={flags.tts ? 'On: confirmed answers can be read aloud. Text is always shown too.' : 'Off: confirmed answers are shown as text only.'} checked={flags.tts} onChange={toggle('tts')} />
+          <Switch label="AI-assisted reading (only for patients who consented)" description={flags.ai_extraction ? 'On: for patients who agreed, an AI service may help read documents. Every result still needs its exact quote and a person to check it.' : 'Off: documents are read by fixed rules only. No document goes to an AI service.'} checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
         </div>
-        <div><Button disabled={!dirtyFlags} loading={busy === 'flags'} onClick={() => run('flags', () => postJson('/api/admin/settings', { flags }), 'Feature flags saved')}>Save flags</Button></div>
+        <div><Button disabled={!dirtyFlags} loading={busy === 'flags'} onClick={() => run('flags', () => postJson('/api/admin/settings', { flags }), 'Switches saved')}>Save switches</Button></div>
       </section>
 
       <section aria-labelledby="questions-h" className="grid gap-3 bg-matte p-5 shadow-frame sm:p-6">
         <h2 id="questions-h" className="text-xl tracking-[-0.02em]">Pre-visit questions</h2>
-        <p className="max-w-prose text-sm text-muted">The questions patients answer before a visit, in the order asked. A question that is on must be answered (the last one, anything else, is always optional). Switched-off questions are not asked; answers already given stay on file.</p>
+        <p className="max-w-prose text-sm text-muted">The questions patients answer before a visit, in the order asked. A question that is on must be answered. The last one, &ldquo;anything else&rdquo;, is always optional. Switched-off questions are not asked; answers already given stay on file.</p>
         <ol className="divide-y divide-rule">
           {questions.map((q, i) => (
             <li key={q.id} className="flex items-center gap-3">
               <span className="w-5 font-mono text-sm text-faint">{i + 1}</span>
-              <Switch className="flex-1" label={q.label} description={q.id === 'anything_else' ? 'Optional for the patient' : 'Required when on'} checked={q.on} onChange={switchQ(i)} />
+              <Switch className="flex-1" label={q.label} description={q.id === 'anything_else' ? (q.on ? 'Asked, but the patient may skip it.' : 'Not asked.') : (q.on ? 'On: the patient must answer it.' : 'Off: not asked.')} checked={q.on} onChange={switchQ(i)} />
               <span className="flex gap-1">
                 <Button size="sm" variant="ghost" aria-label={`Move up: ${q.label}`} disabled={i === 0} onClick={() => move(i, -1)} icon={<ArrowUp aria-hidden />} />
                 <Button size="sm" variant="ghost" aria-label={`Move down: ${q.label}`} disabled={i === questions.length - 1} onClick={() => move(i, 1)} icon={<ArrowDown aria-hidden />} />
@@ -64,7 +64,7 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
 
       <section aria-labelledby="ret-h" className="grid gap-3 bg-matte p-5 shadow-frame sm:p-6">
         <h2 id="ret-h" className="text-xl tracking-[-0.02em]">Retention</h2>
-        <p className="max-w-prose text-sm text-muted">How long records are kept after the last encounter before erasure requests are actioned. Never shorter than 3 years ({minRetentionDays} days), the Indian Medical Council minimum for indoor records. The audit trail is kept as legally required.</p>
+        <p className="max-w-prose text-sm text-muted">How long records are kept after the last encounter before an erasure request is carried out. Never shorter than 3 years ({minRetentionDays} days), the Indian Medical Council minimum for indoor records. The audit trail is kept as legally required.</p>
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Retention (days)" error={days && !daysValid ? `Enter a whole number from ${minRetentionDays} to 36500.` : undefined}>
             <Input type="number" inputMode="numeric" min={minRetentionDays} max={36500} value={days} onChange={(e) => setDays(e.target.value)} className="w-40 font-mono" />

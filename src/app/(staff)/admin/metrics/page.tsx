@@ -40,8 +40,8 @@ export default async function MetricsPage() {
       </ul>
 
       <Block kicker="Safety" title="Safety targets" note="Reviewed weekly in the pilot; any safety target that is not zero pauses the pilot. Zero targets are outlined; a target that is not measured here says so instead of showing a number.">
-        <Table caption="Safety KPIs">
-          <thead><tr><th>KPI</th><th>Target</th><th>Observed</th><th>Status</th><th>How it is measured</th></tr></thead>
+        <Table caption="Safety targets">
+          <thead><tr><th>Measure</th><th>Target</th><th>Observed</th><th>Status</th><th>How it is measured</th></tr></thead>
           <tbody>
             {safety.map((k) => (
               <tr key={k.key} className={k.status === 'breach' ? 'bg-madder-tint' : undefined}>

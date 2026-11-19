@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
 import { roleHome } from "@/lib/staff-nav";
-import { Avatar, Badge, Button, Field, Frame, Input, Placard, Spotlight, Wordmark } from "@/components/ui";
+import { Avatar, Badge, Button, Field, Frame, Input, Spotlight, Wordmark } from "@/components/ui";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
 
@@ -81,7 +81,6 @@ export default function StaffLoginPage() {
           <Link href="/" aria-label="OncoSetu home">
             <Wordmark />
           </Link>
-          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase sm:inline">Staff sign-in</span>
           <Link href="/p/login" className="ml-auto inline-flex h-11 items-center font-mono text-[12px] tracking-[0.12em] text-muted uppercase hover:text-ink">
             Patient portal
           </Link>
@@ -90,9 +89,8 @@ export default function StaffLoginPage() {
 
       <main id="main" className="relative mx-auto grid w-full max-w-gallery flex-1 items-start gap-12 px-4 py-12 sm:px-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-20 lg:py-20">
         <div>
-          <p className="ds-kicker">Staff sign-in</p>
-          <h1 className="mt-4 text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Sign in to the records desk.</h1>
-          <p className="mt-4 text-muted">Email, password and the 6-digit code from your authenticator app.</p>
+          <h1 className="text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Hospital staff sign-in</h1>
+          <p className="mt-4 text-muted">Use your email, your password and the 6-digit code from your authenticator app.</p>
 
           <Frame animate className="mt-8 px-5 py-6 sm:px-8 sm:py-8">
             {/* method="post": a submit before hydration must never put the password in the URL (it did, as a GET). */}
@@ -103,7 +101,7 @@ export default function StaffLoginPage() {
               <Field label="Password">
                 <Input type="password" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
               </Field>
-              <Field label="Authenticator code" hint={filling ? "Fetching a fresh demo code…" : "6 digits, refreshes every 30 seconds."}>
+              <Field label="Authenticator code" hint={filling ? "Getting a fresh code…" : "6 digits. The app shows a new one every 30 seconds."}>
                 <Input
                   name="totp"
                   inputMode="numeric"
@@ -142,11 +140,11 @@ export default function StaffLoginPage() {
           {accounts ? (
             <section className="ds-placard-in border border-rule bg-surface shadow-placard">
               <header className="border-b border-rule px-5 py-5 sm:px-6">
-                <p className="ds-kicker">Demo accounts · synthetic organisation</p>
+                <p className="ds-kicker">Demo only · made-up hospital</p>
                 <h2 id="demo-accounts" className="mt-2 text-xl tracking-[-0.02em]">
-                  Choose a role to fill the form
+                  Pick a role to fill in the form
                 </h2>
-                <p className="mt-1 text-sm text-muted">The code is fetched fresh and still checked by the server&rsquo;s TOTP verification.</p>
+                <p className="mt-1 text-sm text-muted">The code is still checked by the server, as it would be for real staff.</p>
               </header>
               <ul>
                 {accounts.map((a) => (
@@ -164,23 +162,13 @@ export default function StaffLoginPage() {
                 ))}
               </ul>
             </section>
-          ) : (
-            <Placard
-              animate
-              titleAs="h2"
-              kicker="Staff roles"
-              title={<span id="demo-accounts">Five roles, one audit trail</span>}
-              what="Desk · Records · Clinician · Admin · Audit"
-              who="Each action stores actor, role and time in a hash-chained audit log"
-              when="Sessions end after 12 hours, or 30 minutes idle on shared desk devices"
-            />
-          )}
+          ) : null}
         </aside>
       </main>
 
       <footer className="relative border-t border-rule">
         <p className="mx-auto max-w-gallery px-4 py-5 font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase sm:px-8">
-          Document index, not a clinical summary · Every displayed fact links to a verbatim source quote
+          A list of documents, not a clinical summary
         </p>
       </footer>
     </div>

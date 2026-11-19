@@ -283,7 +283,7 @@ const ORG_TABLES = [
   'voice_clips', 'signed_consents', 'upload_chunks', 'upload_sessions', 'privacy_acknowledgements', 'id_verifications',
   'abdm_transfers', 'abdm_consent_requests', 'inbound_hold_files', 'inbound_holds', 'inbound_aliases', 'contact_emails',
   'share_views', 'share_links', 'record_requests', 'missing_records', 'verification_qa_reviews', 'measurement_form_doc_types',
-  'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_pages',
+  'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_links', 'document_pages',
   'document_files', 'documents', 'break_glass', 'erasure_requests', 'consents', 'patient_merges', 'caregivers', 'patient_aliases',
   'outbox', 'encounters', 'patients', 'audit_log', 'devices', 'rule_states',
 ]
@@ -524,7 +524,13 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
       check(xr && scanOf(xr) && xr.attachState === 'pending_decision' && xr.identityResult === 'mismatch', 'hero: the X-ray with another name is not held for an identity decision')
       check(docs.length === 9 + HERO_IMAGING.length, `hero: expected ${9 + HERO_IMAGING.length} documents, found ${docs.length}`)
       check(docs.filter((d) => scanOf(d)).length === 4, 'hero: expected 4 scan files (3 attached + 1 held)')
-      check(!prodOpen('RAD-IMG-PT-01') && !miss.some((m) => /X-ray|mammo|ultrasound/i.test(wordingOf(m))), 'hero: the imaging files raised a missing-papers item of their own')
+      // A scan that arrives before its report raises "report not in file" (RAD-IMG-RPT-01); once the report is in, the item must
+      // read "received · to confirm" with that report proposed. Nothing about the imaging may be left outstanding.
+      check(!prodOpen('RAD-IMG-PT-01') && !miss.some((m) => m.ruleId !== 'RAD-IMG-RPT-01' && /X-ray|mammo|ultrasound/i.test(wordingOf(m))), 'hero: the imaging files raised a missing-papers item of their own')
+      for (const m of miss.filter((x) => x.ruleId === 'RAD-IMG-RPT-01')) {
+        const want = /mammo/i.test(wordingOf(m)) ? 'hero__19-mammogram-report.pdf' : /X-ray/i.test(wordingOf(m)) ? 'hero__18-chest-xray-report.docx' : /ultrasound/i.test(wordingOf(m)) ? 'hero__21-breast-ultrasound-report.pdf' : null
+        check(m.state === 'received' && !!want && m.proposedDocumentId === byFile(want)?.id, `hero: "${wordingOf(m)}" should read "received · to confirm" with its report proposed (got ${m.state}, ${fileOf(m.proposedDocumentId)})`)
+      }
       check(reqs.length === 1 && reqs[0].state === 'sent', 'hero: expected one request given today (state sent)')
     }
     if (key === 'returning') {

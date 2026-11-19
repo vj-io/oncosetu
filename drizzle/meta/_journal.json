@@ -169,6 +169,13 @@
       "when": 1795000000000,
       "tag": "0023_document_links",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795000000001,
+      "tag": "0024_document_links_merge",
+      "breakpoints": true
     }
   ]
 }

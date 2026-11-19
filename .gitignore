@@ -53,6 +53,8 @@ next-env.d.ts
 /test-data/real/**/*.dcm
 **/test-data/real/
 *.dcm
+# ...except the synthetic demo scans, made by scripts/demo-docs (fake names, SYN- ids, "SYNTHETIC" in the description)
+!/public/demo-docs/*.dcm
 /scans/
 /local-scans/
 /real-scans/

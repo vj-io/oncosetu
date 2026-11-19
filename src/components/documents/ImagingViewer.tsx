@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ScanLine } from "lucide-react";
+import { bodyLabel, fmtDay } from "@/server/records/core";
 
 export type ImagingDetails = {
   label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null
@@ -12,24 +13,24 @@ export type ImagingDetails = {
  * A picture of the scan (the middle slice first) with the header details as written in the file. Nothing is read from the
  * picture: no findings, no measurements. A slider appears when there is more than one image.
  */
-export function ImagingViewer({ documentId, details, canView }: { documentId: string; details: ImagingDetails; canView: boolean }) {
+export function ImagingViewer({ documentId, details, canView, compact = false }: { documentId: string; details: ImagingDetails; canView: boolean; compact?: boolean }) {
   const slices = details.instances > 1 ? details.instances : details.frames;
   const [i, setI] = useState(Math.floor(slices / 2));
   const [failed, setFailed] = useState<string | null>(null);
   const rows: [string, string | null][] = [
-    ["Type", details.label], ["Study date", details.studyDate], ["Body part", details.bodyPart], ["Institution", details.institution],
+    ["Type", details.label], ["Study date", details.studyDate ? fmtDay(details.studyDate) : null], ["Body part", bodyLabel(details.bodyPart)], ["Institution", details.institution],
     ["Patient name (as written in the file)", details.patientName], ["Sex", details.patientSex], ["Age", details.patientAge],
     ["Images in this study", slices > 1 ? String(slices) : null],
   ];
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)]" data-testid="imaging-viewer">
+    <div className={compact ? "grid min-w-0 gap-3" : "grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,18rem)] [&>*]:min-w-0"} data-testid="imaging-viewer">
       <div className="grid content-start gap-3">
         <div className="relative grid min-h-64 place-items-center border border-rule bg-obsidian">
           {canView && !failed ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               key={i} src={`/api/documents/${documentId}/preview?frame=${i}`} alt={`Preview picture of ${details.label}, image ${i + 1} of ${slices}`}
-              className="h-[26rem] max-h-[32rem] w-auto max-w-full object-contain" onError={() => setFailed("Preview not available for this compression — file stored")}
+              className={compact ? "h-[18rem] w-auto max-w-full object-contain" : "h-[26rem] max-h-[32rem] w-auto max-w-full object-contain"} onError={() => setFailed("Preview not available for this compression — file stored")}
             />
           ) : (
             <p className="flex items-center gap-2 px-4 py-10 text-center text-sm text-gallery"><ScanLine aria-hidden className="size-5" />{failed ?? "Preview not available — file stored"}</p>
@@ -43,12 +44,25 @@ export function ImagingViewer({ documentId, details, canView }: { documentId: st
         )}
         <p className="text-sm text-muted">This is a picture of the file. OncoSetu does not interpret images and shows no findings.</p>
       </div>
-      <dl className="grid content-start gap-2 border border-rule bg-surface p-4 text-[15px]">
-        {rows.filter(([, v]) => v).map(([k, v]) => (
-          <div key={k} className="grid gap-0.5"><dt className="ds-kicker">{k}</dt><dd>{v}</dd></div>
-        ))}
-        {details.synthetic && <p className="mt-1 border border-dashed border-rule px-2 py-1 font-mono text-[11px] tracking-[0.1em] uppercase">Synthetic sample, not a real scan</p>}
-      </dl>
+      {compact ? (
+        <details className="border border-rule bg-surface p-3 text-[14px]">
+          <summary className="cursor-pointer text-sm underline underline-offset-4">Header of the file, as written</summary>
+          <Header rows={rows} synthetic={details.synthetic} />
+        </details>
+      ) : (
+        <div className="border border-rule bg-surface p-4 text-[15px]"><p className="ds-kicker mb-2">Header of the file, as written</p><Header rows={rows} synthetic={details.synthetic} /></div>
+      )}
     </div>
+  );
+}
+
+function Header({ rows, synthetic }: { rows: [string, string | null][]; synthetic: boolean }) {
+  return (
+    <dl className="mt-2 grid content-start gap-2">
+      {rows.filter(([, v]) => v).map(([k, v]) => (
+        <div key={k} className="grid gap-0.5"><dt className="ds-kicker">{k}</dt><dd className="break-words">{v}</dd></div>
+      ))}
+      {synthetic && <p className="mt-1 border border-dashed border-rule px-2 py-1 font-mono text-[11px] tracking-[0.1em] uppercase">Synthetic sample, not a real scan</p>}
+    </dl>
   );
 }

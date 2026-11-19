@@ -8,6 +8,7 @@ import { countNewSinceSeal, parseSealedCopy } from '@/core/doctor/new-since-seal
 import { dropDateOnlyImaging, oncologyView, type OncologyView } from '@/core/doctor/oncology'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { staffDocLabel } from '@/core/copy'
+import { placeFromWording, sameWords } from '@/components/doctor/facts'
 import { now } from '../clock'
 import { buildLedgerView } from '../ledger/core'
 import { latestSnapshot, loadRecordRows } from '../ledger/record'
@@ -77,6 +78,8 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
   const diff = prev ? buildLedgerView({ ...input, prev: { snapshot: prev.snapshot, summary: prev.summary } }) : full
 
   const quoteOf = (i: { sources: { quote: string }[] }) => i.sources.find((x) => x.quote)?.quote ?? null
+  // One quote per line: when the headline already holds those words the quote is not printed again.
+  const quoteFor = (i: { headline: string | null; sources: { quote: string }[] }) => { const q = quoteOf(i); return q && sameWords(i.headline, q) ? null : q }
   const newItems = dropDateOnlyImaging(prev
     ? [...diff.events.new_since_last_visit, ...diff.events.newly_received_older, ...diff.events.amended]
     : full.events.initial_record)
@@ -84,13 +87,14 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
     id: d.id, docLabel: isDocType(d.docType) ? staffDocLabel(d.docType) : 'Document', date: d.documentDate,
     kind: classifyHeld({ identityResult: d.identityResult, handwritten: d.handwritten, lowConfidence: d.lowConfidence }),
   }))
-  const askAt = (it: (typeof completeness.open)[number]) => it.trigger?.institution ?? it.triggerDoc?.institution ?? null
+  // The place a paper was mentioned from: the document that mentions it, else the place in the patient's own words.
+  const askAt = (it: (typeof completeness.open)[number]) => it.trigger?.institution ?? it.triggerDoc?.institution ?? placeFromWording(it.wording.en)
 
   const firstLook = buildFirstLook({
     patientId,
     seal: prev ? { id: prev.summary.id, seq: prev.summary.seq, sealedLabel: prev.summary.sealedLabel, signerName: prev.summary.signerName } : null,
     newTotal: newItems.length,
-    newItems: newItems.slice(0, 12).map((i) => ({ id: i.id, typeLabel: i.typeLabel, headline: i.headline, when: i.when.event, quote: quoteOf(i) })),
+    newItems: newItems.slice(0, 12).map((i) => ({ id: i.id, typeLabel: i.typeLabel, headline: i.headline, when: i.when.event, quote: quoteFor(i) })),
     amended: diff.events.amended.length,
     patientSaid: diff.patientSaid.length,
     conflicts: diff.conflicts.map((c) => ({ key: c.key, label: c.label })),

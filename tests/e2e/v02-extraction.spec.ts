@@ -41,7 +41,8 @@ test('V02-E2E-01 a text-layer pathology report yields unverified events, each op
     await expect(page.locator(`#q-${id}`).first()).toBeVisible()
   }
   // FR-EXT-08: the verifier is told how much the evaluation found for this kind of document.
-  await expect(page.getByTestId('coverage-note')).toContainText(/Coverage: extraction recall for histopathology reports in evaluation [01]\.\d\d \(\d+ facts checked by hand\)/)
+  await page.getByTestId('rejection-log').locator('summary').click() // the note sits under Details
+  await expect(page.getByTestId('coverage-note')).toContainText(/How well this kind of paper is read: \d+ of \d+ facts found in our tests/)
   await expect.poll(async () => {
     const csv = parseCsv(((await (await staff('admin')).get('/api/admin/audit.csv')).body as string))
     return csv.filter((r) => r.action === 'event.source_viewed' && withQuote.some((q) => q.id === r.target_id)).length

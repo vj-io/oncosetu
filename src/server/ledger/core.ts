@@ -87,9 +87,11 @@ const readingsOf = (iso: string | null, flags: readonly EventFlag[]) => {
   const other = iso && flags.includes('date_ambiguous') ? swappedReading(iso) : null
   return other ? [iso!, other].map((d) => ({ iso: d, label: day(d) })) : null
 }
-/** "12 Mar 2026", or "12 Mar 2026 or 3 Dec 2026" until someone picks the reading. */
-const eventDay = (iso: string, precision: CoreEvent['datePrecision'], flags: readonly EventFlag[]) =>
-  readingsOf(iso, flags)?.map((r) => r.label).join(' or ') ?? day(iso, precision)
+/**
+ * "12 Mar 2026": Indian papers are day first, so the stored day-first reading is the date shown. The other reading is never
+ * put in a date column (DECISIONS 5); `when.alsoReadAs` carries it for a small note, and `when.readings` for the edit path.
+ */
+const eventDay = (iso: string, precision: CoreEvent['datePrecision']) => day(iso, precision)
 
 export function headline(fields: Record<string, FieldValue>): string | null {
   const cycle = fields.cycle_number !== undefined ? `Cycle ${fields.cycle_number}` : null
@@ -320,6 +322,8 @@ export type ItemView = {
     event: string; eventIso: string | null; dateFrom: 'event' | 'document' | null; document: string | null; received: string
     /** Day and month could be swapped: both readings, for one-click picking through the edit path. */
     readings: { iso: string; label: string }[] | null
+    /** The other reading of a day/month that could be swapped ("3 Dec 2026"), for a small "could also be read as" note; else null. */
+    alsoReadAs: string | null
   }
   provenance: { sourceType: string; method: string; docType: DocType | null; institution: string | null }
   viewedSource: boolean
@@ -408,9 +412,9 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       sources: headlinesOnly ? [] : sourcesOf(rows.patientId, e, docLabel),
       who: { actorName: v?.actorName ?? null, role: v?.role ?? null, at: v ? day(v.at.toISOString()) : null, action: v?.action ?? null },
       when: {
-        event: e.eventDate ? eventDay(e.eventDate, e.datePrecision, flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+        event: e.eventDate ? eventDay(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
         eventIso: e.eventDate ?? e.documentDate, dateFrom, document: e.documentDate ? day(e.documentDate) : null, received: day(e.receivedAt),
-        readings: readingsOf(e.eventDate, flags),
+        readings: readingsOf(e.eventDate, flags), alsoReadAs: readingsOf(e.eventDate, flags)?.[1]?.label ?? null,
       },
       provenance: { sourceType: e.sourceType, method: e.extractionMethod, docType: isDocType(dt) ? dt : null, institution: e.documentId ? docById.get(e.documentId)?.institutionName ?? null : null },
       viewedSource: !!viewedByMe?.has(e.id) || (!!e.supersedesId && !!viewedByMe?.has(e.supersedesId)),
@@ -550,7 +554,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     return {
       id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headline(fields), status: e.verificationStatus, label: e.label,
       quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType), flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
-      dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision, e.flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+      dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
       dateFrom: e.eventDate ? 'event' : e.documentDate ? 'document' : null, docType: d?.docType ?? null, docLabel,
       institution: d?.institution ?? (typeof fields.institution_name === 'string' ? fields.institution_name : null), sourceType: e.sourceType,
       sources: e.evidence.map((v) => ({

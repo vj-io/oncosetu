@@ -106,9 +106,10 @@ describe('edit versioning (E-LED-05)', () => {
     const old = event({ fields: { test_name: 'CBC', event_date_text: '05/06/2026' }, eventDate: '2026-06-05', dateFlags: ['date_ambiguous'], flags: { date_ambiguous: true } })
     const view = (e: EventRow) => itemsById(buildLedgerView({ rows: rows({ events: [e] }), prev: null, role: 'records', now: NOW })).get(e.id)!
     const before = view(old)
-    expect(before.when.event).toBe('5 Jun 2026 or 6 May 2026')
+    expect(before.when.event).toBe('5 Jun 2026') // day first, never "X or Y"
+    expect(before.when.alsoReadAs).toBe('6 May 2026')
     expect(before.when.readings).toEqual([{ iso: '2026-06-05', label: '5 Jun 2026' }, { iso: '2026-05-06', label: '6 May 2026' }])
-    expect(buildTimeline(buildSnapshot(assembleRecord(rows({ events: [old] })).record, NOW), { quoteByHash: new Map() }).years[0].months[0].items[0].dateLabel).toBe('5 Jun 2026 or 6 May 2026')
+    expect(buildTimeline(buildSnapshot(assembleRecord(rows({ events: [old] })).record, NOW), { quoteByHash: new Map() }).years[0].months[0].items[0].dateLabel).toBe('5 Jun 2026')
 
     const next = editedVersion(old, { event_date_text: before.when.readings![1].label }, { staffId: 's1' }, new Date(NOW))
     expect(next).toMatchObject({ eventDate: '2026-05-06', datePrecision: 'day', dateFlags: [], verificationStatus: 'edited' })

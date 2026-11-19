@@ -51,7 +51,7 @@ export function LedgerToolbar({ patientId, eligibleIds, counts, canSeal }: { pat
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Button variant="secondary" icon={<CheckCheck aria-hidden />} disabled={!eligibleIds.length} onClick={() => { setDialog('bulk'); setError(null) }}>
-        Mark opened items as checked ({eligibleIds.length})
+        I’ve checked the {eligibleIds.length} {eligibleIds.length === 1 ? 'item' : 'items'} I opened
       </Button>
       {canSeal && (
         <Button icon={<StampIcon aria-hidden />} disabled={!total && !counts.documents} onClick={() => { setDialog('seal'); setError(null) }}>

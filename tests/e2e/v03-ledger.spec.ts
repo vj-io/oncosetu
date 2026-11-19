@@ -62,7 +62,7 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
   await expect(rec.getByRole('heading', { name: 'Everything on file so far' })).toBeVisible()
-  const bulkButton = rec.getByRole('button', { name: /Mark opened items as checked \(\d+\)/ })
+  const bulkButton = rec.getByRole('button', { name: /I.ve checked the \d+ items? I opened/ })
   const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
   expect(eligible).toBeGreaterThan(0)
   await bulkButton.click()

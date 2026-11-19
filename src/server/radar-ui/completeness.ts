@@ -15,7 +15,7 @@ import { groupedCycles, missingWording, type L2, type WordingTrigger } from './w
 
 type MissingRow = typeof missingRecords.$inferSelect
 
-export type DocBrief = { id: string; docType: DocType | null; documentDate: string | null; institution: string | null; receivedAt: string }
+export type DocBrief = { id: string; docType: DocType | null; documentDate: string | null; institution: string | null; receivedAt: string; /** Study name from a scan's own header ("PET-CT"), when the file is a scan. */ scanLabel?: string | null }
 
 export type DescribedItem = {
   id: string; dedupeKey: string; ruleId: string; ruleVersion: string; mode: 'production' | 'shadow'; state: MissingState
@@ -23,6 +23,8 @@ export type DescribedItem = {
   wording: L2; neutral: L2
   trigger: { eventId: string; documentId: string | null; pageNo: number | null; quote: string | null; institution: string | null; date: string | null; precision: DatePrecision } | null
   triggerDoc: DocBrief | null
+  /** RAD-IMG-RPT-01: the scan file that has no written report. */
+  scanDoc: DocBrief | null
   proposedDoc: DocBrief | null
   matchedDoc: DocBrief | null
   /** E-RAD-01: the proposed document comes from another institution than the trigger's. */
@@ -53,9 +55,11 @@ export async function describeRows(tx: Tx, rows: MissingRow[]): Promise<Describe
   const firstEvidence = new Map<string, (typeof evi)[number]>()
   for (const e of evi) if (!firstEvidence.has(e.eventId)) firstEvidence.set(e.eventId, e)
 
-  const docIds = [...new Set([...evs.map((e) => e.documentId), ...rows.flatMap((r) => [r.proposedDocumentId, r.matchedDocumentId])].filter((x): x is string => !!x))]
+  const scanId = (r: MissingRow) => { const w = (r.matchWindow ?? {}) as { triggerKind?: unknown; triggerId?: unknown }; return w.triggerKind === 'document' && typeof w.triggerId === 'string' ? w.triggerId : null }
+  const docIds = [...new Set([...evs.map((e) => e.documentId), ...rows.flatMap((r) => [r.proposedDocumentId, r.matchedDocumentId, scanId(r)])].filter((x): x is string => !!x))]
   const docRows = docIds.length ? await tx.select({
     id: documents.id, docType: documents.docType, documentDate: documents.documentDate, institution: documents.institutionName, receivedAt: documents.receivedAt,
+    scanLabel: sql<string | null>`${documents.flags}->'imaging'->>'studyLabel'`,
   }).from(documents).where(inArray(documents.id, docIds)) : []
   const docs = new Map(docRows.map((d): [string, DocBrief] => [d.id, { ...d, docType: asDocType(d.docType), receivedAt: d.receivedAt.toISOString() }]))
   const evById = new Map(evs.map((e) => [e.id, e]))
@@ -86,7 +90,7 @@ export async function describeRows(tx: Tx, rows: MissingRow[]): Promise<Describe
         eventId: e.id, documentId: e.documentId, pageNo: ev1?.pageNo ?? null, quote: ev1?.quote ?? null, institution,
         date: e.eventDate ?? e.documentDate, precision: e.eventDate ? e.datePrecision : e.documentDate ? 'day' : 'unknown',
       } : null,
-      triggerDoc, proposedDoc,
+      triggerDoc, proposedDoc, scanDoc: scanId(r) ? docs.get(scanId(r)!) ?? null : null,
       matchedDoc: r.matchedDocumentId ? docs.get(r.matchedDocumentId) ?? null : null,
       institutionDiffers: !!r.notes?.includes('institution_differs') || institutionsDiffer(institution, proposedDoc?.institution ?? null),
       reason: r.reason, createdAt: r.createdAt.toISOString(), stateChangedAt: r.stateChangedAt.toISOString(),

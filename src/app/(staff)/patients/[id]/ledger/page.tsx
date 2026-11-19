@@ -119,7 +119,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
       <div className="grid gap-6">
         <SectionHeader
           kicker="What’s new"
-          title={initial ? 'Everything on file so far' : 'What changed since the last sealed visit'}
+          title={initial ? 'Everything on file (first visit)' : 'What changed since the last sealed visit'}
           description={initial
             ? 'Everything received so far, each with the words it came from. Check what you can; the first visit can be sealed with some items still unchecked, and they stay marked as unchecked.'
             : 'Each item shows what it is, where it is written, who checked it and when. Grouped by kind of change and ordered by date, never by importance.'}

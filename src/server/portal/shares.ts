@@ -1,8 +1,14 @@
 // Share links as the patient sees them: expiry, views, revoke. Creation is the Radar-share agent's CreateShareForm.
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { shareLinks, shareViews } from '@/db/schema'
+import { shareLinks, shareViews, snapshots } from '@/db/schema'
 import { now } from '../clock'
+
+/** True once a clinician has sealed at least one visit: a share link can only be made from a sealed record. */
+export async function hasSealedRecord(tx: Tx, patientId: string): Promise<boolean> {
+  const [s] = await tx.select({ id: snapshots.id }).from(snapshots).where(eq(snapshots.patientId, patientId)).limit(1)
+  return !!s
+}
 
 export type ShareStatus = 'active' | 'expired' | 'revoked' | 'locked'
 export type ShareRow = {

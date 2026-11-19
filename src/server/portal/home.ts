@@ -72,6 +72,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
     return [x.id, a.statedDate ? { date: a.statedDate, precision: a.statedPrecision ?? 'day' } : { date: istDate(x.at.toISOString()), precision: 'day' as DatePrecision }]
   }))
   return {
+    today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
       id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true,
     })),

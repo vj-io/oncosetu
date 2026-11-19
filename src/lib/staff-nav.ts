@@ -6,15 +6,31 @@ export const STAFF_ROLES: readonly StaffRole[] = ['desk', 'records', 'clinician'
 
 const CLINICAL: StaffRole[] = ['desk', 'records', 'clinician']
 
+// Minimal on purpose: each role sees only the few places it actually works in.
+// Desk: front desk, patients, capture. Records: to do, patients, pre-auth files, capture. Clinician: patients only.
+// Everything else a role needs sits in the account menu (STAFF_MENU) or inside the pages themselves.
 export const STAFF_NAV: { href: string; label: string; roles: StaffRole[] }[] = [
-  { href: '/desk', label: 'Desk', roles: CLINICAL },
+  { href: '/desk', label: 'Front desk', roles: ['desk'] },
+  { href: '/records', label: 'To do', roles: ['records'] },
   { href: '/patients', label: 'Patients', roles: CLINICAL },
-  { href: '/records', label: 'Records queue', roles: ['records'] },
   { href: '/preauth', label: 'Pre-auth files', roles: ['records'] },
   { href: '/capture', label: 'Capture', roles: ['desk', 'records'] },
-  { href: '/admin/duplicates', label: 'Duplicates', roles: ['records'] },
   { href: '/admin', label: 'Admin', roles: ['org_admin', 'auditor'] },
 ]
+
+/** Links in the account menu (top right), after the tour entry and before "Sign out". */
+export const STAFF_MENU: { href: string; label: string; roles: StaffRole[] }[] = [
+  { href: '/measure', label: 'Study form (1 min)', roles: ['clinician'] },
+  { href: '/admin/duplicates', label: 'Duplicate records', roles: ['records'] },
+  { href: '/account/sessions', label: 'Where you are signed in', roles: ['desk', 'records', 'clinician', 'org_admin', 'auditor'] },
+]
+
+/** Roles that get the "Take the 2-minute tour" entry (the tour is written for the clinician and records views). */
+export const TOUR_ROLES: StaffRole[] = ['clinician', 'records']
+
+export function menuFor(role: StaffRole) {
+  return STAFF_MENU.filter((n) => n.roles.includes(role))
+}
 
 /** A clinician starts on Patients and records staff on the records queue; the rest on their first allowed nav item. */
 const PREFERRED: Partial<Record<StaffRole, string>> = { clinician: '/patients', records: '/records' }

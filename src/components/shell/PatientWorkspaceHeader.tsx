@@ -1,24 +1,14 @@
 import type { ReactNode } from "react";
 import { CircleHelp, EyeOff, ShieldCheck, UserRound } from "lucide-react";
-import { Avatar, Badge, Tabs, type Tone } from "@/components/ui";
-import { tabAllowed } from "@/lib/patient-tabs";
+import { Avatar, Badge, type Tone } from "@/components/ui";
+import { PATIENT_TAB_LIST, tabsFor, type PatientTabKey } from "@/lib/patient-tabs";
+import { PatientTabsNav } from "./PatientTabsNav";
 import type { StaffRole } from "@/lib/staff-nav";
 
-export const PATIENT_TABS = [
-  ["overview", "Overview"],
-  ["documents", "Documents"],
-  ["timeline", "Timeline"],
-  ["ledger", "What’s new"],
-  ["completeness", "Missing papers"],
-  ["preauth", "Pre-auth file"],
-  ["requests", "Requests"],
-  ["shares", "Share links"],
-  ["statements", "Patient’s own answers"],
-  ["consent", "Consent & access"],
-  ["audit", "Activity log"],
-] as const;
+/** Every tab as [key, label] pairs (kept for pages that list them, such as the overview's "Go to" row). */
+export const PATIENT_TABS = PATIENT_TAB_LIST.map((t) => [t.key, t.label] as const);
 
-export type TabKey = (typeof PATIENT_TABS)[number][0];
+export type TabKey = PatientTabKey;
 export type Disclosure = "cleared" | "not_cleared" | "unknown";
 
 const DISCLOSURE: Record<Disclosure, { label: string; tone: Tone; icon: ReactNode }> = {
@@ -43,10 +33,13 @@ export type PatientWorkspaceHeaderProps = {
   counts?: Partial<Record<TabKey, number>>;
   /** Only the tabs this role can open are shown (a hidden tab would end on a refusal page). */
   role?: StaffRole;
+  /** Example use (style guide): the tabs are shown as plain text with no links. */
+  inertTabs?: boolean;
 };
 
-export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWorkspaceHeaderProps) {
+export function PatientWorkspaceHeader({ patient: p, counts, role, inertTabs }: PatientWorkspaceHeaderProps) {
   const d = DISCLOSURE[p.disclosure];
+  const { main, more } = tabsFor(role);
   const facts = [p.ageYears != null ? `${p.ageYears} y` : null, p.sex || null, p.mrn ? `MRN ${p.mrn}` : null].filter(Boolean).join(" · ");
   return (
     <header className="border-b border-rule">
@@ -68,9 +61,10 @@ export function PatientWorkspaceHeader({ patient: p, counts, role }: PatientWork
           </div>
         </div>
       </div>
-      <Tabs
-        label="Patient workspace"
-        items={PATIENT_TABS.filter(([key]) => !role || tabAllowed(key, role)).map(([key, label]) => ({ href: `/patients/${p.id}/${key}`, label, count: counts?.[key] }))}
+      <PatientTabsNav
+        inert={inertTabs}
+        main={main.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label, count: counts?.[t.key] ?? (t.key === "records" ? counts?.documents : undefined) }))}
+        more={more.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label }))}
       />
     </header>
   );

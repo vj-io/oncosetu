@@ -4,9 +4,9 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { ChevronDown, Compass, LogOut, Menu, MonitorSmartphone, Smartphone } from "lucide-react";
-import { navFor, roleHome, type StaffRole } from "@/lib/staff-nav";
-import { Avatar, Badge, Button, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
+import { ClipboardList, ChevronDown, Compass, Copy, LogOut, Menu, MonitorSmartphone, Smartphone } from "lucide-react";
+import { menuFor, navFor, roleHome, TOUR_ROLES, type StaffRole } from "@/lib/staff-nav";
+import { Avatar, Badge, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
 import { Tour, startTour } from "./Tour";
 
 export type { StaffRole };
@@ -26,6 +26,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
   const [signingOut, setSigningOut] = useState(false);
   const nav = navFor(user.role);
   const home = roleHome(user.role);
+  const menu = menuFor(user.role);
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   async function signOut() {
@@ -89,14 +90,6 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
             </ul>
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {(user.role === "clinician" || user.role === "records") && (
-              // Hidden on phones by a wrapper: Button's own inline-flex beat a `hidden` class and pushed a 375 px page 165 px sideways.
-              <span className="hidden md:inline-flex">
-                <Button variant="secondary" size="md" onClick={startTour} icon={<Compass aria-hidden />}>
-                  Take the 2-minute tour
-                </Button>
-              </span>
-            )}
             <details className="group relative">
               <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
                 <span className="sr-only">Your menu</span>
@@ -109,14 +102,17 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
               </summary>
               <div className="absolute right-0 z-50 mt-1 hidden w-64 border border-rule bg-matte py-1 shadow-frame group-open:grid">
                 <p className="border-b border-rule px-4 py-2 text-sm"><span className="block text-ink">{user.name}</span><span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">{ROLE_LABEL[user.role]} · {user.orgName}</span></p>
-                {(user.role === "clinician" || user.role === "records") && (
+                {TOUR_ROLES.includes(user.role) && (
                   <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
                     <Compass aria-hidden className="size-4" />Take the 2-minute tour
                   </button>
                 )}
-                <Link href="/account/sessions" className="flex min-h-11 items-center gap-2 px-4 text-[15px] hover:bg-spotlight">
-                  <MonitorSmartphone aria-hidden className="size-4" />Where you are signed in
-                </Link>
+                {menu.map((m) => (
+                  <Link key={m.href} href={m.href} onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")} className="flex min-h-11 items-center gap-2 px-4 text-[15px] hover:bg-spotlight">
+                    {m.href === "/measure" ? <ClipboardList aria-hidden className="size-4" /> : m.href === "/admin/duplicates" ? <Copy aria-hidden className="size-4" /> : <MonitorSmartphone aria-hidden className="size-4" />}
+                    {m.label}
+                  </Link>
+                ))}
                 <button type="button" onClick={signOut} disabled={signingOut} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
                   <LogOut aria-hidden className="size-4" />Sign out
                 </button>

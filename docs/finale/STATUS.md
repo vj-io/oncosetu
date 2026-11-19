@@ -39,4 +39,4 @@ TBD, filled after the audit.
 
 ## Open questions
 
-- None yet.
+- Unit test `src/core/copy/ui-lint.test.ts` fails only on Windows (1 of 1360): its allow-list uses forward-slash paths but Windows reports backslashes. All other 1359 pass. Fix by normalising the path in the test (not done yet).

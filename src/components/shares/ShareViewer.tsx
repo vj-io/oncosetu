@@ -26,6 +26,9 @@ const L = {
   details: { en: 'What it contains', hi: 'इसमें क्या है', hinglish: 'Isme kya hai' },
   noDate: { en: 'Date not given', hi: 'तारीख़ नहीं दी गई', hinglish: 'Date nahi di gayi' },
   otherTitle: { en: 'Other recorded items', hi: 'अन्य दर्ज प्रविष्टियाँ', hinglish: 'Anya darj entries' },
+  scansHead: { en: 'Scans', hi: 'स्कैन', hinglish: 'Scans' },
+  scansIntro: { en: 'Scan images are stored at the clinic and are not included in this link. Ask the clinic for them.', hi: 'स्कैन की तस्वीरें क्लिनिक में रखी हैं और इस लिंक में शामिल नहीं हैं। इनके लिए क्लिनिक से पूछें।', hinglish: 'Scan ki images clinic mein rakhi hain aur is link mein shaamil nahi hain. Inke liye clinic se poochhein.' },
+  scanNote: { en: 'Stored at the clinic, not included', hi: 'क्लिनिक में रखा है, शामिल नहीं', hinglish: 'Clinic mein rakha hai, shaamil nahi' },
   absentHead: { en: 'Papers not in this file', hi: 'इस फ़ाइल में न मिले काग़ज़', hinglish: 'Is file mein na mile papers' },
 } as const
 const fill = (str: string, n: number) => str.replace('{n}', String(n))
@@ -236,6 +239,23 @@ export function ShareViewer({ id }: { id: string }) {
                   </div>
                 )}
               </section>
+
+              {p.scans && p.scans.length > 0 && (
+                <section aria-labelledby="scans-h" className="grid gap-4">
+                  <SectionHeader title={<span id="scans-h">{L.scansHead[lang]}</span>} description={L.scansIntro[lang]} />
+                  <ul className="grid gap-2">
+                    {p.scans.map((sc, i) => (
+                      <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-rule bg-surface px-4 py-3">
+                        <span className="text-[15px]">
+                          <span className="font-medium">{inLang(sc.label, lang)}</span>
+                          <span className="text-muted"> · {sc.date ? formatDateIN(sc.date, lang) : L.noDate[lang]}{sc.institution ? ` · ${sc.institution}` : ''}</span>
+                        </span>
+                        <span className="text-sm text-muted">{L.scanNote[lang]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
               <section aria-labelledby="absent-h" className="grid gap-5">
                 <SectionHeader title={<span id="absent-h">{L.absentHead[lang]}</span>} description={t('absentIntro')} />

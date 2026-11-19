@@ -12,15 +12,16 @@ export const metadata = { title: 'Measure · OncoSetu' }
 const TYPE: Record<string, string> = { onboarding: 'first visit', returning: 'returning', between: 'between visits' }
 const IMPACT: Record<string, string> = { none: 'No impact', delayed_decision: 'Decision delayed', repeat_test_ordered: 'Repeat test ordered', visit_rescheduled: 'Visit rescheduled' }
 
-export default async function MeasurePage() {
+export default async function MeasurePage({ searchParams }: { searchParams: Promise<{ visit?: string }> }) {
   const s = await requireStaff(['clinician'])
+  const { visit } = await searchParams
   const { encs, mine } = await withOrg(s.orgId, async (tx) => ({ encs: await recentEncounters(tx), mine: await myRecentForms(tx, s.staffId) }))
   return (
     <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8">
       <SectionHeader as="h1" kicker="Study form · takes about a minute" title="Record this consultation"
         description="Answer after the consultation. The form carries no patient details: it is linked to the visit by a code only. These answers feed the measurement study of how missing papers affect consultations."
         />
-      <MeasureForm today={istToday()} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `Visit ${shortId(e.id)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
+      <MeasureForm today={istToday()} initialEncounterId={typeof visit === 'string' ? visit : undefined} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `Visit ${shortId(e.id)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
       <section aria-labelledby="mine-h" className="grid gap-3">
         <h2 id="mine-h" className="text-xl tracking-[-0.02em]">Your recent forms</h2>
         {mine.length === 0 ? <EmptyState title="Nothing recorded yet" className="py-8" /> : (

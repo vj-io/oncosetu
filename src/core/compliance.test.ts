@@ -6,8 +6,8 @@ const all = JSON.stringify({ HEADLINE, NOT_CLAIMED, SECTIONS })
 describe('security and compliance content', () => {
   it('never claims to be HIPAA compliant or certified, and says so plainly', () => {
     expect(all).not.toMatch(/\bis HIPAA[- ]compliant|are HIPAA[- ]compliant|HIPAA[- ]certified|we are compliant|fully compliant/i)
-    expect(HEADLINE).toMatch(/Built to HIPAA's safeguards/)
-    expect(HEADLINE).toMatch(/roadmap/)
+    expect(HEADLINE).toMatch(/^Built for India's DPDP Act 2023 and ABDM.$/)
+    expect(HEADLINE).not.toMatch(/HIPAA|roadmap/)
     expect(NOT_CLAIMED).toMatch(/not HIPAA compliant/)
   })
   it('covers HIPAA, DPDP and ABDM and every HIPAA safeguard the team asked for', () => {
@@ -23,7 +23,7 @@ describe('security and compliance content', () => {
   })
   it('leads with India (DPDP and ABDM) before HIPAA', () => {
     expect(HEADLINE).toMatch(/^Built for India's DPDP Act 2023 and ABDM/)
-    expect(HEADLINE.indexOf('DPDP')).toBeLessThan(HEADLINE.indexOf('HIPAA'))
+    expect(SECTIONS.map((s) => s.id).indexOf('hipaa')).toBe(SECTIONS.length - 1)
   })
   it('summary counts add up to every row', () => {
     const t = tally()

@@ -6,7 +6,7 @@ export type Status = 'in_place' | 'partly' | 'planned'
 export type Row = { area: string; today: string; status: Status; evidence: string }
 export type Section = { id: 'hipaa' | 'dpdp' | 'abdm'; title: string; intro: string; rows: Row[] }
 
-export const HEADLINE = "Built for India's DPDP Act 2023 and ABDM. Built to HIPAA's safeguards too; formal HIPAA compliance is on our roadmap."
+export const HEADLINE = "Built for India's DPDP Act 2023 and ABDM."
 export const NOT_CLAIMED = 'We are not HIPAA compliant, and we hold no security certificate today. This page says what is built, not what is certified.'
 export const DEMO_NOTE = 'This deployment holds synthetic demonstration data only.'
 

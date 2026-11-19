@@ -22,14 +22,14 @@ const DAYS = [1, 3, 7, 14, 30]
 const randomCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0')
 
 /** `allowQuotes` false for the desk: the server refuses quoted shares from it, so the option is not offered. */
-export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = true }: { patientId: string; actor: 'staff' | 'patient'; lang?: Lang; allowQuotes?: boolean }) {
+export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = true, sealed = true }: { patientId: string; actor: 'staff' | 'patient'; lang?: Lang; allowQuotes?: boolean; /** false when the server already knows nothing is sealed: show the empty state, request nothing (no 409 in the console) */ sealed?: boolean }) {
   const router = useRouter()
   const t = (k: ShareKey, v?: Record<string, string | number>) => ts(lang, k, v)
   const ui = sideStyle(actor, lang)
   const payloadUrl = (scope: ShareScope) =>
     actor === 'staff' ? `/api/patients/${patientId}/share-payload?scope=${scope}` : `/api/p/share-payload?scope=${scope}`
 
-  const [pre, setPre] = useState<Payload | 'no_snapshot' | 'no_consent' | 'error' | null>(null)
+  const [pre, setPre] = useState<Payload | 'no_snapshot' | 'no_consent' | 'error' | null>(sealed ? null : 'no_snapshot')
   const [scope, setScope] = useState<ShareScope>('index')
   const [days, setDays] = useState(7)
   const [usePasscode, setUsePasscode] = useState(true)
@@ -40,10 +40,11 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
+    if (!sealed) return
     api<Payload>(payloadUrl('index')).then((p) => { setPre(p); setPasscode(randomCode()) }).catch((e) => setPre(
       e instanceof ApiError && e.code === 'no_snapshot' ? 'no_snapshot' : e instanceof ApiError && e.code === 'consent_required' ? 'no_consent' : 'error'))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId, actor])
+  }, [patientId, actor, sealed])
 
   async function create(e: React.FormEvent) {
     e.preventDefault()

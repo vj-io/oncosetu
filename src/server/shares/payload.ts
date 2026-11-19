@@ -27,6 +27,8 @@ export type SharePayload = {
     quote?: string
   }[]
   documents: { id: string; label: L2; date: string | null; institution: string | null; receivedAt: string }[]
+  /** Scan files: listed so the reader knows they exist, never included (images stay at the clinic). Absent on older links. */
+  scans?: { label: L2; date: string | null; institution: string | null }[]
   absent: { text: L2; state: MissingState }[]
   /** FR-ID-06: documents of the previous seal taken out of this record since (only when there are any). */
   errata?: { label: L2; date: string | null; withdrawn: number }[]
@@ -45,6 +47,8 @@ export type PayloadInput = {
   quotes: Record<string, string>
   /** dedupeKey → neutral wording of the absent document (used unless cleared). */
   absentNeutral: Record<string, L2>
+  /** documentId → the scan's plain title ("Mammogram", "CT chest"), for documents that are scan files. */
+  scans?: Record<string, string>
 }
 
 export class QuotesNotAllowed extends Error {}
@@ -65,6 +69,8 @@ const EVENT_DOC: Partial<Record<EventType, DocType>> = {
 }
 
 const both = (f: (l: Lang) => string): L2 => ({ en: f('en'), hi: f('hi'), hinglish: f('hinglish') })
+/** Unless disclosure is cleared a scan is only "Scan": a study name (PET-CT, mammogram) can hint at the diagnosis. */
+const NEUTRAL_SCAN: L2 = { en: 'Scan', hi: 'स्कैन', hinglish: 'Scan' }
 
 export function buildSharePayload(i: PayloadInput): SharePayload {
   const cleared = i.disclosure === 'cleared'
@@ -72,6 +78,8 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
   const brand = brandFor(i.disclosure)
   const label = (t: DocType) => both((l) => patientDocLabel(t, i.disclosure, l))
   const docs = new Map(i.snapshot.documents.map((d) => [d.id, d]))
+  const scanTitle = i.scans ?? {}
+  const isScan = (id: string) => Object.hasOwn(scanTitle, id)
 
   const items = [...i.snapshot.verified, ...i.snapshot.unverified]
     .filter((e) => e.eventType !== 'patient_statement' && !STAFF_ONLY_EVENT_TYPES.has(e.eventType))
@@ -106,9 +114,16 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
     notice: both((l) => ts(l, 'notice', { brand })),
     asOf: i.snapshot.sealedAt,
     items,
-    documents: i.snapshot.documents.map((d) => ({
+    documents: i.snapshot.documents.filter((d) => !isScan(d.id)).map((d) => ({
       id: d.id, label: label(d.docType), date: d.documentDate, institution: guardFree(d.institution, i.disclosure), receivedAt: d.receivedAt,
     })).sort((a, b) => (a.date ?? a.receivedAt).localeCompare(b.date ?? b.receivedAt)),
+    ...(i.snapshot.documents.some((d) => isScan(d.id))
+      ? {
+          scans: i.snapshot.documents.filter((d) => isScan(d.id))
+            .map((d) => ({ label: cleared ? both(() => scanTitle[d.id]) : NEUTRAL_SCAN, date: d.documentDate, institution: guardFree(d.institution, i.disclosure) }))
+            .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
+        }
+      : {}),
     absent: i.snapshot.missing.map((m) => ({
       state: m.state,
       text: cleared && m.wording?.en

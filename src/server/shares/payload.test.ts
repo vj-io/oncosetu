@@ -96,3 +96,26 @@ describe('errata in the share and the passport (FR-ID-06)', () => {
     expect(ts('en', 'errataLine', { label: p.errata![0].label.en, date: formatDateIN(istDate(p.errata![0].date!)), n: 1 })).toBe('Day-care record · taken out on 25 Oct 2026 · items withdrawn: 1')
   })
 })
+
+describe('scans in a share link (decision 12: listed, never included)', () => {
+  const withScan = buildSnapshot({ patientId: 'p1', events, documents: [...docs,
+    { id: 'd-pet', docType: 'other', documentDate: '2026-04-28', receivedAt: '2026-10-01T10:00:00Z', institution: 'City Care Hospital', sha256: 'cc' }],
+  statements: [], missing }, '2026-10-20T06:00:00.000Z')
+  const input: PayloadInput = { ...base, snapshot: withScan, scans: { 'd-pet': 'PET-CT' } }
+
+  it('lists a scan under scans, not among the papers', () => {
+    const p = buildSharePayload({ ...input, disclosure: 'cleared' })
+    expect(p.documents.map((d) => d.id)).not.toContain('d-pet')
+    expect(p.scans).toEqual([{ label: { en: 'PET-CT', hi: 'PET-CT', hinglish: 'PET-CT' }, date: '2026-04-28', institution: 'City Care Hospital' }])
+  })
+  it('says only "Scan" until disclosure is cleared: a study name can hint at the diagnosis', () => {
+    for (const disclosure of ['not_cleared', 'unknown'] as const) {
+      const p = buildSharePayload({ ...input, disclosure })
+      expect(p.scans?.[0].label.en).toBe('Scan')
+      expect(JSON.stringify(p)).not.toContain('PET')
+    }
+  })
+  it('has no scans section when there are no scan files', () => {
+    expect(buildSharePayload(base).scans).toBeUndefined()
+  })
+})

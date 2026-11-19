@@ -6,7 +6,7 @@ import { canonicalJson } from '@/core/canonical'
 import type { Snapshot } from '@/core/ledger'
 import { brandFor } from '@/core/copy'
 import { db, withOrg, type Tx } from '@/db'
-import { evidence, missingRecords, patients, shareLinks, shareViews, snapshots, verifications } from '@/db/schema'
+import { documents, evidence, missingRecords, patients, shareLinks, shareViews, snapshots, verifications } from '@/db/schema'
 import { ts } from '@/i18n/shares'
 import { writeAudit, type AuditDetails } from '../audit'
 import { now } from '../clock'
@@ -17,6 +17,7 @@ import { activeConsent, assertConsent, assertPatientAccess } from '../patients'
 import { deviceOf } from '../portal/access'
 import { loadShares, revokeShare, type ShareRow } from '../portal/shares'
 import { describeRows } from '../radar-ui/completeness'
+import { scanOf, titleOf } from '../records/core'
 import type { L2 } from '../radar-ui/wording'
 import { primaryContactTarget } from '../registration/contact'
 import type { Session } from '../session'
@@ -83,8 +84,17 @@ export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareSco
     const rows = await tx.select().from(missingRecords).where(and(eq(missingRecords.patientId, patientId), inArray(missingRecords.dedupeKey, keys)))
     for (const d of await describeRows(tx, rows)) absentNeutral[d.dedupeKey] = d.neutral
   }
+  const scans: Record<string, string> = {}
+  const docIds = snapshot.documents.map((d) => d.id)
+  if (docIds.length) {
+    for (const d of await tx.select({ id: documents.id, flags: documents.flags }).from(documents).where(inArray(documents.id, docIds))) {
+      const flags = (d.flags ?? {}) as Record<string, unknown>
+      const scan = scanOf({ flags })
+      if (scan) scans[d.id] = titleOf({ flags, docType: null } as Parameters<typeof titleOf>[0], scan, () => 'Scan')
+    }
+  }
   try {
-    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral })
+    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans })
     return signSharePayload({ ...payload, snapshotId: snap.id, issuedAt: (await now(session.orgId)).toISOString() })
   } catch (e) {
     if (e instanceof QuotesNotAllowed) throw new HttpError(403, 'quotes_not_allowed', 'Source quotes can be shared only when disclosure is cleared')

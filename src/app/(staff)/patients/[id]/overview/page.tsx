@@ -23,6 +23,8 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
   const p = o.patient
   const done = o.steps.filter((s) => s.done).length
   const canRecords = role === 'records' || role === 'clinician'
+  // Decision 13: once this visit is sealed, a quiet link to the 1-minute study form (no popup). The form holds no patient details.
+  const visitSealed = role === 'clinician' && !!o.encounter && !!o.snapshot && o.snapshot.sealedAt >= o.encounter.startedAt
 
   return (
     <div className="grid gap-6 py-6">
@@ -49,6 +51,13 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
           <PreVisitLinkButton patientId={id} />
         </span>
       </div>
+
+      {visitSealed && (
+        <p className="text-[15px] text-muted" data-testid="study-form-link">
+          This visit is sealed.{' '}
+          <Link className={linkCls} href={`/measure?visit=${o.encounter!.id}`}>Fill the 1-minute study form</Link>
+        </p>
+      )}
 
       {doctor && <FirstLook rows={doctor.firstLook} />}
       {doctor && <OncologyFacts v={doctor.oncology} />}

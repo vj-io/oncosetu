@@ -14,9 +14,9 @@ const IMPACTS: [string, string][] = [
 const REASONS: [string, string][] = [['unavailable', 'Earlier result unavailable'], ['quality', 'Earlier result of poor quality'], ['clinical_need', 'Clinical need']]
 
 /** The 60-second consultation form (§16.4). It holds no patient field: the only link is an encounter id. */
-export function MeasureForm({ encounters, today }: { encounters: EncounterOption[]; today: string }) {
+export function MeasureForm({ encounters, today, initialEncounterId }: { encounters: EncounterOption[]; today: string; initialEncounterId?: string }) {
   const { busy, run } = useRun()
-  const [encounterId, setEncounterId] = useState('')
+  const [encounterId, setEncounterId] = useState(initialEncounterId && encounters.some((e) => e.id === initialEncounterId) ? initialEncounterId : '')
   const [date, setDate] = useState(today)
   const [phase, setPhase] = useState('baseline')
   const [firstVisit, setFirstVisit] = useState(true)

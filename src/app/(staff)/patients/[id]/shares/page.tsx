@@ -44,7 +44,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
         </Notice>
       )}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">
-        <CreateShareForm patientId={id} actor="staff" allowQuotes={session.role !== 'desk'} />
+        <CreateShareForm patientId={id} actor="staff" allowQuotes={session.role !== 'desk'} sealed={!!fresh.sealedLabel} />
         <section aria-labelledby="links-h" className="grid min-w-0 gap-4">
           <h2 id="links-h" className="ds-kicker">Links and who opened them · the patient can see this too</h2>
           {rows.length ? (

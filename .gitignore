@@ -58,3 +58,8 @@ next-env.d.ts
 /scans/
 /local-scans/
 /real-scans/
+
+# finale screenshots stay on the local machine (too large for git); the reports cite them by path
+/docs/finale/e2e-audit/shots/
+/docs/finale/wp*-shots/
+next.log

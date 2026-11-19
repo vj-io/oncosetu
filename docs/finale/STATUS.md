@@ -84,3 +84,55 @@ Split from [AUDIT.md §5](AUDIT.md#5-work-split-6-packages-no-shared-files). Dec
 6. Walk the owner through the product.
 
 **Local copy:** see scripts/local-dev.md. App on :3000, DB on :54600 (C:\Users\GARV BANSAL\Documents\onco-localdb).
+
+## Handoff snapshot: 2026-11-19, night (written before a usage limit; another account may continue)
+
+**Branch `feat/finale-polish` is pushed.** It has all six packages merged, the merge fixes, and Garv's answers (DECISIONS.md items 8 to 18) built in:
+- the /security headline names only DPDP and ABDM;
+- share links list scans as "Stored at the clinic, not included" (only "Scan" until disclosure is cleared);
+- there is a study-form link on Overview after sealing;
+- there is no 409 on the staff share tab;
+- EvidenceGateDemo is deleted.
+
+Checks at the last code commit: unit 1412/1412, integration 83/83, production build OK, demo seed "all checks passed" (about 30 s).
+
+**Decision taken: Garv said yes to a Next.js security upgrade, AFTER the audit.** `next build` sometimes stops with "SecurityFatalError: Your version of Next.js is affected by a known security vulnerability" (currently 16.4.3); running it again builds. Plan:
+- do it on its own branch cut from feat/finale-polish;
+- read the advisory first, then upgrade to the patched version;
+- run the full test, build and seed again;
+- merge only if everything is green.
+
+Do not blindly run commands printed by the build output.
+
+**End-to-end audit (in progress when the limit hit).** Seven Opus agents, each playing one person with zero knowledge of the app, test the local app on :3000 through headless Playwright. They only report; they don't change code.
+- Reports: `docs/finale/e2e-audit/<persona>.md`, one each for patient, doctor, radiologist, desk, records, admin and public-links.
+- Screenshots: `docs/finale/e2e-audit/shots/<persona>/`, kept locally only (gitignored, about 110 MB).
+- Scripts: `Documents/onco-audit/<persona>/`.
+
+Finished so far: **radiologist** (0 P0, 6 P1, 12 P2). Its top items:
+1. After "Not a match" the scan says "The written report is not on file" although the report is on file (RecordsBrowser.tsx about line 287).
+2. "Not a match" has no confirmation, no undo and no re-link.
+3. The held wrong-patient X-ray (Sanjay Kulkarni) shows large under Sunita's name, with the warning below the image and the strip showing "Patient match done" (documents/[docId]/page.tsx, HeldStages.tsx).
+4. The preview panel is not sticky, and the patient name is not visible while viewing a scan.
+5. After switching to the Scans filter the old lab report stays in the preview and Previous/Next are dead.
+
+If a persona's report file is missing, that agent did not finish. Rerun it with the same brief:
+- the persona list is the table above;
+- each runs Playwright from the repo's node_modules against localhost:3000 only, never the live site;
+- each reports P0/P1/P2 findings with concrete fixes and makes no code edits.
+
+**Next steps for whoever continues:**
+1. Collect the 7 reports. Merge them into one list sorted by severity in `docs/finale/e2e-audit/SUMMARY.md`. Fix P0 first, then P1 (Opus decides, Sonnet builds, one package's files per agent).
+2. Reset the local demo data (the audit changed it; for example Khan's PET-CT pair is confirmed and one CT pair is rejected):
+   `npx tsx --env-file=.env.local scripts/seed-demo.ts --base http://localhost:3000`
+3. Write the six All-records Playwright tests (AUDIT.md §4.6). Rerun the full Playwright suite and the link crawl.
+4. Do the Next.js security upgrade (see above).
+5. Test with Garv's real scans: local only, identifying tags removed, kept in test-data/real/, deleted afterwards. This is the last check.
+6. Garv picks a visual style (`design-demos/` A to F). Until then there are no colour or font changes.
+7. Open a PR from feat/finale-polish to main for Vaibhav. Vaibhav resets the live demo the night before the finale.
+
+**Local machine state:**
+- App: `next start -p 3000` from the repo, running the latest build.
+- Databases: Postgres on 54600 (`Documents/onco-localdb`) and on 54601 (`Documents/onco-localdb-wp6`), started with `nohup node start-db.mjs`.
+- If a database drops connections with "could not reserve shared memory region (error 487)": stop it with `pg_ctl stop -D <data> -m fast`, then start it again.
+- The six package worktrees in `Documents/onco-wt/wp1..wp6` are merged and can be removed.

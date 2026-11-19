@@ -46,8 +46,12 @@ Split from [AUDIT.md §5](AUDIT.md#5-work-split-6-packages-no-shared-files). Dec
 
 - 2026-11-19: Created branch `feat/finale-polish` from `main` (f2ab1fe). Local copy set up (Postgres 54600, app 3000), migrations and base seed applied, `scripts/local-dev.md` written, `.gitignore` now blocks `test-data/real/`, `*.dcm` and local scan folders.
 - 2026-11-19: Audit done; decisions in [DECISIONS.md](DECISIONS.md); 6 packages started.
+- 2026-11-19 (late): All six packages checked, committed and merged into `feat/finale-polish` (WP6, WP3, WP2, WP4, WP1, WP5; no conflicts). Merge fixes: the family letter endpoint is in the role table; the home page says plainly what OncoSetu does not do; the demo reset and patient merge know about `document_links` (new migration 0024); `.gitignore` lets only the synthetic scans in `public/demo-docs/` through; the seed check accepts a scan report item once it reads "received, to confirm". Both local databases crashed (Windows shared-memory error 487) and were restarted. Results on the merged branch: typecheck clean, lint 0 errors, unit 1409/1409 (two tests need more than 5 s when the machine is busy), integration 83/83, production build passes, demo seed passes every check in 35 s. Not pushed.
 
 ## Open questions
+
+- For Garv: keep the much shorter home page (WP5)? Is "formal HIPAA compliance is on our roadmap" OK on /security? Which six patient tabs: the current ones (Overview, All records, What's new, Missing papers, Requests, Share links) or the audit's (with "Patient said", and Requests and Share links under More)?
+- Not yet done: the §4.6 All-records Playwright tests, the study-form link on the doctor Overview, the 409 console error in CreateShareForm, deleting the unused EvidenceGateDemo, browser checks at 375 px and 1366 px, and the LINKS.md crawl rerun.
 
 - Resolved 2026-11-19: `src/core/copy/ui-lint.test.ts` now normalises paths to forward slashes. Full unit suite: 107 files, 1439 tests, all pass.
 
@@ -71,7 +75,7 @@ Split from [AUDIT.md §5](AUDIT.md#5-work-split-6-packages-no-shared-files). Dec
 
 **Visual redesign is ON HOLD at the owner's request.** Don't change globals.css or the design tokens. The draft is in docs/finale/design-v2/ (screen 1 only; not committed).
 
-**Next steps:**
+**Next steps (updated 2026-11-19 late: steps 1 and 2 are done, see the progress log):**
 1. Finish or verify each package.
 2. Merge WP6, WP3, WP2, WP4, WP1, WP5 into feat/finale-polish, resolving conflicts.
 3. Full end-to-end test on the local copy, covering every role and every link (rerun the LINKS.md crawl).

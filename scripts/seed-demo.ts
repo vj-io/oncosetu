@@ -37,6 +37,19 @@ const DOCS = path.resolve(__dirname, '../public/demo-docs')
 const N = ORG_NARMADA_ID
 const SHARE_PASSCODE = '246810'
 const RETURNING_S0_AT = Date.parse('2026-02-16T10:30:00+05:30') // the returning patient's previous visit
+/** Khan's scans and written reports, uploaded after the sealed visit; the history runs Nov 2025 to May 2026 (see docs/DEMO.md). */
+const RETURNING_IMAGING = [
+  'returning__17-ct-chest-earlier.zip', 'returning__18-ct-chest-report-earlier.pdf', // 10 Nov 2025: the earlier chest CT and its report
+  'returning__10-mri-brain.dcm', // 20 Feb 2026
+  'returning__12-bone-scan.dcm', // 15 Mar 2026
+  'returning__08-ct-chest-series.zip', // 12 Apr 2026: no report on purpose ("report not in file")
+  'returning__09-petct-study.zip', 'returning__15-petct-report.pdf', // 28 Apr 2026: the report is proposed to close the PET-CT item, a person confirms
+]
+/** Sunita's imaging: breast scans and reports before the March surgery, a chest X-ray after it, and an X-ray with another patient's name (held). */
+const HERO_IMAGING = [
+  'hero__14-mammogram.dcm', 'hero__19-mammogram-report.pdf', 'hero__20-breast-ultrasound.dcm', 'hero__21-breast-ultrasound-report.pdf',
+  'hero__12-chest-xray.dcm', 'hero__18-chest-xray-report.docx', 'hero__13-xray-wrong-patient.dcm',
+]
 const PET_RULE = 'RAD-IMG-PT-01' // the PET-CT the returning patient mentioned: reviewed like the rest, so clinicians see it (mentor review, 5 Nov 2026)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 const t0 = Date.now()
@@ -180,15 +193,23 @@ const TERMINAL = new Set(['done', 'needs_review', 'failed', 'unreadable', 'quara
 const docIds = new Map<string, string>() // file name → document id (this run)
 const fileOf = (docId: string | null | undefined) => [...docIds].find(([, id]) => id === docId)?.[0] ?? null
 
+const MIME: Record<string, string> = {
+  pdf: 'application/pdf', jpg: 'image/jpeg', zip: 'application/zip', dcm: 'application/dicom',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
+/** One file = one document, except a ZIP of scans, which the app turns into one document per study (the response then lists them). */
 async function upload(c: Client, patientId: string, files: string[], extra: Record<string, string> = {}): Promise<string[]> {
   const ids: string[] = []
   for (const f of files) {
     const fd = new FormData()
-    fd.set('file', new File([readFileSync(path.join(DOCS, f))], f, { type: f.endsWith('.pdf') ? 'application/pdf' : 'image/jpeg' }))
+    fd.set('file', new File([readFileSync(path.join(DOCS, f))], f, { type: MIME[f.split('.').pop()!] ?? 'application/octet-stream' }))
     for (const [k, v] of Object.entries(extra)) fd.set(k, v)
     const r = await c.post(`/api/patients/${patientId}/documents`, fd)
-    docIds.set(f, r.documentId)
-    ids.push(r.documentId)
+    const made: string[] = r.documents ? (r.documents as J[]).map((d) => d.documentId) : [r.documentId]
+    if (!made.length || made.some((id) => !id)) throw new Error(`upload ${f}: no document came back: ${JSON.stringify(r).slice(0, 300)}`)
+    made.forEach((id, i) => docIds.set(i ? `${f}#${i + 1}` : f, id))
+    ids.push(...made)
   }
   return ids
 }
@@ -227,6 +248,9 @@ async function verify(c: Client & { staffId: string; role: string }, patientId: 
 const diagnosisWords = (texts: string[]) => [...new Set(texts.flatMap((t) => lintText(t, ['diagnosis']).map((h) => h.match)))]
 const strings = (v: unknown): string[] => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(strings)
   : v && typeof v === 'object' ? Object.entries(v).filter(([k]) => k !== 'sig').flatMap(([, x]) => strings(x)) : [])
+type ScanMeta = { modality: string | null; modalities?: string[]; studyDate: string | null; bodyPart: string | null; instances?: number }
+const scanOf = (d: { flags: unknown }) => (d.flags as J)?.imaging as ScanMeta | undefined
+const digits = (x: unknown) => String(x ?? '').replace(/\D/g, '')
 const fromFiles = (files: string[]) => (it: ItemView) => it.sources.some((s) => files.includes(fileOf(s.documentId) ?? ''))
 
 /** POST /api/requests prefilled the way the completeness page's "Request" button prefills it (trigger institution, expected types, window). */
@@ -360,8 +384,8 @@ async function main() {
   })
   const visit = await deskCheckIn(desk, RETURNING, ret.id)
   const later = ['returning__04-lab-cbc-lft.jpg', 'returning__05-chemo-cycle2.pdf', 'returning__06-prescription.pdf', 'returning__07-histopathology-addendum.pdf']
-  await waitProcessed(records, await upload(desk, ret.id, later, { intakeRoute: 'desk', encounterId: visit.encounterId }))
-  step(`returning: pre-visit answers confirmed, ${visit.encounterType} encounter opened, 4 new docs processed`)
+  await waitProcessed(records, await upload(desk, ret.id, [...later, ...RETURNING_IMAGING], { intakeRoute: 'desk', encounterId: visit.encounterId }))
+  step(`returning: pre-visit answers confirmed, ${visit.encounterType} encounter opened, 4 new docs + ${RETURNING_IMAGING.length} scans/reports processed`)
 
   // 3c. hero — first visit, caregiver-primary, disclosure unknown; hero__10/11 stay for the live demo
   const hero = await register(desk, HERO)
@@ -369,7 +393,7 @@ async function main() {
   const backlog = [
     'hero__01-discharge-summary.pdf', 'hero__02-chemo-daycare-cycle4.pdf', 'hero__03-ct-thorax-abdomen.jpg', 'hero__04-prescription-printed.pdf',
     'hero__05-prescription-handwritten.jpg', 'hero__06-cbc-hindi.jpg', 'hero__07-wrong-patient-histopathology.pdf',
-    'hero__08-lab-report-injection.pdf', 'hero__09-mammography-2024.pdf',
+    'hero__08-lab-report-injection.pdf', 'hero__09-mammography-2024.pdf', ...HERO_IMAGING,
   ]
   await waitProcessed(records, await upload(desk, hero.id, backlog, { intakeRoute: 'bulk', encounterId: hero.encounterId }))
   // Records verifies the records-tier items of the printed prescription and the CBC; the injection-flagged LFT report
@@ -379,7 +403,7 @@ async function main() {
   // request made live is fulfilled by hero__10 before that step).
   const heroReq = await requestFor(records, hero.id, 'RAD-CHEMO-PRIOR-01', 'en')
   await records.post(`/api/requests/${heroReq}/sent`, {})
-  step(`hero: registered, 9 docs processed, ${vh} items verified by records, cycles 1–3 request given today`)
+  step(`hero: registered, ${backlog.length} docs (9 papers + ${HERO_IMAGING.length} scans/reports) processed, ${vh} items verified by records, cycles 1–3 request given today`)
 
   // 3d. fulfilled — admission summary → request → caregiver uploads the discharge summary → closure confirmed → S0 → share
   const ful = await register(desk, FULFILLED)
@@ -448,7 +472,7 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
     console.log(`\n── ${key.toUpperCase()} · ${id} · disclosure=${p.disclosureStatus} · primary=${p.primaryContact}${p.minor ? ' · MINOR' : ''} · lang=${p.preferredLanguage}`)
     if (docs.length) {
       console.table(docs.map((d) => ({
-        file: fileOf(d.id) ?? d.id, status: d.status, docType: d.docType, identity: d.identityResult, attach: d.attachState,
+        file: fileOf(d.id) ?? d.id, status: d.status, docType: d.docType, date: d.documentDate, scan: scanOf(d) ? `${(scanOf(d)!.modalities ?? [scanOf(d)!.modality]).join('+')} ${scanOf(d)!.studyDate}` : '', identity: d.identityResult, attach: d.attachState,
         events: evs.filter((e) => e.documentId === d.id).length,
         verified: evs.filter((e) => e.documentId === d.id && e.verificationStatus !== 'unverified').length,
         flags: [d.injectionFlag && 'injection', d.handwritten && 'handwritten', d.lowConfidence && 'low_conf', d.amendmentOf && `amends ${fileOf(d.amendmentOf)}`].filter(Boolean).join(' '),
@@ -485,6 +509,22 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
       check(hw?.handwritten && !evs.some((e) => e.documentId === hw.id), 'hero: handwritten prescription not image-only')
       check(verified > 0 && verified < live.length, 'hero: expected a mix of verified and unverified items')
       check(!snaps.length, 'hero: should have no snapshot (sealed live)')
+      // imaging: three scans with their written reports, and the X-ray with another patient's name held
+      const heroScans: [string, string, string][] = [['hero__14-mammogram.dcm', 'MG', '20260105'], ['hero__20-breast-ultrasound.dcm', 'US', '20260108'], ['hero__12-chest-xray.dcm', 'DX', '20260318']]
+      for (const [f, mod, date] of heroScans) {
+        const d = byFile(f), sc = d && scanOf(d)
+        check(d && sc && (sc.modalities ?? [sc.modality]).includes(mod) && digits(sc.studyDate) === date && d.identityResult === 'match' && d.attachState === 'auto', `hero: ${f} is not an attached ${mod} study of ${date}`)
+        check(!evs.some((e) => e.documentId === d?.id), `hero: ${f}: scans are stored, not read, but facts were derived from it`)
+      }
+      for (const [f, date] of [['hero__19-mammogram-report.pdf', '2026-01-05'], ['hero__21-breast-ultrasound-report.pdf', '2026-01-08'], ['hero__18-chest-xray-report.docx', '2026-03-18']]) {
+        const d = byFile(f)
+        check(d?.docType === 'imaging_report' && d.documentDate === date && d.attachState === 'auto', `hero: ${f} is not an attached imaging report dated ${date} (got ${d?.docType} ${d?.documentDate} ${d?.attachState})`)
+      }
+      const xr = byFile('hero__13-xray-wrong-patient.dcm')
+      check(xr && scanOf(xr) && xr.attachState === 'pending_decision' && xr.identityResult === 'mismatch', 'hero: the X-ray with another name is not held for an identity decision')
+      check(docs.length === 9 + HERO_IMAGING.length, `hero: expected ${9 + HERO_IMAGING.length} documents, found ${docs.length}`)
+      check(docs.filter((d) => scanOf(d)).length === 4, 'hero: expected 4 scan files (3 attached + 1 held)')
+      check(!prodOpen('RAD-IMG-PT-01') && !miss.some((m) => /X-ray|mammo|ultrasound/i.test(wordingOf(m))), 'hero: the imaging files raised a missing-papers item of their own')
       check(reqs.length === 1 && reqs[0].state === 'sent', 'hero: expected one request given today (state sent)')
     }
     if (key === 'returning') {
@@ -497,7 +537,27 @@ async function summarise(staff: Record<'desk' | 'records' | 'clinician' | 'admin
       check(view.events.amended.length, 'returning: ledger has no "Amended" item')
       check(view.conflicts.some((c) => c.kind === 'medication_names'), 'returning: ledger has no medicine conflict')
       check(view.patientSaid.length, 'returning: ledger has no "Patient said"')
-      check(miss.some((m) => m.ruleId === PET_RULE && m.mode === 'production'), `returning: no ${PET_RULE} item in production`)
+      const pet = miss.find((m) => m.ruleId === PET_RULE && m.mode === 'production')
+      check(pet, `returning: no ${PET_RULE} item in production`)
+      check(pet?.state === 'received' && pet.proposedDocumentId === byFile('returning__15-petct-report.pdf')?.id, `returning: the PET-CT item should read "received · to confirm" with returning__15 proposed (got ${pet?.state}, ${fileOf(pet?.proposedDocumentId)})`)
+      const khanScans: [string, string[], string][] = [
+        ['returning__17-ct-chest-earlier.zip', ['CT'], '20251110'], ['returning__10-mri-brain.dcm', ['MR'], '20260220'], ['returning__12-bone-scan.dcm', ['NM'], '20260315'],
+        ['returning__08-ct-chest-series.zip', ['CT'], '20260412'], ['returning__09-petct-study.zip', ['CT', 'PT'], '20260428'],
+      ]
+      for (const [f, mods, date] of khanScans) {
+        const d = byFile(f), sc = d && scanOf(d)
+        check(d && sc && mods.every((m) => (sc.modalities ?? [sc.modality]).includes(m)) && digits(sc.studyDate) === date && d.identityResult === 'match' && d.attachState === 'auto', `returning: ${f} is not an attached ${mods.join('+')} study of ${date}`)
+      }
+      check(docs.filter((d) => scanOf(d)).length === 5, `returning: expected exactly 5 scan documents, found ${docs.filter((d) => scanOf(d)).length}`)
+      check(scanOf(byFile('returning__08-ct-chest-series.zip')!)?.instances === 12 && scanOf(byFile('returning__09-petct-study.zip')!)?.instances === 16, 'returning: the CT chest should be one study of 12 images and the PET-CT one of 16')
+      for (const [f, date] of [['returning__18-ct-chest-report-earlier.pdf', '2025-11-10'], ['returning__15-petct-report.pdf', '2026-04-28']]) {
+        const d = byFile(f)
+        check(d?.docType === 'imaging_report' && d.documentDate === date, `returning: ${f} is not an imaging report dated ${date} (got ${d?.docType} ${d?.documentDate})`)
+      }
+      // a real oncology history: reports and scans spread over months, every paper dated, oldest Nov 2025, newest May 2026
+      const dated = docs.filter((d) => d.documentDate).map((d) => d.documentDate!).sort()
+      check(dated.length === docs.length && dated[0] === '2025-11-10' && dated[dated.length - 1] === '2026-05-20', `returning: history should run 10 Nov 2025 to 20 May 2026 with every paper dated (got ${dated[0]} to ${dated[dated.length - 1]}, ${dated.length}/${docs.length} dated)`)
+      check(docs.filter((d) => !scanOf(d) && ['imaging_report', 'pathology_report', 'discharge_summary', 'chemo_daycare_record', 'lab_report'].includes(d.docType ?? '')).length >= 5, 'returning: expected at least 5 written reports')
       const same = p.personId ? await adminDb.select({ id: patients.id, orgId: patients.orgId }).from(patients).where(eq(patients.personId, p.personId)) : []
       console.log(`  person identity (ABHA): ${same.length} record(s) in ${new Set(same.map((x) => x.orgId)).size} organisation(s)`)
       check(same.some((x) => x.orgId === N && x.id === id) && same.some((x) => x.orgId === ORG_GANGA_ID && x.id === out.ids.gangaTwin), 'returning: not one person identity with its Ganga record (FR-ID-07)')

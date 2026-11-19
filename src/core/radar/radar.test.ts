@@ -52,9 +52,9 @@ describe('rule library', () => {
   it('rules.yaml and RULES_YAML are identical (runtime needs no fs)', () => {
     expect(readFileSync(new URL('./rules.yaml', import.meta.url), 'utf8')).toBe(RULES_YAML)
   })
-  it('has the 10 Appendix F rules, all unreviewed', () => {
+  it('has the 10 Appendix F rules and the scan-without-report rule, all unreviewed', () => {
     expect(RADAR_RULES.map((r) => r.id).sort()).toEqual(
-      ['RAD-ADM-DS-01', 'RAD-CHEMO-PRIOR-01', 'RAD-HPE-IHC-01', 'RAD-IMG-PT-01', 'RAD-MOL-01', 'RAD-PEND-01', 'RAD-REF-01', 'RAD-RT-SUM-01', 'RAD-RX-OUT-01', 'RAD-SURG-HPE-01'].sort(),
+      ['RAD-ADM-DS-01', 'RAD-CHEMO-PRIOR-01', 'RAD-HPE-IHC-01', 'RAD-IMG-PT-01', 'RAD-IMG-RPT-01', 'RAD-MOL-01', 'RAD-PEND-01', 'RAD-REF-01', 'RAD-RT-SUM-01', 'RAD-RX-OUT-01', 'RAD-SURG-HPE-01'].sort(),
     )
     expect(RADAR_RULES.every((r) => r.clinician_reviewed === false && r.version === 1)).toBe(true)
   })
@@ -401,5 +401,37 @@ describe('one paper, one item (10 Nov 2026)', () => {
     const OPD = doc('d-opd', 'consult_note', '2026-03-14')
     const other = ev('report_pending_documented', { test_name: 'HPE' }, '2026-03-14', 'd-opd', { id: 'e-pend3' })
     expect(run({ events: [WLE, other], documents: [DS, OPD] }).items.filter((i) => i.expectedTypes.includes('pathology_report'))).toHaveLength(2)
+  })
+})
+
+describe('RAD-IMG-RPT-01: a scan with no written report', () => {
+  const scan = (id: string, label: string, studyDate: string | null, modality = 'CT', extra: Partial<CoreDocument> = {}) =>
+    ({ ...doc(id, 'other', studyDate, 'City Care Hospital', extra), imaging: { modality, modalities: [modality], label, studyDate } })
+  const PETCT = scan('d-pet', 'PET-CT', '2026-04-28', 'PT')
+  it('raises "Report for the <modality> on <date> not in file", quoting only the file header', () => {
+    const out = run({ documents: [PETCT] })
+    expect(out.items).toHaveLength(1)
+    expect(out.items[0]).toMatchObject({ ruleId: 'RAD-IMG-RPT-01', triggerKind: 'document', triggerEventId: 'd-pet', expectedTypes: ['imaging_report'] })
+    expect(out.items[0].wording.en).toBe('Report for the PET-CT on 28 Apr 2026 not in file (scan file).')
+    expect(lintText(`${out.items[0].neutralWording.en} ${out.items[0].neutralWording.hi}`, ['diagnosis', 'radar'])).toEqual([])
+  })
+  it('proposes closure (never closes) when an imaging report dated within the window arrives', () => {
+    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29')
+    const out = run({ documents: [PETCT, rpt] })
+    expect(out.items).toHaveLength(0)
+    expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-rpt' })])
+  })
+  it('a report from another date does not close it', () => {
+    expect(run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-06-01')] }).items).toHaveLength(1)
+  })
+  it('ignores ECG, files with no date, detached scans and scans dated in the future', () => {
+    expect(run({ documents: [scan('d-ecg', 'ECG', '2026-04-28', 'ECG'), scan('d-nd', 'CT scan', null), scan('d-fut', 'CT scan', '2027-01-01'), scan('d-det', 'CT scan', '2026-04-28', 'CT', { detachedAt: '2026-05-01T00:00:00Z' })] }).items).toHaveLength(0)
+  })
+  it('one study sent as several files makes one item', () => {
+    expect(run({ documents: [scan('d-a', 'CT scan', '2026-04-12'), scan('d-b', 'CT scan', '2026-04-12')] }).items).toHaveLength(1)
+  })
+  it('is deterministic in the input order', () => {
+    const docs = [PETCT, scan('d-ct', 'CT scan', '2026-04-12')]
+    expect(run({ documents: docs })).toEqual(run({ documents: [...docs].reverse() }))
   })
 })

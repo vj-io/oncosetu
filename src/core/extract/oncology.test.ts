@@ -246,3 +246,16 @@ describe('instruction-like text is never turned into a quote-only fact', () => {
     expect(quotes(g, 'stage_documented')).toEqual(['Path: pT2 pN0.'])
   })
 })
+
+describe('a receipt date is not a procedure date', () => {
+  it('reads "Block Received: 18 Mar 2026" as when the lab got the block, not an operation', () => {
+    const g = run('ihc_molecular_report', `NIRNAY PATHOLOGY\nIMMUNOHISTOCHEMISTRY REPORT\nReport date: 28/03/2026\nSpecimen: \tWide local excision, left breast (block A7) \tBlock Received: \t18 Mar 2026\nER: Positive`)
+    expect(of(g, 'procedure_documented')).toHaveLength(0)
+  })
+  it('still reads a real operation date on the same page', () => {
+    const g = run('discharge_summary', `HOSPITAL\nDISCHARGE SUMMARY\nWide local excision done on 12/03/2026. Specimen received 13/03/2026.`)
+    const p = of(g, 'procedure_documented')
+    expect(p.length).toBe(1)
+    expect(p[0].candidate.fields.event_date_text).toBe('12/03/2026')
+  })
+})

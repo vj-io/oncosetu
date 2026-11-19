@@ -10,9 +10,16 @@ export { RADAR_RULES, RULES_YAML, loadRules, RuleSchema, type RadarRule } from '
 
 export type RuleMode = 'production' | 'shadow'
 
+/** A stored scan (DICOM study): header facts as written, never findings. */
+export interface ScanFacts { modality: string | null; modalities?: string[]; label: string; studyDate: string | null }
+/** A document as the engine sees it; `imaging` is set for a scan. */
+export type RadarDocument = CoreDocument & { imaging?: ScanFacts | null }
+/** Modalities that are a picture of the body and so normally come with a written report (not ECG, video or radiotherapy files). */
+const SCAN_MODALITIES: ReadonlySet<string> = new Set(['CT', 'MR', 'PT', 'NM', 'CR', 'DX', 'MG', 'US', 'RF', 'XA', 'PX'])
+
 export interface RadarInput {
   events: CoreEvent[]
-  documents: CoreDocument[]
+  documents: RadarDocument[]
   statements: CoreStatement[]
   /** Per-org mode from `rule_states`: a `production` row exists only after a clinician review was recorded for that org (FR-RAD-05). Absent → the YAML `clinician_reviewed` default. */
   ruleModes?: Record<string, RuleMode>
@@ -26,7 +33,7 @@ export interface RadarItem {
   ruleId: string
   ruleVersion: number
   triggerEventId: string
-  triggerKind: 'event' | 'statement'
+  triggerKind: 'event' | 'statement' | 'document'
   expectedTypes: DocType[]
   window: { from: string | null; to: string | null }
   /** Staff wording (administrative only). */
@@ -56,7 +63,7 @@ export const dedupeKeyFor = (ruleId: string, trigger: string) => sha256Hex(`${ru
 
 interface Trigger {
   id: string
-  kind: 'event' | 'statement'
+  kind: 'event' | 'statement' | 'document'
   eventType: string
   fields: Record<string, FieldValue>
   date: string | null
@@ -161,6 +168,14 @@ export function runRadar(input: RadarInput): RadarOutput {
       if (s.institutionName) fields.institution_name = s.institutionName
       return { id: s.id, kind: 'statement', eventType: 'patient_statement', fields, date: s.statedDate ?? istDate(s.capturedAt), precision: 'day', documentId: null, pageNo: null, institution: s.institutionName ?? null }
     }),
+    // A scan with no written report (RAD-IMG-RPT-01): one trigger per study (same day and kind), from the file's own header.
+    ...[...new Map(docs.filter((d) => d.imaging && !d.duplicateOf && (d.imaging.studyDate ?? d.documentDate)
+      && (d.imaging.modalities?.length ? d.imaging.modalities : d.imaging.modality ? [d.imaging.modality] : []).some((m) => SCAN_MODALITIES.has(m)))
+      .map((d) => [`${d.imaging!.studyDate ?? d.documentDate}|${d.imaging!.label}`, d] as const)).values()]
+      .map((d): Trigger => ({
+        id: d.id, kind: 'document', eventType: 'document_received', fields: { scan_name: d.imaging!.label }, date: d.imaging!.studyDate ?? d.documentDate,
+        precision: 'day', documentId: d.id, pageNo: null, institution: d.institution ?? null,
+      })),
   ]
     .filter((t) => !t.date || t.date <= today)
     .sort((a, b) => a.id.localeCompare(b.id))
@@ -175,6 +190,7 @@ export function runRadar(input: RadarInput): RadarOutput {
     const sourceLabel = (t: Trigger) =>
       lang((l) => {
         if (t.kind === 'statement') return l === 'en' ? 'patient statement' : 'मरीज़ का बयान'
+        if (t.kind === 'document') return l === 'en' ? 'scan file' : 'स्कैन फ़ाइल'
         const d = t.documentId ? docById.get(t.documentId) : undefined
         const label = d ? patientDocLabel(d.docType, 'cleared', l) : l === 'en' ? 'record' : 'रिकॉर्ड'
         return t.pageNo ? `${label}, ${l === 'en' ? 'p.' : 'पृ.'}${t.pageNo}` : label

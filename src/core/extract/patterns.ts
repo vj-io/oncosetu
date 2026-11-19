@@ -36,6 +36,8 @@ const PROC_NOT_DONE = /(?<![\p{L}])(?:advised|advise|plan|planned|recommend\w*|t
 const SURGERY_DATE_LABEL = /(?:date\s+of\s+(?:surgery|operation|procedure)|surgery\s+date|operation\s+date|DOS)\s*[:\-–]?\s*$/iu
 // "Procedure: Insertion of a totally implantable venous access port, …" in an operation / procedure note: the label's own value.
 const PROC_LABEL = /^(?:Procedure|Operation|Surgery|Name\s+of\s+(?:the\s+)?(?:procedure|operation|surgery))(?:\s+(?:done|performed))?\s*(?:[:：]|\t)\s*(\S[^\n]{2,})/iu
+// "Block Received: 18 Mar 2026", "Specimen received on …", "Date of receipt": the day the lab got the tissue, never the day of the operation.
+const RECEIPT_LABEL = /(?:(?:blocks?|specimens?|samples?|slides?|tissue)\s+)?(?:received|receipt)(?:\s+(?:date|on|at|by(?:\s+lab)?))?\s*(?:[:\-–]|	)?\s*$|date\s+of\s+(?:receipt|receiving)\s*[:\-–]?\s*$/iu
 const PROC_LABEL_DOCS: ReadonlySet<DocType> = new Set(['procedure_note', 'discharge_summary'])
 
 const TESTS = [
@@ -298,7 +300,7 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         // is one operation, quoted whole, not three.
         for (const m of [...t.matchAll(PROC)].slice(0, 1)) {
           if (pathRefs.length && /biopsy|FNAC/i.test(m[0])) continue // "biopsy HPE (08/04/2026): adenocarcinoma" is the report
-          const d = absDates(t)[0]
+          const d = absDates(t).find((x) => !RECEIPT_LABEL.test(t.slice(0, x.start)))
           if (d) {
             add('procedure_documented', page, seg.start, seg.end, { procedure_text: m[0], event_date_text: d.raw })
             continue

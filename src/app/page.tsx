@@ -52,7 +52,8 @@ export default function Home() {
           </ul>
 
           <p className="max-w-2xl text-sm text-muted">
-            Academic prototype with made-up records only. A list of documents, not a clinical summary.
+            Academic prototype with made-up records only. A list of documents, not a clinical summary. It does not stage cancer, read scans or
+            results, or suggest treatment or doses. Qualified doctors make every clinical decision.
           </p>
         </div>
       </main>

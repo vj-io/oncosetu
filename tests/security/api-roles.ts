@@ -100,6 +100,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/p/erasure': FAMILY,
   'POST /api/p/privacy': FAMILY,
   'GET /api/p/requests': FAMILY,
+  'POST /api/p/requests': FAMILY,
   'GET /api/p/share-payload': FAMILY,
   'POST /api/p/statements': FAMILY,
   'POST /api/p/uploads': FAMILY,

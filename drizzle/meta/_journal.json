@@ -162,6 +162,13 @@
       "when": 1794900000000,
       "tag": "0022_totp_replay",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795000000000,
+      "tag": "0023_document_links",
+      "breakpoints": true
     }
   ]
 }

@@ -1,17 +1,19 @@
 import Link from 'next/link'
 import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { ArrowLeft, CopyCheck, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
-import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, shortId, statusBadge } from '@/components/documents/labels'
+import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, statusBadge } from '@/components/documents/labels'
 import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
 import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
+import { fmtDay, neighbours } from '@/server/records/core'
+import { loadRecords } from '@/server/records/queries'
 import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
 import { withPatientAccess } from '@/server/registration/page'
@@ -34,12 +36,15 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const data = await withPatientAccess(id, async (tx, session) => {
     if (session.role !== 'records' && session.role !== 'clinician') return { denied: true as const }
     if (!/^[0-9a-f-]{36}$/i.test(docId)) return null
-    const [detail, patient] = await Promise.all([documentDetail(tx, id, docId), loadPatient(tx, id)])
-    return detail && patient ? { detail, patient } : null
+    const [detail, patient, recs] = await Promise.all([documentDetail(tx, id, docId), loadPatient(tx, id), loadRecords(tx, id)])
+    return detail && patient ? { detail, patient, recs } : null
   })
   if (data && 'denied' in data) forbidden()
   if (!data) notFound()
-  const { detail: d, patient } = data
+  const { detail: d, patient, recs } = data
+  const nb = neighbours(recs.rows, docId)
+  const myPair = recs.pairs.find((p) => p.scanId === docId || p.reportId === docId)
+  const pairOther = myPair ? recs.rows.find((r) => r.id === (myPair.scanId === docId ? myPair.reportId : myPair.scanId)) : null
   const doc = d.doc
   if (doc.intakeRoute === 'abdm') return <AbdmDocument patientId={id} documentId={doc.id} focusEventId={event ?? null} /> // FHIR source, not pages
   const imgFlags = doc.flags.imaging as { studyLabel?: string; modalityLabel?: string } | undefined
@@ -64,10 +69,19 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const pageNos = d.pages.filter((p) => p.text.trim()).map((p) => p.pageNo)
 
   return (
-    <div className="grid gap-10 py-8 [&>*]:min-w-0">
-      <Link href={`/patients/${id}/documents`} className="inline-flex w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
-        <ArrowLeft aria-hidden className="size-4" /> All documents
-      </Link>
+    <div className="grid gap-8 py-6 [&>*]:min-w-0">
+      <nav aria-label="Move through the records" className="flex flex-wrap items-center justify-between gap-3">
+        <Link href={`/patients/${id}/records${nb.index >= 0 ? `#doc=${docId}` : ''}`} className="inline-flex min-h-10 w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
+          <ArrowLeft aria-hidden className="size-4" /> Back to all records
+        </Link>
+        {nb.index >= 0 && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {recs.rows.length}, newest first</span>
+            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
+            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
+          </div>
+        )}
+      </nav>
 
       <SectionHeader
         as="h2"
@@ -144,6 +158,14 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
       </div>
 
+      {myPair && pairOther && (
+        <Notice tone={myPair.state === 'confirmed' ? 'verified' : 'unverified'} icon={<Link2 />} title={myPair.state === 'confirmed' ? (myPair.scanId === docId ? 'Report linked' : 'Scan linked') : 'Possible match'}>
+          {pairOther.title}, {fmtDay(pairOther.date)}{pairOther.institution ? `, ${pairOther.institution}` : ''}.{' '}
+          {myPair.state === 'confirmed' ? 'A person confirmed these belong together. ' : `${myPair.reason}. A person has to confirm it. `}
+          <Link className="underline" href={`/patients/${id}/records#doc=${docId}`}>{myPair.state === 'confirmed' ? 'See them together' : 'Confirm or reject it in All records'}</Link>
+        </Notice>
+      )}
+
       {/* Scans, ECG, video: stored and shown, never read */}
       {storedOnly && !quarantine && (
         <section aria-labelledby="stored-h" className="grid gap-4">
@@ -160,33 +182,26 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         </section>
       )}
 
-      {/* Evidence: facts on exhibit beside the lit source text */}
+      {/* The paper first, the facts beside it */}
       {attached && !storedOnly && (
         <div className="grid gap-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-rule pb-3">
-            <p className="text-[15px]">
-              {gate ? (
-                <>
-                  <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} found, each with its quote</span>
-                  {gate.rejected > 0
-                    ? <span className="text-madder-ink"> · {gate.rejected} line{gate.rejected > 1 ? 's' : ''} not indexed: open the source and read the page</span>
-                    : <span className="text-muted"> · none left out</span>}
-                </>
-              ) : <span className="text-muted">No automatic extraction for this file.</span>}
-            </p>
-            {/* FR-EXT-08: the gate cannot see what was left out, so the verifier is told how much the evaluation found */}
-            {gate && d.coverage && (
-              <p data-testid="coverage-note" className="text-sm text-muted">
-                Coverage: extraction recall for {doc.docType ? staffDocLabel(doc.docType as DocType).toLowerCase() : 'this kind of document'}s in evaluation{' '}
-                <span className="font-mono text-ink tabular-nums">{d.coverage.recall.toFixed(2)}</span> ({d.coverage.gold} facts checked by hand). Read the source for anything not listed.
-              </p>
-            )}
-          </div>
+          <p className="text-[15px]">
+            {gate ? (
+              <>
+                <span className="font-medium">{gate.kept} fact{gate.kept === 1 ? '' : 's'} found, each with its exact words</span>
+                {gate.rejected > 0
+                  ? <span className="text-madder-ink"> · {gate.rejected} line{gate.rejected > 1 ? 's were' : ' was'} not turned into facts. Read the page for {gate.rejected > 1 ? 'them' : 'it'}.</span>
+                  : <span className="text-muted"> · nothing left out</span>}
+              </>
+            ) : <span className="text-muted">No automatic extraction for this file.</span>}
+          </p>
           <SourceViewer
             documentId={doc.id}
             pages={d.pages}
             pageImages={d.pageImages}
             focusEventId={event ?? null}
+            mime={doc.mime}
+            pageCount={doc.pages ?? 1}
             events={d.events.map((e) => ({
               id: e.id, eventType: e.eventType, fields: e.fields, eventDate: e.eventDate, datePrecision: e.datePrecision, documentDate: e.documentDate,
               flags: e.flags, verificationStatus: e.verificationStatus, extractionMethod: e.extractionMethod,
@@ -194,37 +209,42 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
               evidence: e.evidence.map((x) => ({ pageNo: x.pageNo, charStart: x.charStart, charEnd: x.charEnd, quote: x.quote, bbox: x.bbox })),
             }))}
           />
-          {/* FR-EXT-02: every proposal the gate discarded, logged as rejected_unsupported (kinds and names only, never text) */}
-          {gate?.rejections && gate.rejections.length > 0 && (
+          {(gate?.rejections?.length || (gate && d.coverage)) ? (
             <details className="border border-rule bg-surface p-4" data-testid="rejection-log">
-              <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-medium">
-                Left out by the evidence gate · {gate.rejected}
-                <StatusBadge status="rejected_unsupported" label="rejected_unsupported" />
-              </summary>
-              <p className="mt-2 text-sm text-muted">Proposed facts that failed the quote check. None of them is in the record; read the page for anything that matters.</p>
-              <Table caption="Proposed facts left out" className="mt-3">
-                <thead><tr><th scope="col">Kind of fact</th><th scope="col">Why</th><th scope="col">Detail</th><th scope="col">Proposed by</th><th scope="col">Page</th></tr></thead>
-                <tbody>
-                  {gate.rejections.map((r, i) => (
-                    <tr key={i}>
-                      <td>{r.eventType ? (EVENT_LABEL[r.eventType] ?? r.eventType) : 'Unknown kind'}</td>
-                      <td>{r.reason === 'invalid_field_value' && r.banned ? `Advice or urgency wording (“${r.banned}”) in a value` : REJECT_REASON[r.reason] ?? r.reason}</td>
-                      <td className="font-mono text-[13px]">{r.field ? (FIELD_LABEL[r.field] ?? r.field) : '—'}</td>
-                      <td>{r.origin === 'llm' ? 'AI reading' : r.origin === 'rules' ? 'Pattern rules' : '—'}</td>
-                      <td className="tabular-nums">{r.pageNo ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </Table>
-              {gate.rejected > gate.rejections.length && <p className="mt-2 text-sm text-muted">Showing the first {gate.rejections.length} of {gate.rejected}.</p>}
+              <summary className="cursor-pointer text-sm font-medium">Details{gate && gate.rejected > 0 ? ` · ${gate.rejected} line${gate.rejected > 1 ? 's' : ''} not turned into facts` : ''}</summary>
+              {gate && d.coverage && (
+                <p data-testid="coverage-note" className="mt-2 text-sm text-muted">
+                  How well this kind of paper is read: {Math.round(d.coverage.recall * d.coverage.gold)} of {d.coverage.gold} facts found in our tests of {doc.docType ? staffDocLabel(doc.docType as DocType).toLowerCase() : 'this kind of paper'}s. Read the page for anything not listed.
+                </p>
+              )}
+              {gate?.rejections && gate.rejections.length > 0 && (
+                <>
+                  <p className="mt-3 text-sm text-muted">These lines were looked at and not kept, because their exact words could not be found on the page. None of them is in the record.</p>
+                  <Table caption="Lines not kept" className="mt-3">
+                    <thead><tr><th scope="col">Kind of fact</th><th scope="col">Why</th><th scope="col">Detail</th><th scope="col">Found by</th><th scope="col">Page</th></tr></thead>
+                    <tbody>
+                      {gate.rejections.map((r, i) => (
+                        <tr key={i}>
+                          <td>{r.eventType ? (EVENT_LABEL[r.eventType] ?? r.eventType) : 'Unknown kind'}</td>
+                          <td>{r.reason === 'invalid_field_value' && r.banned ? `Advice or urgency wording (“${r.banned}”) in a value` : REJECT_REASON[r.reason] ?? r.reason}</td>
+                          <td className="font-mono text-[13px]">{r.field ? (FIELD_LABEL[r.field] ?? r.field) : '—'}</td>
+                          <td>{r.origin === 'llm' ? 'AI reading' : r.origin === 'rules' ? 'Pattern rules' : '—'}</td>
+                          <td className="tabular-nums">{r.pageNo ?? '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                  {gate.rejected > gate.rejections.length && <p className="mt-2 text-sm text-muted">Showing the first {gate.rejections.length} of {gate.rejected}.</p>}
+                </>
+              )}
             </details>
-          )}
+          ) : null}
         </div>
       )}
 
       <div className="grid gap-8 lg:grid-cols-2 [&>*]:min-w-0">
         {/* Original */}
-        {d.original && doc.status !== 'quarantined' && !storedOnly && (
+        {d.original && doc.status !== 'quarantined' && !storedOnly && !attached && (
           <section aria-labelledby="orig-h" className="grid content-start gap-3 [&>*]:min-w-0">
             <h2 id="orig-h" className="ds-kicker">Original file</h2>
             <Frame matte caption={`${fileInfo?.label ?? 'File'} · ${doc.sizeBytes > 1048576 ? (doc.sizeBytes / 1048576).toFixed(1) + ' MB' : (doc.sizeBytes / 1024).toFixed(0) + ' KB'}`}>

@@ -14,7 +14,7 @@ import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
 import { IdentityDecision } from './IdentityDecision'
-import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, shortId, statusBadge, trackerPosition } from './labels'
+import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, statusBadge, trackerPosition } from './labels'
 
 export type Progress = { documents: number; pagesReceived: number; pagesProcessed: number; pagesVerified: number; inQueue: number; minutesLeft: number | null; awaitingDecision: number }
 

@@ -50,7 +50,8 @@ function texts(path: string, source = readFileSync(path, 'utf8')): { line: numbe
 
 describe('copy lint: screens (src/app, src/components)', () => {
   it('no clinical-judgement words anywhere; no diagnosis words on patient surfaces', () => {
-    const all = [...files(join(ROOT, 'src/app')), ...files(join(ROOT, 'src/components'))].map((p) => relative(ROOT, p))
+    // Normalise to forward slashes: Windows reports backslashes, but ALLOW and PATIENT_SURFACES use '/'.
+    const all = [...files(join(ROOT, 'src/app')), ...files(join(ROOT, 'src/components'))].map((p) => relative(ROOT, p).replace(/\\/g, '/'))
     expect(all.length).toBeGreaterThan(100) // the walk actually found the screens
     const used = new Set<number>()
     const failures: string[] = []

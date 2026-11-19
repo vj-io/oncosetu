@@ -5,14 +5,15 @@ import { Wordmark } from '@/components/ui'
 import { DEMO_NOTE, HEADLINE, NOT_CLAIMED, SECTIONS, STATUS_LABEL, tally, type Status } from '@/core/compliance'
 import { getSession } from '@/server/session'
 
-export const metadata: Metadata = { title: 'Security & compliance', description: 'What OncoSetu has built against HIPAA safeguards, India’s DPDP Act and ABDM, and what is still planned.' }
+export const metadata: Metadata = { title: 'Security & compliance', description: 'What OncoSetu has built for India’s DPDP Act and ABDM, how it follows HIPAA’s safeguards, and what is still planned.' }
 
 const ICON: Record<Status, React.ReactNode> = { in_place: <Check aria-hidden className="size-4" />, partly: <Minus aria-hidden className="size-4" />, planned: <CircleDashed aria-hidden className="size-4" /> }
 const TONE: Record<Status, string> = { in_place: 'border-sage bg-sage-tint text-sage-ink', partly: 'border-amber bg-amber-tint text-amber-ink', planned: 'border-control bg-matte text-muted' }
 
 /** Public, read-only. Staff who are signed in also see where in the product each item lives. */
 export default async function SecurityPage() {
-  const s = await getSession().catch(() => null)
+  // Public page: the session only adds a "Where" column for staff. Never let a slow database hold the page up.
+  const s = await Promise.race([getSession().catch(() => null), new Promise<null>((r) => setTimeout(() => r(null), 1500))])
   const staff = s?.kind === 'staff'
   const t = tally()
   return (
@@ -42,8 +43,8 @@ export default async function SecurityPage() {
             <div className="overflow-x-auto border border-rule bg-surface" tabIndex={0} role="region" aria-label={sec.title}>
               <table className="w-full min-w-[40rem] border-collapse text-left text-[15px]">
                 <thead><tr className="border-b border-rule bg-alcove">
-                  <th scope="col" className="w-1/4 px-4 py-3 font-medium">Safeguard</th>
-                  <th scope="col" className="px-4 py-3 font-medium">What OncoSetu has today</th>
+                  <th scope="col" className="w-1/4 px-4 py-3 font-medium">What</th>
+                  <th scope="col" className="px-4 py-3 font-medium">What we have today</th>
                   <th scope="col" className="w-28 px-4 py-3 font-medium">Status</th>
                   {staff && <th scope="col" className="w-1/5 px-4 py-3 font-medium">Where</th>}
                 </tr></thead>
@@ -61,7 +62,7 @@ export default async function SecurityPage() {
             </div>
           </section>
         ))}
-        <p className="max-w-3xl text-[15px] text-muted">Blank brackets [ ] are things the hospital still has to fill in, such as the Data Protection Officer and the grievance officer.</p>
+        <p className="max-w-3xl text-[15px] text-muted">A blank [ ] is something the hospital still has to fill in, such as the Data Protection Officer and the grievance officer.</p>
       </main>
     </div>
   )

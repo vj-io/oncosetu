@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import { CircleCheck, CircleX } from 'lucide-react'
 import { BrassSeal, Frame, KeyValue, LanguageToggle, Spotlight, Wordmark } from '@/components/ui'
 import { formatDateIN, htmlLang } from '@/core/copy'
@@ -23,9 +23,20 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
   const { snapshotId } = await params
   const asked = (await searchParams).lang
   const lang = asked === 'hi' || asked === 'en' || asked === 'hinglish' ? asked : await browserLang()
-  if (!UUID.test(snapshotId)) notFound()
-  const v = await verifySnapshotPublic(snapshotId)
-  if (!v) notFound()
+  const v = UUID.test(snapshotId) ? await verifySnapshotPublic(snapshotId) : null
+  if (!v) {
+    return (
+      <div className="relative min-h-dvh overflow-hidden">
+        <Spotlight />
+        <main lang={htmlLang(lang)} className="relative mx-auto grid max-w-2xl gap-6 px-4 py-10 sm:py-16">
+          <Wordmark brand="Setu Records" />
+          <h1 className="text-3xl leading-tight tracking-[-0.025em] sm:text-4xl">This seal id is not known.</h1>
+          <p className="text-muted">Check the link or the code you were given. If it was copied by hand, a letter may be missing. Ask the hospital that gave it to you for a fresh link.</p>
+          <p><Link href="/" className="inline-flex min-h-11 items-center text-setu-ink underline decoration-brass underline-offset-4">Go to the OncoSetu home page</Link></p>
+        </main>
+      </div>
+    )
+  }
   const intact = v.hashMatches && v.signatureValid
   const time = new Date(Date.parse(v.sealedAt) + 330 * 60_000).toISOString().slice(11, 16)
   const t = (k: Exclude<keyof typeof T, never>) => T[k][lang]
@@ -51,17 +62,17 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
 
         <Frame className="px-5 py-5 sm:px-6">
           <KeyValue items={[
-            { label: t('hash'), value: <Check ok={v.hashMatches} yes={t('hashOk')} no={t('hashBad')} /> },
-            { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },
             ...(v.counts ? [{ label: t('contents'), value: <span className="font-mono text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
+            { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },
           ]} />
           <details className="mt-4 border-t border-rule pt-3">
-            <summary className="cursor-pointer text-sm text-muted">Technical details</summary>
+            <summary className="min-h-11 cursor-pointer py-2 text-sm text-muted">Technical details</summary>
             <div className="mt-3"><KeyValue items={[
-            { label: t('sealed'), value: <span className="font-mono text-[13px] break-all">{v.sha256Stored}</span> },
-            { label: t('now'), value: <span className="font-mono text-[13px] break-all">{v.sha256Recomputed}</span> },
-            { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</a></span> },
-          ]} /></div>
+              { label: t('hash'), value: <Check ok={v.hashMatches} yes={t('hashOk')} no={t('hashBad')} /> },
+              { label: t('sealed'), value: <span className="font-mono text-[13px] break-all">{v.sha256Stored}</span> },
+              { label: t('now'), value: <span className="font-mono text-[13px] break-all">{v.sha256Recomputed}</span> },
+              { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</a></span> },
+            ]} /></div>
           </details>
         </Frame>
         <p className="text-center text-sm text-faint">{t('footer')}</p>

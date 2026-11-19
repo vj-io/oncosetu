@@ -9,7 +9,7 @@ export const RuleSchema = z
     id: z.string().regex(/^RAD-[A-Z0-9-]+$/),
     version: z.number().int().positive(),
     clinician_reviewed: z.boolean(),
-    kind: z.enum(['window', 'prior_cycles']).default('window'),
+    kind: z.enum(['window', 'prior_cycles', 'scan_report']).default('window'),
     trigger: z
       .object({
         event_type: z.enum(EVENT_TYPES),
@@ -202,6 +202,21 @@ export const RULES_YAML = `# Missing-Record Radar — document-completeness chec
   wording:
     en: "{test} report for the sample documented as sent on {event_date} is not in file ({source_label})."
     hi: "{event_date} को भेजे गए नमूने की {test} रिपोर्ट फ़ाइल में नहीं है ({source_label})।"
+
+- id: RAD-IMG-RPT-01
+  version: 1
+  clinician_reviewed: false
+  kind: scan_report
+  trigger:
+    event_type: document_received
+    required_fields: [scan_name, event_date]
+  expects:
+    document_types: [imaging_report]
+    window_days: [-3, 7]
+    same_institution_preferred: false
+  wording:
+    en: "Report for the {scan} on {event_date} not in file ({source_label})."
+    hi: "{event_date} के {scan} की रिपोर्ट फ़ाइल में नहीं है ({source_label})।"
 `
 
 export const RADAR_RULES: readonly RadarRule[] = loadRules(RULES_YAML)

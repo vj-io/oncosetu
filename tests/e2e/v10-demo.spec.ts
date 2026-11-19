@@ -96,7 +96,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
   await test.step('4 · request letter from the histopathology frame: hospital prefilled, Hindi letter, no deadline claimed', async () => {
     const page = await ui('records')
     await page.goto(`/patients/${p.id}/completeness`)
-    await page.locator(`article#m-${(await itemOf(p.id, HPE)).id}`).getByRole('button', { name: 'Request', exact: true }).click()
+    await page.locator(`article#m-${(await itemOf(p.id, HPE)).id}`).getByRole('button', { name: 'Request letter', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByLabel('Hospital or clinic')).toHaveValue(/triveni multispeciality hospital/i)
     await dialog.getByLabel('Letter language').selectOption('hi')

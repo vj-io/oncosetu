@@ -15,9 +15,12 @@ import { newSinceSealCounts } from '@/server/registration/doctor-overview'
 import { assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export default async function PatientWorkspaceLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireStaff()
+  if (!UUID.test(id)) notFound() // a mistyped id is a 404, not a database error
   const data = await withOrg(session.orgId, async (tx) => {
     try {
       await assertPatientAccess({ db: tx, session }, id)

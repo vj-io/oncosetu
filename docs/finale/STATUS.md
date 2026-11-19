@@ -31,12 +31,22 @@ See [scripts/local-dev.md](../../scripts/local-dev.md). Summary: local Postgres 
 
 ## Work packages
 
-TBD, filled after the audit.
+Split from [AUDIT.md §5](AUDIT.md#5-work-split-6-packages-no-shared-files). Decisions behind them are in [DECISIONS.md](DECISIONS.md). Each package owns its own files, so they can run in parallel.
+
+| WP | Branch | Status |
+|---|---|---|
+| WP1 Patient portal | `finale/wp1-patient-portal` | in progress |
+| WP2 Doctor views + All records / imaging | `finale/wp2-doctor-records` | in progress |
+| WP3 Clinical staff pipeline | `finale/wp3-clinical-pipeline` | in progress |
+| WP4 Navigation + shared shell | `finale/wp4-nav-shell` | in progress |
+| WP5 Admin, public pages + copy | `finale/wp5-admin-public-copy` | in progress |
+| WP6 Demo data + reset | `finale/wp6-demo-data` | in progress |
 
 ## Progress log
 
 - 2026-11-19: Created branch `feat/finale-polish` from `main` (f2ab1fe). Local copy set up (Postgres 54600, app 3000), migrations and base seed applied, `scripts/local-dev.md` written, `.gitignore` now blocks `test-data/real/`, `*.dcm` and local scan folders.
+- 2026-11-19: Audit done; decisions in [DECISIONS.md](DECISIONS.md); 6 packages started.
 
 ## Open questions
 
-- Unit test `src/core/copy/ui-lint.test.ts` fails only on Windows (1 of 1360): its allow-list uses forward-slash paths but Windows reports backslashes. All other 1359 pass. Fix by normalising the path in the test (not done yet).
+- Resolved 2026-11-19: `src/core/copy/ui-lint.test.ts` now normalises paths to forward slashes. Full unit suite: 107 files, 1439 tests, all pass.

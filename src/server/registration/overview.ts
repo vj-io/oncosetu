@@ -1,4 +1,5 @@
 // Read model for the patient workspace landing page ("gallery wall").
+import { hardToReadDoc, isHeldDoc } from '../pipeline/held'
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, encounters, patients, snapshots } from '@/db/schema'
@@ -30,8 +31,8 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     activeConsent(tx, patientId),
     tx.select({ type: documents.docType, n: count() }).from(documents)
       .where(and(eq(documents.patientId, patientId), inArray(documents.attachState, ['auto', 'attached']))).groupBy(documents.docType),
-    tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), eq(documents.attachState, 'pending_decision'))),
-    tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), eq(documents.status, 'needs_review'))),
+    tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), isHeldDoc)),
+    tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), hardToReadDoc)),
     tx.select().from(encounters).where(eq(encounters.patientId, patientId)).orderBy(desc(encounters.startedAt)).limit(1),
     tx.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(desc(snapshots.seq)).limit(1),
     primaryContactTarget(tx, patientId),

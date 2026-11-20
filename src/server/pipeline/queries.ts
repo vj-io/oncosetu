@@ -1,8 +1,9 @@
 // Read models for the documents screens and the status route. Must run inside withOrg + after access checks.
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { auditLog, documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
+import { auditLog, documentFiles, documentPages, documents, events, evidence, staff } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { isHeldRow } from '@/core/held'
 import { backlogRank } from '@/core/backlog'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
@@ -60,6 +61,8 @@ export type DocSummary = {
   needsRunner: boolean
   /** "Reading page 7 of 16" while a long file is read; null otherwise. */
   progress: string | null
+  /** Who rejected or detached this file, when and why (REC-01). null for a file still in the record. */
+  decision: { by: string | null; at: string | null; reason: string | null } | null
   /** Kind of file (Report, Scan, ECG, Video, Photo) and, for imaging, what the header says. Never findings. */
   file: { kind: string; category: string; label: string; storedOnly: boolean; note: string | null } | null
   imaging: { label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null; patientName: string | null; patientSex: string | null; patientAge: string | null; frames: number; instances: number; synthetic: boolean } | null
@@ -82,6 +85,7 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
     },
     needsRunner: needsRunner(d),
     progress: readingNote(d),
+    decision: d.attachState === 'rejected' || d.attachState === 'detached' ? { by: null, at: d.attachDecidedAt?.toISOString() ?? null, reason: d.attachReason } : null,
     file: file ? { kind: file.kind, category: file.category, label: file.label, storedOnly: !!file.storedOnly, note: file.note ?? null } : null,
     imaging: im ? {
       label: String(im.studyLabel ?? im.modalityLabel), modality: (im.modality as string | null) ?? null, studyDate: (im.studyDate as string | null) ?? null, bodyPart: (im.bodyPart as string | null) ?? null,
@@ -142,8 +146,13 @@ export async function listDocuments(tx: Tx, patientId: string) {
     if (e.flags.late_received) c.late = true
     counts.set(e.documentId!, c)
   }
-  const rows = docs.map((d) => summary(d, counts.get(d.id) ?? { events: 0, verified: 0 }, counts.get(d.id)?.late ?? false))
-    .sort((a, b) => priority(a.docType) - priority(b.docType) || (b.documentDate ?? '').localeCompare(a.documentDate ?? '') || b.receivedAt.localeCompare(a.receivedAt))
+  const deciderIds = [...new Set(docs.filter((d) => (d.attachState === 'rejected' || d.attachState === 'detached') && d.attachDecidedBy).map((d) => d.attachDecidedBy!))]
+  const deciders = new Map((deciderIds.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, deciderIds)) : []).map((s) => [s.id, s.name]))
+  const rows = docs.map((d) => {
+    const row = summary(d, counts.get(d.id) ?? { events: 0, verified: 0 }, counts.get(d.id)?.late ?? false)
+    if (row.decision && d.attachDecidedBy) row.decision.by = deciders.get(d.attachDecidedBy) ?? null
+    return row
+  }).sort((a, b) => priority(a.docType) - priority(b.docType) || (b.documentDate ?? '').localeCompare(a.documentDate ?? '') || b.receivedAt.localeCompare(a.receivedAt))
   const live = docs.filter((d) => d.attachState !== 'detached' && d.attachState !== 'rejected' && d.status !== 'quarantined')
   const pagesOf = (d: DocRow) => d.pages ?? 1
   const processed = live.filter((d) => d.status === 'done' || d.status === 'needs_review' || d.status === 'unreadable')
@@ -159,7 +168,7 @@ export async function listDocuments(tx: Tx, patientId: string) {
     pagesVerified: verifiedDocs.reduce((a, d) => a + pagesOf(d), 0),
     inQueue: queued.length,
     minutesLeft: queued.length ? minutesLeft(queued.reduce((a, d) => a + pagesOf(d), 0), await recentProcessing(tx)) : null,
-    awaitingDecision: live.filter((d) => d.attachState === 'pending_decision' && (d.status === 'needs_review' || d.status === 'done')).length,
+    awaitingDecision: live.filter(isHeldRow).length,
   }
   return { rows, progress }
 }

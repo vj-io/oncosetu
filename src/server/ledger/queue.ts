@@ -1,5 +1,6 @@
 // Records work queue across patients (FR-ONB-01, FR-VER-02): identity decisions, low-confidence pages, unverified
 // items by onboarding priority. Patients without an active 'store' consent are counted, never named.
+import { isHeldDoc } from '../pipeline/held'
 import { and, count, eq, inArray, isNull, notExists, or, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/pg-core'
 import type { Tx } from '@/db'
@@ -34,7 +35,7 @@ export async function loadRecordsQueue(tx: Tx, limit = QUEUE_PAGE): Promise<{ ro
   const next = alias(events, 'next_version')
   const [identity, lowConf, unverified] = await Promise.all([
     tx.select({ patientId: documents.patientId, n: count() }).from(documents)
-      .where(eq(documents.attachState, 'pending_decision')).groupBy(documents.patientId),
+      .where(isHeldDoc).groupBy(documents.patientId),
     tx.select({ patientId: documents.patientId, n: count() }).from(documentPages)
       .innerJoin(documents, eq(documents.id, documentPages.documentId))
       .where(and(eq(documentPages.lowConfidence, true), isNull(documentPages.supersededAt), inArray(documents.attachState, ['auto', 'attached']))).groupBy(documents.patientId),

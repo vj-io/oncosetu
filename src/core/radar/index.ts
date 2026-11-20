@@ -335,6 +335,7 @@ export function runRadar(input: RadarInput): RadarOutput {
       const expectedTypes = rule.expects.document_types_from_test && test ? typesFromTest(test).filter((d) => rule.expects.document_types.includes(d)) : [...rule.expects.document_types]
       if (!expectedTypes.length) continue
       const [tStart, tEnd] = dateRange(t.date, t.precision)
+      const labOnly = expectedTypes.every((x) => x === 'pathology_report' || x === 'ihc_molecular_report')
       const window = { from: addDays(tStart, rule.expects.window_days[0]), to: addDays(tEnd, rule.expects.window_days[1]) }
       const dedupeKey = dedupeKeyFor(rule.id, t.id)
 
@@ -350,14 +351,18 @@ export function runRadar(input: RadarInput): RadarOutput {
             const inWindow = !dated || (de >= window.from && ds <= window.to)
             // Two hospitals that are both known never match (a referral note is the one rule that expects another place).
             const differs = (rule.expects.same_institution_preferred || t.kind !== 'event') && !!t.institution && !!d.institution && !sameInstitution(t.institution, d.institution)
-            return { d, dated, inWindow, differs, dist: dated ? Math.abs(Date.parse(ds) - Date.parse(tStart)) : Infinity }
+            // REC-05/06: a tissue or marker report comes from a laboratory, not the hospital that did the procedure; and a scan's
+            // written report dated the same day is the scan's report even when another place wrote it. Proposed, flagged, never silent.
+            const soft = differs && (labOnly || (t.kind === 'document' && dated && ds === tStart))
+            return { d, dated, inWindow, differs, soft, dist: dated ? Math.abs(Date.parse(ds) - Date.parse(tStart)) : Infinity }
           })
-          .filter((c) => c.inWindow && !c.differs)
+          .filter((c) => c.inWindow && (!c.differs || c.soft))
           .sort((a, b) => Number(a.differs) - Number(b.differs) || Number(b.dated) - Number(a.dated) || a.dist - b.dist || a.d.id.localeCompare(b.d.id))
         const best = candidates[0]
         if (best) {
           match = { dedupeKey, documentId: best.d.id }
-          if (!best.dated) match.note = 'document_date_unknown'
+          if (best.differs) match.note = 'institution_differs'
+          else if (!best.dated) match.note = 'document_date_unknown'
         }
       }
       if (match) {

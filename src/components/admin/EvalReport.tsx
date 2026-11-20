@@ -52,7 +52,7 @@ export function EvalReport() {
   const classes = Object.entries(R.heldout?.recallByClass ?? {}).filter(([, v]) => v.gold > 0)
   return (
     <Block kicker="Reading accuracy" title="How accurately documents are read (synthetic documents)"
-      note={<>Offline runs of the same pipeline code over synthetic documents, not live data. Tuned: the 20 demo documents the rule library was developed on (optimistic). Held-out: 40 documents written after the rules were frozen; the “untouched labels” column scores only the labels written then, and the next column adds the oncology fact types (stage, marker results, margins, impression, addendum, regimen), whose rules were tuned using some of these documents, so treat that column as optimistic. Its first blind run found one handwritten page auto-extracted, since fixed; that run is kept in <code>data/eval/heldout-blind-run.json</code>. Rules run {R.generatedAt.slice(0, 10)}, AI-assisted run {H.generatedAt.slice(0, 10)}. Regenerate with <code>scripts/eval.ts</code>.</>}>
+      note={<>Offline runs of the same pipeline code over synthetic documents, not live data. Tuned: the 20 demo documents the rule library was developed on (optimistic). Held-out: 40 documents written after the rules were frozen; the “untouched labels” column scores only the labels written then, and the next column adds the oncology fact types (stage, marker results, margins, impression, addendum, regimen), whose rules were tuned using some of these documents, so treat that column as optimistic. Its first blind run found one handwritten page read automatically, since fixed. Rules run {R.generatedAt.slice(0, 10)}, AI-assisted run {H.generatedAt.slice(0, 10)}.</>}>
       <Table caption="Results against the targets we set">
         <thead><tr><th>Metric</th><th>Target</th>{cols.map((c) => <th key={c.label}>{c.label}</th>)}</tr></thead>
         <tbody>
@@ -100,7 +100,7 @@ export function AsrReport() {
   const swapped = A.overall.withKeyterms.otherListedDrug
   return (
     <Block kicker="Voice accuracy" title="Are medicine names heard correctly? (synthetic speech)"
-      note={<>{A.overall.clips} spoken answers, one per formulary medicine, made with {A.setup.tts} and transcribed by {A.setup.asr}, without and with the keyterms the app sends (the patient&apos;s own medicines, then the formulary). Studio-clean synthetic speech is an upper bound, not field accuracy: real voices from the shadow phase are still needed before voice is used with real patients. Run {A.generatedAt.slice(0, 10)}; regenerate with <code>scripts/eval-asr.ts</code>.</>}>
+      note={<>{A.overall.clips} spoken answers, one per formulary medicine, made with a text-to-speech voice and transcribed by a speech-to-text service, without and with the keyterms the app sends (the patient&apos;s own medicines, then the formulary). Clean synthetic speech is the best case, not real-world accuracy: real voices from the trial phase are needed before voice is used with real patients. Run {A.generatedAt.slice(0, 10)}.</>}>
       <Table caption="Drug-name error rate (clips where the medicine name was not transcribed exactly) and word error rate">
         <thead><tr><th>Language</th><th>Clips</th><th>Drug names wrong, no keyterms</th><th>Drug names wrong, with keyterms</th><th>Word error rate, no keyterms</th><th>Word error rate, with keyterms</th></tr></thead>
         <tbody>

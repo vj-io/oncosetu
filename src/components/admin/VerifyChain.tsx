@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
-import { postJson } from './client'
+import { friendlyError, postJson } from './client'
 
 type Result = { ok: boolean; brokenAt?: number; checked: number }
 
@@ -12,7 +12,7 @@ export function VerifyChain() {
   async function verify() {
     setBusy(true)
     try { setResult(await postJson<Result>('/api/admin/audit/verify')) }
-    catch (e) { setResult({ error: e instanceof Error ? e.message : 'Verification failed' }) }
+    catch (e) { setResult({ error: friendlyError(e) }) }
     finally { setBusy(false) }
   }
   return (

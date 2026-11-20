@@ -9,8 +9,8 @@ type Question = { id: string; label: string; on: boolean }
 
 type Budget = { calls: number; tokens: number }
 
-export function SettingsForm({ flags: initial, questions: initialQuestions, retentionDays: initialDays, minRetentionDays, demo, demoOffsetDays, llmBudget, llmBudgetMax }: {
-  flags: Flags; questions: Question[]; retentionDays: number; minRetentionDays: number; demo: boolean; demoOffsetDays: number; llmBudget: Budget; llmBudgetMax: Budget
+export function SettingsForm({ flags: initial, questions: initialQuestions, retentionDays: initialDays, minRetentionDays, demo, demoOffsetDays, llmBudget, llmBudgetMax, aiConnected = true }: {
+  aiConnected?: boolean; flags: Flags; questions: Question[]; retentionDays: number; minRetentionDays: number; demo: boolean; demoOffsetDays: number; llmBudget: Budget; llmBudgetMax: Budget
 }) {
   const { busy, run } = useRun()
   const [flags, setFlags] = useState(initial)
@@ -36,9 +36,9 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
         <p className="max-w-prose text-sm text-muted">Each switch applies to this hospital only. Spoken read-back is still withheld from anyone whose disclosure is not cleared.</p>
         <div className="divide-y divide-rule">
           <Switch label="Voice input" description={flags.voice ? 'On: patients and desk staff can answer pre-visit questions by speaking.' : 'Off: pre-visit questions are answered by typing or tapping only.'} checked={flags.voice} onChange={toggle('voice')} />
-          <Switch label="Voice shadow mode" description={flags.voice_shadow ? 'On: a patient may also record an answer. Staff can compare it with what was typed. It never fills in the answer. Used to test how well drug names are heard.' : 'Off: voice recordings are not kept.'} checked={flags.voice_shadow} onChange={toggle('voice_shadow')} />
+          <Switch label="Keep voice recordings to test accuracy" description={flags.voice_shadow ? 'On: a patient may also record an answer. Staff can compare it with what was typed. It never fills in the answer. Used to test how well drug names are heard.' : 'Off: voice recordings are not kept.'} checked={flags.voice_shadow} onChange={toggle('voice_shadow')} />
           <Switch label="Spoken read-back" description={flags.tts ? 'On: confirmed answers can be read aloud. Text is always shown too.' : 'Off: confirmed answers are shown as text only.'} checked={flags.tts} onChange={toggle('tts')} />
-          <Switch label="AI-assisted reading (only for patients who consented)" description={flags.ai_extraction ? 'On: for patients who agreed, an AI service may help read documents. Every result still needs its exact quote and a person to check it.' : 'Off: documents are read by fixed rules only. No document goes to an AI service.'} checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
+          <Switch label="AI-assisted reading (only for patients who consented)" description={flags.ai_extraction ? (aiConnected ? 'On: for patients who agreed, an AI service may help read documents. Every result still needs its exact quote and a person to check it.' : 'On, but no reading service is connected on this server, so fixed rules are used. Every result still needs its exact quote and a person to check it.') : 'Off: documents are read by fixed rules only. No document goes to an AI service.'} checked={flags.ai_extraction} onChange={toggle('ai_extraction')} />
         </div>
         <div><Button disabled={!dirtyFlags} loading={busy === 'flags'} onClick={() => run('flags', () => postJson('/api/admin/settings', { flags }), 'Switches saved')}>Save switches</Button></div>
       </section>
@@ -81,7 +81,7 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
           <Field label="Calls per day" error={calls && !okNum(budget.calls, llmBudgetMax.calls) ? `Enter a whole number from 0 to ${llmBudgetMax.calls}.` : undefined}>
             <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.calls} value={calls} onChange={(e) => setCalls(e.target.value)} className="w-40 font-mono" />
           </Field>
-          <Field label="Tokens per day" error={tokens && !okNum(budget.tokens, llmBudgetMax.tokens) ? `Enter a whole number from 0 to ${llmBudgetMax.tokens}.` : undefined}>
+          <Field label="Text allowance per day (tokens)" error={tokens && !okNum(budget.tokens, llmBudgetMax.tokens) ? `Enter a whole number from 0 to ${llmBudgetMax.tokens}.` : undefined}>
             <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.tokens} value={tokens} onChange={(e) => setTokens(e.target.value)} className="w-48 font-mono" />
           </Field>
           <Button disabled={!budgetValid || (budget.calls === llmBudget.calls && budget.tokens === llmBudget.tokens)} loading={busy === 'budget'}

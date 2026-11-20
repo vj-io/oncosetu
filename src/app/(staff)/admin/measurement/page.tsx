@@ -11,7 +11,7 @@ import { loadMetrics } from '@/server/admin/metrics'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
 
-export const metadata = { title: 'Measurement study · Admin · OncoSetu' }
+export const metadata = { title: 'Consultation study · Admin · OncoSetu' }
 
 const REASON: Record<string, string> = { unavailable: 'Earlier result unavailable', quality: 'Poor quality', clinical_need: 'Clinical need' }
 const PHASE: Record<string, string> = { baseline: 'Baseline', shadow: 'Trial run', live: 'Live' }
@@ -24,12 +24,12 @@ export default async function MeasurementPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Baseline measurement study" title="Measurement study"
+      <SectionHeader as="h1" kicker="Admin · Consultation study" title="Consultation study"
         description="Consultation forms from clinicians, plus the measures the system collects itself. The export has no names, phones, dates of birth, encounter ids, clinician ids or exact dates."
         actions={canExport ? <ButtonLink href="/api/measure/export.csv" prefetch={false} variant="secondary" icon={<Download aria-hidden />}>Export anonymised CSV</ButtonLink> : undefined} />
 
       <Block kicker="Clinician form" title={`Consultations recorded: ${sum.total}`} note="Missing-record rate uses first visits only. Repeat-test rate uses all consultations. Every rate shows n.">
-        {sum.total === 0 ? <EmptyState title="No consultation forms yet" description="Clinicians record each consultation under Measure." className="py-8" /> : (
+        {sum.total === 0 ? <EmptyState title="No consultation forms yet" description="Clinicians fill in a short form after each consultation." className="py-8" /> : (
           <Table caption="By study phase">
             <thead><tr><th>Phase</th><th>Consultations</th><th>Missing-record rate (first visits)</th><th>Repeat-test rate</th><th>Impact: none / delayed / repeat / rescheduled</th><th>Median prep (min)</th></tr></thead>
             <tbody>
@@ -59,15 +59,15 @@ export default async function MeasurementPage() {
         </Block>
       </div>
 
-      <Block kicker="System measures" title="Collected by the system" note="Same definitions as the Metrics page.">
+      <Block kicker="System measures" title="Collected by the system" note="Counted the same way as on the How well it works page.">
         <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 font-mono text-sm">
           <dt className="text-muted">Request fulfilment rate</dt><dd className="tabular-nums">{pctText(sys.fulfilment.overall.rate)} ({sys.fulfilment.overall.fulfilled} of {sys.fulfilment.overall.sent} sent)</dd>
           <dt className="text-muted">Median days to fulfilment</dt><dd className="tabular-nums">{daysText(sys.fulfilment.overall.medianDays)}</dd>
-          <dt className="text-muted">Disclosure not cleared at enrolment</dt><dd className="tabular-nums">{pctText(sys.disclosure.nonCleared)} ({sys.disclosure.nonCleared.num} of {sys.disclosure.total})</dd>
+          <dt className="text-muted">Diagnosis not cleared for discussion at sign-up</dt><dd className="tabular-nums">{pctText(sys.disclosure.nonCleared)} ({sys.disclosure.nonCleared.num} of {sys.disclosure.total})</dd>
           <dt className="text-muted">Pages: printed / handwritten / image only</dt><dd className="tabular-nums">{sys.census.printed} / {sys.census.handwritten} / {sys.census.imageOnly} of {sys.census.total}</dd>
           <dt className="text-muted">Arrival to clinician opening the record, median</dt><dd className="tabular-nums">returning {minutesText(sys.prep.returning.medianMinutes)} (n={sys.prep.returning.visits}) · first {minutesText(sys.prep.firstVisit.medianMinutes)} (n={sys.prep.firstVisit.visits})</dd>
         </dl>
-        <p className="text-sm text-faint">“Median prep” in the table comes from the clinician form. The arrival-to-opening time is measured by the system from the activity log and includes any wait for the clinician.</p>
+        <p className="text-sm text-faint">“Median prep” in the table above comes from the clinician form. The arrival-to-opening time is measured by the system from the activity log and includes any wait for the clinician.</p>
       </Block>
     </div>
   )

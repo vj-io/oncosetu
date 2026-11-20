@@ -7,7 +7,7 @@ import { activeAdminIds, listBreakGlass, reviewState } from '@/server/admin/ops'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
 
-export const metadata = { title: 'Break-glass · Admin · OncoSetu' }
+export const metadata = { title: 'Emergency access · Admin · OncoSetu' }
 
 export default async function BreakGlassPage() {
   const s = await requireStaff(sectionRoles('breakGlass'))

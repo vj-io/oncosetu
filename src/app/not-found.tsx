@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ButtonLink, Frame, Wordmark } from "@/components/ui";
+import { roleHome } from "@/lib/staff-nav";
 import { getSession } from "@/server/session";
 
 // Shown for every unknown URL, including mistyped patient (/p/**) and share (/s/**) links, so it stays neutral:
@@ -8,7 +9,10 @@ export const metadata: Metadata = { title: "Page not found", robots: { index: fa
 
 export default async function NotFound() {
   // A signed-in clinician is taken back to the patients list under the staff name; anyone else sees the neutral page (DOC-16).
-  const staff = (await getSession().catch(() => null))?.kind === "staff";
+  const session = await getSession().catch(() => null);
+  const staff = session?.kind === "staff";
+  const home = session?.kind === "staff" ? roleHome(session.role) : "/";
+  const admin = home.startsWith("/admin");
   return (
     <main className="mx-auto grid min-h-dvh max-w-reading content-center gap-8 px-4 py-16 sm:px-8">
       <Wordmark brand={staff ? "OncoSetu" : "Setu Records"} />
@@ -18,8 +22,9 @@ export default async function NotFound() {
           <h1 className="text-3xl tracking-[-0.025em]">We could not find that page.</h1>
           <p className="text-muted">The link may be old or mistyped, or the page may have been moved. Nothing on any record has changed.</p>
           <div className="flex flex-wrap gap-3 pt-1">
-            {staff ? <ButtonLink href="/patients">Back to patients</ButtonLink> : <>
-              <ButtonLink href="/login">Go to sign-in</ButtonLink>
+            {staff ? <ButtonLink href={home}>{admin ? "Go to the admin console" : "Go to your home page"}</ButtonLink> : <>
+              <ButtonLink href="/">Home</ButtonLink>
+              <ButtonLink href="/login" variant="secondary">Go to sign-in</ButtonLink>
               <ButtonLink href="/p/login" variant="secondary">Patient sign-in</ButtonLink>
             </>}
           </div>

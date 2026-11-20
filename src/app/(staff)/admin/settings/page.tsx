@@ -33,7 +33,7 @@ export default async function SettingsPage() {
         flags={{ voice: st.flags.voice, tts: st.flags.tts, ai_extraction: st.flags.ai_extraction, voice_shadow: !!st.flags.voice_shadow }}
         questions={questionSettings(st.flags.questions).map((q) => ({ ...q, label: en[`q_${q.id}`] }))}
         retentionDays={st.retentionDays} minRetentionDays={MIN_RETENTION_DAYS} demo={st.demo} demoOffsetDays={Math.round(st.demoClockOffsetS / DAY_S)}
-        llmBudget={st.llmBudget} llmBudgetMax={LLM_BUDGET_MAX} />
+        aiConnected={llm.provider !== null} llmBudget={st.llmBudget} llmBudgetMax={LLM_BUDGET_MAX} />
     </div>
   )
 }

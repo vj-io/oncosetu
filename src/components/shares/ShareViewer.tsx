@@ -124,7 +124,7 @@ export function ShareViewer({ id }: { id: string }) {
           const v = signed ? VERIFY[it.verification] : undefined // chips only when the server vouches for them
           const where = it.source.label ? `${inLang(it.source.label, lang)}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : null
           return (
-            <li key={i} className="grid gap-1.5 border-l-[3px] border-l-rule pl-3">
+            <li key={i} data-testid="share-item" className="grid gap-1.5 border-l-[3px] border-l-rule pl-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="text-[16px]">{inLang(it.label, lang)}</span>
                 <span className="font-mono text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>

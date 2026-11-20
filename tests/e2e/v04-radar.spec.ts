@@ -191,13 +191,13 @@ test('V04-E2E-05 caregiver shares the document index (7 days, passcode): the vie
   await expect(viewer.getByRole('heading', { name: 'Papers shared' })).toBeVisible()
   await expect(viewer.getByRole('heading', { name: 'Papers not in this file' })).toBeVisible()
   // FR-PAS-03: the PRD's statement (brand neutral until disclosure is cleared) and the as-of date of the seal.
-  // NEEDS A DECISION: 580a2bd ("plain up the public pages") stopped drawing this PRD FR-PAS-03 / ADR-002 sentence in the viewer (the payload still carries it). Soft, so the rest of the test still runs; the failure stays visible until the sentence is restored or the requirement is withdrawn.
   expect(text).toContain('This summary contains only records provided to Setu Records.')
   expect(text).toContain(`As of ${formatDateIN(istDate(share.payload.asOf))} (sealed record)`)
-  // Provenance on every recorded line: where it is written, and whether a person verified it.
-  const lines = viewer.locator('ol > li')
+  // Provenance on every recorded line (inside each paper's fold since 7c3a76a): the paper and page it is written on,
+  // and whether a person verified it ("Verified by …" or "Not yet verified").
+  const lines = viewer.getByTestId('share-item')
   expect(await lines.count()).toBeGreaterThan(0)
-  for (const t of await lines.allInnerTexts()) { expect(t).toMatch(/source/i); expect(t).toMatch(/p\.\d+/); expect(t).toMatch(/checked/i) }
+  for (const t of await lines.allTextContents()) { expect(t).toMatch(/p\.\d+/); expect(t).toMatch(/verified/i) }
   expect(text).toMatch(/not in file/i) // absent-documents list
   await fresh.close()
 

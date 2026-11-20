@@ -203,3 +203,31 @@ Merged in order into feat/finale-polish, no conflicts: radar 366b4ca, doctor 74e
 Checks: tsc clean; eslint 0 errors (7 warnings); unit 99 files / 1464 tests; integration 18 files / 83 tests; `npm run build` ok; reseed "all checks passed".
 Fix made while merging: fix/radar stopped proposing a report from another hospital, which exposed that the demo mammogram DICOM named a different imaging centre than its report; hero__14-mammogram.dcm now names Medha Imaging (commit 22742ed).
 Visual pass: screenshots in docs/finale/wave1-shots/ and wave2-shots/ (git-ignored). Still to do: fix/desk, then the steps above.
+
+## 2026-11-20 (evening, Vaibhav's machine): wave 3 merged, checked and sent to production
+
+Every branch from the handoff is merged into feat/finale-polish, one at a time, with tsc, eslint, unit, a production
+build, integration and seed-demo after each (each worktree on its own local Postgres; the live Neon was never a test target):
+
+| Order | Merge | Unit | Integration | Seed-demo |
+|---|---|---|---|---|
+| 1 | fix/next-security (Next 16.4.3 → 16.4.6: seven moderate advisories; `next build` had stopped with SecurityFatalError) | 1476 | 87 | – |
+| 2 | fix/privacy | 1498 | 87 | all checks passed |
+| 3 | fix/extract | 1525 | 87 | all checks passed |
+| 4 | fix/pipeline (finished: lock claim + heartbeat, page progress, read cache in erasure and merge tests) | 1530 | 96 | all checks passed |
+| 5 | fix/records (finished: REC-01 undo of a rejection, REC-02 unreadable row, REC-03, REC-04 one held count, REC-05/06) | 1534 | 101 | all checks passed |
+| 6 | fix/merge-voice-clips (new: a patient merge now moves voice clips; migration 0027 grants the app role UPDATE on patient_id) | 1534 | 103 | – |
+| 7 | fix/portal-scan-items (new: a scan's report card in the portal shows the scan's date and place, so two "Scan report" cards differ) | 1534 | 104 | all checks passed |
+| 8 | fix/imaging (finished: JPEG 2000 / JPEG-LS / lossless JPEG preview, one set of ZIP limits for server and browser with the real reason in en/hi/hinglish, one study across several uploads, CT window presets and cine) | 1572 | 106 | all checks passed |
+
+Records.md (REC-07..REC-12) was not available on this machine; those items were not worked on.
+The rule-based eval is unchanged on all four sets (no field differs from the committed report; zero-gates 0), so the
+deck and overview numbers stay as they are. npm audit: no high or critical. gitleaks: 273 commits, no leaks.
+Browser check on the local demo (wave-3 list): desk same-day reopen works and All records is refused for the desk;
+held thumbnails are blurred; "Not a match" changes both sides at once and undoes from either side; a rejected file
+leaves the counts and comes back with undo; Hindi labels show; CT presets and cine work in the viewer.
+Playwright E2E on the merged build: 68 passed, 25 failed, 7 did not run. Most failures are tests still expecting the
+pre-finale wording; two need Twilio or inbound email; one real defect (the patient overview overflows at 375 px).
+A repair branch fix/e2e is in progress.
+Production: Neon restore branch `pre-finale-2026-11-20` taken from main, then migrations 0023-0027 applied to the live
+database (all additive; check-migrations all match).

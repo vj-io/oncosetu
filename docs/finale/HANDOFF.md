@@ -52,19 +52,13 @@ For each WIP branch: open its worktree `Documents/onco-wt/fix-<name>` (or `git w
   - file and physician names on family surfaces
 - **Round 2 (to do):** after merging those branches, rerun the same flow on the final build, with video. Refer to the patient only as "Test Patient A".
 
-## Next steps, in order
-1. Confirm the :3000 demo is rebuilt and clean (see above). Do the wave-3 browser check if it didn't finish:
-   - desk same-day reopen
-   - desk can't see All records
-   - held thumbnails blurred
-   - "Not a match" undo on both sides
-   - Hindi arrived-scan labels
-2. Finish and check fix/imaging, fix/pipeline and fix/records (fix/extract is already done). Merge them together with fix/privacy into feat/finale-polish, one at a time, running the full checks (unit, integration, build in the main folder, seed-demo) after each.
-3. Browser check of everything merged (screenshots in docs/finale/wave4-shots/, git-ignored).
-4. Next.js security upgrade (approved): a separate branch, read the advisory, full tests, build, seed, then merge.
-5. Real-scan test round 2 with video (local only).
-6. Update the deck and overview numbers if the eval changed. Open a PR from feat/finale-polish to main for Vaibhav. Vaibhav runs migrations on Neon and resets the live demo the night before the finale (docs/DEMO.md).
-7. Walk Garv through the product.
+## Next steps, in order (updated 20 Nov 2026, evening)
+Steps 1 to 4 of the earlier list are done (see the last STATUS entry): the wave-3 browser check, the imaging, pipeline,
+records, extract and privacy merges, the Next.js security upgrade, and the deck numbers (unchanged). Left:
+1. Finish fix/e2e (Playwright suite back to green on the finale UI) and merge it.
+2. Real-scan test round 2 with video, on the machine that holds the private files (local only; Garv's machine).
+3. Reset the live demo again the night before the finale (docs/DEMO.md) if anything was uploaded to it.
+4. Walk Garv through the product.
 
 ## Open product notes
 - **Design:** the visual redesign is ON HOLD (decision 18). Drafts are in docs/finale/design-demos and design-v2.

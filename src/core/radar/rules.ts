@@ -9,7 +9,7 @@ export const RuleSchema = z
     id: z.string().regex(/^RAD-[A-Z0-9-]+$/),
     version: z.number().int().positive(),
     clinician_reviewed: z.boolean(),
-    kind: z.enum(['window', 'prior_cycles', 'scan_report']).default('window'),
+    kind: z.enum(['window', 'prior_cycles', 'scan_report', 'prior_study']).default('window'),
     trigger: z
       .object({
         event_type: z.enum(EVENT_TYPES),
@@ -213,6 +213,23 @@ export const RULES_YAML = `# Missing-Record Radar — document-completeness chec
   expects:
     document_types: [imaging_report]
     window_days: [-3, 7]
+    same_institution_preferred: false
+  wording:
+    en: "Report for the {scan} on {event_date} not in file ({source_label})."
+    hi: "{event_date} के {scan} की रिपोर्ट फ़ाइल में नहीं है ({source_label})।"
+
+# A study the report names as a comparison ("compared with prior MRI dated 12 Feb 2025"): expected unless a report or a stored
+# scan of that kind is on file near that date. A scan on file with no report is RAD-IMG-RPT-01's item, not this rule's.
+- id: RAD-IMG-PRIOR-01
+  version: 1
+  clinician_reviewed: false
+  kind: prior_study
+  trigger:
+    event_type: imaging_report_documented
+    required_fields: [test_name, event_date]
+  expects:
+    document_types: [imaging_report]
+    window_days: [-7, 7]
     same_institution_preferred: false
   wording:
     en: "Report for the {scan} on {event_date} not in file ({source_label})."

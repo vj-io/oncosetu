@@ -1,5 +1,5 @@
 // Reads and writes for "All records". Run inside withPatientAccess / a route's transaction.
-import { and, asc, eq, inArray, isNull, or } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Tx } from '@/db'
 import { documentFiles, documentPages, documents, events } from '@/db/schema'
@@ -39,6 +39,13 @@ export type RecordsData = {
 }
 
 /** The filed papers of one patient, newest first, with scan-to-report pairs. Held, rejected, detached and quarantined papers are left out. */
+/** The "All records" tab badge: filed papers, with a study kept in several parts counted once, as the list shows it (collapseStudyParts). */
+export async function filedPaperCount(tx: Tx, patientId: string): Promise<number> {
+  const [r] = await tx.select({ n: sql<number>`count(distinct coalesce(${documents.flags}->'imaging'->>'studyUid', ${documents.id}::text))`.mapWith(Number) })
+    .from(documents).where(and(eq(documents.patientId, patientId), inArray(documents.attachState, [...FILED]), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf)))
+  return r.n
+}
+
 export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsData> {
   const all = await tx.select().from(documents).where(eq(documents.patientId, patientId))
   const filed = all.filter((d) => (FILED as readonly string[]).includes(d.attachState) && d.status !== 'quarantined' && !d.duplicateOf)

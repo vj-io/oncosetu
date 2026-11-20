@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, count, eq, inArray } from 'drizzle-orm'
 import { Notice } from '@/components/registration/Notice'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import { RecordErasure } from '@/components/erasure/RecordErasure'
-import { documents, missingRecords } from '@/db/schema'
+import { missingRecords } from '@/db/schema'
+import { filedPaperCount } from '@/server/records/queries'
 import { accession, istDate, istDateTime } from '@/server/admin/format'
 import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
@@ -38,15 +39,15 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     }
     const patient = await loadPatient(tx, id)
     if (!patient) return null
-    const [[docs], [open], changed] = await Promise.all([
-      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf))), // filed papers only (no repeat copies), so the badge matches the All records list
+    const [docs, [open], changed] = await Promise.all([
+      filedPaperCount(tx, id), // filed papers only (no repeat copies; a study kept in parts counts once), as the All records list shows them
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
       newSinceSealCounts(tx, [id], session.orgId),
     ])
     // Emergency access: shown when the record is open because of a break-glass grant (always for an administrator).
     const grant = session.role === 'auditor' ? null : await activeGrantFor(tx, id, session.staffId)
     const emergency = grant && (session.role === 'org_admin' || !(await activeConsent(tx, id))?.purposes.store) ? grant : null
-    return { patient, emergency, counts: { documents: docs.n, completeness: open.n, ledger: changed.get(id) ?? 0 } }
+    return { patient, emergency, counts: { documents: docs, completeness: open.n, ledger: changed.get(id) ?? 0 } }
   }).catch((e) => {
     if (e instanceof HttpError && e.status === 404) return null
     throw e

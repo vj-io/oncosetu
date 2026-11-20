@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { redact } from './log'
 
 describe('log redaction (PRD §10.2)', () => {
+  it('keeps only the start of an error message (a failed file write once logged the whole file)', () => {
+    const out = redact(new Error('Failed query: insert ... params: ' + 'ab'.repeat(5_000_000))) as { message: string }
+    expect(out.message.length).toBeLessThanOrEqual(2000)
+    expect(out.message.startsWith('Failed query: insert')).toBe(true)
+  })
+
   it('drops sensitive keys and scrubs phones/emails anywhere', () => {
     const out = JSON.stringify(redact({
       patientName: 'Sunita Devi', phone: '+91 98765 43210', quote: 'wide local excision', body: 'Your code is 123456',

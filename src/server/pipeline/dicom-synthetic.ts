@@ -35,6 +35,8 @@ export type SyntheticOpts = {
   instance?: number
   frames?: number
   size?: number
+  /** Test only: Columns in the header when it differs from Rows (`size`); use with `encapsulated` or `rawFrames`. */
+  columns?: number
   rle?: boolean
   /** Test only: pixel data already compressed (JPEG 2000, JPEG-LS...), one codestream per frame, with its transfer syntax. */
   encapsulated?: { transferSyntax: string; frames: Uint8Array[] }
@@ -110,7 +112,7 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
     enc([0x18, 0x15], 'CS', o.bodyPart ?? 'CHEST'),
     enc([0x20, 0xd], 'UI', o.studyUid), enc([0x20, 0xe], 'UI', o.seriesUid ?? `${o.studyUid}.9`), enc([0x20, 0x13], 'IS', String(o.instance ?? 1)),
     enc([0x28, 2], 'US', 1), enc([0x28, 4], 'CS', 'MONOCHROME2'), ...(frames > 1 ? [enc([0x28, 8], 'IS', String(frames))] : []),
-    enc([0x28, 0x10], 'US', size), enc([0x28, 0x11], 'US', size),
+    enc([0x28, 0x10], 'US', size), enc([0x28, 0x11], 'US', o.columns ?? size),
     enc([0x28, 0x100], 'US', sixteen ? 16 : 8), enc([0x28, 0x101], 'US', ph.bitsStored ?? (sixteen ? 12 : 8)), enc([0x28, 0x102], 'US', (ph.bitsStored ?? (sixteen ? 12 : 8)) - 1), enc([0x28, 0x103], 'US', ph.signed ? 1 : 0),
     ...(sixteen ? [enc([0x28, 0x1050], 'DS', String(ph.window?.[0] ?? 2040)), enc([0x28, 0x1051], 'DS', String(ph.window?.[1] ?? 4080))] : []),
     ...(ph.rescale ? [enc([0x28, 0x1052], 'DS', String(ph.rescale[1])), enc([0x28, 0x1053], 'DS', String(ph.rescale[0]))] : []),

@@ -49,7 +49,7 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
   const skipped = [...plan.skipped]
   // Pass 1: open the ZIP a batch at a time and keep only what is small: each DICOM slice's header (the picture is let go), and any
   // other file as it is. A study of a few thousand slices is therefore never held in memory in full.
-  type Head = { name: string; base: string; meta: DicomMeta; squeeze: boolean }
+  type Head = { name: string; base: string; meta: DicomMeta; squeeze: boolean; size: number }
   const heads: Head[] = []
   let others: ZipEntry[] = []
   let dicomdir = false
@@ -59,7 +59,7 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
       if (kind === 'zip') { skipped.push({ name: e.name, reason: 'a ZIP inside a ZIP is not accepted', code: 'nested_archive' }); continue }
       if (e.base.toUpperCase() === 'DICOMDIR') { dicomdir = true; skipped.push({ name: e.name, reason: 'DICOMDIR index (not needed, the images are read directly)' }); continue }
       const meta = kind === 'dicom' ? readDicomMeta(e.data) : null
-      if (meta) heads.push({ name: e.name, base: e.base, meta, squeeze: !isCompressedSyntax(meta.transferSyntax) })
+      if (meta) heads.push({ name: e.name, base: e.base, meta, squeeze: !isCompressedSyntax(meta.transferSyntax), size: e.data.length })
       else others.push(e) // a header that cannot be read goes through intake alone (and is held or refused there)
     }
   } catch (e) {
@@ -93,14 +93,27 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
   // appear, then instance number. Slice names carry that order, so the viewer can open slice N without opening the whole bundle.
   const groups = new Map<string, Head[]>()
   for (const h of heads) { const k = h.meta.studyUid ?? `single:${h.name}`; groups.set(k, [...(groups.get(k) ?? []), h]) }
-  type Built = { heads: Head[]; rank: Map<string, number>; writer: BundleWriter | null; single: Uint8Array | null; tooBig: boolean }
+  type Part = { writer: BundleWriter; tooBig: boolean }
+  type Built = { heads: Head[]; rank: Map<string, number>; part: Map<string, number>; parts: Part[]; single: Uint8Array | null }
   const built = new Map<string, Built>()
   const where = new Map<string, string>() // entry name to its group key
   for (const [k, hs] of groups) {
     const seriesOrder = new Map<string, number>()
     for (const h of hs) if (!seriesOrder.has(h.meta.seriesUid ?? '')) seriesOrder.set(h.meta.seriesUid ?? '', seriesOrder.size)
     const ordered = [...hs].sort((a, b) => seriesOrder.get(a.meta.seriesUid ?? '')! - seriesOrder.get(b.meta.seriesUid ?? '')! || (a.meta.instanceNumber ?? 0) - (b.meta.instanceNumber ?? 0) || (a.name < b.name ? -1 : 1))
-    built.set(k, { heads: ordered, rank: new Map(ordered.map((h, i) => [h.name, i])), writer: hs.length > 1 ? new BundleWriter(MAX_STUDY_BUNDLE_BYTES) : null, single: null, tooBig: false })
+    // A study larger than one stored document (a real brain MRI CD held a 551 MB study) is cut, in reading order, into parts that
+    // each fit. The records list and the viewer already show parts with one StudyInstanceUID as one study (study-parts.ts).
+    // 200 bytes per slice covers its ZIP headers; a slice that alone is too large still makes its part refused.
+    const part = new Map<string, number>(), parts: Part[] = []
+    if (hs.length > 1) {
+      let used = Infinity
+      for (const h of ordered) {
+        if (used + h.size + 200 > MAX_STUDY_BUNDLE_BYTES) { parts.push({ writer: new BundleWriter(MAX_STUDY_BUNDLE_BYTES), tooBig: false }); used = 0 }
+        used += h.size + 200
+        part.set(h.name, parts.length - 1)
+      }
+    }
+    built.set(k, { heads: ordered, rank: new Map(ordered.map((h, i) => [h.name, i])), part, parts, single: null })
     for (const h of hs) where.set(h.name, k)
   }
   if (heads.length) {
@@ -108,10 +121,11 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
     try {
       for (const e of openEntries(input.bytes, plan.take, new Set(heads.map((h) => h.name)))) {
         const b = built.get(where.get(e.name)!)!
-        if (!b.writer) { b.single = e.data; continue }
-        if (b.tooBig) continue
+        if (!b.parts.length) { b.single = e.data; continue }
+        const p = b.parts[b.part.get(e.name)!]
+        if (p.tooBig) continue
         const h = b.heads[b.rank.get(e.name)!]
-        if (!b.writer.add(`${String(b.rank.get(e.name)! + 1).padStart(4, '0')}-${h.base.replace(/[^\w.-]/g, '_')}`, e.data, h.squeeze)) b.tooBig = true
+        if (!p.writer.add(`${String(b.rank.get(e.name)! + 1).padStart(4, '0')}-${h.base.replace(/[^\w.-]/g, '_')}`, e.data, h.squeeze)) p.tooBig = true
       }
     } catch (e) {
       if (!(e instanceof ZipMismatch)) throw e
@@ -123,10 +137,14 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
     const hs = b.heads
     const modalities = [...new Set(hs.flatMap((h) => (h.meta.modality ? [h.meta.modality] : [])))]
     const label = studyLabel(modalities)
-    if (!b.writer) { if (b.single) await one({ fileName: hs[0].base, bytes: b.single }, hs[0].name); continue }
-    if (b.tooBig) { skipped.push({ name: `${label} study`, reason: `the ${label} study is larger than the ${Math.round(MAX_STUDY_BUNDLE_BYTES / 1048576)} MB kept for one study` }); continue }
-    const imaging = { ...hs[0].meta, modalityLabel: label, studyLabel: label, modalities, instances: hs.length, frames: hs.length }
-    await one({ fileName: `${label} (${hs.length} images)`, bytes: b.writer.finish(), bundle: { imaging }, maxBytes: MAX_STUDY_BUNDLE_BYTES }, `${label} study`)
+    if (!b.parts.length) { if (b.single) await one({ fileName: hs[0].base, bytes: b.single }, hs[0].name); continue }
+    for (const [i, p] of b.parts.entries()) {
+      const mine = hs.filter((h) => b.part.get(h.name) === i)
+      const of = b.parts.length > 1 ? `, part ${i + 1} of ${b.parts.length}` : ''
+      if (p.tooBig) { skipped.push({ name: `${label} study${of}`, reason: `the ${label} study${of} is larger than the ${Math.round(MAX_STUDY_BUNDLE_BYTES / 1048576)} MB kept for one study` }); continue }
+      const imaging = { ...mine[0].meta, modalityLabel: label, studyLabel: label, modalities, instances: mine.length, frames: mine.length }
+      await one({ fileName: `${label} (${mine.length} images${of})`, bytes: p.writer.finish(), bundle: { imaging }, maxBytes: MAX_STUDY_BUNDLE_BYTES }, `${label} study${of}`)
+    }
   }
   for (const e of inBacklogOrder(others, (x) => x.base)) await one({ fileName: e.base, bytes: e.data }, e.name) // FR-ONB-01: processed in this order
   if (!documents.length && skipped.length) {

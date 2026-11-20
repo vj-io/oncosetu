@@ -11,6 +11,12 @@ import type { HomeData } from './summary'
 
 const asDocType = (t: string | null): DocType | null => ((DOC_TYPES as readonly string[]).includes(t ?? '') ? (t as DocType) : null)
 
+/** The signed consent form is stored with the doc type "other"; its flag says what it really is. */
+export const consentFormOf = (flags: Record<string, unknown> | null | undefined): 'sign' | 'withdraw' | null => {
+  const c = flags?.consentForm as { action?: string } | undefined
+  return c ? (c.action === 'withdraw' ? 'withdraw' : 'sign') : null
+}
+
 export const OPEN_REQUEST_STATES = ['drafted', 'sent', 'reminder_due', 'open_21d'] as const
 
 export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Promise<HomeData> {
@@ -74,7 +80,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
   return {
     today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
-      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true,
+      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true, consentForm: consentFormOf(d.flags),
     })),
     looking: looking.map((m) => {
       const st = m.eventDate == null && typeof m.window?.triggerId === 'string' ? stmtDate.get(m.window.triggerId) : undefined

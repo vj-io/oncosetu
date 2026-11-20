@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { ChevronDown } from "lucide-react";
 
-export type TabLink = { href: string; label: string; count?: number };
+export type TabLink = { href: string; label: string; count?: number; /** What the number counts, said out loud ('papers on file'). */ countLabel?: string };
 
 function Item({ it, inert, active, className, children }: { it: TabLink; inert: boolean; active: boolean; className: string; children: ReactNode }) {
   if (inert) return <span className={className}>{children}</span>;
@@ -53,7 +53,7 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
             <li key={it.href}>
               <Item it={it} inert={inert} active={on(it.href)} className={tab(on(it.href))}>
                 {it.label}
-                {it.count != null && <span className="min-w-5 border border-rule bg-matte px-1 text-center font-mono text-[11px] text-faint tabular-nums">{it.count}</span>}
+                {it.count != null && <span title={it.countLabel ? `${it.count} ${it.countLabel}` : undefined} className="min-w-5 border border-rule bg-matte px-1 text-center font-mono text-[11px] text-faint tabular-nums">{it.count}{it.countLabel && <span className="sr-only"> {it.countLabel}</span>}</span>}
               </Item>
             </li>
           ))}

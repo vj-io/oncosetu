@@ -37,6 +37,9 @@ export type PatientWorkspaceHeaderProps = {
   inertTabs?: boolean;
 };
 
+/** What each tab badge counts. The two differ on purpose: papers on file, and facts that arrived since the last sealed visit. */
+const COUNT_WORDS: Partial<Record<TabKey, string>> = { records: "papers on file", ledger: "new facts since the last sealed visit", completeness: "papers not in the file yet" };
+
 export function PatientWorkspaceHeader({ patient: p, counts, role, inertTabs }: PatientWorkspaceHeaderProps) {
   const d = DISCLOSURE[p.disclosure];
   const { main, more } = tabsFor(role);
@@ -63,7 +66,7 @@ export function PatientWorkspaceHeader({ patient: p, counts, role, inertTabs }: 
       </div>
       <PatientTabsNav
         inert={inertTabs}
-        main={main.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label, count: counts?.[t.key] ?? (t.key === "records" ? counts?.documents : undefined) }))}
+        main={main.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label, count: counts?.[t.key] ?? (t.key === "records" ? counts?.documents : undefined), countLabel: COUNT_WORDS[t.key] }))}
         more={more.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label }))}
       />
     </header>

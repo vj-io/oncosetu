@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, inArray, ne } from 'drizzle-orm'
+import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm'
 import { Notice } from '@/components/registration/Notice'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
@@ -39,7 +39,7 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     const patient = await loadPatient(tx, id)
     if (!patient) return null
     const [[docs], [open], changed] = await Promise.all([
-      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'))), // filed documents only, so the badge matches the list
+      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf))), // filed papers only (no repeat copies), so the badge matches the All records list
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
       newSinceSealCounts(tx, [id], session.orgId),
     ])

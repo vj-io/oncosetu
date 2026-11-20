@@ -151,3 +151,42 @@ describe('share payload creator and share wording (PUB-02, PUB-06, PUB-07, PAT-0
     expect(ts('en', 'scopeQuotesName')).not.toMatch(/and the documents/)
   })
 })
+
+describe('share payload: family-facing privacy', () => {
+  const cleared: PayloadInput = { ...base, disclosure: 'cleared', scope: 'index_with_quotes' }
+
+  it('quotes carry no physician name and no signature footer', () => {
+    const quote = ['wide local excision for carcinoma', 'Reported by: Dr. Anil Mehta, MD', 'Electronically signed by Dr Mehta on 12/03/2026', 'Page 2 of 2'].join('\n')
+    const p = buildSharePayload({ ...cleared, quotes: { e1: quote } })
+    const shown = p.items.find((i) => i.quote)?.quote
+    expect(shown).toBe('wide local excision for carcinoma')
+    expect(JSON.stringify(p)).not.toMatch(/Mehta|signed by|Page 2/)
+  })
+
+  it('a quote that is only a signature is left out', () => {
+    const p = buildSharePayload({ ...cleared, quotes: { e1: 'Reported by: Dr. Anil Mehta, MD' } })
+    expect(p.items.every((i) => !i.quote)).toBe(true)
+  })
+
+  it('a physician named inside a hospital name does not reach the list', () => {
+    const snap = buildSnapshot({ patientId: 'p1', events, documents: [{ ...docs[0], institution: "Dr. R. Mehta's Cancer Clinic" }, docs[1]], statements: [], missing }, '2026-10-20T06:00:00.000Z')
+    const p = buildSharePayload({ ...cleared, snapshot: snap })
+    expect(JSON.stringify(p)).not.toContain('Mehta')
+  })
+
+  it('lists the signed consent form by name in every language, never as "Other document"', () => {
+    const form: CoreDocument = { id: 'd-cf', docType: 'other', documentDate: '2026-10-01', receivedAt: '2026-10-01T10:00:00Z', institution: null, sha256: 'cc' }
+    const snap = buildSnapshot({ patientId: 'p1', events, documents: [...docs, form], statements: [], missing }, '2026-10-20T06:00:00.000Z')
+    for (const disclosure of ['cleared', 'not_cleared'] as const) {
+      const p = buildSharePayload({ ...base, snapshot: snap, disclosure, consentForms: { 'd-cf': 'sign' } })
+      const row = p.documents.find((d) => d.id === 'd-cf')!
+      expect(row.label).toEqual({ en: 'Signed consent form', hi: 'हस्ताक्षरित सहमति पत्र', hinglish: 'Signed consent form' })
+      expect(JSON.stringify(p)).not.toMatch(/Other document|Doosra kaagaz/)
+    }
+  })
+
+  it('a document list carries the kind and date only: no file name field exists', () => {
+    const p = buildSharePayload(cleared)
+    for (const d of p.documents) expect(Object.keys(d).sort()).toEqual(['date', 'id', 'institution', 'label', 'receivedAt'])
+  })
+})

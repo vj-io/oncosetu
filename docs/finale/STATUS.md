@@ -196,3 +196,10 @@ desk.md notes for routing:
 2. Run `npx tsc --noEmit && npx eslint src tests && npx vitest run --project unit` before going further. Each worktree already has a linked node_modules and a local .env.local.
 3. Finish the fixes, then merge into feat/finale-polish: radar, doctor, recview, share, portal, admin, desk.
 4. Run the full tests, build and reseed. Then follow the earlier STATUS steps (Playwright §4.6 tests, Next.js security upgrade, real-scan test, visual style pick, PR to main).
+
+## 2026-11-20: Wave 1 and 2 merged (radar, doctor, recview, portal, share, admin)
+
+Merged in order into feat/finale-polish, no conflicts: radar 366b4ca, doctor 74ee5c1, recview c05efcf, portal 2d83fa5, share dc58afc, admin 3832fbd. Migration 0025_share_label applied, check-migrations all match.
+Checks: tsc clean; eslint 0 errors (7 warnings); unit 99 files / 1464 tests; integration 18 files / 83 tests; `npm run build` ok; reseed "all checks passed".
+Fix made while merging: fix/radar stopped proposing a report from another hospital, which exposed that the demo mammogram DICOM named a different imaging centre than its report; hero__14-mammogram.dcm now names Medha Imaging (commit 22742ed).
+Visual pass: screenshots in docs/finale/wave1-shots/ and wave2-shots/ (git-ignored). Still to do: fix/desk, then the steps above.

@@ -4,12 +4,13 @@ import { Button, ButtonLink, EmptyState, Field, Input, SectionHeader, Select, Ta
 import { VerifyChain } from '@/components/admin/VerifyChain'
 import { withOrg } from '@/db'
 import { auditFacets, queryAudit, type AuditFilter } from '@/server/admin/audit-view'
-import { describeAction, describeTarget } from '@/core/doctor/audit-words'
-import { istDateTime, shortId } from '@/server/admin/format'
+import { describeAction, describeDetails, describeTarget } from '@/core/doctor/audit-words'
+import { roleLabel } from '@/components/admin/groups'
+import { accession, istDateTime, plural, shortId } from '@/server/admin/format'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
 
-export const metadata = { title: 'Audit log · Admin · OncoSetu' }
+export const metadata = { title: 'Activity log · Admin · OncoSetu' }
 
 type SP = Record<string, string | string[] | undefined>
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) || undefined
@@ -27,17 +28,18 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
     return p.toString()
   }
   const filtered = Object.values(f).some(Boolean)
+  const reversed = !!f.from && !!f.to && f.from > f.to
 
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Audit" title="Audit log"
+      <SectionHeader as="h1" kicker="Admin · Activity log" title="Activity log"
         description="A tamper-proof log: entries are only ever added, and each is linked to the one before it, so any edit would show. Entries carry ids and categories only, never names, quotes or file contents. Times are India time."
         actions={<ButtonLink href={`/api/admin/audit.csv${qs({}) ? `?${qs({})}` : ''}`} variant="secondary" icon={<Download aria-hidden />} prefetch={false}>Export CSV</ButtonLink>} />
 
       <VerifyChain />
 
       <form method="get" className="grid gap-4 border border-rule bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5" aria-label="Audit filters">
-        <Field label="Who"><Select name="actor" defaultValue={f.actorId ?? ''}><option value="">Anyone</option>{facets.people.map((p) => <option key={p.id} value={p.id}>{p.name} · {p.role}</option>)}</Select></Field>
+        <Field label="Who"><Select name="actor" defaultValue={f.actorId ?? ''}><option value="">Anyone</option>{facets.people.map((p) => <option key={p.id} value={p.id}>{p.name} · {roleLabel(p.role)}</option>)}</Select></Field>
         <Field label="What happened"><Select name="action" defaultValue={f.action ?? ''}><option value="">Any action</option>{facets.actions.map((a) => <option key={a} value={a}>{describeAction(a)}</option>)}</Select></Field>
         <Field label="About"><Select name="type" defaultValue={f.targetType ?? ''}><option value="">Any target</option>{facets.targetTypes.map((a) => <option key={a} value={a}>{describeTarget(a)}</option>)}</Select></Field>
         <Field label="From"><Input type="date" name="from" defaultValue={f.from ?? ''} /></Field>
@@ -48,20 +50,25 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
         </div>
       </form>
 
-      {result.rows.length === 0 ? <EmptyState title="No audit entries match" description="Widen the date range or clear a filter." /> : (
+      {result.rows.length === 0 ? <EmptyState title="No audit entries match" description={reversed ? "“From” is after “To”. Put the earlier date in “From”." : 'Widen the date range or clear a filter.'} /> : (
         <>
-          <p className="font-mono text-sm text-muted" role="status">{result.total.toLocaleString('en-IN')} entries · page {Math.min(page, result.pages)} of {result.pages}</p>
+          <p className="font-mono text-sm text-muted" role="status">{result.total.toLocaleString('en-IN')} {plural(result.total, 'entry', 'entries')} · page {Math.min(page, result.pages)} of {result.pages}</p>
           <Table caption="Audit entries, newest first">
-            <thead><tr><th>No.</th><th>When</th><th>Who</th><th>What happened</th><th>About</th><th>Details (codes only)</th><th>Fingerprint</th></tr></thead>
+            <thead><tr><th>No.</th><th>When</th><th>Who</th><th>What happened</th><th>About</th><th>Details</th><th>Fingerprint</th></tr></thead>
             <tbody>
               {result.rows.map((r) => (
                 <tr key={r.id}>
                   <td className="font-mono text-[13px] tabular-nums">{r.seq}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
-                  <td><span className="block">{r.actorId ? (names.get(r.actorId) ?? <span className="font-mono text-[13px]">{shortId(r.actorId)}</span>) : 'System'}</span><span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{r.actorRole}</span></td>
+                  <td><span className="block">{r.actorId ? (names.get(r.actorId) ?? <span className="font-mono text-[13px]">{shortId(r.actorId)}</span>) : 'System'}</span><span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{roleLabel(r.actorRole)}</span></td>
                   <td className="text-[14px]">{describeAction(r.action)}</td>
-                  <td className="text-[14px]">{describeTarget(r.targetType)}{r.targetId && <span className="block text-faint" title={r.targetId}>{shortId(r.targetId)}</span>}</td>
-                  <td className="max-w-64 font-mono text-[12px] break-all text-muted">{Object.keys(r.details).length ? JSON.stringify(r.details) : '—'}</td>
+                  <td className="text-[14px]">{describeTarget(r.targetType)}{r.targetId && (
+                    <span className="block text-faint" title={r.targetId}>
+                      {r.targetType === 'patient' ? accession(r.targetId) : shortId(r.targetId)}{' '}
+                      <Link className="underline" href={`/admin/audit?${qs({ type: r.targetType ?? '', page: '' })}`} aria-label="Show only this kind of entry">only this kind</Link>
+                    </span>
+                  )}</td>
+                  <td className="max-w-64 text-[13px] break-words text-muted">{Object.keys(r.details).length ? <dl className="grid gap-0.5">{describeDetails(r.details, accession).map((d) => <div key={d.key}><dt className="inline">{d.key}: </dt><dd className="inline">{d.value}</dd></div>)}</dl> : '—'}</td>
                   <td className="font-mono text-[12px] text-faint" title={r.hash}>{r.hash.slice(0, 8)}</td>
                 </tr>
               ))}

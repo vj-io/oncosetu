@@ -50,7 +50,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
           {canRecords && <Link className={linkCls} href={`/patients/${id}/records`}>Open all records</Link>}
           {!doctor && o.snapshot && <Link className={linkCls} href={`/patients/${id}/timeline`}>Last sealed {formatDateIN(o.snapshot.sealedAt.toISOString())}: see it as it was</Link>}
-          <PreVisitLinkButton patientId={id} />
+          {role !== 'org_admin' && <PreVisitLinkButton patientId={id} />}
         </span>
       </div>
 

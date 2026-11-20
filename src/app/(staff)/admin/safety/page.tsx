@@ -19,14 +19,25 @@ export default async function SafetyEventsPage() {
         as="h1" kicker="Admin · Safety events" title="Blocked and held"
         description={`Everything the system stopped, held back or refused in the last ${data.days} days, in plain words. Nothing here is hidden: it is read from the tamper-proof activity log.`}
       />
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Counts by kind">
-        {SAFETY_KINDS.map((k) => (
-          <li key={k} className="grid content-start gap-1 border border-rule bg-surface px-4 py-3">
-            <span className="font-display text-2xl leading-none tabular-nums">{data.counts[k]}</span>
-            <span className="text-[13px] text-muted">{SAFETY_META[k].label}</span>
-          </li>
-        ))}
-      </ul>
+      {(() => {
+        const seen = SAFETY_KINDS.filter((k) => data.counts[k] > 0)
+        const none = SAFETY_KINDS.filter((k) => data.counts[k] === 0)
+        return (
+          <div className="grid gap-3">
+            {seen.length > 0 && (
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Counts by kind">
+                {seen.map((k) => (
+                  <li key={k} className="grid content-start gap-1 border border-rule bg-surface px-4 py-3">
+                    <span className="font-display text-2xl leading-none tabular-nums">{data.counts[k]}</span>
+                    <span className="text-[13px] text-muted">{SAFETY_META[k].label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {none.length > 0 && <p className="text-sm text-muted">Nothing in {data.days} days: {none.map((k) => SAFETY_META[k].label.toLowerCase()).join(', ')}.</p>}
+          </div>
+        )
+      })()}
       {data.rows.length === 0 ? (
         <EmptyState icon={<ShieldAlert />} title="Nothing blocked or held" description="When the system refuses or holds something, it appears here with the time and who was involved." />
       ) : (

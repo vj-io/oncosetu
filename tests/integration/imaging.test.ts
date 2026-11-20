@@ -98,6 +98,24 @@ describe('imaging intake', () => {
     expect(study).toBeTruthy()
   }, 90_000)
 
+  it('one study sent in three uploads (two ZIPs and a single file) is one study on the record, with every picture in order', async () => {
+    const c = await ctx()
+    const uid = '1.2.826.0.1.3680043.8.498.555'
+    const slice = (i: number) => c.syn.buildSyntheticDicom({ modality: 'CT', patientName: 'Deshmukh^Sunita', sex: 'F', age: '051Y', studyUid: uid, instance: i, size: 16 })
+    const zipOf = async (from: number, to: number) => { const f: Record<string, Uint8Array> = {}; for (let i = from; i <= to; i++) f[`CT/IM${i}`] = await slice(i); return zipSync(f) }
+    const first = (await ingest(await zipOf(1, 4), 'cd-part-1.zip')).documents[0].documentId
+    await ingest(await zipOf(5, 7), 'cd-part-2.zip')
+    await ingest(await slice(8), 'IM8.dcm')
+    const { loadRecords } = await import('../../src/server/records/queries')
+    const { studyParts } = await import('../../src/server/pipeline/study-parts')
+    const rows = (await c.db.withOrg(ORG_NARMADA_ID, (tx) => loadRecords(tx, pid))).rows.filter((r) => r.scan?.studyUid === uid)
+    expect(rows).toHaveLength(1) // three stored parts, one study on the record, standing for it the part that came first
+    expect(rows[0]).toMatchObject({ id: first, scan: { instances: 8, frames: 8, parts: 3 } })
+    const parts = await c.db.withOrg(ORG_NARMADA_ID, async (tx) => studyParts(tx, await load(first)))
+    expect(parts.map((p) => [p.mime, p.slices])).toEqual([['application/x-dicom-study', 4], ['application/x-dicom-study', 3], ['application/dicom', 1]])
+    expect(parts[0].id).toBe(first)
+  }, 90_000)
+
   it('stores a video, an ECG file and a NIfTI file without reading them; they wait for a person because the file names nobody', async () => {
     const mp4 = Buffer.alloc(64); mp4.writeUInt32BE(64, 0); mp4.write('ftyp', 4); mp4.write('isom', 8)
     const d1 = await load((await ingest(mp4, 'echo.mp4')).documents[0].documentId)

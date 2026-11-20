@@ -170,7 +170,8 @@ export function toRecordRow(d: DocLike, o: { docLabel: (t: string) => string; fa
 
 /**
  * Parts of one study that arrived in separate uploads (same StudyInstanceUID) are shown as ONE study: the part that arrived first
- * stands for it and the image counts add up. The stored parts are untouched (originals are never changed).
+ * stands for it and the image counts add up. Each part counts the pictures the viewer steps through (its instances, or a single
+ * file's frames), the same count the preview route uses (studyParts). The stored parts are untouched (originals are never changed).
  */
 export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 'receivedAt'>>(rows: readonly T[]): T[] {
   const byUid = new Map<string, T[]>()
@@ -180,7 +181,8 @@ export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 're
     if (group.length < 2) continue
     const [first, ...rest] = [...group].sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : a.receivedAt > b.receivedAt ? 1 : a.id < b.id ? -1 : 1))
     for (const r of rest) drop.add(r.id)
-    rep.set(first.id, { ...first, scan: { ...first.scan!, instances: group.reduce((n, r) => n + r.scan!.instances, 0), frames: group.reduce((n, r) => n + r.scan!.frames, 0), parts: group.length } })
+    const pictures = group.reduce((n, r) => n + Math.max(1, r.scan!.instances > 1 ? r.scan!.instances : r.scan!.frames), 0)
+    rep.set(first.id, { ...first, scan: { ...first.scan!, instances: pictures, frames: pictures, parts: group.length } })
   }
   return rows.filter((r) => !drop.has(r.id)).map((r) => rep.get(r.id) ?? r)
 }
@@ -326,10 +328,9 @@ export function earlierStudies(rows: readonly RecordRow[], id: string, limit = 4
   if (!me?.scan || !me.date) return []
   return sortRecords(rows.filter((r) => {
     if (r.id === id || !r.scan || !r.date || r.date >= me.date!) return false
-    if (me.scan!.studyUid && r.scan.studyUid === me.scan!.studyUid) return false // another part of this same study
     if (r.scan.modality !== me.scan!.modality) return false
     return !r.scan.bodyKey || !me.scan!.bodyKey || r.scan.bodyKey === me.scan!.bodyKey
-  }), 'new').filter((r, i, all) => !r.scan!.studyUid || all.findIndex((x) => x.scan!.studyUid === r.scan!.studyUid) === i).slice(0, limit) // one row per study
+  }), 'new').slice(0, limit)
 }
 
 /**

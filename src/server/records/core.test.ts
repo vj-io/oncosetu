@@ -202,6 +202,19 @@ describe('one study in several uploads', () => {
     expect(out.map((r) => r.id)).toEqual(['a', 'c', 'd'])
     expect(out[0].scan).toMatchObject({ instances: 710, frames: 710, parts: 2 })
   })
+  it('counts each part as the pictures the viewer steps through (a single multi-frame file counts its frames)', () => {
+    const multi = { ...part('m', '2026-11-01', 1, 'U3'), scan: { ...part('m', '2026-11-01', 1, 'U3').scan!, frames: 9 } }
+    const out = collapseStudyParts([multi, part('n', '2026-11-02', 5, 'U3')])
+    expect(out).toHaveLength(1)
+    expect(out[0].scan).toMatchObject({ instances: 14, frames: 14, parts: 2 })
+  })
+  it('earlier studies still list one row per earlier study, never another part of this one', () => {
+    const ct = (id: string, received: string, studyDate: string, studyUid: string, n: number) =>
+      row({ id, mime: 'application/x-dicom-study', receivedAt: received, flags: { imaging: { ...imaging(['CT'], studyDate, 'CHEST').imaging, studyUid, instances: n, frames: n } } })
+    const rows = collapseStudyParts([ct('p1', '2026-11-01T09:00:00.000Z', '2026-10-30', 'NOW', 400), ct('p2', '2026-11-02T09:00:00.000Z', '2026-10-30', 'NOW', 300), ct('old', '2026-03-01T09:00:00.000Z', '2026-02-27', 'OLD', 200)])
+    expect(rows.map((r) => r.id)).toEqual(['p1', 'old'])
+    expect(earlierStudies(rows, 'p1').map((r) => r.id)).toEqual(['old'])
+  })
 })
 
 describe('applyLinkDecision (the list changes at once)', () => {

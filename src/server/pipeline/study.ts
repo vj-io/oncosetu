@@ -28,19 +28,20 @@ export function bundleNames(zipBytes: Uint8Array): string[] {
 
 const BUNDLE_NAME = /^\d{4,}-/
 /**
- * One slice of a bundle by position, inflating only that slice. Bundles made by the upload path name their files `0001-...` in reading
- * order, so the position is the name order; any other bundle falls back to sorting by the header's instance number.
+ * One slice of a bundle by position (the middle one when none is asked for), inflating only that slice. Bundles made by the upload
+ * path name their files `0001-...` in reading order, so the position is the name order; any other bundle falls back to sorting by
+ * the header's instance number.
  */
-export function bundleSliceAt(zipBytes: Uint8Array, index: number): { count: number; data: Uint8Array | null } {
+export function bundleSliceAt(zipBytes: Uint8Array, index?: number): { count: number; data: Uint8Array | null } {
   const names = bundleNames(zipBytes)
   if (names.length && names.every((n) => BUNDLE_NAME.test(n))) {
     const sorted = names.sort()
-    const pick = sorted[Math.min(Math.max(index, 0), sorted.length - 1)]
+    const pick = sorted[Math.min(Math.max(index ?? Math.floor(sorted.length / 2), 0), sorted.length - 1)]
     const out = unzipSync(zipBytes, { filter: (f) => f.name === pick })
     return { count: sorted.length, data: out[pick] ?? null }
   }
   const all = orderedInstances(zipBytes)
-  return { count: all.length, data: all[Math.min(Math.max(index, 0), all.length - 1)] ?? null }
+  return { count: all.length, data: all[Math.min(Math.max(index ?? Math.floor(all.length / 2), 0), all.length - 1)] ?? null }
 }
 
 /**

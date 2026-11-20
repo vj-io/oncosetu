@@ -13,7 +13,7 @@ import { closeEncounters, eventsOf, missingOf, smsTo, snapshotsOf } from './help
 import { createShare } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
 import { SHADOW_RULE } from './global-setup'
-import { diagnosisHits, legalHits, radarHits } from './helpers/text'
+import { diagnosisHits, legalHits, radarHits, textWithoutButtons } from './helpers/text'
 
 const BACKLOG = ['hero__01-discharge-summary.pdf', 'hero__02-chemo-daycare-cycle4.pdf', 'hero__03-ct-thorax-abdomen.jpg', 'hero__04-prescription-printed.pdf',
   'hero__05-prescription-handwritten.jpg', 'hero__06-cbc-hindi.jpg', 'hero__07-wrong-patient-histopathology.pdf', 'hero__08-lab-report-injection.pdf', 'hero__09-mammography-2024.pdf']
@@ -40,11 +40,11 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     await page.getByRole('tab', { name: 'Phone' }).click()
     await page.getByLabel('Phone').fill(p.phone!)
     await page.getByRole('button', { name: 'Look up' }).click()
-    const hits = page.getByRole('list', { name: 'Matches' }).getByRole('button')
-    await expect(hits).toHaveCount(1)
-    await expect(hits).toContainText(`ACC. ${p.accession}`)
-    await expect(hits).not.toContainText(/Sunita|Deshmukh/)
-    await hits.click()
+    // 4866acc: a single match is not listed, it opens straight as the verification panel (initials and record code).
+    await expect(page.getByRole('list', { name: 'Matches' })).toHaveCount(0)
+    await expect(page.getByText('Verification required').first()).toBeVisible()
+    await expect(page.locator('main')).toContainText(`Record code ${p.accession}`)
+    await expect(page.locator('main')).not.toContainText(/Sunita|Deshmukh/)
     const since = Date.now() - 2000
     await page.getByRole('button', { name: 'Send code' }).click()
     const sms = await until(async () => (await smsTo(p.caregiverPhone!)).find((m) => m.templateKey === 'desk.otp' && m.createdAt.getTime() >= since))
@@ -90,7 +90,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     await expect(page.locator(`article#m-${ihc.id}`)).toHaveCount(0)
     expect((await missingOf(p.id)).filter((m) => m.ruleId === CYCLES)).toHaveLength(1)
     await expect(page.locator(`article#m-${(await itemOf(p.id, CYCLES)).id}`)).toContainText('Chemotherapy records for cycles 1–3 are not in file')
-    expect(radarHits(await page.locator('main').innerText())).toEqual([])
+    expect(radarHits(await textWithoutButtons(page.locator('main')))).toEqual([]) // minus staff buttons (3a5338e: "Not needed" is a control label)
   })
 
   await test.step('4 · request letter from the histopathology frame: hospital prefilled, Hindi letter, no deadline claimed', async () => {
@@ -141,7 +141,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     const card = page.locator(`article#m-${hpe.id}`)
     await expect(card).toContainText('From a different hospital than the one that mentioned it') // E-RAD-01: Nirnay lab vs Triveni hospital
     await card.getByRole('button', { name: 'Confirm closure' }).click()
-    await expect(page.getByRole('dialog')).toContainText('Institution differs from the one in the triggering record (E-RAD-01)')
+    await expect(page.getByRole('dialog')).toContainText('This paper is from a different hospital than the one that mentioned it') // 3a5338e plain wording of E-RAD-01
     await page.getByRole('dialog').getByRole('button', { name: 'Confirm closure' }).click()
     await expect.poll(async () => (await itemOf(p.id, HPE)).state).toBe('closed')
     const req = (await records.get(`/api/requests?patientId=${p.id}`)).body.requests.find((r: { id: string }) => r.id !== cyclesReq)
@@ -174,7 +174,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     await viewer.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(viewer.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
     await expect(viewer.getByText(/Signature verified. This link was signed by Setu Records/)).toBeVisible()
-    await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
+    await expect(viewer.getByRole('heading', { name: 'Papers not in this file' })).toBeVisible()
     const text = await viewer.locator('body').innerText()
     expect(text).toMatch(/not in file/i)
     expect(diagnosisHits(text)).toEqual([])

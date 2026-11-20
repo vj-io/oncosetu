@@ -75,7 +75,7 @@ test('V06-E2E-01 break-glass: reason required, patient notified, access works, e
   else await expect(alert).toHaveCount(0)
   expect((await admin.post(`/api/admin/break-glass/${grant.id}/review`)).body.error.code).toBe('already_reviewed')
   const reviewed = parseCsv(((await admin.get('/api/admin/audit.csv?action=break_glass.reviewed')).body as string)).find((r) => r.target_id === p.id)
-  expect(JSON.parse(reviewed!.details)).toEqual({ breakGlassId: grant.id, grantedTo: grant.staffId })
+  expect(JSON.parse(reviewed!.details)).toEqual({ breakGlassId: grant.id, grantedTo: grant.staffId, reviewerRole: 'org_admin', fallback: false }) // 6d5df85: ids and enums only, no PHI
 
   // Expiry is enforced on the next request, with nothing else changed.
   await expireBreakGlass(p.id)

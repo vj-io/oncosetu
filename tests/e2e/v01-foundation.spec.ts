@@ -58,6 +58,7 @@ test('V01-E2E-02 register a synthetic patient with consent per purpose; QR card 
   const page = await ui('desk')
   await page.goto(`/patients/${p.id}/card`)
   await page.getByRole('button', { name: 'Issue a replacement card' }).click() // the card is shown once: this tab never saw the plain code
+  await page.getByRole('button', { name: 'Yes, replace the card' }).click() // 9059422: replacing asks twice
   const card = page.getByRole('article', { name: 'Records card' })
   await expect(card.getByRole('img', { name: /QR code/ })).toBeVisible()
   const shown = (await card.locator('p.font-mono').first().innerText()).replace(/[-\s]/g, '')
@@ -116,7 +117,7 @@ test('V01-E2E-03 a scan shows initials and "verification required"; an OTP opens
   await page.getByLabel('Phone', { exact: true }).fill(p.phone!)
   await page.getByRole('button', { name: 'Look up' }).click()
   await expect(page.getByText('Verification required').first()).toBeVisible()
-  await expect(page.getByRole('list', { name: 'Matches' })).toContainText('MAR')
+  await expect(page.locator('main')).toContainText('MAR') // 4866acc: one match is shown once, as the verification panel (no 'Matches' list)
   await expect(page.locator('main')).not.toContainText('Rahim')
   const since = Date.now() - 1000
   await page.getByRole('button', { name: 'Send code' }).click()

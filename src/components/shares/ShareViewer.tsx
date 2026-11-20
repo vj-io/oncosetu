@@ -124,7 +124,7 @@ export function ShareViewer({ id }: { id: string }) {
           const v = signed ? VERIFY[it.verification] : undefined // chips only when the server vouches for them
           const where = it.source.label ? `${inLang(it.source.label, lang)}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : null
           return (
-            <li key={i} className="grid gap-1.5 border-l-[3px] border-l-rule pl-3">
+            <li key={i} data-testid="share-item" className="grid gap-1.5 border-l-[3px] border-l-rule pl-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="text-[16px]">{inLang(it.label, lang)}</span>
                 <span className="font-mono text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
@@ -205,6 +205,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <p className="ds-kicker">{t('viewerKicker')}</p>
                 <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{inLang(p.heading, lang)}</h1>
                 <p className="text-[17px]">{t(p.createdBy === 'staff' ? 'byClinic' : p.createdBy === 'patient' ? 'byPatient' : p.createdBy === 'caregiver' ? 'byFamily' : 'byUnknown')}</p>
+                <p className="text-[17px]">{inLang(p.notice, lang)}</p>{/* FR-PAS-03 / ADR-002: only records provided to the clinic */}
                 <p className="font-mono text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
                 {signed ? (
                   <p role="status" className="flex items-start gap-2 border-l-[3px] border-l-sage bg-sage-tint px-3 py-2 text-[15px] text-sage-ink">

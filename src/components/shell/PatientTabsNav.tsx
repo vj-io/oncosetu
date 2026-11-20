@@ -47,7 +47,7 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
 
   return (
     <div className="flex items-stretch">
-      <nav aria-label="Patient workspace" className="min-w-0 overflow-x-auto">
+      <nav aria-label="Patient workspace" className="relative min-w-0 overflow-x-auto">
         <ul className="flex min-w-max gap-1">
           {main.map((it) => (
             <li key={it.href}>

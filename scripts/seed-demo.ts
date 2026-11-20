@@ -68,7 +68,7 @@ class Client {
     if (body instanceof FormData) payload = body
     else if (body !== undefined) { headers['content-type'] = 'application/json'; payload = JSON.stringify(body) }
     const res = await fetch(this.base + url, { method, headers, body: payload, redirect: 'manual' })
-    const sid = res.headers.getSetCookie().find((c) => c.startsWith('os_sid='))
+    const sid = res.headers.getSetCookie().find((c) => /^(?:__Host-)?os_sid=/.test(c)) // HTTPS names it __Host-os_sid (src/server/session.ts)
     if (sid) this.cookie = sid.split(';')[0]
     const text = await res.text()
     if (!ok.includes(res.status)) throw new Error(`${this.who} ${method} ${url} → ${res.status} ${text.slice(0, 400)}`)

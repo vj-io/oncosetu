@@ -37,7 +37,11 @@ export type SyntheticOpts = {
   size?: number
   rle?: boolean
   /** Test only: pixel data already compressed (JPEG 2000, JPEG-LS...), one codestream per frame, with its transfer syntax. */
-  encapsulated?: { transferSyntax: string; frames: Uint8Array[]; bits?: number }
+  encapsulated?: { transferSyntax: string; frames: Uint8Array[] }
+  /** Test only: uncompressed 16-bit pixels (little endian), one buffer per frame, in place of the drawn shapes. */
+  rawFrames?: Buffer[]
+  /** Test only: pixel header values other than the defaults (unsigned, 12 bits stored, the window below, no rescale). */
+  pixelHeader?: { signed?: boolean; bitsStored?: number; rescale?: [slope: number, intercept: number]; window?: [centre: number, width: number] }
   /** Test only: label the file with another transfer syntax (the pixels stay uncompressed). */
   transferSyntax?: string
   /** Slice position 0..1, moves the shapes a little so a series looks like a series. */
@@ -88,11 +92,13 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
   const frameBuffers: Buffer[] = []
   for (let f = 0; f < frames; f++) {
     const grey = await syntheticPicture(o.modality, size, frames > 1 ? f / (frames - 1) : o.slice ?? 0.5, `${o.description ?? o.modality} · synthetic sample`)
-    if (sixteen) { const b = Buffer.alloc(grey.length * 2); grey.forEach((g, i) => b.writeUInt16LE(g * 16, i * 2)); frameBuffers.push(b) } else frameBuffers.push(Buffer.from(grey))
+    if (o.rawFrames) frameBuffers.push(o.rawFrames[f])
+    else if (sixteen) { const b = Buffer.alloc(grey.length * 2); grey.forEach((g, i) => b.writeUInt16LE(g * 16, i * 2)); frameBuffers.push(b) } else frameBuffers.push(Buffer.from(grey))
   }
   const ts = o.encapsulated?.transferSyntax ?? o.transferSyntax ?? (o.rle ? '1.2.840.10008.1.2.5' : '1.2.840.10008.1.2.1')
   const sop = ({ CT: '1.2.840.10008.5.1.4.1.1.2', MR: '1.2.840.10008.5.1.4.1.1.4', PT: '1.2.840.10008.5.1.4.1.1.128', CR: '1.2.840.10008.5.1.4.1.1.1', DX: '1.2.840.10008.5.1.4.1.1.1.1', MG: '1.2.840.10008.5.1.4.1.1.1.2', US: '1.2.840.10008.5.1.4.1.1.6.1', NM: '1.2.840.10008.5.1.4.1.1.20' } as const)[o.modality]
   const sopInstance = `${o.studyUid}.${o.instance ?? 1}`
+  const ph = o.pixelHeader ?? {}
   const meta = Buffer.concat([
     enc([2, 1], 'OB', Buffer.from([0, 1])), enc([2, 2], 'UI', sop), enc([2, 3], 'UI', sopInstance), enc([2, 0x10], 'UI', ts), enc([2, 0x12], 'UI', '1.2.826.0.1.3680043.8.498.1'),
   ])
@@ -105,8 +111,9 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
     enc([0x20, 0xd], 'UI', o.studyUid), enc([0x20, 0xe], 'UI', o.seriesUid ?? `${o.studyUid}.9`), enc([0x20, 0x13], 'IS', String(o.instance ?? 1)),
     enc([0x28, 2], 'US', 1), enc([0x28, 4], 'CS', 'MONOCHROME2'), ...(frames > 1 ? [enc([0x28, 8], 'IS', String(frames))] : []),
     enc([0x28, 0x10], 'US', size), enc([0x28, 0x11], 'US', size),
-    enc([0x28, 0x100], 'US', sixteen ? 16 : 8), enc([0x28, 0x101], 'US', sixteen ? 12 : 8), enc([0x28, 0x102], 'US', sixteen ? 11 : 7), enc([0x28, 0x103], 'US', 0),
-    ...(sixteen ? [enc([0x28, 0x1050], 'DS', '2040'), enc([0x28, 0x1051], 'DS', '4080')] : []),
+    enc([0x28, 0x100], 'US', sixteen ? 16 : 8), enc([0x28, 0x101], 'US', ph.bitsStored ?? (sixteen ? 12 : 8)), enc([0x28, 0x102], 'US', (ph.bitsStored ?? (sixteen ? 12 : 8)) - 1), enc([0x28, 0x103], 'US', ph.signed ? 1 : 0),
+    ...(sixteen ? [enc([0x28, 0x1050], 'DS', String(ph.window?.[0] ?? 2040)), enc([0x28, 0x1051], 'DS', String(ph.window?.[1] ?? 4080))] : []),
+    ...(ph.rescale ? [enc([0x28, 0x1052], 'DS', String(ph.rescale[1])), enc([0x28, 0x1053], 'DS', String(ph.rescale[0]))] : []),
   ]
   let pixel: Buffer
   if (o.rle || o.encapsulated) {

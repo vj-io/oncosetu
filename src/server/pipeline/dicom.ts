@@ -200,7 +200,7 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
     let data: Uint8Array
     let planar = (ds.uint16('x00280006') ?? 0) === 1
     let bps = alloc > 8 ? 2 : 1
-    let signed = (ds.uint16('x00280103') ?? 0) === 1
+    const signed = (ds.uint16('x00280103') ?? 0) === 1 // the header decides, also for decoded frames (a codestream may say otherwise)
     let nSamples = samples
     if (RAW.has(ts)) {
       const frameLen = px * bps * samples
@@ -211,9 +211,10 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
     } else if (TS_J2K.has(ts) || TS_JLS.has(ts) || TS_JPEG_LOSSLESS.has(ts)) {
       // Display only: decode this one frame, draw it, drop it. The stored file is untouched.
       const enc = encapsulatedFrame(ds, el, frames, frame)
-      const d: Decoded = TS_J2K.has(ts) ? await decodeJ2k(enc) : TS_JLS.has(ts) ? await decodeJpegLs(enc) : await decodeJpegLossless(enc, rows, cols, samples, signed)
+      const want = { width: cols, height: rows }
+      const d: Decoded = TS_J2K.has(ts) ? await decodeJ2k(enc, want) : TS_JLS.has(ts) ? await decodeJpegLs(enc, want) : await decodeJpegLossless(enc, want, samples)
       if (d.width !== cols || d.height !== rows || d.data.length < px * d.bytesPerSample * d.samples) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
-      data = d.data; bps = d.bytesPerSample; signed = d.signed; nSamples = d.samples; planar = false
+      data = d.data; bps = d.bytesPerSample; nSamples = d.samples; planar = false
     } else {
       return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
     }
@@ -225,10 +226,14 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
       return { ok: true, png, frames, frame, windowed: false }
     }
     const slope = firstNumber(str(ds, 'x00281053')) ?? 1, intercept = firstNumber(str(ds, 'x00281052')) ?? 0
+    // Only the low `stored` bits are the value (the rest may hold overlays or junk); a signed value's sign is bit stored - 1.
+    const stored = Math.min(Math.max(ds.uint16('x00280101') ?? bps * 8, 1), bps * 8)
+    const mask = 2 ** stored - 1, sign = 2 ** (stored - 1)
     const vals = new Float32Array(px)
     const dv = new DataView(data.buffer, data.byteOffset, data.byteLength)
     for (let i = 0; i < px; i++) {
-      const raw = bps === 2 ? (signed ? dv.getInt16(i * 2, true) : dv.getUint16(i * 2, true)) : (signed ? dv.getInt8(i) : dv.getUint8(i))
+      let raw = (bps === 2 ? dv.getUint16(i * 2, true) : dv.getUint8(i)) & mask
+      if (signed && raw >= sign) raw -= 2 * sign
       vals[i] = raw * slope + intercept
     }
     const wc = firstNumber(str(ds, 'x00281050')), ww = firstNumber(str(ds, 'x00281051'))

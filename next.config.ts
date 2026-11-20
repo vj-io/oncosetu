@@ -14,7 +14,12 @@ const nextConfig: NextConfig = {
       "./node_modules/tesseract.js/**/*", "./node_modules/tesseract.js-core/**/*", "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/bmp-js/**/*", "./node_modules/zlibjs/**/*", "./node_modules/is-url/**/*", "./node_modules/regenerator-runtime/**/*",
       "./node_modules/unpdf/dist/**/*",
-      "./node_modules/@cornerstonejs/codec-openjpeg/**/*", "./node_modules/@cornerstonejs/codec-charls/**/*", "./node_modules/jpeg-lossless-decoder-js/**/*",
+      // DICOM preview decoders (src/server/pipeline/codecs.ts): exactly the files opened at run time, each .wasm found next to its .js
+      "./node_modules/@cornerstonejs/codec-openjpeg/package.json", "./node_modules/@cornerstonejs/codec-openjpeg/dist/openjpegwasm_decode.js",
+      "./node_modules/@cornerstonejs/codec-openjpeg/dist/openjpegwasm_decode.wasm",
+      "./node_modules/@cornerstonejs/codec-charls/package.json", "./node_modules/@cornerstonejs/codec-charls/dist/charlswasm_decode.js",
+      "./node_modules/@cornerstonejs/codec-charls/dist/charlswasm_decode.wasm",
+      "./node_modules/jpeg-lossless-decoder-js/package.json", "./node_modules/jpeg-lossless-decoder-js/release/cjs/lossless.cjs",
     ],
   },
   turbopack: {

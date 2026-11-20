@@ -12,6 +12,7 @@ const Body = z.strictObject({ // strict: a stray `key` field is rejected, never 
   scope: z.enum(['index', 'index_with_quotes']).default('index'),
   expiresInDays: z.number().int().min(1).max(30).default(7),
   passcode: z.string().min(6).max(64).nullable(),
+  label: z.string().trim().max(80).nullable().optional(),
 })
 
 export const POST = route({ auth: 'any', roles: ['patient', 'caregiver', 'desk', 'records', 'clinician'], body: Body, maxBytes: 2_200_000 }, async (ctx) =>

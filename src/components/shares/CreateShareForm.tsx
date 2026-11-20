@@ -8,7 +8,7 @@ import { Check, Copy, KeyRound, Link2, ShieldAlert } from 'lucide-react'
 import { Button, EmptyState, Field, Frame, Input, Select, Switch } from '@/components/ui'
 import { formatDateIN, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
-import { ts, type ShareKey } from '@/i18n/shares'
+import { tn, ts, type ShareKey } from '@/i18n/shares'
 import type { SharePayload, ShareScope } from '@/server/shares/payload'
 import clsx from 'clsx'
 import { api, ApiError } from '../requests/api'
@@ -16,7 +16,7 @@ import { sideStyle } from '../requests/side'
 import { encryptJson } from './crypto'
 
 type Payload = SharePayload & { snapshotId: string }
-type Created = { url: string; qr: string; expiresAt: string; passcode: string | null }
+type Created = { url: string; qr: string; expiresAt: string; passcode: string | null; papers: number; asOf: string }
 
 const DAYS = [1, 3, 7, 14, 30]
 const randomCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 1_000_000).padStart(6, '0')
@@ -34,6 +34,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
   const [days, setDays] = useState(7)
   const [usePasscode, setUsePasscode] = useState(true)
   const [passcode, setPasscode] = useState('')
+  const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [created, setCreated] = useState<Created | null>(null)
@@ -56,10 +57,10 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
       const { key, ciphertext, iv } = await encryptJson(payload)
       const code = usePasscode ? passcode.trim() : null
       const r = await api<{ id: string; expiresAt: string }>('/api/shares', {
-        ...(actor === 'staff' ? { patientId } : {}), snapshotId: payload.snapshotId, ciphertext, iv, scope, expiresInDays: days, passcode: code,
+        ...(actor === 'staff' ? { patientId } : {}), snapshotId: payload.snapshotId, ciphertext, iv, scope, expiresInDays: days, passcode: code, label: label.trim() || null,
       })
       const url = `${window.location.origin}/s/${r.id}#${key}`
-      setCreated({ url, qr: await QRCode.toDataURL(url, { margin: 1, width: 240, errorCorrectionLevel: 'M' }), expiresAt: r.expiresAt, passcode: code })
+      setCreated({ url, qr: await QRCode.toDataURL(url, { margin: 1, width: 240, errorCorrectionLevel: 'M' }), expiresAt: r.expiresAt, passcode: code, papers: payload.documents.length, asOf: payload.asOf })
       router.refresh()
     } catch (err) {
       setError(err instanceof ApiError && err.code === 'consent_required' ? t('noConsent') : err instanceof ApiError && err.code === 'no_snapshot' ? t('noSnapshot') : t('genericError'))
@@ -91,11 +92,12 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
             </Field>
             <div className="flex flex-wrap gap-2">
               <Button size={ui.size} className={ui.btn} variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={copy}>{copied ? t('copied') : t('copy')}</Button>
-              <Button size={ui.size} className={ui.btn} variant="ghost" onClick={() => { setCreated(null); setPasscode(randomCode()) }}>{t('another')}</Button>
+              <Button size={ui.size} className={ui.btn} variant="ghost" onClick={() => { setCreated(null); setLabel(''); setPasscode(randomCode()) }}>{t('another')}</Button>
             </div>
             <p className="text-[15px]">{t('worksUntil', { date: formatDateIN(istDate(created.expiresAt), lang) })}</p>
+            <p className="text-[15px]">{created.papers === 1 ? t('createdScopeOne', { date: formatDateIN(istDate(created.asOf), lang) }) : t('createdScope', { n: created.papers, date: formatDateIN(istDate(created.asOf), lang) })}</p>
             {created.passcode && <p className={clsx('flex items-center gap-2 text-[15px]', lang === 'hi' ? 'font-deva' : 'font-mono')}><KeyRound aria-hidden className="size-4" />{t('passcodeReminder', { code: created.passcode })}</p>}
-            {created.passcode && <p className="text-sm text-muted">{t('passcodeHint')}</p>}
+            {created.passcode && <p className="text-sm text-muted">{t('passcodeAfter')}</p>}
             <p className="text-sm text-muted">{t('keyNote')}</p>
           </div>
         </div>
@@ -115,11 +117,14 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
         {quotesAllowed && (
           <Field label={ui.plain(t('scopeLabel'))}>
             <Select value={scope} onChange={(e) => setScope(e.target.value as ShareScope)}>
-              <option value="index">{t('scopeIndex')}</option>
-              <option value="index_with_quotes">{t('scopeQuotes')}</option>
+              <option value="index">{t('scopeIndexName')}</option>
+              <option value="index_with_quotes">{t('scopeQuotesName')}</option>
             </Select>
           </Field>
         )}
+        <Field label={ui.plain(t('labelLabel'))} hint={t('labelHint')}>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} maxLength={80} autoComplete="off" placeholder={t('labelPlaceholder')} />
+        </Field>
         <Field label={ui.plain(t('expiryLabel'))}>
           <Select value={String(days)} onChange={(e) => setDays(Number(e.target.value))}>
             {DAYS.map((n) => <option key={n} value={n}>{n === 1 ? t('oneDay') : t('days', { n })}</option>)}
@@ -135,6 +140,11 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
             <ShieldAlert aria-hidden className="mt-0.5 size-4 shrink-0" />{t('passcodeOffWarning')}
           </p>
         )}
+        <div className="grid gap-1 text-[15px]" role="note">
+          <p>{pre.documents.length === 1 ? t('scopeSummaryOne', { date: formatDateIN(istDate(pre.asOf), lang) }) : t('scopeSummary', { n: pre.documents.length, date: formatDateIN(istDate(pre.asOf), lang) })}</p>
+          {pre.scans && pre.scans.length > 0 && <p>{t('scopeScans')}</p>}
+          <p className="text-muted">{t('scopeNewer')}</p>
+        </div>
         <p className="text-sm text-muted">{t('keyNote')}</p>
         {error && <p role="alert" className="text-sm text-madder-ink">{error}</p>}
         <div><Button type="submit" size="md" className={ui.btn} loading={busy} icon={<Link2 />}>{busy ? t('creating') : t('create')}</Button></div>

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatDateIN, istDate, lintText } from '@/core/copy'
 import { buildSnapshot } from '@/core/ledger'
 import type { CoreDocument, CoreEvent, EventType, FieldValue } from '@/core/types'
-import { ts } from '@/i18n/shares'
+import { tn, ts } from '@/i18n/shares'
 import { buildSharePayload, type PayloadInput } from './payload'
 
 const ev = (id: string, eventType: EventType, fields: Record<string, FieldValue>, eventDate: string, documentId: string, verificationStatus: CoreEvent['verificationStatus'] = 'unverified'): CoreEvent => ({
@@ -117,5 +117,37 @@ describe('scans in a share link (decision 12: listed, never included)', () => {
   })
   it('has no scans section when there are no scan files', () => {
     expect(buildSharePayload(base).scans).toBeUndefined()
+  })
+})
+
+describe('share payload creator and share wording (PUB-02, PUB-06, PUB-07, PAT-04)', () => {
+  it('carries who made the link, and leaves it out when unknown', () => {
+    expect(buildSharePayload({ ...base, createdBy: 'staff' }).createdBy).toBe('staff')
+    expect(buildSharePayload({ ...base, createdBy: 'caregiver' }).createdBy).toBe('caregiver')
+    expect('createdBy' in buildSharePayload(base)).toBe(false)
+  })
+  it('uses the singular for exactly one paper or item, in every language', () => {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      expect(tn(lang, 'papersN', 'papersOne', 1)).toBe(ts(lang, 'papersOne'))
+      expect(tn(lang, 'papersN', 'papersOne', 3)).toContain('3')
+      expect(tn(lang, 'itemsN', 'itemsOne', 1)).toBe(ts(lang, 'itemsOne'))
+      expect(tn(lang, 'papersN', 'papersOne', 1)).not.toContain('1 papers')
+    }
+    expect(tn('en', 'itemsN', 'itemsOne', 1)).toBe('1 recorded item')
+  })
+  it('the signature line names both the link date and the sealed date', () => {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      const line = ts(lang, 'sigVerified', { brand: 'OncoSetu', date: '19 Nov 2026', sealDate: '16 Feb 2026' })
+      expect(line).toContain('19 Nov 2026')
+      expect(line).toContain('16 Feb 2026')
+    }
+    expect(ts('en', 'sigVerified', { brand: 'B', date: 'D', sealDate: 'S' })).not.toContain('issued by')
+  })
+  it('says what the link covers, without calling the papers themselves shared', () => {
+    const line = ts('en', 'scopeSummary', { n: 3, date: '16 Feb 2026' })
+    expect(line).toContain('3 papers')
+    expect(line).toContain('after that date are not included')
+    expect(ts('en', 'scopeScans')).toContain('images stay at the clinic')
+    expect(ts('en', 'scopeQuotesName')).not.toMatch(/and the documents/)
   })
 })

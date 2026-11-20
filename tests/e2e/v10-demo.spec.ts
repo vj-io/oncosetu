@@ -173,7 +173,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     await viewer.getByLabel('Passcode').fill('246810')
     await viewer.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(viewer.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
-    await expect(viewer.getByText(/Signature verified — issued by Setu Records/)).toBeVisible()
+    await expect(viewer.getByText(/Signature verified. This link was signed by Setu Records/)).toBeVisible()
     await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
     const text = await viewer.locator('body').innerText()
     expect(text).toMatch(/not in file/i)

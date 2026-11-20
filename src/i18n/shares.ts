@@ -109,6 +109,11 @@ export const en = {
   papersOne: '1 paper',
   itemsN: '{n} recorded items',
   itemsOne: '1 recorded item',
+  labelLabel: 'Who is this link for? (optional)',
+  labelHint: 'For example: Dr. Mehta, Pune. Only you and the clinic see this name. The doctor does not.',
+  labelPlaceholder: 'Dr. Mehta, Pune',
+  scopeIndexName: 'Document list',
+  scopeQuotesName: 'Document list with the words from each paper',
 
   // ── SMS ──
   lockedSms: '{brand}: a link to your records was locked after 5 wrong passcode attempts. If you did not expect this, you can switch the link off from your records page.',
@@ -219,6 +224,11 @@ export const hi: Record<ShareKey, string> = {
   papersOne: '1 काग़ज़',
   itemsN: '{n} दर्ज प्रविष्टियाँ',
   itemsOne: '1 दर्ज प्रविष्टि',
+  labelLabel: 'यह लिंक किसके लिए है? (वैकल्पिक)',
+  labelHint: 'जैसे: डॉ. मेहता, पुणे। यह नाम सिर्फ़ आप और क्लिनिक देखते हैं, डॉक्टर नहीं।',
+  labelPlaceholder: 'डॉ. मेहता, पुणे',
+  scopeIndexName: 'दस्तावेज़ों की सूची',
+  scopeQuotesName: 'दस्तावेज़ों की सूची, हर काग़ज़ के शब्दों के साथ',
 
   lockedSms: '{brand}: आपके रिकॉर्ड का एक लिंक 5 बार गलत पासकोड डालने के बाद बंद हो गया। अगर यह आपकी जानकारी में नहीं है, तो आप अपने रिकॉर्ड पेज से लिंक बंद कर सकते हैं।',
 }
@@ -327,6 +337,11 @@ export const hinglish: Record<ShareKey, string> = {
   papersOne: '1 paper',
   itemsN: '{n} darj entries',
   itemsOne: '1 darj entry',
+  labelLabel: 'Yeh link kiske liye hai? (optional)',
+  labelHint: 'Jaise: Dr. Mehta, Pune. Yeh naam sirf aap aur clinic dekhte hain, doctor nahi.',
+  labelPlaceholder: 'Dr. Mehta, Pune',
+  scopeIndexName: 'Documents ki list',
+  scopeQuotesName: 'Documents ki list, har paper ke shabdon ke saath',
 
   lockedSms: '{brand}: aapke records ka ek link 5 baar galat passcode daalne ke baad band ho gaya. Agar ye aapki jaankari mein nahi hai, to aap apne records page se link band kar sakte hain.',
 }

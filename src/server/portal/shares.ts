@@ -13,7 +13,7 @@ export async function hasSealedRecord(tx: Tx, patientId: string): Promise<boolea
 export type ShareStatus = 'active' | 'expired' | 'revoked' | 'locked'
 export type ShareRow = {
   id: string; scope: 'summary' | 'summary_with_documents'; status: ShareStatus
-  createdAt: string; expiresAt: string; opened: number
+  createdAt: string; expiresAt: string; opened: number; label: string | null
 }
 
 export function shareStatus(s: { revokedAt: Date | null; lockedAt: Date | null; expiresAt: Date }, at: Date): ShareStatus {
@@ -26,7 +26,7 @@ export async function loadShares(tx: Tx, orgId: string, patientId: string): Prom
   const at = await now(orgId)
   const rows = await tx.select({
     id: shareLinks.id, scope: shareLinks.scope, createdAt: shareLinks.createdAt, expiresAt: shareLinks.expiresAt,
-    revokedAt: shareLinks.revokedAt, lockedAt: shareLinks.lockedAt,
+    revokedAt: shareLinks.revokedAt, lockedAt: shareLinks.lockedAt, label: shareLinks.label,
   }).from(shareLinks).where(eq(shareLinks.patientId, patientId)).orderBy(desc(shareLinks.createdAt)).limit(50)
   const views = rows.length
     ? await tx.select({ id: shareViews.shareLinkId, n: sql<number>`count(*)::int` }).from(shareViews)
@@ -35,7 +35,7 @@ export async function loadShares(tx: Tx, orgId: string, patientId: string): Prom
   const opened = new Map(views.map((v) => [v.id, v.n]))
   return rows.map((r) => ({
     id: r.id, scope: r.scope, status: shareStatus(r, at), createdAt: r.createdAt.toISOString(),
-    expiresAt: r.expiresAt.toISOString(), opened: opened.get(r.id) ?? 0,
+    expiresAt: r.expiresAt.toISOString(), opened: opened.get(r.id) ?? 0, label: r.label,
   }))
 }
 

@@ -6,7 +6,7 @@ import { ArrowUpRight, Lock, Printer, ShieldAlert, ShieldCheck } from 'lucide-re
 import { BrassSeal, Button, Chip, EmptyFrame, Field, Frame, Input, LanguageToggle, SectionHeader, Spotlight, Wordmark, type Tone } from '@/components/ui'
 import { formatDateIN, htmlLang, inLang, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
-import { ts, type ShareKey } from '@/i18n/shares'
+import { tn, ts, type ShareKey } from '@/i18n/shares'
 import type { Verification } from '@/server/shares/payload'
 import type { SignedSharePayload } from '@/server/shares/shares'
 import { decryptJson, verifySharePayload } from './crypto'
@@ -18,11 +18,7 @@ type Phase =
 
 // Words only this viewer uses (the shared i18n file belongs to another package). en / hi / hinglish.
 const L = {
-  intro: { en: 'A list of records shared by the patient. Not a clinical summary.', hi: 'मरीज़ द्वारा साझा किए गए रिकॉर्ड की सूची। यह चिकित्सा सारांश नहीं है।', hinglish: 'Mareez ne jo records share kiye unki list. Yeh clinical summary nahi hai.' },
   papers: { en: 'Papers shared', hi: 'साझा किए गए काग़ज़', hinglish: 'Share kiye gaye papers' },
-  papersCount: { en: '{n} papers, newest first. Open one to see what it contains.', hi: '{n} काग़ज़, सबसे नया पहले। देखने के लिए किसी एक को खोलें।', hinglish: '{n} papers, sabse naya pehle. Dekhne ke liye ek kholein.' },
-  nPapers: { en: '{n} papers', hi: '{n} काग़ज़', hinglish: '{n} papers' },
-  nItems: { en: '{n} recorded items', hi: '{n} दर्ज प्रविष्टियाँ', hinglish: '{n} darj entries' },
   details: { en: 'What it contains', hi: 'इसमें क्या है', hinglish: 'Isme kya hai' },
   noDate: { en: 'Date not given', hi: 'तारीख़ नहीं दी गई', hinglish: 'Date nahi di gayi' },
   otherTitle: { en: 'Other recorded items', hi: 'अन्य दर्ज प्रविष्टियाँ', hinglish: 'Anya darj entries' },
@@ -31,7 +27,6 @@ const L = {
   scanNote: { en: 'Stored at the clinic, not included', hi: 'क्लिनिक में रखा है, शामिल नहीं', hinglish: 'Clinic mein rakha hai, shaamil nahi' },
   absentHead: { en: 'Papers not in this file', hi: 'इस फ़ाइल में न मिले काग़ज़', hinglish: 'Is file mein na mile papers' },
 } as const
-const fill = (str: string, n: number) => str.replace('{n}', String(n))
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -48,6 +43,7 @@ export function ShareViewer({ id }: { id: string }) {
   const [phase, setPhase] = useState<Phase>({ k: 'loading' })
   const [passcode, setPasscode] = useState('')
   const [busy, setBusy] = useState(false)
+  const [showCode, setShowCode] = useState(false)
   const t = (k: ShareKey, v?: Record<string, string | number>) => ts(lang, k, v)
   /** Devanagari: no uppercase or letter-spacing tracking (it breaks conjuncts). */
   const hi = (text: string) => (lang === 'hi' ? <span className="font-deva tracking-normal normal-case">{text}</span> : text)
@@ -148,7 +144,8 @@ export function ShareViewer({ id }: { id: string }) {
     const its = byDoc.get(d.id) ?? []
     // First as-written line: a quote when the patient shared quotes, else the first recorded item that is not just the paper's own kind.
     const first = its.find((x) => x.quote) ?? its.find((x) => inLang(x.label, lang) !== inLang(d.label, lang)) ?? its[0]
-    const line = first ? (first.quote ? `“${first.quote}”` : `${inLang(first.label, lang)}${first.date ? ` · ${formatDateIN(first.date, lang, first.precision)}` : ''}`) : null
+    // Quotes only: without them the first item's own kind and date would read as the paper's (PUB-08); the count below says what is inside.
+    const line = first?.quote ? `“${first.quote}”` : null
     return (
       <Frame className="grid gap-2 px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -160,7 +157,7 @@ export function ShareViewer({ id }: { id: string }) {
         {its.length > 0 && (
           <details className="border-t border-rule pt-2">
             <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-[15px] text-setu-ink">
-              <span>{L.details[lang]}</span><span className="font-mono text-[12px] text-muted">{fill(L.nItems[lang], its.length)}</span>
+              <span>{L.details[lang]}</span><span className="font-mono text-[12px] text-muted">{tn(lang, 'itemsN', 'itemsOne', its.length)}</span>
             </summary>
             <div className="pt-2">{renderItems(its)}</div>
           </details>
@@ -194,8 +191,9 @@ export function ShareViewer({ id }: { id: string }) {
                 <div className="flex items-center gap-2"><Lock aria-hidden className="size-5 text-muted" /><h1 className="text-2xl">{t('passcodeTitle')}</h1></div>
                 <p className="text-muted">{t('passcodeIntro')}</p>
                 <Field label={t('passcodeLabel')} error={phase.left != null ? t('wrongPasscode', { n: phase.left }) : undefined}>
-                  <Input value={passcode} onChange={(e) => setPasscode(e.target.value)} autoComplete="off" autoFocus maxLength={64} className="font-mono" />
+                  <Input type={showCode ? 'text' : 'password'} value={passcode} onChange={(e) => setPasscode(e.target.value)} autoComplete="off" autoFocus maxLength={64} className="font-mono" />
                 </Field>
+                <div><Button type="button" size="sm" variant="ghost" aria-pressed={showCode} onClick={() => setShowCode((v) => !v)}>{showCode ? t('hidePasscode') : t('showPasscode')}</Button></div>
                 <div><Button type="submit" loading={busy}>{busy ? t('opening') : t('open')}</Button></div>
               </form>
             </Frame>
@@ -206,11 +204,11 @@ export function ShareViewer({ id }: { id: string }) {
               <div className="grid gap-3">
                 <p className="ds-kicker">{t('viewerKicker')}</p>
                 <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{inLang(p.heading, lang)}</h1>
-                <p className="text-[17px]">{L.intro[lang]}</p>
+                <p className="text-[17px]">{t(p.createdBy === 'staff' ? 'byClinic' : p.createdBy === 'patient' ? 'byPatient' : p.createdBy === 'caregiver' ? 'byFamily' : 'byUnknown')}</p>
                 <p className="font-mono text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
                 {signed ? (
                   <p role="status" className="flex items-start gap-2 border-l-[3px] border-l-sage bg-sage-tint px-3 py-2 text-[15px] text-sage-ink">
-                    <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />{t('sigVerified', { brand: p.brand, date: formatDateIN(istDate(p.issuedAt), lang) })}
+                    <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />{t('sigVerified', { brand: p.brand, date: formatDateIN(istDate(p.issuedAt), lang), sealDate: formatDateIN(istDate(p.asOf), lang) })}
                   </p>
                 ) : (
                   <p role="alert" className="flex items-start gap-2 border-l-[3px] border-l-madder bg-madder-tint px-3 py-2 text-[15px] text-madder-ink">
@@ -220,12 +218,12 @@ export function ShareViewer({ id }: { id: string }) {
               </div>
 
               <section aria-labelledby="papers-h" className="grid gap-6">
-                <SectionHeader title={<span id="papers-h">{L.papers[lang]}</span>} description={fill(L.papersCount[lang], p.documents.length)} />
+                <SectionHeader title={<span id="papers-h">{L.papers[lang]}</span>} description={tn(lang, 'papersShared', 'papersSharedOne', p.documents.length)} />
                 {groups.length ? groups.map((g) => (
                   <div key={g.label} className="grid gap-3">
                     <h3 className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-rule pb-1 text-lg">
                       <span>{g.label}</span>
-                      <span className="font-mono text-[13px] text-muted">{fill(L.nPapers[lang], g.docs.length)}</span>
+                      <span className="font-mono text-[13px] text-muted">{tn(lang, 'papersN', 'papersOne', g.docs.length)}</span>
                     </h3>
                     <ul className="grid gap-3">
                       {g.docs.map((d) => <li key={d.id}>{renderPaper(d)}</li>)}

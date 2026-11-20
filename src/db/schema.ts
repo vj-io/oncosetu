@@ -490,6 +490,8 @@ export const shareLinks = pgTable('share_links', {
   iv: text('iv').notNull(),
   expiresAt: tsz('expires_at').notNull(),
   passcodeHash: text('passcode_hash'),
+  /** Who the link is for, in the creator's words (plain text, never inside the encrypted record). */
+  label: text('label'),
   attempts: integer('attempts').notNull().default(0),
   lockedAt: tsz('locked_at'),
   revokedAt: tsz('revoked_at'),

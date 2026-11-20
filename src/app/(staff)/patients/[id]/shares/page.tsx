@@ -54,6 +54,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
                 {rows.map((r) => (
                   <tr key={r.id} className="align-top">
                     <td>
+                      {r.label && <span className="block font-medium">{r.label}</span>}
                       <span className="block">{formatDateTimeIN(r.createdAt, 'en')}</span>
                       <span className="font-mono text-[11px] text-faint">{r.createdBy} · {r.scope === 'summary' ? 'list only' : 'list and quotes'} · {r.passcode ? 'passcode' : 'no passcode'}</span>
                     </td>

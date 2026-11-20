@@ -18,6 +18,7 @@ export default async function SharePage({ searchParams }: { searchParams: Portal
     sealed: await hasSealedRecord(tx, ctx.session.patientId),
   }))
   const date = (iso: string) => formatDateIN(istDate(iso), lang)
+  const time = (iso: string) => new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' }).format(new Date(iso))
   return (
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tp(lang, 'shareKicker')}</Kicker>
@@ -52,10 +53,11 @@ export default async function SharePage({ searchParams }: { searchParams: Portal
             {shares.map((s) => (
               <li key={s.id}>
                 <Frame className="grid gap-2 px-5 py-4">
-                  <p className="text-xl leading-snug">{tp(lang, `scope_${s.scope}` as PatientKey)}</p>
+                  <p className="text-xl leading-snug">{s.label ?? tp(lang, `scope_${s.scope}` as PatientKey)}</p>
+                  {s.label && <p className="text-[15px] text-muted">{tp(lang, `scope_${s.scope}` as PatientKey)}</p>}
                   <p className="text-[17px]"><span className="font-medium">{tp(lang, `shareStatus_${s.status}` as PatientKey)}</span></p>
                   <p className="text-[15px] text-muted">
-                    {[tp(lang, 'shareMadeOn', { date: date(s.createdAt) }), tp(lang, 'shareExpires', { date: date(s.expiresAt) }), tp(lang, 'shareOpened', { n: s.opened })].join(' · ')}
+                    {[tp(lang, 'shareMadeOn', { date: `${date(s.createdAt)}, ${time(s.createdAt)}` }), tp(lang, 'shareExpires', { date: date(s.expiresAt) }), tp(lang, 'shareOpened', { n: s.opened })].join(' · ')}
                   </p>
                   {s.status === 'active' || s.status === 'locked' ? <RevokeShare lang={lang} shareId={s.id} /> : null}
                 </Frame>

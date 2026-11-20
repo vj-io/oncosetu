@@ -58,12 +58,20 @@ describe('neutralName and cycles', () => {
     expect(cycleList([2], 'en')).toBe('2')
     expect(cycleList([], 'en')).toBe('')
   })
-  it('names the cycles on the day-care line, neutrally', () => {
-    const l = buildLetter({ ...input, institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
-    expect(l.to.institution).toBe('Kasturi Day-Care Unit')
+  it('names the cycles on the day-care line only when disclosure is cleared', () => {
+    const l = buildLetter({ ...input, disclosure: 'cleared', institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
     expect(l.documents).toEqual([expect.stringMatching(/cycles 1, 2 and 3$/)])
-    expect(letterText(l)).not.toMatch(/chemo/i)
   })
+  for (const disclosure of ['unknown', 'not_cleared'] as const) {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      it(`${disclosure} / ${lang}: the day-care line carries no cycles or other treatment detail`, () => {
+        const l = buildLetter({ ...input, lang, disclosure, institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
+        expect(l.documents).toHaveLength(1)
+        expect(l.documents[0]).not.toMatch(/d|cycle|चक्र/i)
+        expect(letterText(l)).not.toMatch(/chemo|cycle|चक्र/i)
+      })
+    }
+  }
 })
 
 describe('the hospital name on the patient requests card', () => {

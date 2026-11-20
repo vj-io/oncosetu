@@ -44,6 +44,6 @@ export async function readFile(tx: Tx, fileId: string) {
 export async function storedBytes(f: { objectKey: string | null; bytesEnc: Buffer | Uint8Array; dekWrapped: string }): Promise<Buffer> {
   if (!f.objectKey) return decryptBytes(Buffer.from(f.bytesEnc), f.dekWrapped)
   const store = objectStore()
-  if (!store) throw new Error('this file is in object storage, but no object store is configured (R2_*)')
+  if (!store) throw new Error('this file is in object storage, but no object store is configured (S3_*)')
   return decryptBytes(Buffer.from(await store.get(f.objectKey)), f.dekWrapped)
 }

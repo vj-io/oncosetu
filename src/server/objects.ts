@@ -1,5 +1,5 @@
-// Encrypted originals in S3-compatible object storage (Cloudflare R2: 10 GB free) when R2_ACCOUNT_ID, R2_ACCESS_KEY_ID,
-// R2_SECRET_ACCESS_KEY and R2_BUCKET are set; otherwise every file stays in Postgres (bytes_enc). Only ciphertext is sent:
+// Encrypted originals in S3-compatible object storage (Backblaze B2 or Cloudflare R2: 10 GB free each) when S3_ENDPOINT,
+// S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are set; otherwise every file stays in Postgres. Only ciphertext is sent:
 // files are encrypted with a per-file key before upload, and that key lives only in the document_files row.
 // A minimal AWS Signature Version 4 client (PUT, GET, DELETE of one object), so no SDK is added.
 import { createHash, createHmac } from 'node:crypto'
@@ -34,14 +34,15 @@ export function signV4(i: SignInput): string {
   return `AWS4-HMAC-SHA256 Credential=${i.accessKeyId}/${scope}, SignedHeaders=${names.join(';')}, Signature=${createHmac('sha256', key).update(toSign).digest('hex')}`
 }
 
-export function r2Store(env: { accountId: string; accessKeyId: string; secretAccessKey: string; bucket: string }): ObjectStore {
-  const base = `https://${env.accountId}.r2.cloudflarestorage.com/${env.bucket}/`
+/** Path-style S3 API: B2 https://s3.<region>.backblazeb2.com (region e.g. us-west-004), R2 https://<account>.r2.cloudflarestorage.com (region auto). */
+export function s3Store(env: { endpoint: string; region: string; bucket: string; accessKeyId: string; secretAccessKey: string }): ObjectStore {
+  const base = `${env.endpoint.replace(/\/+$/, '')}/${env.bucket}/`
   const call = async (method: string, key: string, body?: Uint8Array): Promise<Response> => {
     const url = new URL(base + key.split('/').map(enc).join('/'))
     const amzDate = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
     const payloadHash = sha256Hex(body ?? '')
     const headers: Record<string, string> = { host: url.host, 'x-amz-date': amzDate, 'x-amz-content-sha256': payloadHash }
-    const authorization = signV4({ method, url, headers, payloadHash, accessKeyId: env.accessKeyId, secretAccessKey: env.secretAccessKey, region: 'auto', service: 's3', amzDate })
+    const authorization = signV4({ method, url, headers, payloadHash, accessKeyId: env.accessKeyId, secretAccessKey: env.secretAccessKey, region: env.region, service: 's3', amzDate })
     const res = await fetch(url, { method, headers: { ...headers, authorization }, body: body ? new Uint8Array(body) : undefined })
     if (!res.ok && !(method === 'DELETE' && res.status === 404)) {
       const text = (await res.text()).slice(0, 300)
@@ -57,12 +58,12 @@ export function r2Store(env: { accountId: string; accessKeyId: string; secretAcc
 }
 
 let override: ObjectStore | null | undefined
-/** Tests only: use this store (or none) instead of the R2_* environment. */
+/** Tests only: use this store (or none) instead of the S3_* environment. */
 export function setObjectStoreForTests(s: ObjectStore | null | undefined) { override = s }
 
 /** The configured object store, or null when originals stay in Postgres. */
 export function objectStore(): ObjectStore | null {
   if (override !== undefined) return override
-  const { R2_ACCOUNT_ID: accountId, R2_ACCESS_KEY_ID: accessKeyId, R2_SECRET_ACCESS_KEY: secretAccessKey, R2_BUCKET: bucket } = process.env
-  return accountId && accessKeyId && secretAccessKey && bucket ? r2Store({ accountId, accessKeyId, secretAccessKey, bucket }) : null
+  const { S3_ENDPOINT: endpoint, S3_REGION: region, S3_BUCKET: bucket, S3_ACCESS_KEY_ID: accessKeyId, S3_SECRET_ACCESS_KEY: secretAccessKey } = process.env
+  return endpoint && region && bucket && accessKeyId && secretAccessKey ? s3Store({ endpoint, region, bucket, accessKeyId, secretAccessKey }) : null
 }

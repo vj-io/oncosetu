@@ -1,7 +1,7 @@
 // Originals in object storage (src/server/objects.ts, 0028): with a store configured, an uploaded study's original is kept as
 // ciphertext in the store and the row holds no bytes; reading, previewing and processing get the same bytes back; a changed
 // object is refused; the key is as immutable as the bytes; with no store, files stay in Postgres as before.
-// An in-memory store stands in for R2 here (the request signing is tested against AWS's examples in objects.test.ts, and a
+// An in-memory store stands in for the bucket here (the request signing is tested against AWS's examples in objects.test.ts, and a
 // live smoke run against the real bucket is part of deploying). Synthetic files only. Needs .env.local.
 import { existsSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'

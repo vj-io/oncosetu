@@ -27,6 +27,10 @@ export type ScanInfo = {
   patientSex: string | null
   patientAge: string | null
   rawModality: string | null
+  /** The study's own identifier from the header; parts of one study uploaded separately share it. */
+  studyUid: string | null
+  /** When a study came in several uploads: how many parts are merged into this row. */
+  parts?: number
 }
 
 export type RecordRow = {
@@ -113,7 +117,7 @@ export type DocLike = {
 type ImagingFlags = {
   modality?: string | null; modalities?: string[]; modalityLabel?: string; studyLabel?: string; studyDate?: string | null; bodyPart?: string | null
   studyDescription?: string | null; instances?: number; frames?: number; synthetic?: boolean; institution?: string | null
-  patientName?: string | null; patientSex?: string | null; patientAge?: string | null
+  patientName?: string | null; patientSex?: string | null; patientAge?: string | null; studyUid?: string | null
 }
 
 export function scanOf(d: Pick<DocLike, 'flags'>): ScanInfo | null {
@@ -124,7 +128,7 @@ export function scanOf(d: Pick<DocLike, 'flags'>): ScanInfo | null {
     modality: modalityKey(mods), label: String(im.studyLabel ?? im.modalityLabel ?? 'Imaging file'), bodyPart: bodyLabel(im.bodyPart), bodyKey: bodyKey(im.bodyPart),
     studyDate: im.studyDate ?? null, description: im.studyDescription ?? null, instances: Number(im.instances ?? 1), frames: Number(im.frames ?? 1),
     synthetic: !!im.synthetic, institution: im.institution ?? null, patientName: im.patientName ?? null, patientSex: im.patientSex ?? null,
-    patientAge: im.patientAge ?? null, rawModality: im.modality ?? null,
+    patientAge: im.patientAge ?? null, rawModality: im.modality ?? null, studyUid: im.studyUid ?? null,
   }
 }
 
@@ -162,6 +166,23 @@ export function toRecordRow(d: DocLike, o: { docLabel: (t: string) => string; fa
     facts: o.facts, checked: o.checked, pages: d.pages, mime: d.mime, pageImages: o.pageImages, amendment: !!d.amendmentOf, lateReceived: o.lateReceived,
     handwritten: !!d.handwritten, lowConfidence: d.lowConfidence, scan,
   }
+}
+
+/**
+ * Parts of one study that arrived in separate uploads (same StudyInstanceUID) are shown as ONE study: the part that arrived first
+ * stands for it and the image counts add up. The stored parts are untouched (originals are never changed).
+ */
+export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 'receivedAt'>>(rows: readonly T[]): T[] {
+  const byUid = new Map<string, T[]>()
+  for (const r of rows) if (r.scan?.studyUid) byUid.set(r.scan.studyUid, [...(byUid.get(r.scan.studyUid) ?? []), r])
+  const drop = new Set<string>(), rep = new Map<string, T>()
+  for (const group of byUid.values()) {
+    if (group.length < 2) continue
+    const [first, ...rest] = [...group].sort((a, b) => (a.receivedAt < b.receivedAt ? -1 : a.receivedAt > b.receivedAt ? 1 : a.id < b.id ? -1 : 1))
+    for (const r of rest) drop.add(r.id)
+    rep.set(first.id, { ...first, scan: { ...first.scan!, instances: group.reduce((n, r) => n + r.scan!.instances, 0), frames: group.reduce((n, r) => n + r.scan!.frames, 0), parts: group.length } })
+  }
+  return rows.filter((r) => !drop.has(r.id)).map((r) => rep.get(r.id) ?? r)
 }
 
 // ── order and filters ────────────────────────────────────────────────────────
@@ -305,9 +326,10 @@ export function earlierStudies(rows: readonly RecordRow[], id: string, limit = 4
   if (!me?.scan || !me.date) return []
   return sortRecords(rows.filter((r) => {
     if (r.id === id || !r.scan || !r.date || r.date >= me.date!) return false
+    if (me.scan!.studyUid && r.scan.studyUid === me.scan!.studyUid) return false // another part of this same study
     if (r.scan.modality !== me.scan!.modality) return false
     return !r.scan.bodyKey || !me.scan!.bodyKey || r.scan.bodyKey === me.scan!.bodyKey
-  }), 'new').slice(0, limit)
+  }), 'new').filter((r, i, all) => !r.scan!.studyUid || all.findIndex((x) => x.scan!.studyUid === r.scan!.studyUid) === i).slice(0, limit) // one row per study
 }
 
 /**

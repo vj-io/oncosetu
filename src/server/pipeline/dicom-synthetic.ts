@@ -36,6 +36,8 @@ export type SyntheticOpts = {
   frames?: number
   size?: number
   rle?: boolean
+  /** Test only: pixel data already compressed (JPEG 2000, JPEG-LS...), one codestream per frame, with its transfer syntax. */
+  encapsulated?: { transferSyntax: string; frames: Uint8Array[]; bits?: number }
   /** Test only: label the file with another transfer syntax (the pixels stay uncompressed). */
   transferSyntax?: string
   /** Slice position 0..1, moves the shapes a little so a series looks like a series. */
@@ -88,7 +90,7 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
     const grey = await syntheticPicture(o.modality, size, frames > 1 ? f / (frames - 1) : o.slice ?? 0.5, `${o.description ?? o.modality} · synthetic sample`)
     if (sixteen) { const b = Buffer.alloc(grey.length * 2); grey.forEach((g, i) => b.writeUInt16LE(g * 16, i * 2)); frameBuffers.push(b) } else frameBuffers.push(Buffer.from(grey))
   }
-  const ts = o.transferSyntax ?? (o.rle ? '1.2.840.10008.1.2.5' : '1.2.840.10008.1.2.1')
+  const ts = o.encapsulated?.transferSyntax ?? o.transferSyntax ?? (o.rle ? '1.2.840.10008.1.2.5' : '1.2.840.10008.1.2.1')
   const sop = ({ CT: '1.2.840.10008.5.1.4.1.1.2', MR: '1.2.840.10008.5.1.4.1.1.4', PT: '1.2.840.10008.5.1.4.1.1.128', CR: '1.2.840.10008.5.1.4.1.1.1', DX: '1.2.840.10008.5.1.4.1.1.1.1', MG: '1.2.840.10008.5.1.4.1.1.1.2', US: '1.2.840.10008.5.1.4.1.1.6.1', NM: '1.2.840.10008.5.1.4.1.1.20' } as const)[o.modality]
   const sopInstance = `${o.studyUid}.${o.instance ?? 1}`
   const meta = Buffer.concat([
@@ -107,13 +109,14 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
     ...(sixteen ? [enc([0x28, 0x1050], 'DS', '2040'), enc([0x28, 0x1051], 'DS', '4080')] : []),
   ]
   let pixel: Buffer
-  if (o.rle) {
+  if (o.rle || o.encapsulated) {
     // encapsulated: empty basic offset table, one fragment per frame, then the sequence delimiter
     const parts: Buffer[] = [Buffer.from([0xfe, 0xff, 0x00, 0xe0, 0, 0, 0, 0])]
-    for (const fb of frameBuffers) {
-      const data = rleEncode(fb, sixteen ? 2 : 1)
-      const h = Buffer.alloc(8); h.writeUInt16LE(0xfffe, 0); h.writeUInt16LE(0xe000, 2); h.writeUInt32LE(data.length, 4)
-      parts.push(h, data)
+    for (const [fi, fb] of frameBuffers.entries()) {
+      const data = o.encapsulated ? Buffer.from(o.encapsulated.frames[fi]) : rleEncode(fb, sixteen ? 2 : 1)
+      const padded = data.length % 2 ? Buffer.concat([data, Buffer.from([0])]) : data
+      const h = Buffer.alloc(8); h.writeUInt16LE(0xfffe, 0); h.writeUInt16LE(0xe000, 2); h.writeUInt32LE(padded.length, 4)
+      parts.push(h, padded)
     }
     parts.push(Buffer.from([0xfe, 0xff, 0xdd, 0xe0, 0, 0, 0, 0]))
     const h = Buffer.alloc(12); h.writeUInt16LE(0x7fe0, 0); h.writeUInt16LE(0x0010, 2); h.write('OB', 4, 'latin1'); h.writeUInt32LE(0xffffffff, 8)

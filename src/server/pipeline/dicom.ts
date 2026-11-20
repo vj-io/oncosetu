@@ -3,6 +3,7 @@
 import dicomParser, { type DataSet } from 'dicom-parser'
 import sharp from 'sharp'
 import { MAX_PREVIEW_PIXELS } from '@/core/limits'
+import { decodeJ2k, decodeJpegLossless, decodeJpegLs, TS_J2K, TS_JLS, TS_JPEG_LOSSLESS, type Decoded } from './codecs'
 
 export type DicomMeta = {
   modality: string | null
@@ -48,6 +49,9 @@ export function modalityWord(modality: string | null, sopClass: string | null = 
   if (bySop && (!modality || !MODALITY_WORDS[modality] || ['OT', 'SC'].includes(modality))) return bySop[2]
   return (modality && MODALITY_WORDS[modality]) || (modality ? `Imaging (${modality})` : 'Imaging file')
 }
+
+/** True when the pixels are stored compressed (anything but plain little/big endian). */
+export const isCompressedSyntax = (ts: string | null) => !!ts && !['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.2'].includes(ts)
 
 /** A study with both PT and CT in it is a PET-CT. */
 export function studyLabel(modalities: string[]): string {
@@ -161,6 +165,13 @@ async function renderEcgWaveform(ds: DataSet): Promise<Preview | null> {
 /** The header's size drives every preview buffer: a picture too big to draw is refused before gigabytes are allocated for it. */
 export const tooBigToDraw = (rows: number, cols: number, samples: number) => rows * cols * samples > MAX_PREVIEW_PIXELS
 
+/** The compressed bytes of one frame of an encapsulated (compressed) pixel data element. */
+function encapsulatedFrame(ds: DataSet, el: NonNullable<DataSet['elements'][string]>, frames: number, frame: number): Uint8Array {
+  if (frames === 1) return dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, 0, el.fragments?.length ?? 1)
+  return el.fragments?.length === frames ? dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, frame, 1)
+    : dicomParser.readEncapsulatedImageFrame(ds, el, frame, el.basicOffsetTable)
+}
+
 /** Renders one frame as a PNG (window/level from the header when present). Never throws: unsupported files return a plain note. */
 export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): Promise<Preview> {
   let ds: DataSet
@@ -175,9 +186,7 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
   const frame = Math.min(Math.max(frameIndex ?? Math.floor(frames / 2), 0), frames - 1) // default: the middle slice
   const samples = ds.uint16('x00280002') ?? 1
   const alloc = ds.uint16('x00280100') ?? 8
-  const signed = (ds.uint16('x00280103') ?? 0) === 1
   const photometric = str(ds, 'x00280004') ?? 'MONOCHROME2'
-  const bps = alloc > 8 ? 2 : 1
   const px = rows * cols
   if (tooBigToDraw(rows, cols, ds.uint16('x00280002') ?? 1)) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
   try {
@@ -189,20 +198,27 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
       return { ok: true, png, frames, frame, windowed: false }
     }
     let data: Uint8Array
+    let planar = (ds.uint16('x00280006') ?? 0) === 1
+    let bps = alloc > 8 ? 2 : 1
+    let signed = (ds.uint16('x00280103') ?? 0) === 1
+    let nSamples = samples
     if (RAW.has(ts)) {
       const frameLen = px * bps * samples
       data = new Uint8Array(ds.byteArray.buffer, ds.byteArray.byteOffset + el.dataOffset + frame * frameLen, frameLen)
       if (data.length < frameLen) return { ok: false, reason: 'parse_failed', note: 'Preview not available — file stored' }
     } else if (ts === RLE) {
-      const frag = el.fragments?.length === frames ? dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, frame, 1)
-        : dicomParser.readEncapsulatedImageFrame(ds, el, frame, el.basicOffsetTable)
-      data = decodeRle(frag as Uint8Array, px, bps, samples)
+      data = decodeRle(encapsulatedFrame(ds, el, frames, frame), px, bps, samples)
+    } else if (TS_J2K.has(ts) || TS_JLS.has(ts) || TS_JPEG_LOSSLESS.has(ts)) {
+      // Display only: decode this one frame, draw it, drop it. The stored file is untouched.
+      const enc = encapsulatedFrame(ds, el, frames, frame)
+      const d: Decoded = TS_J2K.has(ts) ? await decodeJ2k(enc) : TS_JLS.has(ts) ? await decodeJpegLs(enc) : await decodeJpegLossless(enc, rows, cols, samples, signed)
+      if (d.width !== cols || d.height !== rows || d.data.length < px * d.bytesPerSample * d.samples) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
+      data = d.data; bps = d.bytesPerSample; signed = d.signed; nSamples = d.samples; planar = false
     } else {
-      return { ok: false, reason: 'compression', note: NOT_AVAILABLE } // JPEG 2000, JPEG-LS, JPEG lossless: follow-up
+      return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
     }
 
-    if (samples === 3) {
-      const planar = (ds.uint16('x00280006') ?? 0) === 1
+    if (nSamples === 3) {
       const rgb = Buffer.alloc(px * 3)
       for (let i = 0; i < px; i++) for (let c = 0; c < 3; c++) rgb[i * 3 + c] = planar ? data[c * px + i] : data[i * 3 + c]
       const png = await sharp(rgb, { raw: { width: cols, height: rows, channels: 3 } }).resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true }).png().toBuffer()

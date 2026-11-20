@@ -3,6 +3,7 @@ import { patientIdParam } from '@/server/registration/http'
 import { finishUpload } from '@/server/uploads/finish'
 
 /** Patient: all chunks are in. Nothing about the content comes back (FR-CON-07): only counts and what was skipped. */
+export const maxDuration = 300 // a study of a few thousand slices is opened and bundled here
 export const POST = route({ auth: 'patient' }, async (ctx) =>
   finishUpload({
     db: ctx.db, orgId: ctx.session.orgId, patientId: ctx.session.patientId, uploader: { kind: ctx.session.kind, id: ctx.session.caregiverId ?? ctx.session.patientId },

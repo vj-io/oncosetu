@@ -5,8 +5,8 @@ import { MAX_ZIP_ENTRIES } from '@/core/limits'
 import { checkStart } from '../uploads/chunks'
 import { buildSyntheticDicom } from './dicom-synthetic'
 import { sniffFile } from './filetypes'
-import { bundleInstances, orderedInstances } from './study'
-import { groupDicom, planZip } from './zip'
+import { BundleWriter, bundleInstances, bundleNames, bundleSliceAt, orderedInstances } from './study'
+import { groupDicom, inspectZip, openEntries, planZip } from './zip'
 
 describe('planZip: opening a ZIP safely', () => {
   it('opens a mixed ZIP and lists what it skipped, with plain reasons', async () => {
@@ -88,11 +88,53 @@ describe('chunked upload start checks', () => {
     expect(checkStart({ fileName: 'ct.dcm', totalSize: 20 * 1048576, totalChunks: 6, sha256: sha })).toEqual({ ok: true })
     expect(checkStart({ fileName: 'ct.dcm', totalSize: 51 * 1048576, totalChunks: 15, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
     expect(checkStart({ fileName: 'series.zip', totalSize: 150 * 1048576, totalChunks: 43, sha256: sha })).toEqual({ ok: true })
-    expect(checkStart({ fileName: 'series.zip', totalSize: 201 * 1048576, totalChunks: 58, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
+    expect(checkStart({ fileName: 'series.zip', totalSize: 301 * 1048576, totalChunks: 87, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
   })
   it('refuses a bad checksum format, an empty file and a chunk count that does not fit', () => {
     expect(checkStart({ fileName: 'a.pdf', totalSize: 1000, totalChunks: 1, sha256: 'nope' })).toMatchObject({ ok: false, code: 'invalid_request' })
     expect(checkStart({ fileName: 'a.pdf', totalSize: 0, totalChunks: 1, sha256: sha })).toMatchObject({ ok: false, code: 'empty_file' })
     expect(checkStart({ fileName: 'a.pdf', totalSize: 20 * 1048576, totalChunks: 1, sha256: sha })).toMatchObject({ ok: false })
+  })
+})
+
+describe('a real imaging CD: thousands of slices', () => {
+  it('accepts 2,500 slices, groups them as one study in order, and bundles them without holding a second copy', async () => {
+    const uid = '1.2.826.0.1.3680043.8.498.2500'
+    const base = await buildSyntheticDicom({ modality: 'MR', patientName: 'Test^Synthetic', studyUid: uid, instance: 1, size: 16 })
+    const files: Record<string, Uint8Array> = {}
+    for (let i = 2500; i >= 1; i--) { // written in reverse so ordering has to be recovered from the headers
+      const d = new Uint8Array(base)
+      files[`DICOM/IM${i}`] = d
+    }
+    const zip = zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 1 }] as [Uint8Array, { level: 1 }]])))
+    const info = inspectZip(zip)
+    expect(info.ok).toBe(true)
+    if (!info.ok) return
+    expect(info.take.size).toBe(2500)
+    let n = 0, peak = 0
+    const t0 = Date.now()
+    for (const e of openEntries(zip, info.take)) { n++; peak = Math.max(peak, e.data.length) }
+    expect(n).toBe(2500)
+    expect(Date.now() - t0).toBeLessThan(20_000)
+    const w = new BundleWriter(50 * 1048576)
+    let i = 0
+    for (const e of openEntries(zip, info.take)) w.add(`${String(++i).padStart(4, '0')}-${e.base}`, e.data, true)
+    const bundle = w.finish()
+    expect(bundleNames(bundle)).toHaveLength(2500)
+    expect(bundleSliceAt(bundle, 1250).count).toBe(2500)
+    expect(bundleSliceAt(bundle, 1250).data?.length).toBe(base.length)
+  })
+
+  it('refuses with the real numbers, not a generic message', () => {
+    const files: Record<string, Uint8Array> = {}
+    for (let i = 0; i < MAX_ZIP_ENTRIES + 1; i++) files[`f${i}.txt`] = strToU8(`file number ${i}`)
+    const r = inspectZip(zipSync(files))
+    expect(r).toMatchObject({ ok: false, code: 'zip_too_many_files' })
+    expect(!r.ok && r.message).toMatch(/3,001 files.*at most 3,000/)
+  })
+
+  it('still refuses a name that tries to leave the folder, and an entry that lies about its size', () => {
+    const r = inspectZip(zipSync({ '../x.dcm': strToU8('abc') }))
+    expect(r.ok && r.skipped[0].code).toBe('unsafe_file_name')
   })
 })

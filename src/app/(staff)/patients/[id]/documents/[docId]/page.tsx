@@ -72,7 +72,10 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
   const fileInfo = flags.file as { kind?: string; category?: string; label?: string; storedOnly?: boolean; note?: string; previewNote?: string } | undefined
-  const imaging = flags.imaging as (ImagingDetails & { modalityLabel?: string; studyLabel?: string }) | undefined
+  const imagingOwn = flags.imaging as (ImagingDetails & { modalityLabel?: string; studyLabel?: string }) | undefined
+  // A study uploaded in several parts is one series: the part that stands for it shows the whole count.
+  const mergedScan = recs.rows.find((r) => r.id === docId)?.scan
+  const imaging = imagingOwn && mergedScan?.parts ? { ...imagingOwn, instances: mergedScan.instances, frames: mergedScan.frames } : imagingOwn
   const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)

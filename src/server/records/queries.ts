@@ -9,7 +9,7 @@ import { HttpError } from '../http'
 import { fieldValues } from '../ledger/core'
 import { documentLinks } from './schema'
 import {
-  betterHeadline, reportTerms, resolvePairs, sortRecords, toRecordRow,
+  betterHeadline, collapseStudyParts, reportTerms, resolvePairs, sortRecords, toRecordRow,
   type DocLike, type ModalityKey, type RecordRow, type RejectedPair, type ReportCandidate, type ResolvedPair, type ScanCandidate, type StoredLink,
 } from './core'
 
@@ -69,10 +69,10 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
   const imgs = new Map<string, number[]>()
   for (const f of files) imgs.set(f.documentId, [...(imgs.get(f.documentId) ?? []), f.pageNo ?? 1].sort((a, b) => a - b))
 
-  const rows = sortRecords(filed.map((d) => {
+  const rows = sortRecords(collapseStudyParts(filed.map((d) => {
     const c = facts.get(d.id)
     return toRecordRow(d as unknown as DocLike, { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages: imgs.get(d.id) ?? [], asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false })
-  }))
+  })))
 
   // Pairing: the written imaging reports are read for their heading words only.
   const scans: ScanCandidate[] = rows.filter((r) => r.scan).map((r) => ({ id: r.id, date: r.scan!.studyDate ?? r.date, institution: r.institution, modality: r.scan!.modality, bodyKey: r.scan!.bodyKey }))

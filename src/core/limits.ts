@@ -3,10 +3,17 @@
 export const MB = 1024 * 1024
 /** One uploaded file (a ZIP is limited separately). */
 export const MAX_FILE_BYTES = 50 * MB
-/** One ZIP file as uploaded, and the most all its entries may add up to once opened (a zip-bomb guard). */
-export const MAX_ZIP_BYTES = 200 * MB
-export const MAX_ZIP_UNCOMPRESSED_BYTES = 400 * MB
-export const MAX_ZIP_ENTRIES = 200
+/**
+ * One ZIP file as uploaded, the most all its entries may add up to once opened (a zip-bomb guard), and the most files in it.
+ * Sized for a real imaging CD (a study is 700 to 2,600 slices, 40 to 150 MB zipped). Each can be changed per deployment with the
+ * NEXT_PUBLIC_ variable (public so the browser checks the same numbers before uploading): MAX_ZIP_MB, MAX_ZIP_UNPACKED_MB, MAX_ZIP_ENTRIES.
+ */
+const envNum = (v: string | undefined, fallback: number) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : fallback }
+export const MAX_ZIP_BYTES = envNum(process.env.NEXT_PUBLIC_MAX_ZIP_MB, 300) * MB
+export const MAX_ZIP_UNCOMPRESSED_BYTES = envNum(process.env.NEXT_PUBLIC_MAX_ZIP_UNPACKED_MB, 1536) * MB
+export const MAX_ZIP_ENTRIES = envNum(process.env.NEXT_PUBLIC_MAX_ZIP_ENTRIES, 3000)
+/** One study kept as a single stored document (its slices bundled): never more than this, so one database row stays well under Postgres' 1 GB value limit. */
+export const MAX_STUDY_BUNDLE_BYTES = MAX_ZIP_BYTES
 /** An entry that expands more than this many times is refused. */
 export const MAX_ZIP_RATIO = 200
 /** Size of one chunk sent by the browser (stays well under the 4.5 MB request limit, multipart overhead included). */

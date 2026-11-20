@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  betterHeadline, bodyKey, bodyLabel, countsByKind, otherAreaStudies, earlierStudies, filterRecords, fmtDay, kindOf, modalityKey, neighbours, proposePairs, reportTerms, resolvePairs,
+  betterHeadline, bodyKey, collapseStudyParts, bodyLabel, countsByKind, otherAreaStudies, earlierStudies, filterRecords, fmtDay, kindOf, modalityKey, neighbours, proposePairs, reportTerms, resolvePairs,
   sortRecords, toRecordRow, type DocLike, type RecordRow, type ReportCandidate, type ScanCandidate,
 } from './core'
 
@@ -190,5 +190,15 @@ describe('finale review fixes (RAD-08, RAD-11, RAD-13, RAD-17)', () => {
     expect(pick(lines)?.text).toBe('Cycle 1 · Capecitabine')
     expect(pick([...lines].reverse())?.text).toBe('Cycle 1 · Capecitabine')
     expect(pick(lines.slice(0, 1).concat(lines.slice(2)))?.text).toBe(pick(lines.slice(2).concat(lines.slice(0, 1)))?.text)
+  })
+})
+
+describe('one study in several uploads', () => {
+  const part = (id: string, at: string, n: number, uid: string | null): RecordRow => ({ id, receivedAt: at, scan: { studyUid: uid, instances: n, frames: n, modality: 'MR', bodyKey: 'head', studyDate: '2025-12-09' } } as unknown as RecordRow)
+  it('merges parts with the same StudyInstanceUID into one row, the first to arrive, with the counts added', () => {
+    const rows = [part('b', '2026-11-02', 700, 'U1'), part('a', '2026-11-01', 10, 'U1'), part('c', '2026-11-03', 5, 'U2'), part('d', '2026-11-03', 5, null)]
+    const out = collapseStudyParts(rows)
+    expect(out.map((r) => r.id)).toEqual(['a', 'c', 'd'])
+    expect(out[0].scan).toMatchObject({ instances: 710, frames: 710, parts: 2 })
   })
 })

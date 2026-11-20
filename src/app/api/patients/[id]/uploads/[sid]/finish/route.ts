@@ -5,6 +5,7 @@ import { patientIdParam } from '@/server/registration/http'
 import { finishUpload } from '@/server/uploads/finish'
 
 /** Staff: all chunks are in. Joins them, checks size and checksum, runs intake (a ZIP is opened safely). */
+export const maxDuration = 300 // a study of a few thousand slices is opened and bundled here
 export const POST = route({ auth: 'staff', roles: ['desk', 'records', 'clinician'] }, async (ctx) => {
   await assertDeviceActive(ctx.db, ctx.session.orgId, ctx.req.headers.get('x-device-id'))
   const patientId = patientIdParam(ctx)

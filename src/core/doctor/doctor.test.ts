@@ -158,3 +158,13 @@ describe('diagnosis line (DOC-12)', () => {
     expect(v.diagnosis[1].text).toBe('Carcinoma colon - adjuvant chemotherapy')
   })
 })
+
+describe('missing papers count split (DOC-05)', () => {
+  it('says how many arrived and only wait to be confirmed', () => {
+    const base = { patientId: 'p', seal: null, newTotal: 0, newItems: [], amended: 0, patientSaid: 0, conflicts: [], held: [], unverified: 0, disputed: 0 }
+    const m = (id: string, state: string) => ({ id, title: id, askAt: null, state })
+    const row = buildFirstLook({ ...base, missing: [m('a', 'expected'), m('b', 'requested'), m('c', 'received')] }).find((r) => r.key === 'missing')!
+    expect(row.summary).toMatch(/^2 not in file · 1 arrived, confirm\./)
+    expect(buildFirstLook({ ...base, missing: [m('a', 'expected')] }).find((r) => r.key === 'missing')!.summary).not.toMatch(/arrived/)
+  })
+})

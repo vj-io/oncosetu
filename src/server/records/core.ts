@@ -324,6 +324,20 @@ export function otherAreaStudies(rows: readonly RecordRow[], id: string, limit =
 export type RejectedPair = { scanId: string; reportId: string }
 
 /**
+ * What the lists show the moment a person decides, before the server's fresh copy arrives. Rejecting drops the pair and keeps it
+ * undoable; confirming marks it linked; undoing forgets the rejection (the server offers the match again on refresh).
+ */
+export function applyLinkDecision(pairs: readonly ResolvedPair[], rejected: readonly RejectedPair[], d: { scanId: string; reportId: string; decision: 'confirm' | 'reject' | 'reset' }): { pairs: ResolvedPair[]; rejected: RejectedPair[] } {
+  const same = (p: { scanId: string; reportId: string }) => p.scanId === d.scanId && p.reportId === d.reportId
+  const others = pairs.filter((p) => !same(p))
+  const rest = rejected.filter((p) => !same(p))
+  if (d.decision === 'reject') return { pairs: others, rejected: [...rest, { scanId: d.scanId, reportId: d.reportId }] }
+  if (d.decision === 'reset') return { pairs: [...pairs], rejected: rest }
+  const prior = pairs.find(same)
+  return { pairs: [...others, { scanId: d.scanId, reportId: d.reportId, state: 'confirmed', reason: 'confirmed by a person', linkId: prior?.linkId ?? null }], rejected: rest }
+}
+
+/**
  * One steady summary line per paper: of the candidate lines, the one whose source field ranks first, then the text itself, so the same
  * paper always shows the same words however its facts were created or checked.
  */

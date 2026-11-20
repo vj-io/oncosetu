@@ -16,7 +16,7 @@ import { listSignedConsents } from '@/server/privacy/sign'
 import { withPatientAccess } from '@/server/registration/page'
 
 const STAMP = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
-const PURPOSE_LABEL = { store: 'Care at this hospital', ai: 'AI-assisted reading', share: 'Second opinion (share)', abdm: 'ABDM pull', metrics: 'Anonymised metrics', team: 'Team case discussion' } as const
+const PURPOSE_LABEL = { store: 'Care at this hospital', ai: 'AI-assisted reading', share: 'Second opinion (share)', abdm: 'Fetch records through ABDM', metrics: 'Anonymised metrics', team: 'Team case discussion' } as const
 
 function Section({ id, title, description, children }: { id: string; title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -57,17 +57,17 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-12 py-8">
-      <Section id="current-h" title="Consent now" description="Checked on every use, never cached. A withdrawal takes effect on the next request.">
+      <Section id="current-h" title="Consent now" description="Checked every time the record is used. A withdrawal takes effect on the next request.">
         {current ? (
           <Frame matte>
             <div className="grid gap-4 p-4 sm:p-6">
               <ul className="flex flex-wrap gap-2" aria-label="Purposes">
-                {(Object.keys(PURPOSE_LABEL) as (keyof typeof PURPOSE_LABEL)[]).map((k) => (
+                {(Object.keys(PURPOSE_LABEL) as (keyof typeof PURPOSE_LABEL)[]).filter((k) => k !== 'team' || current.purposes.team).map((k) => ( // the notice offers five purposes; the older team one shows only where it was given
                   <li key={k}><Badge tone={current.purposes[k] ? 'verified' : 'shadow'}>{PURPOSE_LABEL[k]}: {current.purposes[k] ? 'yes' : 'no'}</Badge></li>
                 ))}
               </ul>
               <p className="text-sm text-muted">Notice {current.noticeVersion} · {({ en: 'English', hi: 'Hindi', hinglish: 'Hinglish', mr: 'Marathi' } as Record<string, string>)[current.language] ?? current.language} · recorded {STAMP.format(current.recordedAt)} · {d.activeLinks} active share link{d.activeLinks === 1 ? '' : 's'}</p>
-              {!current.purposes.ai && <p className="text-sm text-muted">AI-assisted reading: declined. Documents are read by the rule library only.</p>}
+              {!current.purposes.ai && <p className="text-sm text-muted">AI-assisted reading: declined. Documents are read by fixed rules, not by AI.</p>}
               <ConsentActions patientId={id} current={current.purposes} language={p.preferredLanguage} />
             </div>
           </Frame>

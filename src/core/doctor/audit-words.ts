@@ -56,6 +56,8 @@ const WORDS: Record<string, string> = {
   'break_glass.granted': 'Emergency access granted',
   'break_glass.reviewed': 'Emergency access reviewed',
   'access.refused': 'Access refused',
+  'access.desk_reopen': 'Desk reopened today’s verified visit',
+  'access.desk_reopen_refused': 'Desk reopen refused: needs a new code or witness',
   'caregiver.added': 'Family member added',
   'caregiver.revoked': 'Family member removed',
   'erasure.request': 'Erasure requested',

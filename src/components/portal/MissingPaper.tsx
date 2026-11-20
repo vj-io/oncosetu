@@ -19,7 +19,9 @@ export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; 
         <CheckCircle2 aria-hidden className="mt-1 size-5 shrink-0 text-faint" strokeWidth={1.5} />
         <div className="grid min-w-0 flex-1 gap-1">
           <h3 className="font-display text-xl leading-snug tracking-[-0.015em]">{row.label}</h3>
+          {row.when && <p className="text-[16px] text-muted">{row.when}</p>}
           {row.mentionedIn && <p className="text-[16px] text-muted">{row.mentionedIn}</p>}
+          {row.place && <p className="text-[16px] text-muted">{row.place}</p>}
           <p className="text-[16px]">{row.status}</p>
         </div>
       </Frame>

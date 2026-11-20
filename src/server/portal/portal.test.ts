@@ -90,6 +90,16 @@ describe('home summary wording', () => {
     expect(buildHomeSummary(home, 'not_cleared', 'en').looking[0].mentionedIn).toBeNull()
   })
 
+  it('gives an arrived paper a date and a place, and never a diagnosis word for an undisclosed patient', () => {
+    const row = { ...home.looking[0], state: 'received' as const, institution: 'City Care Hospital', source: { docType: 'discharge_summary' as const, date: '2026-01-20' } }
+    const l = buildHomeSummary({ ...home, looking: [row] }, 'not_cleared', 'en').looking[0]
+    expect(l.place).toBe('At: City Care Hospital')
+    expect(l.when).toMatch(/2026/)
+    const risky = buildHomeSummary({ ...home, looking: [{ ...row, institution: 'Tata Cancer Hospital' }] }, 'not_cleared', 'en').looking[0]
+    expect(dirty([risky.place ?? ''])).toEqual([])
+    for (const lang of LANGS) expect(dirty(strings(buildHomeSummary({ ...home, looking: [{ ...row, institution: 'Cancer Centre' }] }, 'not_cleared', lang)))).toEqual([])
+  })
+
   it('lists a missing paper as a neutral document with its date', () => {
     const s = buildHomeSummary(home, 'not_cleared', 'en')
     expect(s.looking[0]).toMatchObject({ label: 'Laboratory report (tissue)', when: 'From around 12 Mar 2026', status: 'Not in your file yet', canLetter: true })

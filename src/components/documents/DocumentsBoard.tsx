@@ -13,6 +13,7 @@ import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
 import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
+import { ThumbPicture, isHeldFile } from './HeldReveal'
 import { IdentityDecision } from './IdentityDecision'
 import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, statusBadge, trackerPosition } from './labels'
 
@@ -309,7 +310,9 @@ function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: 
           {r.imaging && (
             <p className="text-sm text-muted" data-testid="imaging-line">
               {[r.imaging.label, r.imaging.studyDate ? fmtDate(r.imaging.studyDate) : null, r.imaging.bodyPart, r.imaging.institution].filter(Boolean).join(' · ')}
-              {r.imaging.patientName && <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>}
+              {r.imaging.patientName && (canDecide
+                ? <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>
+                : r.identity === 'mismatch' ? <> · the name on the file does not match this patient</> : null)}
               {r.imaging.instances > 1 && <> · {r.imaging.instances} images</>}
             </p>
           )}
@@ -328,8 +331,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: 
         </div>
         <div className="flex flex-wrap items-start gap-2 sm:flex-col sm:items-end">
           {r.imaging && canDecide && r.status !== 'quarantined' && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/documents/${r.id}/preview`} alt={`Preview picture of ${r.imaging.label}`} width={96} height={96} loading="lazy" className="size-24 border border-rule bg-obsidian object-contain" />
+            <ThumbPicture src={`/api/documents/${r.id}/preview`} alt={`Preview picture of ${r.imaging.label}`} held={isHeldFile(r)} />
           )}
           <StatusBadge status={b.status} label={b.label} />
           {r.identity !== 'pending' && <StatusBadge status={r.identity} />}

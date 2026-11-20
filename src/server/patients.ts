@@ -1,8 +1,9 @@
 // Patient view + access policy (consent checked on use, never cached — FR-CON-04).
-import { and, desc, eq, gt, isNull } from 'drizzle-orm'
+import { and, desc, eq, gt, gte, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { breakGlass, caregivers, consents, encounters, patients, type ConsentPurposes } from '@/db/schema'
 import { decryptField, maskPhone } from './crypto'
+import { startOfIstDay } from './desk-window'
 import { HttpError } from './http'
 import type { Session } from './session'
 import type { Lang } from '@/core/types'
@@ -88,10 +89,12 @@ export async function assertPatientAccess(ctx: { db: Tx; session: Session }, pat
   if (bg) return
   if (s.role === 'org_admin') throw new HttpError(403, 'break_glass_required', 'Break-glass access required')
   const consented = !!(await activeConsent(ctx.db, patientId))?.purposes.store
-  // FR-ID-02: the desk opens a record only through an identity-verified encounter (OTP or witnessed) from the last 12 h.
+  // FR-ID-02 + decision 19: the desk opens a record only through an identity-verified encounter (OTP or witnessed) from
+  // TODAY (IST), until midnight. Other roles using the consent-optional path keep the last-12-h rule.
   // An encounter opened offline by a capture device (0020) verified nobody, so it never counts.
   const verifiedVisit = async () => !!(await ctx.db.select({ id: encounters.id }).from(encounters).where(and(
-    eq(encounters.patientId, patientId), isNull(encounters.closedAt), gt(encounters.startedAt, new Date(Date.now() - 12 * 3600_000)),
+    eq(encounters.patientId, patientId), isNull(encounters.closedAt),
+    gte(encounters.startedAt, s.role === 'desk' ? startOfIstDay(new Date()) : new Date(Date.now() - 12 * 3600_000)),
     eq(encounters.offlineCreated, false),
   )).limit(1))[0]
   const visit = s.role === 'desk' || (opts.consentOptional && !consented) ? await verifiedVisit() : false

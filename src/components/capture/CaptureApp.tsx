@@ -219,8 +219,7 @@ export function CaptureApp() {
             Your session ended. Captures stay encrypted on this device until you sign in.
           </Notice>
         )}
-        {unlocked && !standalone && <Notice tone="unverified" title="Install this app to protect unsynced captures">Add OncoSetu to the home screen so the browser does not clear its storage when space is low.</Notice>}
-        {unlocked && persisted === false && <Notice tone="unverified" title="This browser has not promised to keep this storage">Sync captures as soon as you are online.</Notice>}
+        {unlocked && (!standalone || persisted === false) && <Notice tone="unverified" title="Keep this page open until the queue shows 0">Pages are saved on this device until they sync.</Notice>}
       </div>
 
       {phase === "boot" && <Skeleton className="h-64" />}

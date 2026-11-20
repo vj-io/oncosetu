@@ -28,7 +28,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
     <section className="grid grid-cols-[minmax(0,1fr)] gap-10">
       <SectionHeader
         as="h1" kicker="Desk · today" title="Front desk"
-        description="Identify the person with the card, phone, MRN or name. The record opens only after a code is sent to the registered contact, or after consent given in person with a witness."
+        description="Identify the person with the card, phone, MRN or name. A record opens only after a code is sent to the registered contact, or after consent given in person with a witness."
         actions={<ButtonLink href="/patients/new" variant="secondary">Register a new patient</ButtonLink>}
       />
       <DeskLookup preselected={preselected} />
@@ -47,7 +47,11 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
                   <td>{e.type === 'onboarding' ? 'First visit' : e.type === 'returning' ? 'Returning' : 'Between visits'}</td>
                   <td>{e.startedBy}</td>
                   <td><Badge tone={e.open ? 'setu' : 'shadow'}>{e.open ? 'Open' : 'Closed'}</Badge></td>
-                  <td><Link className="inline-flex min-h-11 min-w-11 items-center underline" href={`/patients/${e.patientId}/overview`}>Open</Link></td>
+                  <td>
+                    {e.reopenable
+                      ? <a className="inline-flex min-h-11 min-w-11 items-center underline" href={`/desk/open/${e.patientId}`}>Open</a>
+                      : <Link className="inline-flex min-h-11 min-w-11 items-center underline" href={`/desk?patient=${e.patientId}`}>Verify</Link>}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -41,8 +41,8 @@ const TOKEN_SHAPE = new RegExp(`^[A-Z2-7]{${TOKEN_CHARS}}$`)
 /** Random 128-bit token, base32 (A–Z, 2–7). Takes no input: it cannot carry patient data. */
 export const generateToken = () => randomToken(TOKEN_BYTES, 'base32')
 
-/** Typed or scanned tokens may be grouped, spaced or lower-case. */
-export const canonicalToken = (s: string) => s.toUpperCase().replace(/[\s-]/g, '')
+/** Typed or scanned tokens may be grouped, spaced or lower-case. The alphabet has no 0, 1 or 8, so those digits are read as the letters O, I and B they were meant to be. */
+export const canonicalToken = (s: string) => s.toUpperCase().replace(/[\s-]/g, '').replace(/0/g, 'O').replace(/1/g, 'I').replace(/8/g, 'B')
 export const isTokenShape = (s: string) => TOKEN_SHAPE.test(canonicalToken(s))
 /** Only this HMAC is stored (patients.oncosetu_token_hash). */
 export const tokenHash = (s: string) => hmac(canonicalToken(s))

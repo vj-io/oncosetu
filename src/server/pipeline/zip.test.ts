@@ -6,7 +6,8 @@ import { checkStart } from '../uploads/chunks'
 import { buildSyntheticDicom } from './dicom-synthetic'
 import { sniffFile } from './filetypes'
 import { BundleWriter, bundleInstances, bundleNames, bundleSliceAt, orderedInstances } from './study'
-import { groupDicom, inspectZip, openEntries, planZip } from './zip'
+import { checkZipBeforeUpload } from '@/lib/zip-check'
+import { groupDicom, inspectZip, isCdFurniture, openEntries, planZip } from './zip'
 
 describe('planZip: opening a ZIP safely', () => {
   it('opens a mixed ZIP and lists what it skipped, with plain reasons', async () => {
@@ -131,6 +132,37 @@ describe('a real imaging CD: thousands of slices', () => {
     const r = inspectZip(zipSync(files))
     expect(r).toMatchObject({ ok: false, code: 'zip_too_many_files' })
     expect(!r.ok && r.message).toMatch(/3,001 files.*at most 3,000/)
+  })
+
+  it('the server and the browser pre-check refuse the same ZIPs for the same reason', async () => {
+    const many = (n: number, extra: Record<string, Uint8Array> = {}) => { const f: Record<string, Uint8Array> = { ...extra }; for (let i = 0; i < n; i++) f[`DICOM/IM${i}`] = strToU8(`slice ${i}`); return f }
+    const cases: [string, Record<string, Uint8Array>, string | null][] = [
+      ['2,500 slices', many(2500), null],
+      ['3,000 slices', many(3000), null],
+      ['3,001 slices', many(3001), 'zip_too_many_files'],
+      ['2,999 slices and two system files', many(2999, { '__MACOSX/a': strToU8('x'), '__MACOSX/b': strToU8('y') }), 'zip_too_many_files'],
+      ['folders do not count', many(3000, { 'DICOM/': new Uint8Array(0) }), null],
+      ['a ratio bomb', { 'zeros.bin': new Uint8Array(4 * 1024 * 1024) }, 'zip_bomb'],
+      ['a CD with its viewer', { ...many(10), 'VIEWER/viewer.exe': new Uint8Array([0x4d, 0x5a, 1, 2]), 'AUTORUN.INF': strToU8('[autorun]') }, null],
+    ]
+    for (const [label, files, code] of cases) {
+      const zip = zipSync(files)
+      const server = inspectZip(zip)
+      const browser = await checkZipBeforeUpload(new Blob([zip as BlobPart]), 'cd.zip')
+      expect(server.ok ? null : server.code, label).toBe(code)
+      expect(browser.ok ? null : browser.code, label).toBe(code)
+      if (!server.ok && !browser.ok) expect(browser.message, label).toBe(server.message)
+    }
+  })
+
+  it('knows the files an imaging CD carries besides the scans (its viewer program, autorun, web index)', async () => {
+    const e = (name: string, data: Uint8Array) => ({ name, base: name.split('/').pop()!, data })
+    const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 16 })
+    const pdf = Buffer.from('%PDF-1.4 a report')
+    for (const f of [e('VIEWER/RadiAnt.exe', new Uint8Array([0x4d, 0x5a, 0x90, 0])), e('VIEWER/codec.dll', new Uint8Array([0x4d, 0x5a, 0, 0])), e('AUTORUN.INF', strToU8('[autorun]\nopen=viewer.exe')),
+      e('index.html', strToU8('<!DOCTYPE html><html></html>')), e('VIEWER/app.js', strToU8('var x = 1')), e('VIEWER/style.css', strToU8('body{}')), e('VIEWER/settings.ini', strToU8('[x]\na=1')),
+      e('VIEWER/icon.ico', new Uint8Array([0, 0, 1, 0, 1, 0])), e('VIEWER/splash.bmp', new Uint8Array([0x42, 0x4d, 0x36, 0, 0, 0]))]) expect(isCdFurniture(f), f.name).toBe(true)
+    for (const f of [e('DICOM/IM1', dcm), e('REPORT.PDF', pdf), e('notes.txt', strToU8('typed report: no change'))]) expect(isCdFurniture(f), f.name).toBe(false)
   })
 
   it('still refuses a name that tries to leave the folder, and an entry that lies about its size', () => {

@@ -10,7 +10,7 @@ import { ingestDocument, type IngestInput, type IngestResult } from './ingest'
 import { sniffFile } from './filetypes'
 import { isCompressedSyntax, readDicomMeta, studyLabel, type DicomMeta } from './dicom'
 import { BundleWriter } from './study'
-import { inspectZip, openEntries, ZipMismatch, type Skipped, type ZipEntry } from './zip'
+import { inspectZip, isCdFurniture, openEntries, ZipMismatch, type Skipped, type ZipEntry } from './zip'
 
 /** Why intake refuses a file (safety or format), as codes the Safety events page understands. Anything else is a real error. */
 const REJECTION_CODES = new Set(['unsupported_type', 'file_too_large', 'malware_signature', 'zip_not_expanded', 'empty_file',
@@ -47,17 +47,17 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
   }
   // Entries refused for safety (path tricks, a ZIP inside a ZIP) are reported once per reason.
   const skipped = [...plan.skipped]
-  const refusedNested = { n: 0 }
   // Pass 1: open the ZIP a batch at a time and keep only what is small: each DICOM slice's header (the picture is let go), and any
   // other file as it is. A study of a few thousand slices is therefore never held in memory in full.
   type Head = { name: string; base: string; meta: DicomMeta; squeeze: boolean }
   const heads: Head[] = []
-  const others: ZipEntry[] = []
+  let others: ZipEntry[] = []
+  let dicomdir = false
   try {
     for (const e of openEntries(input.bytes, plan.take)) {
       const kind = sniffFile(e.data, e.base)?.kind
-      if (kind === 'zip') { skipped.push({ name: e.name, reason: 'a ZIP inside a ZIP is not accepted', code: 'nested_archive' }); refusedNested.n++; continue }
-      if (e.base.toUpperCase() === 'DICOMDIR') { skipped.push({ name: e.name, reason: 'DICOMDIR index (not needed, the images are read directly)' }); continue }
+      if (kind === 'zip') { skipped.push({ name: e.name, reason: 'a ZIP inside a ZIP is not accepted', code: 'nested_archive' }); continue }
+      if (e.base.toUpperCase() === 'DICOMDIR') { dicomdir = true; skipped.push({ name: e.name, reason: 'DICOMDIR index (not needed, the images are read directly)' }); continue }
       const meta = kind === 'dicom' ? readDicomMeta(e.data) : null
       if (meta) heads.push({ name: e.name, base: e.base, meta, squeeze: !isCompressedSyntax(meta.transferSyntax) })
       else others.push(e) // a header that cannot be read goes through intake alone (and is held or refused there)
@@ -67,6 +67,14 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
     const code = e.message.includes('listing') ? 'zip_bomb' : 'zip_unreadable'
     await auditRejected(tx, input, code)
     return { documents: [], skipped: [], expandedZip: true, rejected: { status: 422, code, message: e.message } }
+  }
+  // An imaging CD carries its own viewer program, autorun and web index. In a ZIP that holds scans these are skipped quietly
+  // (listed once, not audited as refused); a PDF or a typed report next to the scans is still kept.
+  if (heads.length || dicomdir) {
+    const cd = others.filter(isCdFurniture)
+    if (cd.length) skipped.push({ name: `${cd.length} file${cd.length > 1 ? 's' : ''} of the CD's own viewer program`, reason: 'the CD’s viewer program and index files are not needed (the scans are kept)' })
+    const drop = new Set(cd)
+    others = others.filter((e) => !drop.has(e))
   }
   const refused = new Map<string, number>()
   for (const s of skipped) if (s.code) refused.set(s.code, (refused.get(s.code) ?? 0) + 1)

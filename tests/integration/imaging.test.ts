@@ -164,6 +164,25 @@ describe('rejected uploads are returned and audited', () => {
     expect(reasons).toContain('zip_nothing_accepted')
   }, 60_000)
 
+  it('a real CD ZIP: the viewer program, autorun and web index are skipped quietly, the scans and the PDF report are kept', async () => {
+    const c = await ctx()
+    const files: Record<string, Uint8Array> = {
+      DICOMDIR: strToU8('index'), 'AUTORUN.INF': strToU8('[autorun]\nopen=VIEWER\\viewer.exe'), 'index.html': strToU8('<!DOCTYPE html><html><body>Open the viewer</body></html>'),
+      'VIEWER/viewer.exe': new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0]), 'VIEWER/codec.dll': new Uint8Array([0x4d, 0x5a, 0x90, 0, 4, 0]), 'VIEWER/viewer.ini': strToU8('[view]\nzoom=1'),
+    }
+    const { PDFDocument, StandardFonts } = await import('pdf-lib')
+    const pdf = await PDFDocument.create()
+    pdf.addPage().drawText('Synthetic CT report for a test.', { font: await pdf.embedFont(StandardFonts.Helvetica) })
+    files['REPORT.PDF'] = await pdf.save()
+    for (let i = 1; i <= 3; i++) files[`DICOM/IM${i}`] = await c.syn.buildSyntheticDicom({ modality: 'CT', patientName: 'Deshmukh^Sunita', sex: 'F', age: '051Y', studyUid: '1.2.3.4.77', instance: i, size: 32 })
+    const { r, latest } = await rejected(zipSync(files), 'hospital-cd.zip')
+    expect(r.rejected).toBeUndefined()
+    const docs = await Promise.all(r.documents.map((x) => load(x.documentId)))
+    expect(docs.map((d) => d.mime).sort()).toEqual(['application/pdf', 'application/x-dicom-study'])
+    expect(r.skipped.find((s) => /viewer program/.test(s.name))).toMatchObject({ name: "5 files of the CD's own viewer program" })
+    expect(latest).toEqual([]) // nothing was refused, so nothing is audited as refused
+  }, 90_000)
+
   it('a refused entry inside an otherwise good ZIP is audited and the good file is still stored', async () => {
     const c = await ctx()
     const png = new Uint8Array([0x4d, 0x5a, 0x90, 0, 3, 0, 0, 0, 4, 0, 0, 0, 9])

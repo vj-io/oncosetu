@@ -1,19 +1,25 @@
 // Safe ZIP opening and DICOM study grouping. Pure over bytes (no DB). Nothing is ever written to disk, so path tricks cannot
 // escape anywhere, but names are still checked and refused. Limits live in src/core/limits.ts.
 import { unzipSync } from 'fflate'
-import { MAX_ZIP_BYTES, MAX_ZIP_ENTRIES, MAX_ZIP_RATIO, MAX_ZIP_UNCOMPRESSED_BYTES } from '@/core/limits'
+import { MAX_ZIP_BYTES } from '@/core/limits'
+import { ZIP_JUNK, zipRefusal, zipSummary } from '@/lib/zip-check'
 import { readDicomMeta, studyLabel, type DicomMeta } from './dicom'
 import { sniffFile } from './filetypes'
 
 export type ZipEntry = { name: string; base: string; data: Uint8Array }
+
+/**
+ * Files an imaging CD carries besides the scans: its viewer program, autorun and web index (by name), and anything intake would
+ * refuse for its type. In a ZIP that holds scans these are skipped quietly, not refused. A PDF or a typed report is kept.
+ */
+const CD_FILES = /\.(exe|dll|msi|bat|cmd|com|scr|sys|ocx|jar|inf|ini|cfg|htm|html|js|css|xml|xsl|ico|lnk|url|manifest)$/i
+export const isCdFurniture = (e: ZipEntry) => CD_FILES.test(e.base) || !sniffFile(e.data, e.base)
 export type Skipped = { name: string; reason: string; /** set when the entry was refused for safety (audited), not merely skipped */ code?: string }
 export type ZipRefusal = { ok: false; code: 'zip_too_large' | 'zip_unreadable' | 'zip_too_many_files' | 'zip_too_big_unpacked' | 'zip_bomb' | 'zip_empty'; message: string }
 export type ZipPlan = { ok: true; entries: ZipEntry[]; skipped: Skipped[] } | ZipRefusal
 
-const JUNK = /(^|\/)(__MACOSX\/|\.DS_Store$|Thumbs\.db$|desktop\.ini$)/i
 const unsafeName = (n: string) => n.startsWith('/') || n.startsWith('\\') || /(^|[\\/])\.\.([\\/]|$)/.test(n) || /^[A-Za-z]:/.test(n) || n.includes('\0')
 const mb = (n: number) => `${Math.round(n / 1048576)} MB`
-const num = (n: number) => n.toLocaleString('en-US')
 
 /** What the ZIP directory says, checked before anything is inflated. `take` is the entries worth opening, with their unpacked sizes. */
 export type ZipInspect = { ok: true; take: Map<string, number>; skipped: Skipped[] } | ZipRefusal
@@ -25,17 +31,15 @@ export function inspectZip(zip: Uint8Array): ZipInspect {
   try {
     unzipSync(zip, { filter: (f) => { listing.push({ name: f.name, size: f.size, originalSize: f.originalSize }); return false } })
   } catch { return { ok: false, code: 'zip_unreadable', message: 'The ZIP could not be opened' } }
-  const files = listing.filter((f) => !f.name.endsWith('/'))
-  if (files.length > MAX_ZIP_ENTRIES) return { ok: false, code: 'zip_too_many_files', message: `This ZIP holds ${num(files.length)} files; a ZIP may hold at most ${num(MAX_ZIP_ENTRIES)}` }
-  const unpacked = files.reduce((a, f) => a + f.originalSize, 0)
-  if (unpacked > MAX_ZIP_UNCOMPRESSED_BYTES) return { ok: false, code: 'zip_too_big_unpacked', message: `This ZIP is ${mb(unpacked)} once opened; the most is ${mb(MAX_ZIP_UNCOMPRESSED_BYTES)}` }
+  const refused = zipRefusal(zipSummary(listing), zip.length) // the same rule the browser applies before uploading
+  if (refused) return { ok: false, ...refused }
   const skipped: Skipped[] = []
   const take = new Map<string, number>()
-  for (const f of files) {
+  for (const f of listing) {
+    if (f.name.endsWith('/')) continue
     if (unsafeName(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'unsafe file name', code: 'unsafe_file_name' }); continue }
-    if (JUNK.test(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'system file' }); continue }
+    if (ZIP_JUNK.test(f.name)) { skipped.push({ name: f.name.slice(0, 80), reason: 'system file' }); continue }
     if (f.originalSize === 0) { skipped.push({ name: f.name, reason: 'empty file' }); continue }
-    if (f.originalSize / Math.max(f.size, 1) > MAX_ZIP_RATIO && f.originalSize > 1 << 20) return { ok: false, code: 'zip_bomb', message: 'The ZIP was refused because a file in it expands far too much' }
     take.set(f.name, f.originalSize)
   }
   if (!take.size && !skipped.length) return { ok: false, code: 'zip_empty', message: 'The ZIP is empty' }

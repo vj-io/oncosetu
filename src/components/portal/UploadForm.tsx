@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Camera, CircleCheck, FileText, Images, LoaderCircle, RotateCw, X } from "lucide-react";
 import { ONE_SHOT_BYTES } from "@/core/limits";
 import { capFor, needsChunks, uploadChunked } from "@/lib/chunked-upload";
-import { checkZipBeforeUpload } from "@/lib/zip-check";
+import { checkZipBeforeUpload, PATIENT_ZIP_REASON, zipReasonVars } from "@/lib/zip-check";
 import { tp } from "@/i18n/patient";
 import { ErrorNote, PButton, PLink } from "./ui";
 
@@ -18,7 +18,7 @@ const PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/hei
 const BAD_EXT = new Set(["exe", "dll", "bat", "cmd", "msi", "js", "html", "htm", "svg", "apk", "sh", "scr", "com", "jar"]);
 
 type State = "waiting" | "preparing" | "uploading" | "done" | "duplicate" | "failed" | "tooLarge" | "badType";
-type Item = { id: string; file: File; clientFileId: string; state: State; pct: number; blob?: Blob; name: string; /** the reason, in plain words, when a ZIP is refused */ note?: string };
+type Item = { id: string; file: File; clientFileId: string; state: State; pct: number; blob?: Blob; name: string; /** the reason, in the patient's language, when a ZIP is refused */ note?: string };
 
 const typeOf = (f: File) => f.type || "";
 const extOf = (f: File) => (f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "");
@@ -43,7 +43,7 @@ async function toJpeg(file: File): Promise<Blob> {
   throw new Error("too large");
 }
 
-function send(blob: Blob, name: string, clientFileId: string, onPct: (n: number) => void): Promise<{ status: number; duplicate: boolean }> {
+function send(blob: Blob, name: string, clientFileId: string, onPct: (n: number) => void): Promise<{ status: number; duplicate: boolean; code?: string }> {
   return new Promise((resolve, reject) => {
     const fd = new FormData();
     fd.append("file", blob, name);
@@ -53,11 +53,13 @@ function send(blob: Blob, name: string, clientFileId: string, onPct: (n: number)
     xhr.upload.onprogress = (e) => e.lengthComputable && onPct(Math.round((e.loaded / e.total) * 100));
     xhr.onerror = () => reject(new Error("network"));
     xhr.onload = () => {
-      let duplicate = false;
+      let duplicate = false, code: string | undefined;
       try {
-        duplicate = !!JSON.parse(xhr.responseText).duplicate;
+        const body = JSON.parse(xhr.responseText);
+        duplicate = !!body.duplicate;
+        code = body.error?.code;
       } catch { /* not JSON: leave false */ }
-      resolve({ status: xhr.status, duplicate });
+      resolve({ status: xhr.status, duplicate, code });
     };
     xhr.send(fd);
   });
@@ -102,7 +104,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
         patch(next.id, { blob, name });
       } else name = next.name;
       const zc = await checkZipBeforeUpload(blob, name); // the ZIP directory is read here, before anything is sent
-      if (!zc.ok) { patch(next.id, { state: "tooLarge", note: zc.reason }); continue; }
+      if (!zc.ok) { patch(next.id, { state: "tooLarge", note: tp(lang, PATIENT_ZIP_REASON[zc.code], zipReasonVars) }); continue; }
       patch(next.id, { state: "uploading", pct: 0 });
       try {
         const res = needsChunks(blob.size)
@@ -111,7 +113,10 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
         if (res.status === 200) patch(next.id, { state: res.duplicate ? "duplicate" : "done", pct: 100 });
         else if (res.status === 401) { router.replace(`/p/login?lang=${lang}`); break; }
         else if (res.status === 403) { setPaused(true); patch(next.id, { state: "failed" }); }
-        else patch(next.id, { state: res.status === 413 ? "tooLarge" : res.status === 415 ? "badType" : "failed", note: "message" in res ? (res as { message?: string }).message : undefined });
+        else {
+          const zipKey = res.code && Object.hasOwn(PATIENT_ZIP_REASON, res.code) ? PATIENT_ZIP_REASON[res.code as keyof typeof PATIENT_ZIP_REASON] : undefined; // the server's reason, in the patient's language
+          patch(next.id, zipKey ? { state: "tooLarge", note: tp(lang, zipKey, zipReasonVars) } : { state: res.status === 413 ? "tooLarge" : res.status === 415 ? "badType" : "failed" });
+        }
       } catch {
         patch(next.id, { state: "failed" });
         setError(tp(lang, "offlineError"));
@@ -186,7 +191,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
                 )}
                 {i.state === "failed" && (
                   <>
-                    <span className="text-madder-ink">{tp(lang, "fileFailed")}{i.note ? ` ${i.note}` : ""}</span>
+                    <span className="text-madder-ink">{tp(lang, "fileFailed")}</span>
                     <button type="button" onClick={() => retry(i.id)} className="inline-flex h-11 items-center gap-1.5 underline underline-offset-4"><RotateCw aria-hidden className="size-4" />{tp(lang, "retry")}</button>
                   </>
                 )}

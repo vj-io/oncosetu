@@ -1,7 +1,7 @@
 // Ledger read model + verification rules (FR-LED-02..07, FR-VER-01..03, FR-TML-01..04, FR-ONB-01).
 // Pure and server-only (imports core/ledger → node:crypto): DB rows in, serialisable view models out.
 import { formatDateIN, patientDocLabel, staffDocLabel } from '@/core/copy'
-import { parseDate, swappedReading } from '@/core/dates'
+import { parseDate, plausibleSwap } from '@/core/dates'
 import {
   buildSnapshot, bulkVerifyEligible, diffLedger, ONBOARDING_PRIORITY,
   type LedgerConflict, type LedgerEventItem, type LedgerRecord, type MissingLike, type Snapshot, type SnapshotEvent,
@@ -82,9 +82,12 @@ const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TY
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
 const fieldText = (v: FieldValue | unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v))
 const day = (iso: string | null, precision: CoreEvent['datePrecision'] = 'day') => formatDateIN(iso, 'en', precision)
-/** Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null. */
-const readingsOf = (iso: string | null, flags: readonly EventFlag[]) => {
-  const other = iso && flags.includes('date_ambiguous') ? swappedReading(iso) : null
+/**
+ * Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null.
+ * Only when the swapped reading is a believable date (not after the paper or today; a next-visit line the other way round).
+ */
+const readingsOf = (iso: string | null, flags: readonly EventFlag[], ctx?: Parameters<typeof plausibleSwap>[1]) => {
+  const other = iso && flags.includes('date_ambiguous') ? plausibleSwap(iso, ctx) : null
   return other ? [iso!, other].map((d) => ({ iso: d, label: day(d) })) : null
 }
 /**
@@ -399,7 +402,10 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     const e = it.event
     const row = rowById.get(e.id)!
     const dt = docType(e.documentId)
-    const flags = [...new Set([...it.flags.filter((f) => f !== 'conflict'), ...(inConflict.has(e.id) || row.flags?.conflict === true ? (['conflict'] as const) : [])])].sort() as EventFlag[]
+    // The "day and month could be swapped" warning stays only when the other reading is a believable date (DOC-03).
+    const swapCtx = { now, paperDate: e.documentDate ?? e.receivedAt, forward: e.eventType === 'follow_up_documented' }
+    const dropSwap = it.flags.includes('date_ambiguous') && !(e.eventDate && plausibleSwap(e.eventDate, swapCtx))
+    const flags = [...new Set([...it.flags.filter((f) => f !== 'conflict' && !(dropSwap && f === 'date_ambiguous')), ...(inConflict.has(e.id) || row.flags?.conflict === true ? (['conflict'] as const) : [])])].sort() as EventFlag[]
     const tier = tierOf({ eventType: e.eventType, flags, category: it.category, docType: isDocType(dt) ? dt : null })
     const v = latest.get(e.id)
     // The pipeline marks events whose date was taken from the document header (no date in the quote).
@@ -414,7 +420,7 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       when: {
         event: e.eventDate ? eventDay(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
         eventIso: e.eventDate ?? e.documentDate, dateFrom, document: e.documentDate ? day(e.documentDate) : null, received: day(e.receivedAt),
-        readings: readingsOf(e.eventDate, flags), alsoReadAs: readingsOf(e.eventDate, flags)?.[1]?.label ?? null,
+        readings: readingsOf(e.eventDate, flags, swapCtx), alsoReadAs: readingsOf(e.eventDate, flags, swapCtx)?.[1]?.label ?? null,
       },
       provenance: { sourceType: e.sourceType, method: e.extractionMethod, docType: isDocType(dt) ? dt : null, institution: e.documentId ? docById.get(e.documentId)?.institutionName ?? null : null },
       viewedSource: !!viewedByMe?.has(e.id) || (!!e.supersedesId && !!viewedByMe?.has(e.supersedesId)),

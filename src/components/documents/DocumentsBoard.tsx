@@ -342,7 +342,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
       </div>
       {(live || pending || r.status === 'failed' || r.status === 'unreadable') && (
         <div className="grid gap-3 border-t border-rule px-4 py-4 sm:px-5">
-          {pos.waiting ? <HeldStages at={pos.current} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
+          {pos.waiting ? <HeldStages at={pos.current} identityFailed={r.identity === 'mismatch'} storedOnly={!!r.file?.storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
           {pending && canDecide && <IdentityDecision documentId={r.id} result={r.identity} reasons={r.identityReasons} compact onDone={onChange} />}
           {pending && !canDecide && <p className="text-sm text-muted">A records officer or clinician decides whether this file belongs to this patient.</p>}
         </div>

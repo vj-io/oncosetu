@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -9,6 +9,7 @@ import { Badge, Button, Checkbox, Field, Frame, Input, Select, TONE } from "@/co
 import { istDate } from "@/core/copy";
 import { ageOn } from "@/core/identity";
 import { postJson, stashCardToken } from "./api";
+import { CONSENT_LANGS, type ConsentLang } from "@/i18n/consent";
 import { ConsentCapture, consentBody, consentConfirm, DEFAULT_CONSENT, type ConsentValue } from "./ConsentCapture";
 import { Notice } from "./Notice";
 import { WRAP } from "./style";
@@ -44,6 +45,8 @@ export function RegistrationWizard({ role }: { role: Role }) {
   const [consent, setConsent] = useState<ConsentValue>(DEFAULT_CONSENT);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (banner) bannerRef.current?.scrollIntoView({ block: "nearest" }); }, [banner]);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -90,6 +93,12 @@ export function RegistrationWizard({ role }: { role: Role }) {
     if (validateIdentity()) setStep(1);
   }
 
+  /** The notice opens in the language chosen in step 1, unless staff already picked another one. */
+  function goConsent() {
+    setConsent((c) => (c.language === DEFAULT_CONSENT.language && (CONSENT_LANGS as readonly string[]).includes(f.preferredLanguage) ? { ...c, language: f.preferredLanguage as ConsentLang } : c));
+    setStep(2);
+  }
+
   async function toConsent() {
     setBanner(null);
     if (!validateContacts()) return;
@@ -101,7 +110,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
     setChecking(false);
     if (!r.ok) return setBanner(r.message);
     setCandidates(r.data.candidates);
-    if (!r.data.candidates.length || dupAck) setStep(2);
+    if (!r.data.candidates.length || dupAck) goConsent();
   }
 
   async function submit(e: FormEvent) {
@@ -150,7 +159,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
         ))}
       </ol>
 
-      {banner && <Notice tone="conflict" title={banner} />}
+      {banner && step !== 2 && <Notice tone="conflict" title={banner} />}
 
       {step === 0 && (
         <Frame matte>
@@ -296,7 +305,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
           candidates={candidates}
           role={role}
           acknowledged={dupAck}
-          onContinue={() => { setDupAck(true); setStep(2); }}
+          onContinue={() => { setDupAck(true); goConsent(); }}
         />
       )}
 
@@ -317,6 +326,9 @@ export function RegistrationWizard({ role }: { role: Role }) {
           </div>
         </Frame>
       )}
+
+      {/* On the consent step the page is long: show the problem beside the button that was pressed, not at the top. */}
+      {banner && step === 2 && <div role="alert" ref={bannerRef}><Notice tone="conflict" title={banner} /></div>}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" disabled={step === 0} onClick={() => { setBanner(null); setStep(step - 1); }} icon={<ArrowLeft aria-hidden />}>

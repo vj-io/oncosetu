@@ -60,9 +60,11 @@ export function ConsentCapture({
     <div className="grid gap-6">
       <style>{PRINT_CSS}</style>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="ds-kicker">Notice · {CONSENT_NOTICE_VERSION}</p>
+        <p className="ds-kicker">Notice version {CONSENT_NOTICE_VERSION.replace(/^consent-notice\.v/i, "")}</p>
         <LanguageToggle value={lang} onChange={(l) => set({ language: l })} langs={CONSENT_LANGS} />
       </div>
+
+      <p className="text-sm text-muted">Patients see this service under the name “Setu Records”, on this notice, on the card and in text messages.</p>
 
       <div lang={lang === "mr" ? "mr" : htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", (lang === "hi" || lang === "mr") && "font-deva")}>
         <h3 className="text-2xl leading-snug tracking-[-0.02em]">{consentCopy.title[lang]}</h3>
@@ -146,7 +148,7 @@ export function ConfirmStep<T extends ConfirmState>({
     setSendError(null);
     const err = await sendCode();
     setSending(false);
-    if (err) setSendError(err);
+    if (err) { setSendError(err); setSent(false); } // never leave "Sent" showing beside a refusal
     else setSent(true);
   }
 
@@ -159,7 +161,7 @@ export function ConfirmStep<T extends ConfirmState>({
             <input type="radio" name={`${id}-method`} className="mt-1 size-4 accent-obsidian" checked={value.method === m} onChange={() => change({ method: m })} />
             <span className="grid gap-0.5">
               <span className="text-[15px] font-medium">{m === "otp" ? "Code sent by SMS" : "In person, witnessed"}</span>
-              <span className="text-sm text-muted">{m === "otp" ? contactHint : "For people without a phone (FR-CON-06). You are recorded as the witness."}</span>
+              <span className="text-sm text-muted">{m === "otp" ? contactHint : "For people without a phone. You are recorded as the witness."}</span>
             </span>
           </label>
         ))}

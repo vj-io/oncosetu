@@ -9,6 +9,7 @@ import type { L2 } from '../radar-ui/wording'
 import { guardFree } from '../requests/letter'
 
 export type ShareScope = 'index' | 'index_with_quotes'
+export type ShareCreator = 'staff' | 'patient' | 'caregiver'
 export type Verification = 'records' | 'clinician' | 'verified' | 'unverified' | 'disputed'
 
 export type SharePayload = {
@@ -30,6 +31,8 @@ export type SharePayload = {
   /** Scan files: listed so the reader knows they exist, never included (images stay at the clinic). Absent on older links. */
   scans?: { label: L2; date: string | null; institution: string | null }[]
   absent: { text: L2; state: MissingState }[]
+  /** Who made the link: the viewer words "shared by the clinic / the patient / the family" from it. Absent on older links. */
+  createdBy?: ShareCreator
   /** FR-ID-06: documents of the previous seal taken out of this record since (only when there are any). */
   errata?: { label: L2; date: string | null; withdrawn: number }[]
   seal: { snapshotId: string; sha256: string; verifyPath: string }
@@ -49,6 +52,7 @@ export type PayloadInput = {
   absentNeutral: Record<string, L2>
   /** documentId → the scan's plain title ("Mammogram", "CT chest"), for documents that are scan files. */
   scans?: Record<string, string>
+  createdBy?: ShareCreator
 }
 
 export class QuotesNotAllowed extends Error {}
@@ -124,6 +128,7 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
             .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
         }
       : {}),
+    ...(i.createdBy ? { createdBy: i.createdBy } : {}),
     absent: i.snapshot.missing.map((m) => ({
       state: m.state,
       text: cleared && m.wording?.en

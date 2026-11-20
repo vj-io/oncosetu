@@ -35,7 +35,7 @@ export const en = {
   sealText: 'Record {id} · SHA-256 {hash}',
   verifySeal: 'Verify seal',
   received: 'Received {date}',
-  sigVerified: 'Signature verified — issued by {brand} on {date}',
+  sigVerified: 'Signature verified. This link was signed by {brand} on {date}. The record inside was sealed on {sealDate}.',
   sigNotVerified: 'Not verified — content may have been altered',
   // ── printable passport (FR-PAS-05) ──
   sealedOn: 'Sealed on {when} IST',
@@ -90,6 +90,31 @@ export const en = {
   noSnapshot: 'There is no sealed record to share yet. The clinic seals the record after reviewing it.',
   noConsent: 'Sharing is switched off in the permissions for this record.',
 
+  passcodeAfter: 'Give the passcode to the doctor separately from the link.',
+  scopeSummary: 'This link shows {n} papers: the list the clinic checked on {date}. Papers added after that date are not included.',
+  scopeSummaryOne: 'This link shows 1 paper: the list the clinic checked on {date}. Papers added after that date are not included.',
+  scopeScans: 'Scans are listed by name only. The images stay at the clinic.',
+  scopeNewer: 'To include newer papers, the clinic seals a new visit and you make a new link.',
+  createdScope: 'The doctor will see {n} papers as sealed on {date}. Papers added after that date are not in this link.',
+  createdScopeOne: 'The doctor will see 1 paper as sealed on {date}. Papers added after that date are not in this link.',
+  showPasscode: 'Show',
+  hidePasscode: 'Hide',
+  byClinic: 'A list of records shared by the clinic. Not a clinical summary.',
+  byPatient: 'A list of records shared by the patient. Not a clinical summary.',
+  byFamily: 'A list of records shared by the patient’s family. Not a clinical summary.',
+  byUnknown: 'A list of records shared with you. Not a clinical summary.',
+  papersShared: '{n} papers, newest first. Open one to see what it contains.',
+  papersSharedOne: '1 paper. Open it to see what it contains.',
+  papersN: '{n} papers',
+  papersOne: '1 paper',
+  itemsN: '{n} recorded items',
+  itemsOne: '1 recorded item',
+  labelLabel: 'Who is this link for? (optional)',
+  labelHint: 'For example: Dr. Mehta, Pune. Only you and the clinic see this name. The doctor does not.',
+  labelPlaceholder: 'Dr. Mehta, Pune',
+  scopeIndexName: 'Document list',
+  scopeQuotesName: 'Document list with the words from each paper',
+
   // ── SMS ──
   lockedSms: '{brand}: a link to your records was locked after 5 wrong passcode attempts. If you did not expect this, you can switch the link off from your records page.',
 }
@@ -128,7 +153,7 @@ export const hi: Record<ShareKey, string> = {
   sealText: 'रिकॉर्ड {id} · SHA-256 {hash}',
   verifySeal: 'सील जाँचें',
   received: '{date} को मिला',
-  sigVerified: 'हस्ताक्षर सत्यापित — {brand} द्वारा {date} को जारी',
+  sigVerified: 'हस्ताक्षर सत्यापित। यह लिंक {brand} द्वारा {date} को हस्ताक्षरित हुआ। इसके अंदर का रिकॉर्ड {sealDate} को सील किया गया था।',
   sigNotVerified: 'सत्यापित नहीं — सामग्री बदली गई हो सकती है',
   sealedOn: '{when} IST पर सील किया गया',
   sealKey: 'Ed25519 कुंजी {key} से हस्ताक्षरित',
@@ -180,6 +205,31 @@ export const hi: Record<ShareKey, string> = {
   noSnapshot: 'साझा करने के लिए अभी कोई सील किया गया रिकॉर्ड नहीं है। क्लिनिक रिकॉर्ड देखने के बाद उसे सील करता है।',
   noConsent: 'इस रिकॉर्ड की अनुमतियों में साझा करना बंद है।',
 
+  passcodeAfter: 'पासकोड डॉक्टर को लिंक से अलग बताएँ।',
+  scopeSummary: 'इस लिंक में {n} काग़ज़ दिखेंगे: क्लिनिक ने {date} को जो सूची जाँची थी। उस तारीख़ के बाद जोड़े गए काग़ज़ इसमें नहीं हैं।',
+  scopeSummaryOne: 'इस लिंक में 1 काग़ज़ दिखेगा: क्लिनिक ने {date} को जो सूची जाँची थी। उस तारीख़ के बाद जोड़े गए काग़ज़ इसमें नहीं हैं।',
+  scopeScans: 'स्कैन सिर्फ़ नाम से सूची में हैं। तस्वीरें क्लिनिक में रहती हैं।',
+  scopeNewer: 'नए काग़ज़ जोड़ने के लिए क्लिनिक नई विज़िट सील करता है, फिर आप नया लिंक बनाएँ।',
+  createdScope: 'डॉक्टर को {date} को सील हुए रिकॉर्ड के {n} काग़ज़ दिखेंगे। उस तारीख़ के बाद जोड़े गए काग़ज़ इस लिंक में नहीं हैं।',
+  createdScopeOne: 'डॉक्टर को {date} को सील हुए रिकॉर्ड का 1 काग़ज़ दिखेगा। उस तारीख़ के बाद जोड़े गए काग़ज़ इस लिंक में नहीं हैं।',
+  showPasscode: 'दिखाएँ',
+  hidePasscode: 'छिपाएँ',
+  byClinic: 'क्लिनिक द्वारा साझा किए गए रिकॉर्ड की सूची। यह चिकित्सा सारांश नहीं है।',
+  byPatient: 'मरीज़ द्वारा साझा किए गए रिकॉर्ड की सूची। यह चिकित्सा सारांश नहीं है।',
+  byFamily: 'मरीज़ के परिवार द्वारा साझा किए गए रिकॉर्ड की सूची। यह चिकित्सा सारांश नहीं है।',
+  byUnknown: 'आपके साथ साझा किए गए रिकॉर्ड की सूची। यह चिकित्सा सारांश नहीं है।',
+  papersShared: '{n} काग़ज़, सबसे नया पहले। देखने के लिए किसी एक को खोलें।',
+  papersSharedOne: '1 काग़ज़। देखने के लिए इसे खोलें।',
+  papersN: '{n} काग़ज़',
+  papersOne: '1 काग़ज़',
+  itemsN: '{n} दर्ज प्रविष्टियाँ',
+  itemsOne: '1 दर्ज प्रविष्टि',
+  labelLabel: 'यह लिंक किसके लिए है? (वैकल्पिक)',
+  labelHint: 'जैसे: डॉ. मेहता, पुणे। यह नाम सिर्फ़ आप और क्लिनिक देखते हैं, डॉक्टर नहीं।',
+  labelPlaceholder: 'डॉ. मेहता, पुणे',
+  scopeIndexName: 'दस्तावेज़ों की सूची',
+  scopeQuotesName: 'दस्तावेज़ों की सूची, हर काग़ज़ के शब्दों के साथ',
+
   lockedSms: '{brand}: आपके रिकॉर्ड का एक लिंक 5 बार गलत पासकोड डालने के बाद बंद हो गया। अगर यह आपकी जानकारी में नहीं है, तो आप अपने रिकॉर्ड पेज से लिंक बंद कर सकते हैं।',
 }
 
@@ -216,7 +266,7 @@ export const hinglish: Record<ShareKey, string> = {
   sealText: 'Record {id} · SHA-256 {hash}',
   verifySeal: 'Seal check karein',
   received: '{date} ko mila',
-  sigVerified: 'Signature verify hua — {brand} ne {date} ko jaari kiya',
+  sigVerified: 'Signature verify hua. Ye link {brand} ne {date} ko sign kiya. Isme jo record hai woh {sealDate} ko seal hua tha.',
   sigNotVerified: 'Verify nahi hua — content badla gaya ho sakta hai',
   sealedOn: '{when} IST par seal kiya gaya',
   sealKey: 'Ed25519 key {key} se sign kiya gaya',
@@ -268,10 +318,40 @@ export const hinglish: Record<ShareKey, string> = {
   noSnapshot: 'Share karne ke liye abhi koi seal kiya gaya record nahi hai. Clinic record dekhne ke baad use seal karta hai.',
   noConsent: 'Is record ki permissions mein share karna band hai.',
 
+  passcodeAfter: 'Passcode doctor ko link se alag batayein.',
+  scopeSummary: 'Is link mein {n} papers dikhenge: clinic ne {date} ko jo list check ki thi. Us date ke baad jude papers isme nahi hain.',
+  scopeSummaryOne: 'Is link mein 1 paper dikhega: clinic ne {date} ko jo list check ki thi. Us date ke baad jude papers isme nahi hain.',
+  scopeScans: 'Scans sirf naam se list mein hain. Images clinic mein rehti hain.',
+  scopeNewer: 'Naye papers jodne ke liye clinic nayi visit seal karta hai, phir aap naya link banayein.',
+  createdScope: 'Doctor ko {date} ko seal hue record ke {n} papers dikhenge. Us date ke baad jude papers is link mein nahi hain.',
+  createdScopeOne: 'Doctor ko {date} ko seal hue record ka 1 paper dikhega. Us date ke baad jude papers is link mein nahi hain.',
+  showPasscode: 'Dikhayein',
+  hidePasscode: 'Chhupayein',
+  byClinic: 'Clinic ne jo records share kiye unki list. Yeh clinical summary nahi hai.',
+  byPatient: 'Mareez ne jo records share kiye unki list. Yeh clinical summary nahi hai.',
+  byFamily: 'Mareez ke parivaar ne jo records share kiye unki list. Yeh clinical summary nahi hai.',
+  byUnknown: 'Aapke saath share kiye gaye records ki list. Yeh clinical summary nahi hai.',
+  papersShared: '{n} papers, sabse naya pehle. Dekhne ke liye ek kholein.',
+  papersSharedOne: '1 paper. Dekhne ke liye ise kholein.',
+  papersN: '{n} papers',
+  papersOne: '1 paper',
+  itemsN: '{n} darj entries',
+  itemsOne: '1 darj entry',
+  labelLabel: 'Yeh link kiske liye hai? (optional)',
+  labelHint: 'Jaise: Dr. Mehta, Pune. Yeh naam sirf aap aur clinic dekhte hain, doctor nahi.',
+  labelPlaceholder: 'Dr. Mehta, Pune',
+  scopeIndexName: 'Documents ki list',
+  scopeQuotesName: 'Documents ki list, har paper ke shabdon ke saath',
+
   lockedSms: '{brand}: aapke records ka ek link 5 baar galat passcode daalne ke baad band ho gaya. Agar ye aapki jaankari mein nahi hai, to aap apne records page se link band kar sakte hain.',
 }
 
 export function ts(lang: Lang, key: ShareKey, vars?: Record<string, string | number>): string {
   const s = (lang === 'hi' ? hi : lang === 'hinglish' ? hinglish : en)[key]
   return vars ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : s
+}
+
+/** "1 paper" / "{n} papers": the singular key is used when n is 1. */
+export function tn(lang: Lang, many: ShareKey, one: ShareKey, n: number): string {
+  return n === 1 ? ts(lang, one) : ts(lang, many, { n })
 }

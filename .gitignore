@@ -63,3 +63,6 @@ next-env.d.ts
 /docs/finale/e2e-audit/shots/
 /docs/finale/wp*-shots/
 next.log
+
+# Real-scan test: everything under test-data/ stays local (de-identified copies, test DB, videos, reports)
+/test-data/

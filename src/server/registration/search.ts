@@ -54,7 +54,7 @@ function toRow(p: typeof patients.$inferSelect, consent: Map<string, boolean>): 
     return readRow(p, consent)
   } catch (e) {
     // One undecryptable row must not take down the whole list. Never log the contents, only the id and the error code.
-    log.error('patient row could not be decrypted', { patientId: p.id, code: (e as { code?: unknown }).code ?? (e as Error).name })
+    log.error('patient row could not be decrypted', { patientId: p.id, errorCode: (e as { code?: unknown }).code ?? (e as Error).name })
     return {
       id: p.id, accession: accession(p.id), name: UNREADABLE_NAME, initials: '?', ageYears: null, sex: 'unknown', mrn: null, disclosure: p.disclosureStatus,
       minor: p.minor, deceased: p.deceased, hasConsent: false, createdAt: p.createdAt, phoneMasked: null, unreadable: true,

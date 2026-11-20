@@ -12,6 +12,7 @@ import { MB } from '@/core/limits'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
 import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
+import { isHeldRow } from '@/core/held'
 import { HeldStages } from './HeldStages'
 import { ThumbPicture, isHeldFile } from './HeldReveal'
 import { IdentityDecision, postJson } from './IdentityDecision'
@@ -150,7 +151,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   // Documents waiting for a person to confirm the patient sit in their own group, never under a clinical heading.
   // REC-01: a rejected or detached file is not this patient's paper: it leaves the counts and the kind groups and is listed on its own.
   const removed = useMemo(() => data.rows.filter((r) => r.status !== 'quarantined' && (r.attachState === 'rejected' || r.attachState === 'detached')), [data.rows])
-  const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing' && r.status !== 'quarantined'), [data.rows])
+  const held = useMemo(() => data.rows.filter(isHeldRow), [data.rows])
   const blocked = useMemo(() => data.rows.filter((r) => r.status === 'quarantined'), [data.rows])
   const groups = useMemo(() => {
     const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r) && !removed.includes(r))

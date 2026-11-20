@@ -3,6 +3,7 @@ import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { auditLog, documentFiles, documentPages, documents, events, evidence, staff } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { isHeldRow } from '@/core/held'
 import { backlogRank } from '@/core/backlog'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
@@ -157,7 +158,7 @@ export async function listDocuments(tx: Tx, patientId: string) {
     pagesVerified: verifiedDocs.reduce((a, d) => a + pagesOf(d), 0),
     inQueue: queued.length,
     minutesLeft: queued.length ? minutesLeft(queued.reduce((a, d) => a + pagesOf(d), 0), await recentProcessing(tx)) : null,
-    awaitingDecision: live.filter((d) => d.attachState === 'pending_decision' && (d.status === 'needs_review' || d.status === 'done')).length,
+    awaitingDecision: live.filter(isHeldRow).length,
   }
   return { rows, progress }
 }

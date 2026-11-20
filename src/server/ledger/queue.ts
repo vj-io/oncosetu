@@ -6,6 +6,8 @@ import { alias } from 'drizzle-orm/pg-core'
 import type { Tx } from '@/db'
 import { consents, documentPages, documents, events, patients, type ConsentPurposes } from '@/db/schema'
 import { decryptField } from '../crypto'
+import { log } from '../log'
+import { UNREADABLE_NAME } from '../registration/search'
 import { PRIORITY_BUCKETS, priorityOf } from './core'
 
 export type QueueRow = {
@@ -83,6 +85,14 @@ export async function loadRecordsQueue(tx: Tx, limit = QUEUE_PAGE): Promise<{ ro
   // Administrative order (FR-ONB-01): pending identity decisions first, then the highest-priority document type waiting, then volume.
   rows.sort((a, b) => Number(b.identity > 0) - Number(a.identity > 0) || a.firstBucket - b.firstBucket || b.total - a.total || a.accession.localeCompare(b.accession))
   const shown = rows.slice(0, limit)
-  for (const r of shown) r.name = decryptField(nameEnc.get(r.patientId)!)
+  for (const r of shown) {
+    try {
+      r.name = decryptField(nameEnc.get(r.patientId)!)
+    } catch (e) {
+      // REC-02 here too: one unreadable name must not take down the To do list. Only the id and an error code are logged.
+      log.error('queue row name could not be decrypted', { patientId: r.patientId, errorCode: (e as { code?: unknown }).code ?? (e as Error).name })
+      r.name = UNREADABLE_NAME
+    }
+  }
   return { rows: shown, totals, withoutConsent, buckets: PRIORITY_BUCKETS }
 }

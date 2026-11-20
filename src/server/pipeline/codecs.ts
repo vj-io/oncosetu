@@ -38,10 +38,16 @@ export function codestreamSize(b: Uint8Array): Size | null {
   return null
 }
 
-/** A decoder allocates for the size its codestream claims; that must be the size the DICOM header claims (already checked against MAX_PREVIEW_PIXELS). */
-function assertSize(encoded: Uint8Array, want: Size) {
+/**
+ * A decoder allocates for the size its codestream claims; that must be the size the DICOM header claims (already checked against
+ * MAX_PREVIEW_PIXELS). `swappedOk`: the same size with width and height swapped is accepted too (same pixel count, so the same
+ * allocation) — some CD writers give the JPEG 2000 encoder the rows as the width, and the pixels still come out in the header's order.
+ */
+function assertSize(encoded: Uint8Array, want: Size, swappedOk = false) {
   const s = codestreamSize(encoded)
-  if (!s || s.width !== want.width || s.height !== want.height) throw new Error('The compressed picture is not the size its header says')
+  const same = !!s && s.width === want.width && s.height === want.height
+  const swapped = swappedOk && !!s && s.width === want.height && s.height === want.width
+  if (!same && !swapped) throw new Error('The compressed picture is not the size its header says')
 }
 
 // Loaded once per server process. Each loader finds its .wasm next to its own .js file (from __dirname, never the working directory);
@@ -69,7 +75,7 @@ function run(Dec: new () => CodecDecoder, encoded: Uint8Array): Decoded {
 }
 
 export async function decodeJ2k(encoded: Uint8Array, want: Size): Promise<Decoded> {
-  assertSize(encoded, want)
+  assertSize(encoded, want, true)
   return run((await load('j2k')).J2KDecoder!, encoded)
 }
 

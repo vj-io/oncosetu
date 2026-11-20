@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest'
 import nextConfig from '../../../next.config'
 import { codestreamSize, decodeJ2k, decodeJpegLossless, decodeJpegLs } from './codecs'
 import { buildSyntheticDicom } from './dicom-synthetic'
-import { J2K_GRADIENT_B64, j2kGradient } from './j2k-fixture'
+import { J2K_GRADIENT_B64, J2K_SWAPPED_B64, j2kGradient, j2kSwapped } from './j2k-fixture'
 import { renderDicomFrame } from './dicom'
 import { BundleWriter, bundleSliceAt } from './study'
 import { planZip } from './zip'
@@ -70,6 +70,20 @@ describe('JPEG 2000 DICOM preview (decoded for display only)', () => {
     expect(await renderDicomFrame(lying)).toMatchObject({ ok: false, reason: 'compression' })
   })
 
+  it('draws a slice whose JPEG 2000 codestream has width and height swapped (a real CD writer does this), in the header’s order', async () => {
+    const cs = new Uint8Array(Buffer.from(J2K_SWAPPED_B64, 'base64'))
+    expect(codestreamSize(cs)).toEqual({ width: 24, height: 16 })
+    const dcm = await buildSyntheticDicom({ modality: 'MR', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 24, columns: 16, pixelHeader: { window: [830, 1660] }, encapsulated: { transferSyntax: TS_J2K_LOSSLESS, frames: [cs] } })
+    const r = await renderDicomFrame(dcm)
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(await sharp(r.png).metadata()).toMatchObject({ width: 16, height: 24 })
+    for (const [x, y] of [[0, 0], [15, 0], [0, 23], [15, 23], [7, 11]]) expect(Math.abs((await greyAt(r.png, x, y)) - (j2kSwapped(x, y) / 1660) * 255)).toBeLessThanOrEqual(1)
+    // only a swap: any other size that differs from the header is still refused
+    const off = await buildSyntheticDicom({ modality: 'MR', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 24, columns: 24, encapsulated: { transferSyntax: TS_J2K_LOSSLESS, frames: [cs] } })
+    expect(await renderDicomFrame(off)).toMatchObject({ ok: false, reason: 'compression' })
+  })
+
   it('takes signedness from the DICOM header, not the codestream (12 bits stored, signed)', async () => {
     // same unsigned codestream; the header now says signed 12-bit, so stored values of 2048 and up are negative
     const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 48, pixelHeader: { signed: true, bitsStored: 12, window: [0, 4096] }, encapsulated: { transferSyntax: TS_J2K_LOSSLESS, frames: [J2K] } })
@@ -102,6 +116,13 @@ describe('JPEG-LS DICOM preview', () => {
     for (const i of [0, 5, 500, 1023]) expect(dv.getUint16(i * 2, true)).toBe((i * 7) % 4000)
     const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 32, encapsulated: { transferSyntax: TS_JLS, frames: [enc] } })
     expect((await renderDicomFrame(dcm)).ok).toBe(true)
+  })
+
+  it('still refuses a JPEG-LS codestream with width and height swapped (only JPEG 2000 is excused)', async () => {
+    const enc = await encodeJpegLs(24, 16, (i) => i)
+    await expect(decodeJpegLs(enc, { width: 16, height: 24 })).rejects.toThrow(/size/)
+    const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 24, columns: 16, encapsulated: { transferSyntax: TS_JLS, frames: [enc] } })
+    expect(await renderDicomFrame(dcm)).toMatchObject({ ok: false, reason: 'compression' })
   })
 
   it('reads a signed CT (pixel representation 1) as negative numbers, then applies the rescale and the window', async () => {

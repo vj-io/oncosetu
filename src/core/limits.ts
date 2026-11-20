@@ -11,8 +11,12 @@ export const MAX_FILE_BYTES = 50 * MB
 export const MAX_ZIP_BYTES = 300 * MB
 export const MAX_ZIP_UNCOMPRESSED_BYTES = 1536 * MB
 export const MAX_ZIP_ENTRIES = 3000
-/** One study kept as a single stored document (its slices bundled): never more than this, so one database row stays well under Postgres' 1 GB value limit. */
-export const MAX_STUDY_BUNDLE_BYTES = MAX_ZIP_BYTES
+/**
+ * One stored study document (its slices bundled); a larger study is kept as several parts of this size. The real bound is the
+ * driver, not Postgres: postgres.js sends bytes as one hex string (2 characters a byte) and Node caps a string at 512 MiB, so a
+ * stored file over about 256 MiB can never be written (a 300 MB cap failed on a real MRI CD). 200 MiB leaves room for encryption.
+ */
+export const MAX_STUDY_BUNDLE_BYTES = 200 * MB
 /** An entry that expands more than this many times is refused. */
 export const MAX_ZIP_RATIO = 200
 /** Size of one chunk sent by the browser (stays well under the 4.5 MB request limit, multipart overhead included). */

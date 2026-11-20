@@ -219,7 +219,9 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number, w
       const enc = encapsulatedFrame(ds, el, frames, frame)
       const want = { width: cols, height: rows }
       const d: Decoded = TS_J2K.has(ts) ? await decodeJ2k(enc, want) : TS_JLS.has(ts) ? await decodeJpegLs(enc, want) : await decodeJpegLossless(enc, want, samples)
-      if (d.width !== cols || d.height !== rows || d.data.length < px * d.bytesPerSample * d.samples) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
+      // A JPEG 2000 codestream may say rows x cols instead of cols x rows (a CD writer's mistake); its pixels are in the header's order.
+      const sizeOk = (d.width === cols && d.height === rows) || (TS_J2K.has(ts) && d.width === rows && d.height === cols)
+      if (!sizeOk || d.data.length < px * d.bytesPerSample * d.samples) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
       data = d.data; bps = d.bytesPerSample; nSamples = d.samples; planar = false
     } else {
       return { ok: false, reason: 'compression', note: NOT_AVAILABLE }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildFirstLook, classifyHeld, type FirstLookInput } from './first-look'
-import { oncologyView, isEmptyOncology, type FactItem } from './oncology'
+import { cutAtNextLabel, oncologyView, isEmptyOncology, type FactItem } from './oncology'
 import type { EventType } from '../types'
 
 const item = (id: string, eventType: EventType, over: Partial<FactItem> = {}): FactItem => ({
@@ -140,5 +140,21 @@ describe('noisy pathology rows', () => {
   it('keeps a row that is the only fact of its document', async () => {
     const { oncologyView } = await import('./oncology')
     expect(oncologyView([row('a', 'pathology_report_documented', 'HISTOPATHOLOGY')]).diagnosis).toHaveLength(1)
+  })
+})
+
+describe('diagnosis line (DOC-12)', () => {
+  it('cuts a line where the next column label starts', () => {
+    expect(cutAtNextLabel('Carcinoma colon - adjuvant chemotherapy Last cycle: Cycle 1 on 10/02/2026')).toBe('Carcinoma colon - adjuvant chemotherapy')
+    expect(cutAtNextLabel('ADENOCARCINOMA, moderately differentiated')).toBe('ADENOCARCINOMA, moderately differentiated')
+    expect(cutAtNextLabel('Diagnosis: Carcinoma colon')).toBe('Diagnosis: Carcinoma colon')
+  })
+  it('puts the pathology report above the day-care sheet, whatever the dates', () => {
+    const v = oncologyView([
+      item('day', 'diagnosis_documented', { headline: 'Carcinoma colon - adjuvant chemotherapy Last cycle: Cycle 1', provenance: { docType: 'chemo_daycare_record' }, when: { event: '10 Feb 2026', eventIso: '2026-02-10' } }),
+      item('path', 'diagnosis_documented', { headline: 'ADENOCARCINOMA, moderately differentiated', provenance: { docType: 'pathology_report' }, when: { event: '22 Jan 2026', eventIso: '2026-01-22' } }),
+    ])
+    expect(v.diagnosis.map((f) => f.id)).toEqual(['path', 'day'])
+    expect(v.diagnosis[1].text).toBe('Carcinoma colon - adjuvant chemotherapy')
   })
 })

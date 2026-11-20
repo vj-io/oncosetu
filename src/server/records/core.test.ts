@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  bodyKey, bodyLabel, countsByKind, earlierStudies, filterRecords, fmtDay, kindOf, modalityKey, neighbours, proposePairs, reportTerms, resolvePairs,
+  betterHeadline, bodyKey, bodyLabel, countsByKind, otherAreaStudies, earlierStudies, filterRecords, fmtDay, kindOf, modalityKey, neighbours, proposePairs, reportTerms, resolvePairs,
   sortRecords, toRecordRow, type DocLike, type RecordRow, type ReportCandidate, type ScanCandidate,
 } from './core'
 
@@ -157,5 +157,38 @@ describe('earlier studies of the same area', () => {
   it('gives nothing for a report or for the oldest scan', () => {
     expect(earlierStudies(rows, 'rep')).toEqual([])
     expect(earlierStudies(rows, 'old2')).toEqual([])
+  })
+})
+
+describe('finale review fixes (RAD-08, RAD-11, RAD-13, RAD-17)', () => {
+  it('says plainly when the hospitals differ', () => {
+    const scan: ScanCandidate = { id: 's', date: '2026-04-28', institution: 'Synthetic Demo Imaging Centre', modality: 'PET-CT', bodyKey: null }
+    const rep: ReportCandidate = { id: 'r', date: '2026-04-28', institution: 'City Care Hospital', terms: reportTerms('PET-CT whole body report') }
+    expect(proposePairs([scan], [rep])[0].reason).toBe('same date, same kind of study, different hospital')
+    expect(proposePairs([scan], [{ ...rep, institution: null }])[0].reason).toBe('same date, same kind of study')
+  })
+  it('lists same-body-part studies of another kind, earlier only', () => {
+    const rows = [
+      row({ id: 'us', flags: imaging(['US'], '2026-01-08', 'BREAST') }),
+      row({ id: 'mg', flags: imaging(['MG'], '2026-01-05', 'BREAST') }),
+      row({ id: 'late', flags: imaging(['MG'], '2026-03-05', 'BREAST') }),
+      row({ id: 'chest', flags: imaging(['CR'], '2026-01-04', 'CHEST') }),
+    ]
+    expect(otherAreaStudies(rows, 'us').map((r) => r.id)).toEqual(['mg'])
+    expect(earlierStudies(rows, 'us')).toEqual([])
+  })
+  it('brings matching imaging reports into a scan-kind filter only when asked', () => {
+    const scanRow = row({ id: 's', flags: imaging(['CT'], '2025-11-10', 'CHEST') })
+    const repRow = { ...row({ id: 'r', docType: 'imaging_report', documentDate: '2025-11-10' }), reportMods: ['CT' as const] }
+    const lab = row({ id: 'l', docType: 'lab_report', documentDate: '2025-11-10' })
+    expect(filterRecords([scanRow, repRow, lab], { modality: 'CT' }).map((r) => r.id)).toEqual(['s'])
+    expect(filterRecords([scanRow, repRow, lab], { modality: 'CT', withReports: true }).map((r) => r.id)).toEqual(['s', 'r'])
+  })
+  it('picks the same summary line however the facts were created', () => {
+    const lines = [{ rank: 12, text: 'Metformin' }, { rank: 0, text: 'Cycle 1 · Capecitabine' }, { rank: 12, text: 'Urea 10% emollient cream' }]
+    const pick = (xs: typeof lines) => xs.reduce<{ rank: number; text: string } | null>((a, b) => betterHeadline(a, b), null)
+    expect(pick(lines)?.text).toBe('Cycle 1 · Capecitabine')
+    expect(pick([...lines].reverse())?.text).toBe('Cycle 1 · Capecitabine')
+    expect(pick(lines.slice(0, 1).concat(lines.slice(2)))?.text).toBe(pick(lines.slice(2).concat(lines.slice(0, 1)))?.text)
   })
 })

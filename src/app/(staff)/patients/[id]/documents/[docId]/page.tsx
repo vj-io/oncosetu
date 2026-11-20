@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
 import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { HeldReveal } from '@/components/documents/HeldReveal'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, statusBadge } from '@/components/documents/labels'
 import { ImagingViewer, type ImagingDetails } from '@/components/documents/ImagingViewer'
@@ -12,7 +13,7 @@ import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, T
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
-import { fmtDay, neighbours } from '@/server/records/core'
+import { MODALITY_LABEL, filterRecords, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
 import { loadRecords } from '@/server/records/queries'
 import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
@@ -31,8 +32,8 @@ function Notice({ tone, icon, title, children }: { tone: Tone; icon: ReactNode; 
   )
 }
 
-export default async function DocumentSourcePage({ params, searchParams }: { params: Promise<{ id: string; docId: string }>; searchParams: Promise<{ event?: string }> }) {
-  const [{ id, docId }, { event }] = await Promise.all([params, searchParams])
+export default async function DocumentSourcePage({ params, searchParams }: { params: Promise<{ id: string; docId: string }>; searchParams: Promise<{ event?: string; kind?: string; mod?: string; order?: string }> }) {
+  const [{ id, docId }, { event, kind: kindQ, mod: modQ, order: orderQ }] = await Promise.all([params, searchParams])
   const data = await withPatientAccess(id, async (tx, session) => {
     if (session.role !== 'records' && session.role !== 'clinician') return { denied: true as const }
     if (!/^[0-9a-f-]{36}$/i.test(docId)) return null
@@ -42,7 +43,16 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   if (data && 'denied' in data) forbidden()
   if (!data) notFound()
   const { detail: d, patient, recs } = data
-  const nb = neighbours(recs.rows, docId)
+  // The list the reader came from: the same kind, kind of scan and order as in All records, so Previous and Next stay inside it.
+  const kind = (['report', 'scan', 'lab', 'rx', 'other'] as const).find((k) => k === kindQ) as RecordKind | undefined
+  const modality = modQ && modQ in MODALITY_LABEL ? (modQ as ModalityKey) : undefined
+  const order = orderQ === 'old' ? 'old' : 'new'
+  const walk = filterRecords(sortRecords(recs.rows, order), { kind: kind ?? 'all', modality: modality ?? 'any', withReports: true })
+  const inWalk = walk.some((r) => r.id === docId)
+  const list = inWalk ? walk : sortRecords(recs.rows, 'new')
+  const listQs = inWalk ? new URLSearchParams([...(kind ? [['kind', kind]] : []), ...(modality ? [['mod', modality]] : []), ...(order === 'old' ? [['order', 'old']] : [])]).toString() : ''
+  const q = listQs ? `?${listQs}` : ''
+  const nb = neighbours(list, docId)
   const myPair = recs.pairs.find((p) => p.scanId === docId || p.reportId === docId)
   const pairOther = myPair ? recs.rows.find((r) => r.id === (myPair.scanId === docId ? myPair.reportId : myPair.scanId)) : null
   const doc = d.doc
@@ -66,19 +76,32 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
+  // A file held because it may belong to someone else: warn first, and keep the picture small and blurred until a person asks.
+  const heldOut = doc.attachState === 'pending_decision' && doc.status !== 'quarantined'
+  const nameOnFile = [imaging?.patientName ?? v('name'), imaging?.patientSex ?? v('sex'), imaging?.patientAge ?? v('age')].filter(Boolean).join(', ') || null
+  const hold = (node: ReactNode) => (heldOut ? <HeldReveal nameOnFile={nameOnFile}>{node}</HeldReveal> : node)
   const pageNos = d.pages.filter((p) => p.text.trim()).map((p) => p.pageNo)
 
   return (
     <div className="grid gap-8 py-6 [&>*]:min-w-0">
+      {heldOut && (
+        <div role="alert" data-testid="held-banner" className="grid gap-1.5 border-2 border-madder bg-madder-tint px-4 py-4 text-madder-ink">
+          <p className="flex items-center gap-2 text-lg font-medium [&_svg]:size-5"><ShieldAlert aria-hidden />Held: this may belong to another patient (name on the file: {nameOnFile ?? 'not readable'})</p>
+          <p className="text-[15px]">
+            {doc.identityResult === 'mismatch' ? 'The name and details on the file do not match this patient. ' : 'It is not yet confirmed whose file this is. '}
+            It is held out of {patient.name}&rsquo;s record, and nothing from it is used until records staff or a clinician decide below. The picture is hidden until you ask for it.
+          </p>
+        </div>
+      )}
       <nav aria-label="Move through the records" className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/patients/${id}/records${nb.index >= 0 ? `#doc=${docId}` : ''}`} className="inline-flex min-h-10 w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
+        <Link href={`/patients/${id}/records${q}${nb.index >= 0 ? `#doc=${docId}` : ''}`} className="inline-flex min-h-10 w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
           <ArrowLeft aria-hidden className="size-4" /> Back to all records
         </Link>
         {nb.index >= 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {recs.rows.length}, newest first</span>
-            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
-            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
+            <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {list.length}, {order === 'old' && inWalk ? 'oldest' : 'newest'} first{inWalk && q ? ', in the list you came from' : ''}</span>
+            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
+            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
           </div>
         )}
       </nav>
@@ -92,13 +115,19 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           <>
             <StatusBadge status={b.status} label={b.label} />
             {doc.identityResult !== 'pending' && <StatusBadge status={doc.identityResult} />}
-            {doc.status !== 'quarantined' && !live && <ReprocessButton documentId={doc.id} />}
           </>
         }
       />
 
+      {doc.status !== 'quarantined' && !live && (
+        <details className="-mt-4 text-[13px] text-muted" data-testid="doc-details">
+          <summary className="w-fit cursor-pointer underline underline-offset-4">Details</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-3"><span>Run the reading of this file again:</span><ReprocessButton documentId={doc.id} /></div>
+        </details>
+      )}
+
       {(live || doc.attachState === 'pending_decision' || d.status === 'failed') && (
-        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages }} /></div></Frame>
+        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
       )}
 
       {/* Notices: what the pipeline did with this file */}
@@ -170,7 +199,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
       {storedOnly && !quarantine && (
         <section aria-labelledby="stored-h" className="grid gap-4">
           <h2 id="stored-h" className="text-lg font-medium" data-testid="stored-note">{fileInfo?.note ?? 'File — stored, not read'}</h2>
-          {doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study'
+          {hold(doc.mime === 'application/dicom' || doc.mime === 'application/x-dicom-study'
             ? (imaging
               ? <ImagingViewer documentId={doc.id} details={imaging} canView />
               : <Notice tone="shadow" icon={<ScanText />} title="The header could not be read">{fileInfo?.previewNote ?? 'The file is stored as it came.'}</Notice>)
@@ -178,7 +207,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
               ? <div className="max-h-[40rem] overflow-y-auto border border-rule"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
             : doc.mime.startsWith('video/')
               ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
-              : <Notice tone="shadow" icon={<ScanText />} title="Kept exactly as it arrived">Open the original to view it with the right program.</Notice>}
+              : <Notice tone="shadow" icon={<ScanText />} title="Kept exactly as it arrived">Open the original to view it with the right program.</Notice>)}
         </section>
       )}
 
@@ -247,7 +276,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         {d.original && doc.status !== 'quarantined' && !storedOnly && !attached && (
           <section aria-labelledby="orig-h" className="grid content-start gap-3 [&>*]:min-w-0">
             <h2 id="orig-h" className="ds-kicker">Original file</h2>
-            <Frame matte caption={`${fileInfo?.label ?? 'File'} · ${doc.sizeBytes > 1048576 ? (doc.sizeBytes / 1048576).toFixed(1) + ' MB' : (doc.sizeBytes / 1024).toFixed(0) + ' KB'}`}>
+            {hold(<Frame matte caption={`${fileInfo?.label ?? 'File'} · ${doc.sizeBytes > 1048576 ? (doc.sizeBytes / 1048576).toFixed(1) + ' MB' : (doc.sizeBytes / 1024).toFixed(0) + ' KB'}`}>
               {doc.mime === 'application/pdf' ? (
                 <div className="max-h-[40rem] overflow-y-auto"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
               ) : (
@@ -258,7 +287,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
                   ))}
                 </div>
               )}
-            </Frame>
+            </Frame>)}
           </section>
         )}
 

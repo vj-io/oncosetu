@@ -246,7 +246,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <h3 className="ds-kicker flex items-center gap-2 border-b border-madder pb-2 text-madder-ink"><PauseCircle aria-hidden className="size-4" />Held for checking · {held.length}<InfoTip>{EXPLAIN.wrongPatient}</InfoTip></h3>
             <p className="text-sm text-muted">These files are kept out of the record until a person confirms they belong to this patient.</p>
             <ul className="grid gap-3">
-              {held.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={canDecide} index={i} onChange={refresh} />)}
+              {held.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={canDecide} index={i} onChange={refresh} tour={r.id === held.find((h) => h.identity === 'mismatch')?.id ? 'mismatch' : undefined} />)}
             </ul>
           </div>
         )}
@@ -274,7 +274,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
 
 const TONE_FOR: Record<string, Tone> = { done: 'verified', needs_review: 'unverified', needs_password: 'unverified', failed: 'conflict', quarantined: 'conflict', unreadable: 'conflict', queued: 'shadow', processing: 'setu' }
 
-function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSummary; patientId: string; canDecide: boolean; index: number; onChange: () => void }) {
+function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: DocSummary; patientId: string; canDecide: boolean; index: number; onChange: () => void; tour?: string }) {
   const live = r.status === 'queued' || r.status === 'processing'
   const pos = trackerPosition(r.stages)
   const blockedFile = r.status === 'quarantined'
@@ -297,7 +297,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
   if (r.flags.detached) chips.push({ icon: <Fingerprint />, text: 'Detached', tone: 'conflict' })
 
   return (
-    <li className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
+    <li data-tour={tour} className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-5">
         <div className="grid min-w-0 gap-1.5">
           <p className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
@@ -342,7 +342,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
       </div>
       {(live || pending || r.status === 'failed' || r.status === 'unreadable') && (
         <div className="grid gap-3 border-t border-rule px-4 py-4 sm:px-5">
-          {pos.waiting ? <HeldStages at={pos.current} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
+          {pos.waiting ? <HeldStages at={pos.current} identityFailed={r.identity === 'mismatch'} storedOnly={!!r.file?.storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
           {pending && canDecide && <IdentityDecision documentId={r.id} result={r.identity} reasons={r.identityReasons} compact onDone={onChange} />}
           {pending && !canDecide && <p className="text-sm text-muted">A records officer or clinician decides whether this file belongs to this patient.</p>}
         </div>

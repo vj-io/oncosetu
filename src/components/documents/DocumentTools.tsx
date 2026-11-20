@@ -10,7 +10,7 @@ import { postJson } from './IdentityDecision'
 import { DOC_TYPE_OPTIONS, EVENT_LABEL, FIELD_LABEL, STAGE_LABELS, trackerPosition, type StageState } from './labels'
 
 /** Polls the status route while the document is in the pipeline; refreshes the page when it moves. */
-export function LiveStage({ documentId, initial }: { documentId: string; initial: { status: string; stages: { key: string; state: StageState }[] } }) {
+export function LiveStage({ documentId, initial, identityFailed = false, storedOnly = false }: { documentId: string; initial: { status: string; stages: { key: string; state: StageState }[] }; identityFailed?: boolean; storedOnly?: boolean }) {
   const router = useRouter()
   const [s, setS] = useState(initial)
   const last = useRef(JSON.stringify(initial))
@@ -32,7 +32,7 @@ export function LiveStage({ documentId, initial }: { documentId: string; initial
   const pos = trackerPosition(s.stages)
   return (
     <div className="grid gap-2">
-      {pos.waiting ? <HeldStages at={pos.current} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label="Processing stages" />}
+      {pos.waiting ? <HeldStages at={pos.current} identityFailed={identityFailed} storedOnly={storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label="Processing stages" />}
     </div>
   )
 }

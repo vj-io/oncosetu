@@ -11,6 +11,7 @@ import { now } from '../clock'
 import { HttpError } from '../http'
 import { assertPatientAccess } from '../patients'
 import type { Session, StaffSession } from '../session'
+import { loadTriggerFacts } from './trigger-facts'
 import { groupedCycles, missingWording, type L2, type WordingTrigger } from './wording'
 
 type MissingRow = typeof missingRecords.$inferSelect
@@ -21,7 +22,7 @@ export type DescribedItem = {
   id: string; dedupeKey: string; ruleId: string; ruleVersion: string; mode: 'production' | 'shadow'; state: MissingState
   expectedTypes: DocType[]; window: { from: string | null; to: string | null }; cycles: number[]
   wording: L2; neutral: L2
-  trigger: { eventId: string; documentId: string | null; pageNo: number | null; quote: string | null; institution: string | null; date: string | null; precision: DatePrecision } | null
+  trigger: { /** 'statement': the patient's own words (eventId is the statement's id). */ kind: 'event' | 'statement'; eventId: string; documentId: string | null; pageNo: number | null; quote: string | null; institution: string | null; date: string | null; precision: DatePrecision } | null
   triggerDoc: DocBrief | null
   /** RAD-IMG-RPT-01: the scan file that has no written report. */
   scanDoc: DocBrief | null
@@ -63,6 +64,8 @@ export async function describeRows(tx: Tx, rows: MissingRow[]): Promise<Describe
   }).from(documents).where(inArray(documents.id, docIds)) : []
   const docs = new Map(docRows.map((d): [string, DocBrief] => [d.id, { ...d, docType: asDocType(d.docType), receivedAt: d.receivedAt.toISOString() }]))
   const evById = new Map(evs.map((e) => [e.id, e]))
+  // Items raised by something the patient said have no trigger event: the date and the place come from the statement.
+  const said = await loadTriggerFacts(tx, rows.filter((r) => !r.triggerEventId).map((r) => ({ id: r.id, matchWindow: r.matchWindow })))
 
   return rows.map((r) => {
     const e = r.triggerEventId ? evById.get(r.triggerEventId) : undefined
@@ -82,17 +85,21 @@ export async function describeRows(tx: Tx, rows: MissingRow[]): Promise<Describe
     const neutral = isL2(win.neutralWording) ? win.neutralWording : rebuilt.neutral
     const institution = (typeof fields.institution_name === 'string' ? fields.institution_name : null) ?? triggerDoc?.institution ?? null
     const proposedDoc = r.proposedDocumentId ? docs.get(r.proposedDocumentId) ?? null : null
+    const st = said.get(r.id)?.kind === 'statement' ? said.get(r.id)! : null
+    const triggerInstitution = institution ?? st?.institution ?? null
     return {
       id: r.id, dedupeKey: r.dedupeKey, ruleId: r.ruleId, ruleVersion: r.ruleVersion, mode: r.mode, state: r.state,
       expectedTypes, cycles, wording, neutral,
       window: { from: typeof win.from === 'string' ? win.from : null, to: typeof win.to === 'string' ? win.to : null },
       trigger: e ? {
-        eventId: e.id, documentId: e.documentId, pageNo: ev1?.pageNo ?? null, quote: ev1?.quote ?? null, institution,
+        kind: 'event' as const, eventId: e.id, documentId: e.documentId, pageNo: ev1?.pageNo ?? null, quote: ev1?.quote ?? null, institution,
         date: e.eventDate ?? e.documentDate, precision: e.eventDate ? e.datePrecision : e.documentDate ? 'day' : 'unknown',
+      } : st ? {
+        kind: 'statement' as const, eventId: st.id, documentId: null, pageNo: null, quote: st.quote, institution: st.institution, date: st.date, precision: st.precision,
       } : null,
       triggerDoc, proposedDoc, scanDoc: scanId(r) ? docs.get(scanId(r)!) ?? null : null,
       matchedDoc: r.matchedDocumentId ? docs.get(r.matchedDocumentId) ?? null : null,
-      institutionDiffers: !!r.notes?.includes('institution_differs') || institutionsDiffer(institution, proposedDoc?.institution ?? null),
+      institutionDiffers: !!r.notes?.includes('institution_differs') || institutionsDiffer(triggerInstitution, proposedDoc?.institution ?? null),
       reason: r.reason, createdAt: r.createdAt.toISOString(), stateChangedAt: r.stateChangedAt.toISOString(),
     }
   })

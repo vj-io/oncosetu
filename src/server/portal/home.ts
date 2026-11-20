@@ -27,7 +27,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
     tx.select({
       id: missingRecords.id, expectedTypes: missingRecords.expectedTypes, state: missingRecords.state, window: missingRecords.matchWindow,
       eventDate: events.eventDate, eventDocDate: events.documentDate, precision: events.datePrecision,
-      eventFields: events.fields, triggerInstitution: documents.institutionName,
+      eventFields: events.fields, triggerInstitution: documents.institutionName, sourceDocType: documents.docType, sourceDocDate: documents.documentDate,
     }).from(missingRecords).leftJoin(events, eq(events.id, missingRecords.triggerEventId)).leftJoin(documents, eq(documents.id, events.documentId))
       .where(and(
         eq(missingRecords.patientId, patientId), eq(missingRecords.mode, 'production'),
@@ -86,6 +86,8 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
         date,
         precision: (st?.precision ?? (m.eventDate ? m.precision : date ? 'day' : 'unknown')) as DatePrecision,
         // Where to ask: the hospital or lab that wrote the paper mentioning it, or the one the patient named
+        // The paper that mentions it, so cards that look alike can be told apart (PAT-03); a statement has no paper.
+        source: m.sourceDocType ? { docType: asDocType(m.sourceDocType), date: m.sourceDocDate } : null,
         institution: text(m.eventFields?.institution_name) ?? text(m.triggerInstitution) ?? (typeof m.window?.triggerId === 'string' ? text(stmtInstitution.get(m.window.triggerId)) : null),
       }
     }),

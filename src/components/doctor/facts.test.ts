@@ -25,6 +25,7 @@ describe('clinician overview helpers', () => {
   })
   it('takes the place out of a missing-paper sentence', () => {
     expect(placeFromWording('Prescription the patient mentioned from City Care Hospital, Nagpur')).toBe('City Care Hospital, Nagpur')
+    expect(placeFromWording('Prescription from City Care Hospital, Nagpur is not in file (patient statement)')).toBe('City Care Hospital, Nagpur')
     expect(placeFromWording('Histopathology report')).toBeNull()
   })
 })

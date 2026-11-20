@@ -26,7 +26,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
   if (!UUID.test(id)) notFound()
   const session = await requireStaff()
   if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
-  const got = await withPatientAccess(id, async (tx, s) => ({ rows: await listSharesForStaff(tx, s.orgId, id), fresh: await sealFreshness(tx, id) }))
+  const got = await withPatientAccess(id, async (tx, s) => ({ rows: await listSharesForStaff(tx, s.orgId, id), fresh: await sealFreshness(tx, id, s.orgId) }))
   if (!got) return null // the workspace layout explains the denial
   const { rows, fresh } = got
   return (

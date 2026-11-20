@@ -41,7 +41,7 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     const [[docs], [open], changed] = await Promise.all([
       tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'))), // filed documents only, so the badge matches the list
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
-      newSinceSealCounts(tx, [id]),
+      newSinceSealCounts(tx, [id], session.orgId),
     ])
     // Emergency access: shown when the record is open because of a break-glass grant (always for an administrator).
     const grant = session.role === 'auditor' ? null : await activeGrantFor(tx, id, session.staffId)

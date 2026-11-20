@@ -106,9 +106,10 @@ describe('RAD-SURG-HPE-01', () => {
     expect(r.items).toEqual([])
     expect(r.closureProposals).toEqual([{ dedupeKey: dedupeKeyFor('RAD-SURG-HPE-01', 'e-wle'), documentId: 'd-hpe' }])
   })
-  it('E-RAD-01 report from another institution → proposed with "institution differs" note', () => {
+  it('E-RAD-01 report from another institution is never proposed, so the paper stays missing', () => {
     const r = run({ events: [WLE], documents: [DS, doc('d-hpe', 'pathology_report', '2026-03-20', 'Metro Labs')] })
-    expect(r.closureProposals).toEqual([{ dedupeKey: dedupeKeyFor('RAD-SURG-HPE-01', 'e-wle'), documentId: 'd-hpe', note: 'institution_differs' }])
+    expect(r.closureProposals).toEqual([])
+    expect(r.items).toHaveLength(1)
   })
   it('prefers the same-institution report when both exist', () => {
     const r = run({ events: [WLE], documents: [DS, doc('a-other', 'pathology_report', '2026-03-14', 'Metro Labs'), doc('z-same', 'pathology_report', '2026-04-20', 'CITY CANCER HOSPITAL, Pune')] })
@@ -260,6 +261,15 @@ describe('patient-statement rules', () => {
     expect(r.items[0].wording.en).toBe('Prescription the patient mentioned from another hospital is not in file (patient statement).')
     const r2 = run({ statements: [stmt('s3', { medicationNames: ['Letrozole'], institutionName: 'Sunrise Clinic' })] })
     expect(r2.items[0].wording.en).toContain('from Sunrise Clinic')
+  })
+  it('a paper from a different hospital is not proposed for a statement that names one (proposed never crosses hospitals)', () => {
+    const s = stmt('s4', { medicationNames: ['Letrozole'], institutionName: 'City Care Hospital, Nagpur', statedDate: '2026-10-05' })
+    const other = doc('d-rx', 'prescription_printed', '2026-10-04', 'Madhyam Day-Care Centre')
+    const r = run({ statements: [s], documents: [other] })
+    expect(r.closureProposals).toEqual([])
+    expect(r.items).toHaveLength(1)
+    const same = run({ statements: [s], documents: [other, doc('d-rx2', 'prescription_printed', '2026-10-06', 'City Care Hospital')] })
+    expect(same.closureProposals).toEqual([{ dedupeKey: same.closureProposals[0].dedupeKey, documentId: 'd-rx2' }])
   })
 })
 
@@ -416,10 +426,15 @@ describe('RAD-IMG-RPT-01: a scan with no written report', () => {
     expect(lintText(`${out.items[0].neutralWording.en} ${out.items[0].neutralWording.hi}`, ['diagnosis', 'radar'])).toEqual([])
   })
   it('proposes closure (never closes) when an imaging report dated within the window arrives', () => {
-    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29')
+    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29', 'City Care Hospital')
     const out = run({ documents: [PETCT, rpt] })
     expect(out.items).toHaveLength(0)
     expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-rpt' })])
+  })
+  it('a report from another hospital is not proposed', () => {
+    const out = run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-04-29', 'Metro Labs')] })
+    expect(out.items).toHaveLength(1)
+    expect(out.closureProposals).toEqual([])
   })
   it('a report from another date does not close it', () => {
     expect(run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-06-01')] }).items).toHaveLength(1)

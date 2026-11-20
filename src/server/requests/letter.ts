@@ -57,7 +57,7 @@ export type LetterInput = {
   institutionPatientId: string | null
   documents: string[]
   dateRange: { from?: string; to?: string } | null
-  /** Chemotherapy cycles this request covers, when it was raised for a grouped item. */
+  /** Chemotherapy cycles this request covers, when it was raised for a grouped item. Printed only when disclosure is cleared: "cycles" tells a reader what the treatment is. */
   cycles?: number[]
   /** YYYY-MM-DD (IST) */
   today: string
@@ -88,7 +88,7 @@ export function buildLetter(i: LetterInput): Letter {
     intro: tr(l, 'letterIntro'),
     documents: [...new Set(i.documents.map((d) => {
       const label = requestDocLabel(d, disclosure, l)
-      return label && d === 'chemo_daycare_record' && i.cycles?.length ? `${label}: ${l === 'hi' ? 'चक्र' : l === 'hinglish' ? 'cycle' : i.cycles.length > 1 ? 'cycles' : 'cycle'} ${cycleList(i.cycles, l)}` : label
+      return label && d === 'chemo_daycare_record' && i.cycles?.length && disclosure === 'cleared' ? `${label}: ${l === 'hi' ? 'चक्र' : l === 'hinglish' ? 'cycle' : i.cycles.length > 1 ? 'cycles' : 'cycle'} ${cycleList(i.cycles, l)}` : label
     }).filter((x): x is string => !!x))],
     patient: [
       { label: tr(l, 'letterPatient'), value: i.patient.name },

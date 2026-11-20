@@ -12,6 +12,7 @@ import { placeFromWording, sameWords } from '@/components/doctor/facts'
 import { now } from '../clock'
 import { buildLedgerView } from '../ledger/core'
 import { latestSnapshot, loadRecordRows } from '../ledger/record'
+import { hardToReadDoc, isHeldDoc } from '../pipeline/held'
 import { loadCompleteness } from '../radar-ui/completeness'
 import type { StaffSession } from '../session'
 
@@ -58,6 +59,13 @@ export async function sealFreshness(tx: Tx, patientId: string, orgId: string): P
 
 export type DoctorOverview = { firstLook: FirstLookRow[]; oncology: OncologyView }
 
+/** A held scan is named for what it is ("X-ray"), never "Other document". */
+function heldLabel(d: { docType: string | null; flags: Record<string, unknown> }): string {
+  const im = d.flags.imaging as { studyLabel?: string; modalityLabel?: string } | undefined
+  if (im) return String(im.studyLabel ?? im.modalityLabel ?? 'Scan')
+  return isDocType(d.docType) ? staffDocLabel(d.docType) : 'Document'
+}
+
 const isDocType = (t: string | null): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 
 export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSession): Promise<DoctorOverview> {
@@ -69,7 +77,8 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
     tx.select({
       id: documents.id, docType: documents.docType, documentDate: documents.documentDate, identityResult: documents.identityResult,
       handwritten: documents.handwritten, lowConfidence: documents.lowConfidence, attachState: documents.attachState, status: documents.status, duplicateOf: documents.duplicateOf,
-    }).from(documents).where(and(eq(documents.patientId, patientId), or(eq(documents.attachState, 'pending_decision'), eq(documents.status, 'needs_review')))),
+      flags: documents.flags,
+    }).from(documents).where(and(eq(documents.patientId, patientId), or(isHeldDoc, hardToReadDoc))),
   ])
   const input = { rows, role: s.role, now: at }
   const full = buildLedgerView({ ...input, prev: null })
@@ -81,8 +90,11 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
   const allNew = prev ? [...diff.events.new_since_last_visit, ...diff.events.newly_received_older, ...diff.events.amended] : full.events.initial_record
   // Newest first, like the rest of the page (DOC-06); the oldest paper never leads the preview. Undated last.
   const newItems = newestItemsFirst(dropDateOnlyImaging(allNew))
-  const held: HeldDoc[] = heldRows.filter((d) => !d.duplicateOf).map((d) => ({
-    id: d.id, docLabel: isDocType(d.docType) ? staffDocLabel(d.docType) : 'Document', date: d.documentDate,
+  // "Held" is the same set the Documents page and the records To do count (REC-04); hard-to-read filed papers are a separate number.
+  const heldOnly = heldRows.filter((d) => d.attachState === 'pending_decision')
+  const hardToRead = heldRows.length - heldOnly.length
+  const held: HeldDoc[] = heldOnly.map((d) => ({
+    id: d.id, docLabel: heldLabel(d), date: d.documentDate,
     kind: classifyHeld({ identityResult: d.identityResult, handwritten: d.handwritten, lowConfidence: d.lowConfidence }),
   }))
   // The place a paper was mentioned from: the document that mentions it, else the place in the patient's own words.
@@ -98,6 +110,7 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
     conflicts: diff.conflicts.map((c) => ({ key: c.key, label: c.label })),
     missing: completeness.open.map((it) => ({ id: it.id, title: it.wording.en, askAt: askAt(it), state: it.state })),
     held,
+    hardToRead,
     unverified: full.counts.unverified,
     disputed: full.counts.disputed,
   })

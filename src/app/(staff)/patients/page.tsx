@@ -62,10 +62,12 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
                 <tr key={r.id}>
                   <td>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      <Link href={href} className={masked ? 'font-display text-lg underline decoration-brass underline-offset-4' : 'text-[15px] font-medium text-ink underline decoration-brass underline-offset-4'}>{masked ? r.initials : r.name}</Link>
+                      {r.unreadable
+                        ? <span className="text-[15px] font-medium text-madder-ink" data-testid="unreadable-row">{r.name}</span>
+                        : <Link href={href} className={masked ? 'font-display text-lg underline decoration-brass underline-offset-4' : 'text-[15px] font-medium text-ink underline decoration-brass underline-offset-4'}>{masked ? r.initials : r.name}</Link>}
                       {!masked && r.minor && <Badge tone="unverified">Minor</Badge>}
                       {!masked && r.deceased && <Badge tone="shadow">Deceased</Badge>}
-                      {!desk && !r.hasConsent && <Badge tone="shadow">No consent on file</Badge>}
+                      {!desk && !r.hasConsent && !r.unreadable && <Badge tone="shadow">No consent on file</Badge>}
                       {!desk && <span title={D.label} className={`inline-flex ${D.cls}`}><D.icon aria-hidden className="size-4" /><span className="sr-only">{D.label}</span></span>}
                     </div>
                     <p className="mt-0.5 font-mono text-[11px] tracking-[0.08em] text-faint">{r.accession}</p>

@@ -58,7 +58,33 @@ const CONDITIONAL = /(?<![\p{L}])(?:on\s+request|if\s+(?:required|needed|indicat
 const MOLECULAR = /^(?:molecular|NGS|EGFR|ALK|ROS|KRAS|BRAF|BRCA|PD-?L1|MSI|FISH|PCR)/i
 
 const CYCLE = /(?<![\p{L}])(?:cycle|cy)\.?\s*(?:no\.?\s*)?[:#-]?\s*(\d{1,2})(?!\d)|(?<![\p{L}\d])C\s?(\d{1,2})\s?D\s?(\d{1,2})(?!\d)|(?<![\p{L}\d])(\d{1,2})(?:st|nd|rd|th)\s+cycle(?![\p{L}])/giu
-const DRUG_NAMES = /(?<![\p{L}])(?:nab-paclitaxel|paclitaxel|docetaxel|carboplatin|cisplatin|oxaliplatin|5-?FU|fluorouracil|capecitabine|gemcitabine|doxorubicin|adriamycin|epirubicin|cyclophosphamide|trastuzumab|pertuzumab|bevacizumab|pembrolizumab|nivolumab|atezolizumab|etoposide|irinotecan|vincristine|vinorelbine|methotrexate|rituximab|bendamustine|pemetrexed|temozolomide|leucovorin|cetuximab)(?![\p{L}])/iu
+// Oncology drugs common in India, by class. A name is only ever matched as written (quote-only); nothing is inferred from it.
+const DRUG_WORDS = [
+  // cytotoxic: taxanes, anthracyclines, platinum, antimetabolites and others
+  'nab-paclitaxel', 'paclitaxel', 'docetaxel', 'cabazitaxel', 'carboplatin', 'cisplatin', 'oxaliplatin', '5-?FU', 'fluorouracil', 'capecitabine', 'gemcitabine',
+  'doxorubicin', 'adriamycin', 'epirubicin', 'daunorubicin', 'idarubicin', 'mitoxantrone', 'cyclophosphamide', 'ifosfamide', 'etoposide', 'irinotecan', 'topotecan',
+  'vincristine', 'vinorelbine', 'vinblastine', 'eribulin', 'methotrexate', 'pemetrexed', 'temozolomide', 'leucovorin', 'bendamustine', 'melphalan', 'busulfan',
+  'chlorambucil', 'mercaptopurine', 'hydroxyurea', 'azacitidine', 'decitabine', 'bleomycin', 'dacarbazine', 'lomustine', 'trifluridine',
+  // PARP inhibitors, CDK4/6 inhibitors
+  'olaparib', 'niraparib', 'talazoparib', 'rucaparib', 'palbociclib', 'ribociclib', 'abemaciclib',
+  // endocrine: aromatase inhibitors, SERM / SERD, GnRH, anti-androgens
+  'tamoxifen', 'toremifene', 'letrozole', 'anastrozole', 'exemestane', 'fulvestrant', 'goserelin', 'leuprolide', 'leuprorelin', 'triptorelin', 'degarelix',
+  'abiraterone', 'enzalutamide', 'apalutamide', 'bicalutamide',
+  // HER2, VEGF, EGFR and other targeted agents
+  'trastuzumab', 'T-DM1', 'pertuzumab', 'lapatinib', 'neratinib', 'tucatinib', 'bevacizumab', 'ramucirumab', 'cetuximab', 'panitumumab',
+  'osimertinib', 'gefitinib', 'erlotinib', 'afatinib', 'crizotinib', 'alectinib', 'brigatinib', 'lorlatinib', 'imatinib', 'dasatinib', 'nilotinib', 'sunitinib', 'sorafenib',
+  'lenvatinib', 'pazopanib', 'regorafenib', 'cabozantinib', 'axitinib', 'everolimus', 'ibrutinib', 'venetoclax', 'bortezomib', 'lenalidomide', 'pomalidomide', 'thalidomide',
+  'rituximab', 'obinutuzumab', 'daratumumab',
+  // immunotherapy
+  'pembrolizumab', 'nivolumab', 'atezolizumab', 'durvalumab', 'ipilimumab', 'cemiplimab', 'avelumab', 'dostarlimab', 'toripalimab',
+]
+const DRUG_NAMES = new RegExp(String.raw`(?<![\p{L}])(?:${DRUG_WORDS.join('|')})(?![\p{L}])`, 'iu')
+// Class names as written in a history line ("on PARP inhibitor", "on CDK4/6 inhibitor", "on aromatase inhibitor").
+const DRUG_CLASS = /(?<![\p{L}])(?:PARP[\s-]?inhibitors?|PARPi|CDK\s?4\s?\/\s?6\s+inhibitors?|aromatase\s+inhibitors?|(?:immune\s+)?checkpoint\s+inhibitors?|immunotherapy|hormone\s+therapy|endocrine\s+therapy|targeted\s+therapy|anti-?HER-?2\s+therapy)(?![\p{L}])/iu
+// A medicine a history line says the patient is on, or has had: "on olaparib", "receiving letrozole", "started tamoxifen in 2023".
+const DRUG_HISTORY_CUE = /(?<![\p{L}])(?:on|taking|takes|receiving|received|continues?|continued|currently|since|started|stopped|discontinued|treated\s+with|under\s+treatment|maintenance|adjuvant|neo-?adjuvant|course\s+of|completed|h\/o|k\/c\/o|history\s+of)(?![\p{L}])/iu
+const DRUG_HISTORY_SKIP_DOCS: ReadonlySet<DocType> = new Set(['prescription_printed', 'prescription_handwritten', 'chemo_daycare_record', 'lab_report'])
+const DRUG_PLAN_CUE = /(?<![\p{L}])(?:advised|advise|plan|planned|recommend\w*|consider\w*|candidate\s+for|to\s+be\s+started|may\s+be\s+started|to\s+start|will\s+(?:start|begin|receive)|suggest\w*|eligible|if\s+(?:required|needed))(?![\p{L}])/iu
 const REGIMEN_CODES = /(?<![\p{L}])(?:AC|EC|TC|TCH|TCHP|CMF|FOLFOX|FOLFIRI|FOLFIRINOX|CAPOX|XELOX|R-CHOP|CHOP|ABVD|BEP|FEC|GemCis)(?![\p{L}])/u
 const REGIMEN_LABEL = /(?<![\p{L}])(?:regimen|protocol)\s*[:\-–]\s*([^\n;]{2,60}?)(?=\s{2,}|[;\n]|$)/iu
 const CHEMO_CONTEXT = /chemo|regimen|infusion|day\s*care|daycare/iu
@@ -68,6 +94,7 @@ const RT_DONE = String.raw`[Cc]ompleted|COMPLETED|[Cc]oncluded|[Ff]inished`
 const RT_A = new RegExp(String.raw`(?<![\p{L}])(${RT_WORD})(?![\p{L}])[^.\n]{0,60}?(?<![\p{L}])(${RT_DONE})(?![\p{L}])`, 'gu')
 const RT_B = new RegExp(String.raw`(?<![\p{L}])(${RT_DONE}|[Cc]ompletion\s+of|[Rr]eceived|[Uu]nderwent)\s+(?:[\p{L}]+\s+){0,3}?(${RT_WORD})(?![\p{L}])`, 'gu')
 const RT_DATE_LABEL = /(?<![\p{L}])(date\s+of\s+completion|completion\s+date|treatment\s+completed\s+on|completed\s+on|(?:date\s+of\s+)?last\s+fraction|completed(?=\s*[:\-–]))\s*[:\-–]?\s*/giu
+const RT_HISTORY_DOCS: ReadonlySet<DocType> = new Set(['imaging_report', 'pathology_report', 'ihc_molecular_report'])
 const RT_NOT_DONE = /(?<![\p{L}])(?:(?:not|to\s+be|will\s+be|yet\s+to\s+be)\s+complet|not\s+(?:yet\s+)?(?:received|undergone))/iu
 // In a radiotherapy summary, "Treatment was completed as planned" is the radiotherapy itself.
 const RT_SUMMARY_DONE = /(?<![\p{L}])([Tt]reatment|[Cc]ourse)(?![\p{L}])[^.\n]{0,30}?(?<![\p{L}])(completed|concluded|finished)(?![\p{L}])/u
@@ -102,6 +129,34 @@ const FOLLOW_UP_TAIL = /[\s,:\-–]*(?:(?:on|dated|due|at|by|for)[\s:]*)?$/iu
 // and its paragraph, or "Diagnosis: …" on one line (table rows); a sentence that opens a history statement.
 const DX_HEADING = /^(?:(?:final|provisional|clinical|working)\s+)?diagnos[ie]s\s*:?$/iu
 const DX_INLINE = /^(?:(?:final|provisional|clinical|working)\s+)?diagnos[ie]s\s*[:\-–]\s*(\S[\s\S]*)$/iu
+// "Clinical history / Indication: ...": the section that holds the cancer history in a radiology or pathology report. Whole section, word for word.
+const INDICATION_ATOM = String.raw`(?:clinical\s+)?(?:history|indications?)|clinical\s+(?:details|information|notes?)`
+const INDICATION_NAME = String.raw`(?:${INDICATION_ATOM})(?:\s*(?:\/|and|&|,)\s*(?:${INDICATION_ATOM}))*|reason\s+for\s+(?:the\s+)?(?:study|scan|examination|exam|referral)|clinical\s+(?:question|setting)|history\s+given`
+const INDICATION_ONLY = new RegExp(String.raw`^\s*(?:${INDICATION_NAME})\s*[:\-–]?\s*$`, 'iu')
+const INDICATION_INLINE = new RegExp(String.raw`^\s*(?:${INDICATION_NAME})\s*(?:[:：]|\t|\s[-–]\s)\s*(\S[\s\S]*)$`, 'iu')
+const INDICATION_DOCS: ReadonlySet<DocType> = new Set(['imaging_report', 'pathology_report', 'ihc_molecular_report'])
+// Words that open the next section of a report; a body line that merely has a colon in it ("Right breast lesion: BIRADS 5") is not one.
+const SECTION_WORDS = /^\s*(?:findings?|technique|protocol|comparison|clinical|history|indications?|advice|plan|recommendations?|suggestions?|notes?|addendum|follow[\s-]?up|procedure|summary|diagnosis|conclusion|opinion|impression|limitations?|contrast|study|examination|exam|referr\w*|report(?:ed)?|date|accession|signed|sample|specimen|gross|microscop\w*|investigations?|medications?|treatment)(?![\p{L}])/iu
+const LIST_ITEM = /^\s*(?:\d{1,2}[.)]|[a-z][.)]|[•*·-])\s*\S/
+/** Is this line the heading of the next section? `prevDone`: the line before it ended a sentence. */
+function isSectionHead(t: string, prevDone: boolean): boolean {
+  const label = /^\s*([\p{L}][\p{L}\s/&-]{0,40}?)\s*:/u.exec(t)
+  if (label) return SECTION_WORDS.test(label[1])
+  const bare = t.trim()
+  if (!prevDone || bare.length < 4 || bare.length > 48 || /[.;!?]$/.test(bare) || /\d/.test(bare)) return false
+  return SECTION_WORDS.test(bare) || (bare === bare.toUpperCase() && /^[\p{Lu}][\p{Lu}\s,&/()'-]+$/u.test(bare))
+}
+/** End (exclusive) of the longest prefix of text[a, z) that is whole sentences and fits a quote; -1 when there is none. */
+function wholeSentencesTo(text: string, a: number, z: number): number {
+  if (z - a <= MAX_QUOTE && /[.;!?)]\s*$/.test(text.slice(a, z))) return z
+  let best = -1
+  for (const m of text.slice(a, Math.min(z, a + MAX_QUOTE)).matchAll(/[.;!?](?=\s|$)/g)) {
+    const e = a + m.index! + 1
+    if (!ABBREV.test(text.slice(a, e))) best = e
+  }
+  if (best < 0 && z - a <= MAX_QUOTE) return z // a block that ends without a full stop, as printed
+  return best
+}
 const HEADING_LINE = /^[\p{Lu}][\p{L}\s,&/()'-]{0,48}$/u
 const SENTENCE_DONE = /[.;!?]\s*$/
 const HISTORY = /^(?:no\s+)?(?:k\/c\/o\b|known\s+(?!(?:drug|food)\b|allerg)|h\/o\b|(?:(?:past|medical|family|surgical)\s+)?history\s+of\b|(?:past|medical|family|surgical)\s+history\s*[:\-–]|co-?morbidit(?:y|ies)\b)/iu
@@ -122,6 +177,10 @@ const MARGIN = /(?<![\p{L}])margins?(?![\p{L}])/iu
 // An operation note's intended margin ("with a 1 cm bony margin") and a radiotherapy planning margin are not results:
 // in those documents a margin line counts only when it states one.
 const MARGIN_RESULT = /(?<![\p{L}])(?:free|clear|clearance|negative|positive|involved|uninvolved|close|closest|frozen|R[012])(?![\p{L}\d])/iu
+// "Spiculated margins", "a 2.1 cm lesion with irregular margins": the border of a lesion, never a surgical margin.
+const MARGIN_SHAPE = /(?<![\p{L}])(?:spiculated|irregular|lobulated|microlobulated|well[\s-]?defined|ill[\s-]?defined|poorly[\s-]?defined|circumscribed|smooth|indistinct|angulated|rim|enhancing|margins?\s+of\s+the\s+(?:lesion|mass|tumou?r|nodule))(?![\p{L}])/iu
+const MARGIN_SIZE = /\d(?:\.\d+)?\s*(?:x\s*\d(?:\.\d+)?\s*)*(?:mm|cm)(?![\p{L}])/iu
+const MARGIN_DISTANCE = /(?<![\p{L}])(?:from|to|at|within|of)\s+(?:the\s+)?(?:(?:nearest|closest|deep|superficial|radial|circumferential|inked|surgical|resection|medial|lateral|anterior|posterior|superior|inferior|proximal|distal|\w+)\s+){0,3}margins?(?![\p{L}])/iu
 const MARGIN_RESULT_DOCS: ReadonlySet<DocType> = new Set(['procedure_note', 'radiotherapy_summary'])
 // The delivered course in a radiotherapy summary: "Dose  20 Gy in 5 fractions", "25 Gy / 5 #".
 const RT_DOSE = /(?<![\p{L}\d.])\d+(?:\.\d+)?\s*Gy\s*(?:in|\/)\s*\d+\s*(?:fractions?|#|fr\.?)/iu
@@ -139,7 +198,14 @@ const IMPRESSION_INLINE = /^\s*(?:impression|conclusion)\s*[:\-–]\s*(\S[\s\S]*
 // A results table in an IHC / molecular report: "Marker <tab> Result ..." or "Gene region <tab> Result".
 const TABLE_HEAD = /^\s*(?:Marker|Gene(?:\s+region)?|Antibody|Test|Parameter)\b[^\t]*\t.*\b(?:Result|Status)\b/i
 const IMPRESSION_DOCS: ReadonlySet<DocType> = new Set(['imaging_report', 'pathology_report', 'consult_note'])
-const SIGNATURE = /^\s*(?:Dr\.?\s|Reg\.|Consultant\b|Reported\s+by|Computer|Verified|\*{2,}|\+\s*End)/i
+const SIGNATURE = /^\s*(?:Dr\.?\s|Prof\.?\s|Reg\.|Consultant\b|Reported\s+by|Dictated\s+by|Typed\s+by|Transcribed|Computer|Verified|Electronically|Digitally|E-?signed|Signed\b|Authori[sz]ed|Report\s+status|Printed\s+(?:on|by)|This\s+(?:is\s+a\s+)?(?:report|computer)|Disclaimer|Page\s+\d|(?:MD|DNB|MBBS|DMRD|DM|MCh)\b|(?:Consultant\s+)?(?:Radiologist|Pathologist|Oncologist)\b|\*{2,}|\+\s*End)/i
+// A signature block or report-status footer inside a quote ("... follow-up advised.  Dr. A B, MD   Report status: Final"):
+// it is cut off, with everything after it. It counts only where a line or sentence has ended (or after a tab or a wide gap), so
+// "referred to Dr. A" in the middle of a sentence is untouched.
+const FOOTER_STRONG = /(?<![\p{L}])(?:Reported[ \t]+by(?![\p{L}])|Dictated[ \t]+by(?![\p{L}])|Electronically[ \t]+(?:signed|verified|authenticated)|Digitally[ \t]+signed|E-?signed|Report[ \t]+status(?![\p{L}])|Verified[ \t]+by(?![\p{L}])|Authori[sz]ed[ \t]+by(?![\p{L}])|Printed[ \t]+(?:on|by)(?![\p{L}])|Signed[ \t]+(?:by|on)(?![\p{L}])|Consultant[ \t]+(?:Radiologist|Pathologist|Oncologist)(?![\p{L}])|This[ \t]+(?:is[ \t]+a[ \t]+)?computer[ \t-]*generated)/giu
+const FOOTER_DOCTOR = /(?<![\p{L}])(?:Dr|Prof)\.?[ \t]+\p{Lu}/gu
+/** A study the report refers back to: "compared with prior MRI dated ...", "previous CT of ...". */
+const PRIOR_CUE = /(?<![\p{L}])(?:compar\w*|prior|previous(?:ly)?|earlier|baseline|vide)(?![\p{L}])/iu
 const REGIMEN_PART = /(?<![\p{L}])(Regimen|Protocol)(?:\s*:\s*|[ ]*\t\s*)/iu
 
 const SEEN_BY = /^\s*(?:Seen\s+by|Consulting\s+(?:doctor|physician|oncologist)|Consultant|Doctor|Treating\s+(?:doctor|consultant)|Oncologist)\s*[:：]/iu
@@ -215,6 +281,25 @@ function lineSpans(text: string) {
   return out
 }
 
+/**
+ * Cuts a signature block or report-status footer off the end of a quote. Returns the length of the part to keep.
+ * "Dr. A B" counts only after a sentence end, a line break, a tab or a wide gap (and only when little follows it).
+ */
+function keepLength(quote: string): number {
+  let cut = quote.length
+  const boundary = (at: number) => {
+    const before = quote.slice(0, at)
+    const gap = /[ \t\n]*$/.exec(before)![0]
+    return before.trimEnd().length > 0 && (/[\n\t]|  /.test(gap) || /[.;!?]$/.test(before.trimEnd()))
+  }
+  for (const m of quote.matchAll(FOOTER_STRONG)) if (boundary(m.index!)) cut = Math.min(cut, m.index!)
+  for (const m of quote.matchAll(FOOTER_DOCTOR)) {
+    const rest = quote.length - m.index!
+    if (boundary(m.index!) && (rest <= 80 || /[.;!?]$/.test(quote.slice(0, m.index!).trimEnd()))) cut = Math.min(cut, m.index!)
+  }
+  return quote.slice(0, cut).trimEnd().replace(/[,\-–:]$/, '').trimEnd().length
+}
+
 const absDates = (s: string) => findDates(s).filter((d) => d.kind === 'absolute')
 
 /** Date immediately after `offset` in `text` (only separators in between). */
@@ -239,10 +324,24 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
   const add = (event_type: string, page: ExtractPage, start: number, end: number, fields: Record<string, string | string[] | undefined>) => {
     const raw = page.text.slice(start, end)
     const lead = raw.length - raw.trimStart().length
-    const quote = raw.trim()
-    if (quote.length < 8 || quote.length > MAX_QUOTE) return
+    let quote = raw.trim()
     const clean: Record<string, string | string[]> = {}
     for (const [k, v] of Object.entries(fields)) if (v !== undefined && (typeof v === 'string' ? v.trim() : v.length)) clean[k] = typeof v === 'string' ? v.trim() : v
+    // No signature block or report-status footer in a quote, unless a field value sits in the part that would be cut.
+    const kept = keepLength(quote)
+    if (kept < quote.length && kept >= 8) {
+      const head = quote.slice(0, kept).replace(/\s+/g, ' ')
+      const tail = quote.slice(kept).replace(/\s+/g, ' ').trim()
+      // A quote-only field that ends with the cut-off part (it is a copy of the quote) loses it too.
+      const cutField = (v: string) => (v.replace(/\s+/g, ' ').endsWith(tail) ? v.replace(/\s+/g, ' ').slice(0, -tail.length).trim() : v)
+      const trimmed = Object.fromEntries(Object.entries(clean).map(([k, v]) => [k, typeof v === 'string' && k !== 'institution_name' ? cutField(v) : v]))
+      const flat = (v: string | string[]) => (typeof v === 'string' ? [v] : v)
+      if (Object.entries(trimmed).every(([k, v]) => k === 'institution_name' || flat(v).every((x) => x.length > 0 && head.includes(x.replace(/\s+/g, ' '))))) {
+        quote = quote.slice(0, kept)
+        Object.assign(clean, trimmed)
+      }
+    }
+    if (quote.length < 8 || quote.length > MAX_QUOTE) return
     if (institution) clean.institution_name = institution
     const key = `${event_type}|${page.pageNo}|${start + lead}|${JSON.stringify(clean)}`
     if (seen.has(key)) return
@@ -270,6 +369,41 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       for (const s of body) inDx.add(s)
       add('diagnosis_documented', page, seg.start, body.at(-1)!.end, { section_text: page.text.slice(body[0].start, body.at(-1)!.end).replace(/\s+/g, ' ') })
     })
+
+    // Clinical history / indication section of a scan or pathology report: the cancer history as the document wrote it.
+    // Staff-only diagnosis-as-written fact; the section's whole paragraph up to the next heading (whole sentences, one quote).
+    if (INDICATION_DOCS.has(docType)) {
+      const L = lineSpans(page.text)
+      for (let i = 0; i < L.length; i++) {
+        const only = INDICATION_ONLY.test(L[i].text)
+        const inline = only ? null : INDICATION_INLINE.exec(L[i].text)
+        if (!only && !inline) continue
+        let last = inline ? i : -1
+        let bodyStart = inline ? L[i].start + L[i].text.length - inline[1].length : -1
+        for (let k = i + 1; k < L.length && k - i <= 30; k++) {
+          const t = L[k].text
+          const prevDone = last < 0 || /[.;!?]\s*$/.test(L[last].text)
+          if (!t.trim()) {
+            const next = L.slice(k + 1).find((x) => x.text.trim())
+            if (last < 0) continue
+            if (!next || (prevDone && !LIST_ITEM.test(next.text)) || SIGNATURE.test(next.text) || isSectionHead(next.text, prevDone)) break
+            continue
+          }
+          if (SIGNATURE.test(t) || isSectionHead(t, prevDone) || INDICATION_ONLY.test(t) || INDICATION_INLINE.test(t)) break
+          if (last >= 0 && prevDone && t.trim().length < 12 && !/[.:;]\s*$/.test(t)) break // OCR noise after a finished sentence
+          if (last < 0) bodyStart = L[k].start
+          last = k
+          if (L[k].end - L[i].start > 4 * MAX_QUOTE) break
+        }
+        if (last < 0) continue
+        const end = wholeSentencesTo(page.text, L[i].start, L[last].end)
+        if (end < 0 || end <= bodyStart) continue
+        if (detectInjection(page.text.slice(L[i].start, end)).flagged) continue
+        add('diagnosis_documented', page, L[i].start, end, { section_text: page.text.slice(bodyStart, end).replace(/\s+/g, ' ').trim() })
+        for (const sg of segs) if (sg.start < end && sg.end > L[i].start) inDx.add(sg)
+        i = last
+      }
+    }
 
     segs.forEach((seg, i) => {
       const t = seg.text
@@ -330,8 +464,9 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
         }
       }
 
-      // Radiotherapy completed
-      if (!RT_NOT_DONE.test(t)) {
+      // Radiotherapy completed. A scan or pathology report only mentions treatment in its history ("post radiotherapy changes",
+      // "status post radiotherapy"): that is the history line, not a radiotherapy record.
+      if (!RT_NOT_DONE.test(t) && !RT_HISTORY_DOCS.has(docType) && !inDx.has(seg)) {
         const rt = new RegExp(RT_A.source, 'u').exec(t)
         const rtb = rt ? null : new RegExp(RT_B.source, 'u').exec(t)
         if (rt) add('radiotherapy_documented', page, seg.start, seg.end, { treatment_text: rt[1], status_text: rt[2], event_date_text: absDates(t)[0]?.raw })
@@ -349,7 +484,14 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       // Imaging mentioned with a date
       const dates = absDates(t)
       if (dates.length) {
-        for (const m of t.matchAll(IMAGING)) add('imaging_report_documented', page, seg.start, seg.end, { test_name: m[0], event_date_text: dates[0].raw })
+        // "MRI brain on 14 Nov 2026, compared with prior MRI dated 12 Feb 2025": each study takes the date written right after it.
+        const studies = [...t.matchAll(IMAGING)]
+        const prior = PRIOR_CUE.test(t)
+        studies.forEach((m, j) => {
+          const from = m.index! + m[0].length
+          const own = prior ? dates.find((x) => x.start >= from && x.start < (studies[j + 1]?.index ?? t.length) && x.start - from <= 40) : undefined
+          add('imaging_report_documented', page, seg.start, seg.end, { test_name: m[0], event_date_text: (own ?? dates[0]).raw })
+        })
         for (const { m, d } of pathRefs) add('pathology_report_documented', page, seg.start, seg.end, { test_name: m[1], event_date_text: d!.raw })
         if (docType !== 'lab_report' && !LAB_NOT_DONE.test(t)) {
           for (const m of t.matchAll(LAB_MENTION)) {
@@ -377,6 +519,13 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
 
       // History statements ("Known hypothyroidism on …"), word for word; a diagnosis paragraph already holds its own
       if (!inDx.has(seg) && HISTORY.test(t)) add('history_documented', page, seg.start, seg.end, { history_text: t.replace(/\s+/g, ' ') })
+      // A history line that names an oncology medicine the patient is on or has had ("on olaparib", "on PARP inhibitor"), word for
+      // word. A plan ("advised letrozole"), a prescription line, a cycle line and a chemotherapy record are not history.
+      else if (
+        !inDx.has(seg) && !DRUG_HISTORY_SKIP_DOCS.has(docType) && (DRUG_NAMES.test(t) || DRUG_CLASS.test(t)) && DRUG_HISTORY_CUE.test(t) &&
+        !DRUG_PLAN_CUE.test(t) && !PROC_NOT_DONE.test(t) && !MED_LINE.test(t) && !MED_ROW.test(t) && !new RegExp(CYCLE.source, 'iu').test(t) &&
+        !detectInjection(t).flagged
+      ) add('history_documented', page, seg.start, seg.end, { history_text: t.replace(/\s+/g, ' ') })
     })
 
     // ---- Quote-only oncology lines (stage, margins, marker rows, addendum, impression, regimen) ----
@@ -407,7 +556,12 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       for (const part of seg.text.split(/(?<=[.;!?])\s+/)) {
         const at = seg.text.indexOf(part, from)
         from = at + part.length
-        if (MARGIN.test(part) && (!MARGIN_RESULT_DOCS.has(docType) || MARGIN_RESULT.test(part))) add('margins_documented', page, seg.start + at, seg.start + from, { margins_text: part.replace(/\s+/g, ' ') })
+        if (!MARGIN.test(part) || (MARGIN_RESULT_DOCS.has(docType) && !MARGIN_RESULT.test(part))) continue
+        // A lesion's border or size is not a margin result; a scan report states no surgical margin unless it says so in a result word.
+        const result = MARGIN_RESULT.test(part)
+        if (docType === 'imaging_report' && (!result || MARGIN_SHAPE.test(part) || MARGIN_SIZE.test(part))) continue
+        if (!result && (MARGIN_SHAPE.test(part) || (MARGIN_SIZE.test(part) && !MARGIN_DISTANCE.test(part)))) continue
+        add('margins_documented', page, seg.start + at, seg.start + from, { margins_text: part.replace(/\s+/g, ' ') })
       }
     }
 
@@ -486,23 +640,45 @@ export function extractPatterns(pages: ExtractPage[], docType: DocType, header: 
       for (const seg of clean) if (/^\s*Interpretation\s*:\s*\S/i.test(seg.text)) add('impression_documented', page, seg.start, seg.end, { section_text: seg.text.replace(/^\s*Interpretation\s*:\s*/i, '').replace(/\s+/g, ' ') })
     }
 
-    // Imaging impression: the report's own impression block, word for word
+    // Imaging impression: the report's own impression block, word for word, up to the next heading. A block longer than one
+    // quote is kept whole as consecutive quotes that each end at a sentence end (never cut mid-sentence).
     if (IMPRESSION_DOCS.has(docType)) {
-      ls.forEach((l, i) => {
+      for (let i = 0; i < ls.length; i++) {
+        const l = ls[i]
         const inline = IMPRESSION_INLINE.exec(l.text)
         const head = IMPRESSION_HEAD.test(l.text)
-        if (!inline && !head) return
+        if (!inline && !head) continue
         let last = i
-        for (let k = i + 1; k < ls.length && k - i <= 8; k++) {
+        for (let k = i + 1; k < ls.length && k - i <= 40; k++) {
           const t = ls[k].text
-          if (!t.trim() || SIGNATURE.test(t) || (t.trim().length < 12 && !/[.:;]\s*$/.test(t)) || ls[k].end - l.start > MAX_QUOTE) break
+          const prevDone = last > i || !head ? /[.;!?]\s*$/.test(ls[last].text) : true
+          if (!t.trim()) {
+            const next = ls.slice(k + 1).find((x) => x.text.trim())
+            if (head && last === i) continue
+            if (!next || SIGNATURE.test(next.text) || isSectionHead(next.text, prevDone) || (prevDone && !LIST_ITEM.test(next.text))) break
+            continue
+          }
+          if (SIGNATURE.test(t) || isSectionHead(t, prevDone) || (prevDone && t.trim().length < 12 && !/[.:;]\s*$/.test(t))) break
           last = k
         }
-        if (head && last === i) return
-        if (detectInjection(page.text.slice(l.start, ls[last].end)).flagged) return
-        const bodyStart = head ? ls[i + 1].start : l.start + l.text.length - inline![1].length
-        add('impression_documented', page, l.start, ls[last].end, { section_text: page.text.slice(bodyStart, ls[last].end).replace(/\s+/g, ' ') })
-      })
+        if (head && last === i) continue
+        const blockEnd = ls[last].end
+        if (detectInjection(page.text.slice(l.start, blockEnd)).flagged) continue
+        const bodyStart = head ? ls.slice(i + 1).find((x) => x.text.trim())!.start : l.start + l.text.length - inline![1].length
+        // Sentence units of the block; consecutive units are grouped into quotes of at most one quote length.
+        const units = segs.filter((sg) => sg.start >= l.start && sg.end <= blockEnd)
+        const groups: { a: number; z: number }[] = []
+        for (const u of units) {
+          const g = groups.at(-1)
+          if (g && u.end - g.a <= MAX_QUOTE) g.z = u.end
+          else if (u.end - u.start <= MAX_QUOTE) groups.push({ a: u.start, z: u.end })
+        }
+        groups.slice(0, 4).forEach((g, n) => {
+          if (n === 0 && g.a > l.start) return // the heading itself did not fit with its first sentence: nothing to quote
+          add('impression_documented', page, g.a, g.z, { section_text: page.text.slice(Math.max(g.a, bodyStart), g.z).replace(/\s+/g, ' ').trim() })
+        })
+        i = last
+      }
     }
 
     // Regimen line as written ("Regimen: CAPOX ...", "Protocol: R-CHOP, every 21 days") when no cycle line already carries it

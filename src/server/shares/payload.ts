@@ -1,7 +1,7 @@
 // The share payload (FR-PAS-01, §6.6): the latest SEALED snapshot as a document index — never a clinical summary.
 // Pure. Unless disclosure is cleared: neutral document labels, neutral absent-document wording, no quotes, brand
 // "Setu Records", and free text that names a diagnosis (an institution) is dropped (FR-CON-07).
-import { brandFor, patientDocLabel } from '@/core/copy'
+import { brandFor, consentFormLabel, familySafeQuote, patientDocLabel } from '@/core/copy'
 import type { Snapshot } from '@/core/ledger'
 import { STAFF_ONLY_EVENT_TYPES, type DatePrecision, type Disclosure, type DocType, type EventType, type Lang, type MissingState } from '@/core/types'
 import { ts } from '@/i18n/shares'
@@ -52,6 +52,8 @@ export type PayloadInput = {
   absentNeutral: Record<string, L2>
   /** documentId → the scan's plain title ("Mammogram", "CT chest"), for documents that are scan files. */
   scans?: Record<string, string>
+  /** documentId → 'sign' | 'withdraw' for the signed consent form (stored as "other"): listed by that name. */
+  consentForms?: Record<string, 'sign' | 'withdraw'>
   createdBy?: ShareCreator
 }
 
@@ -80,7 +82,10 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
   const cleared = i.disclosure === 'cleared'
   if (i.scope === 'index_with_quotes' && !cleared) throw new QuotesNotAllowed('Quotes are shared only when disclosure is cleared')
   const brand = brandFor(i.disclosure)
-  const label = (t: DocType) => both((l) => patientDocLabel(t, i.disclosure, l))
+  const label = (t: DocType, id?: string | null) => {
+    const form = id ? i.consentForms?.[id] : undefined
+    return form ? both((l) => consentFormLabel(l, form)) : both((l) => patientDocLabel(t, i.disclosure, l))
+  }
   const docs = new Map(i.snapshot.documents.map((d) => [d.id, d]))
   const scanTitle = i.scans ?? {}
   const isScan = (id: string) => Object.hasOwn(scanTitle, id)
@@ -97,13 +102,14 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
       const type = EVENT_DOC[e.eventType] ?? src?.docType ?? 'other'
       const inst = typeof e.fields.institution_name === 'string' ? e.fields.institution_name : src?.institution ?? null
       const verification: Verification = e.label === 'Disputed' ? 'disputed' : e.label === 'Verified' ? i.verifiers[e.id] ?? 'verified' : 'unverified'
-      const quote = cleared && i.scope === 'index_with_quotes' ? i.quotes[e.id] : undefined
+      // the paper's own words, without a physician's name or the signature footer
+      const quote = cleared && i.scope === 'index_with_quotes' ? familySafeQuote(i.quotes[e.id]) ?? undefined : undefined
       return {
-        label: label(type),
+        label: label(type, src?.id),
         date: e.eventDate ?? e.documentDate,
         precision: e.eventDate ? e.datePrecision : e.documentDate ? 'day' as const : 'unknown' as const,
         institution: guardFree(inst, i.disclosure),
-        source: { documentId: srcId ?? null, label: src ? label(src.docType) : null, page: ev?.pageNo ?? null },
+        source: { documentId: srcId ?? null, label: src ? label(src.docType, src.id) : null, page: ev?.pageNo ?? null },
         verification,
         ...(quote ? { quote } : {}),
       }
@@ -119,7 +125,7 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
     asOf: i.snapshot.sealedAt,
     items,
     documents: i.snapshot.documents.filter((d) => !isScan(d.id)).map((d) => ({
-      id: d.id, label: label(d.docType), date: d.documentDate, institution: guardFree(d.institution, i.disclosure), receivedAt: d.receivedAt,
+      id: d.id, label: label(d.docType, d.id), date: d.documentDate, institution: guardFree(d.institution, i.disclosure), receivedAt: d.receivedAt,
     })).sort((a, b) => (a.date ?? a.receivedAt).localeCompare(b.date ?? b.receivedAt)),
     ...(i.snapshot.documents.some((d) => isScan(d.id))
       ? {

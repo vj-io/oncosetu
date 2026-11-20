@@ -1,7 +1,7 @@
 // The records request letter (FR-REQ-01/02) as plain strings, so the print page renders exactly what the lint test
 // checks. The patient carries this paper: neutral document labels and the "Setu Records" brand unless disclosure
 // is cleared, and any free text that would disclose the diagnosis becomes a blank line to fill in by hand.
-import { brandFor, formatDateIN, lintText, patientDocLabel } from '@/core/copy'
+import { brandFor, formatDateIN, lintText, patientDocLabel, withoutPhysician } from '@/core/copy'
 import { DOC_TYPES, type Disclosure, type DocType, type Lang } from '@/core/types'
 import { tr } from '@/i18n/requests'
 
@@ -18,7 +18,7 @@ export function requestDocLabel(key: string, disclosure: Disclosure, lang: Lang)
 
 /** Free text from staff or the patient, printed for a patient who may not have been told: blank if it names the diagnosis. */
 export function guardFree(text: string | null | undefined, disclosure: Disclosure): string | null {
-  const t = (text ?? '').trim()
+  const t = withoutPhysician(text) // a physician's name never reaches the family side
   if (!t) return null
   return disclosure !== 'cleared' && lintText(t, ['diagnosis']).length ? null : t
 }
@@ -29,7 +29,7 @@ export function guardFree(text: string | null | undefined, disclosure: Disclosur
  * ("Kasturi Day-Care Unit"), so the letter still names the hospital. If nothing is left, it is blank.
  */
 export function neutralName(text: string | null | undefined, disclosure: Disclosure): string | null {
-  const t = (text ?? '').trim()
+  const t = withoutPhysician(text)
   if (!t) return null
   if (disclosure === 'cleared' || !lintText(t, ['diagnosis']).length) return t
   const kept = t.split(/\s+/).filter((w) => !lintText(w.replace(/[,.;:()]/g, ''), ['diagnosis']).length)

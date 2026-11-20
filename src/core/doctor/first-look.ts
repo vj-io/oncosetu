@@ -18,6 +18,8 @@ export type FirstLookInput = {
   conflicts: { key: string; label: string }[]
   missing: { id: string; title: string; askAt: string | null; state: string }[]
   held: HeldDoc[]
+  /** Filed papers that are hard to read: a separate number, never inside `held`. */
+  hardToRead?: number
   unverified: number
   disputed: number
 }
@@ -78,7 +80,7 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
 
   rows.push({
     key: 'held', label: 'Held for a person to check', count: i.held.length, tone: i.held.length ? 'conflict' : 'verified',
-    summary: i.held.length ? 'Held back because the name did not match, or because it is handwritten or hard to read.' : 'Nothing is waiting for an identity or reading check.',
+    summary: (i.held.length ? 'Held back because the name did not match, or because it is handwritten or not clearly this patient.' : 'Nothing is waiting for an identity check.') + (i.hardToRead ? ` ${plural(i.hardToRead, 'filed paper')} ${i.hardToRead === 1 ? 'is' : 'are'} hard to read (counted separately).` : ''),
     href: `${base}/documents`, linkLabel: 'Review the held documents',
     more: Math.max(i.held.length - SHOWN, 0),
     details: i.held.slice(0, SHOWN).map((h) => ({ text: h.docLabel, meta: HELD_WORDS[h.kind], href: `${base}/documents/${h.id}` })),

@@ -71,6 +71,8 @@ interface Trigger {
   documentId: string | null
   pageNo: number | null
   institution: string | null
+  /** The document's own words the event rests on (events only). */
+  quote: string
 }
 
 const str = (v: FieldValue | undefined): string | null =>
@@ -95,6 +97,26 @@ function triggerMatches(rule: RadarRule, t: Trigger): boolean {
   if (none && Object.entries(none).some(([f, kws]) => kws.some((k) => wordMatch(str(t.fields[f]) ?? '', k)))) return false
   return true
 }
+
+// ---------- referenced prior studies (RAD-IMG-PRIOR-01) ----------
+
+/** A report that names an earlier study as its comparison ("compared with prior MRI dated ...", "previous CT of ..."). */
+const PRIOR_CUE = /(?<![\p{L}])(?:compar\w*|prior|previous(?:ly)?|earlier|baseline|vide)(?![\p{L}])/iu
+type Modality = 'mr' | 'ct' | 'pet' | 'xr' | 'us' | 'mg' | 'nm' | 'echo'
+/** The kind of study as the document names it, in the words a person would use for it. */
+function modalityOf(text: string): { key: Modality; label: string } | null {
+  if (/(?<![\p{L}])PET/iu.test(text)) return { key: 'pet', label: 'PET-CT' }
+  if (/(?<![\p{L}])(?:MRI|MR)(?![\p{L}])/iu.test(text)) return { key: 'mr', label: 'MRI' }
+  if (/(?<![\p{L}])(?:CT|CECT|NCCT)(?![\p{L}])/iu.test(text)) return { key: 'ct', label: 'CT' }
+  if (/(?<![\p{L}])X-?ray/iu.test(text)) return { key: 'xr', label: 'X-ray' }
+  if (/(?<![\p{L}])(?:USG|ultrasound|ultrasonography|sonomammography)(?![\p{L}])/iu.test(text)) return { key: 'us', label: 'ultrasound' }
+  if (/mammogra/iu.test(text)) return { key: 'mg', label: 'mammogram' }
+  if (/bone\s+scan|MUGA/iu.test(text)) return { key: 'nm', label: 'bone scan' }
+  if (/2D\s*echo/iu.test(text)) return { key: 'echo', label: '2D echo' }
+  return null
+}
+const sameKind = (a: Modality, b: Modality) => a === b || ((a === 'ct' || a === 'pet') && (b === 'ct' || b === 'pet'))
+const DICOM_KINDS: Record<Modality, readonly string[]> = { mr: ['MR'], ct: ['CT', 'PT'], pet: ['PT', 'CT', 'NM'], xr: ['CR', 'DX', 'RF', 'XA'], us: ['US'], mg: ['MG'], nm: ['NM'], echo: ['US'] }
 
 /** RAD-PEND-01: expected document type from the pending test's name. */
 function typesFromTest(test: string): DocType[] {
@@ -159,6 +181,7 @@ export function runRadar(input: RadarInput): RadarOutput {
           documentId: e.documentId,
           pageNo: e.evidence[0]?.pageNo ?? null,
           institution: str(e.fields.institution_name) ?? (e.documentId ? docById.get(e.documentId)?.institution ?? null : null),
+          quote: e.evidence.map((x) => x.quote).join(' '),
         }
       }),
     ...input.statements.map((s): Trigger => {
@@ -166,7 +189,7 @@ export function runRadar(input: RadarInput): RadarOutput {
       if (s.scanNames?.length) fields.scan_name = s.scanNames
       if (s.medicationNames?.length) fields.medication_names = s.medicationNames
       if (s.institutionName) fields.institution_name = s.institutionName
-      return { id: s.id, kind: 'statement', eventType: 'patient_statement', fields, date: s.statedDate ?? istDate(s.capturedAt), precision: 'day', documentId: null, pageNo: null, institution: s.institutionName ?? null }
+      return { id: s.id, kind: 'statement', eventType: 'patient_statement', fields, date: s.statedDate ?? istDate(s.capturedAt), precision: 'day', documentId: null, pageNo: null, institution: s.institutionName ?? null, quote: '' }
     }),
     // A scan with no written report (RAD-IMG-RPT-01): one trigger per study (same day and kind), from the file's own header.
     ...[...new Map(docs.filter((d) => d.imaging && !d.duplicateOf && (d.imaging.studyDate ?? d.documentDate)
@@ -174,7 +197,7 @@ export function runRadar(input: RadarInput): RadarOutput {
       .map((d) => [`${d.imaging!.studyDate ?? d.documentDate}|${d.imaging!.label}`, d] as const)).values()]
       .map((d): Trigger => ({
         id: d.id, kind: 'document', eventType: 'document_received', fields: { scan_name: d.imaging!.label }, date: d.imaging!.studyDate ?? d.documentDate,
-        precision: 'day', documentId: d.id, pageNo: null, institution: d.institution ?? null,
+        precision: 'day', documentId: d.id, pageNo: null, institution: d.institution ?? null, quote: '',
       })),
   ]
     .filter((t) => !t.date || t.date <= today)
@@ -251,12 +274,68 @@ export function runRadar(input: RadarInput): RadarOutput {
       continue
     }
 
+    if (rule.kind === 'prior_study') {
+      // One item per (kind of study, date) however many reports name it. Only a study dated before the report that names it counts:
+      // the report's own study is the report itself.
+      const groups = new Map<string, { mod: { key: Modality; label: string }; t: Trigger }>()
+      for (const t of matching) {
+        const mod = modalityOf(str(t.fields.test_name) ?? '')
+        const own = t.documentId ? docById.get(t.documentId) : undefined
+        if (!t.date || !mod || !PRIOR_CUE.test(t.quote) || !own?.documentDate || t.date >= own.documentDate) continue
+        const key = `${mod.key}|${t.date}|${t.precision}`
+        if (!groups.has(key)) groups.set(key, { mod, t })
+      }
+      for (const [key, { mod, t }] of groups) {
+        const [tStart, tEnd] = dateRange(t.date!, t.precision)
+        const window = { from: addDays(tStart, rule.expects.window_days[0]), to: addDays(tEnd, rule.expects.window_days[1]) }
+        const near = (date: string | null | undefined, precision: DatePrecision | undefined) => {
+          if (!date) return false // a paper with no date cannot show that this study is on file
+          const [a, z] = dateRange(date, precision ?? 'day')
+          return z >= window.from && a <= window.to
+        }
+        const dedupeKey = dedupeKeyFor(rule.id, key)
+        // A report on file near that date whose own study is another kind does not count (a CT report is not the MRI's).
+        const reportKind = (d: RadarDocument) => {
+          const kinds = input.events.filter((e) => e.documentId === d.id && e.eventType === 'imaging_report_documented' && !PRIOR_CUE.test(e.evidence.map((x) => x.quote).join(' '))).map((e) => modalityOf(str(e.fields.test_name) ?? '')).filter((k) => k !== null)
+          return !kinds.length || kinds.some((k) => sameKind(k.key, mod.key))
+        }
+        const report = docs.find((d) => d.docType === 'imaging_report' && near(d.documentDate, d.datePrecision) && reportKind(d))
+        if (report) {
+          closureProposals.push({ dedupeKey, documentId: report.id })
+          continue
+        }
+        // A stored scan of that kind near that date is the study on file; if it has no report, RAD-IMG-RPT-01 asks for it.
+        const scanOnFile = docs.some((d) => {
+          if (!d.imaging || !near(d.imaging.studyDate ?? d.documentDate, 'day')) return false
+          const kinds = d.imaging.modalities?.length ? d.imaging.modalities : d.imaging.modality ? [d.imaging.modality] : []
+          return kinds.length ? kinds.some((k) => DICOM_KINDS[mod.key].includes(k)) : modalityOf(d.imaging.label)?.key === mod.key
+        })
+        if (scanOnFile) continue
+        const src = sourceLabel(t)
+        items.push({
+          dedupeKey,
+          ruleId: rule.id,
+          ruleVersion: rule.version,
+          triggerEventId: t.id,
+          triggerKind: t.kind,
+          expectedTypes: [...rule.expects.document_types],
+          window,
+          wording: lang((l) => fill(rule.wording[l], { event_date: formatDateIN(t.date, l, t.precision), source_label: src[l], scan: mod.label })),
+          neutralWording: neutral(rule.expects.document_types, t),
+          sourceLabel: src.en,
+          mode,
+        })
+      }
+      continue
+    }
+
     for (const t of matching) {
       if (!t.date) continue
       const test = str(t.fields.test_name)
       const expectedTypes = rule.expects.document_types_from_test && test ? typesFromTest(test).filter((d) => rule.expects.document_types.includes(d)) : [...rule.expects.document_types]
       if (!expectedTypes.length) continue
       const [tStart, tEnd] = dateRange(t.date, t.precision)
+      const labOnly = expectedTypes.every((x) => x === 'pathology_report' || x === 'ihc_molecular_report')
       const window = { from: addDays(tStart, rule.expects.window_days[0]), to: addDays(tEnd, rule.expects.window_days[1]) }
       const dedupeKey = dedupeKeyFor(rule.id, t.id)
 
@@ -272,14 +351,18 @@ export function runRadar(input: RadarInput): RadarOutput {
             const inWindow = !dated || (de >= window.from && ds <= window.to)
             // Two hospitals that are both known never match (a referral note is the one rule that expects another place).
             const differs = (rule.expects.same_institution_preferred || t.kind !== 'event') && !!t.institution && !!d.institution && !sameInstitution(t.institution, d.institution)
-            return { d, dated, inWindow, differs, dist: dated ? Math.abs(Date.parse(ds) - Date.parse(tStart)) : Infinity }
+            // REC-05/06: a tissue or marker report comes from a laboratory, not the hospital that did the procedure; and a scan's
+            // written report dated the same day is the scan's report even when another place wrote it. Proposed, flagged, never silent.
+            const soft = differs && (labOnly || (t.kind === 'document' && dated && ds === tStart))
+            return { d, dated, inWindow, differs, soft, dist: dated ? Math.abs(Date.parse(ds) - Date.parse(tStart)) : Infinity }
           })
-          .filter((c) => c.inWindow && !c.differs)
+          .filter((c) => c.inWindow && (!c.differs || c.soft))
           .sort((a, b) => Number(a.differs) - Number(b.differs) || Number(b.dated) - Number(a.dated) || a.dist - b.dist || a.d.id.localeCompare(b.d.id))
         const best = candidates[0]
         if (best) {
           match = { dedupeKey, documentId: best.d.id }
-          if (!best.dated) match.note = 'document_date_unknown'
+          if (best.differs) match.note = 'institution_differs'
+          else if (!best.dated) match.note = 'document_date_unknown'
         }
       }
       if (match) {

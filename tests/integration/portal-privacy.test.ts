@@ -29,7 +29,7 @@ beforeAll(async () => {
   })
 })
 afterAll(async () => {
-  await owner.begin(async (tx) => { await tx`select set_config('app.org_id', ${ORG_NARMADA_ID}, true)`; await tx.unsafe(`delete from documents where patient_id = '${pid}'`); await tx.unsafe(`delete from patients where id = '${pid}'`) }).catch(() => {})
+  await owner.begin(async (tx) => { await tx`select set_config('app.org_id', ${ORG_NARMADA_ID}, true)`; await tx.unsafe(`delete from missing_records where patient_id = '${pid}'`); await tx.unsafe(`delete from documents where patient_id = '${pid}'`); await tx.unsafe(`delete from patients where id = '${pid}'`) }).catch(() => {})
   await owner.end()
 })
 
@@ -47,5 +47,28 @@ describe('what the family portal lists', () => {
     const rows = await owner`select attach_state, status from documents where patient_id = ${pid}`
     const filed = rows.filter((r) => ['auto', 'attached'].includes(r.attach_state) && r.status !== 'quarantined').length
     expect(filed).toBe(2)
+  })
+})
+
+describe('a scan report that has arrived', () => {
+  it('tells two look-alike cards apart by the scan\'s date and place', async () => {
+    const scans = [['2026-01-05', 'North Scan Centre'], ['2026-01-08', 'South Imaging Clinic']]
+    await owner.begin(async (tx) => {
+      await tx`select set_config('app.org_id', ${ORG_NARMADA_ID}, true)`
+      for (const [date, place] of scans) {
+        const id = randomUUID()
+        await tx`insert into documents (id, org_id, patient_id, sha256, mime, size_bytes, intake_route, uploaded_by_kind, attach_state, status, doc_type, document_date, institution_name, flags)
+          values (${id}, ${ORG_NARMADA_ID}, ${pid}, ${'sha-' + id}, 'application/dicom', 10, 'bulk', 'staff', 'auto', 'done', 'other', ${date}, ${place}, ${tx.json({})})`
+        await tx`insert into missing_records (org_id, patient_id, rule_id, rule_version, mode, expected_types, match_window, state, dedupe_key)
+          values (${ORG_NARMADA_ID}, ${pid}, 'RAD-IMG-RPT-01', '1', 'production', ${tx.json(['imaging_report'])}, ${tx.json({ triggerKind: 'document', triggerId: id })}, 'received', ${'test-scan-' + id})`
+      }
+    })
+    const { withOrg } = await import('../../src/db')
+    const { loadHomeData } = await import('../../src/server/portal/home')
+    const data = await withOrg(ORG_NARMADA_ID, (tx) => loadHomeData(tx, ORG_NARMADA_ID, pid))
+    const rows = data.looking.filter((l) => l.expectedTypes.includes('imaging_report'))
+    expect(rows.map((r) => [r.date, r.precision, r.institution]).sort()).toEqual([
+      ['2026-01-05', 'day', 'North Scan Centre'], ['2026-01-08', 'day', 'South Imaging Clinic'],
+    ])
   })
 })

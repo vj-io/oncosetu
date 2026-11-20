@@ -13,9 +13,10 @@ import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
 import { checkZipBeforeUpload } from '@/lib/zip-check'
 import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
+import { isHeldRow } from '@/core/held'
 import { HeldStages } from './HeldStages'
 import { ThumbPicture, isHeldFile } from './HeldReveal'
-import { IdentityDecision } from './IdentityDecision'
+import { IdentityDecision, postJson } from './IdentityDecision'
 import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, statusBadge, trackerPosition } from './labels'
 
 export type Progress = { documents: number; pagesReceived: number; pagesProcessed: number; pagesVerified: number; inQueue: number; minutesLeft: number | null; awaitingDecision: number }
@@ -151,15 +152,17 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   const fromSamples = (names: string[]) => upload(names.map((n) => ({ name: n, get: () => fetch(`/demo-docs/${n}`).then((r) => r.blob()) })), null)
 
   // Documents waiting for a person to confirm the patient sit in their own group, never under a clinical heading.
-  const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing' && r.status !== 'quarantined'), [data.rows])
+  // REC-01: a rejected or detached file is not this patient's paper: it leaves the counts and the kind groups and is listed on its own.
+  const removed = useMemo(() => data.rows.filter((r) => r.status !== 'quarantined' && (r.attachState === 'rejected' || r.attachState === 'detached')), [data.rows])
+  const held = useMemo(() => data.rows.filter(isHeldRow), [data.rows])
   const blocked = useMemo(() => data.rows.filter((r) => r.status === 'quarantined'), [data.rows])
   const groups = useMemo(() => {
-    const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r))
+    const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r) && !removed.includes(r))
     const forms = rest.filter((r) => r.file?.label === 'Consent')
     const stored = rest.filter((r) => r.file?.storedOnly && !forms.includes(r))
     const text = rest.filter((r) => !r.file?.storedOnly)
     return PRIORITY_GROUPS.map((g) => ({ ...g, rows: g.title.startsWith('Scans') ? stored : g.title.startsWith('Signed consent') ? forms : text.filter((r) => g.types.includes(r.docType ?? 'other') || (g.title.startsWith('Other') && !r.docType)) })).filter((g) => g.rows.length)
-  }, [data.rows, held, blocked])
+  }, [data.rows, held, blocked, removed])
   const p = data.progress
 
   return (
@@ -168,7 +171,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
         {/* Summary */}
         <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
           <p className="ds-kicker">In this file</p>
-          <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}</h2>
+          <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length - removed.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}{removed.length ? ` · ${removed.length} rejected` : ''}</h2>
           <p className="text-sm text-muted">
             {p.inQueue > 0 ? <><LoaderCircle aria-hidden className="ds-spin mr-1 inline size-3.5" />{p.inQueue} being checked{p.minutesLeft ? `, about ${p.minutesLeft} min left` : ''} · </> : null}
             {p.awaitingDecision > 0 ? <span className="text-madder-ink">{p.awaitingDecision} held for checking · </span> : null}
@@ -271,8 +274,48 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             </ul>
           </div>
         ))}
+        {removed.length > 0 && <RemovedGroup rows={removed} patientId={patientId} canDecide={canDecide} onChange={refresh} />}
       </section>
     </div>
+  )
+}
+
+/** REC-01: files a person decided are not this patient's. Kept for the audit trail, never counted; staff can undo a rejection. */
+function RemovedGroup({ rows, patientId, canDecide, onChange }: { rows: DocSummary[]; patientId: string; canDecide: boolean; onChange: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  async function undo(id: string) {
+    setBusy(id)
+    setError(null)
+    const r = await postJson(`/api/documents/${id}/undo-reject`, {})
+    setBusy(null)
+    if (!r.ok) return setError(r.data.error?.message ?? 'Could not undo the rejection')
+    onChange()
+  }
+  return (
+    <details className="grid gap-3" data-testid="rejected-group">
+      <summary className="ds-kicker cursor-pointer border-b border-rule pb-2">Rejected — not this patient · {rows.length}</summary>
+      <p className="mt-3 text-sm text-muted">These files are kept for the record of the decision. They are not counted, not listed under a kind of paper and nothing from them reaches the timeline.</p>
+      {error && <p role="alert" className="text-sm text-madder-ink">{error}</p>}
+      <ul className="mt-3 grid gap-3">
+        {rows.map((r) => (
+          <li key={r.id} className="grid gap-1 border border-l-[3px] border-rule border-l-madder bg-matte p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start" data-testid="rejected-row">
+            <div className="grid gap-1">
+              <p className="text-base">{r.title}{r.documentDate ? ` · ${fmtDate(r.documentDate)}` : ''}</p>
+              <p className="text-sm text-muted">
+                {r.attachState === 'detached' ? 'Removed from this file' : 'Rejected: not this patient'}
+                {r.decision?.by ? ` by ${r.decision.by}` : ''}{r.decision?.at ? ` on ${fmtDateTime(r.decision.at)}` : ''}
+              </p>
+              {r.decision?.reason && <p className="text-sm">Reason: {r.decision.reason}</p>}
+              {canDecide && <Link href={`/patients/${patientId}/documents/${r.id}`} className="w-fit text-sm underline underline-offset-4">Open source viewer</Link>}
+            </div>
+            {canDecide && r.attachState === 'rejected' && (
+              <Button size="sm" variant="secondary" loading={busy === r.id} disabled={!!busy} onClick={() => undo(r.id)}>Undo: bring back for a decision</Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
   )
 }
 
@@ -348,6 +391,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: 
       {(live || pending || r.status === 'failed' || r.status === 'unreadable') && (
         <div className="grid gap-3 border-t border-rule px-4 py-4 sm:px-5">
           {pos.waiting ? <HeldStages at={pos.current} identityFailed={r.identity === 'mismatch'} storedOnly={!!r.file?.storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
+          {live && r.progress && <p className="text-sm text-muted" role="status" data-testid="read-progress">{r.progress}</p>}
           {pending && canDecide && <IdentityDecision documentId={r.id} result={r.identity} reasons={r.identityReasons} compact onDone={onChange} />}
           {pending && !canDecide && <p className="text-sm text-muted">A records officer or clinician decides whether this file belongs to this patient.</p>}
         </div>

@@ -48,6 +48,19 @@ export type PageRead = {
   processorVersion: string
 }
 
+/** An OCR'd page without its image (the image is cheap to rebuild); what is saved per page so a retry resumes (0026). */
+export type CachedPage = Omit<PageRead, 'image'>
+
+/**
+ * Hooks for long reads. `cached`: pages an earlier attempt already OCR'd (taken as read, only their image is rebuilt).
+ * `onPage` runs before a page is read (`page: null`, "Reading page 7 of 16") and again once it is read (`fresh`: it was
+ * OCR'd now, not taken from `cached`), so the caller can renew its lock and save the page.
+ */
+export type ReadHooks = {
+  cached?: ReadonlyMap<number, CachedPage>
+  onPage?: (info: { pageNo: number; total: number; page: PageRead | null; fresh: boolean }) => Promise<void> | void
+}
+
 export type ReadResult =
   | { kind: 'pages'; pages: PageRead[] }
   | { kind: 'needs_password'; incorrect: boolean }
@@ -246,7 +259,7 @@ function isPasswordError(e: unknown): e is { name: string; code?: number } {
   return !!e && typeof e === 'object' && (e as { name?: string }).name === 'PasswordException'
 }
 
-async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: OcrProvider): Promise<ReadResult> {
+async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: OcrProvider, hooks: ReadHooks): Promise<ReadResult> {
   let pdf: Awaited<ReturnType<typeof getDocumentProxy>>
   try {
     pdf = await getDocumentProxy(bytes.slice(), password ? { password } : {})
@@ -256,7 +269,13 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
   }
   try {
     const pages: PageRead[] = []
-    for (let n = 1; n <= pdf.numPages; n++) {
+    const total = pdf.numPages
+    for (let n = 1; n <= total; n++) {
+      await hooks.onPage?.({ pageNo: n, total, page: null, fresh: false })
+      const done = async (p: PageRead, fresh: boolean) => {
+        pages.push(p)
+        await hooks.onPage?.({ pageNo: n, total, page: p, fresh })
+      }
       const page = await pdf.getPage(n)
       const [content, hiddenStrs] = await Promise.all([page.getTextContent(), invisibleStrings(page as never)])
       let text = ''
@@ -279,25 +298,28 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
         if (it.hasEOL) lastEnd = null
       }
       if (text.replace(/\s/g, '').length >= 20) {
-        pages.push({
+        await done({
           pageNo: n, text, words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
           hidden: hidden.trim() || null, image: null, processor: TEXT_PROCESSOR.name, processorVersion: TEXT_PROCESSOR.version,
-        })
+        }, false)
         continue
       }
       // No usable text layer: OCR the largest embedded image (scanned page).
       const imgs = await extractImages(pdf, n).catch(() => [])
       const big = imgs.sort((a, b) => b.width * b.height - a.width * a.height)[0]
       if (!big) {
-        pages.push({
+        await done({
           pageNo: n, text: '', words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
           hidden: hidden.trim() || null, image: null, processor: TEXT_PROCESSOR.name, processorVersion: TEXT_PROCESSOR.version,
-        })
+        }, false)
         continue
       }
       const jpeg = await sharp(Buffer.from(big.data), { raw: { width: big.width, height: big.height, channels: 4 } })
         .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer()
-      pages.push({ ...(await ocrPage(n, jpeg, ocr)), hidden: hidden.trim() || null })
+      const before = hooks.cached?.get(n)
+      // A page an earlier attempt already read: its text is kept, only the image is rebuilt (a retry resumes, never restarts).
+      if (before && before.source === 'ocr' && before.processor === ocr.name && before.processorVersion === ocr.version) await done({ ...before, image: jpeg }, false)
+      else await done({ ...(await ocrPage(n, jpeg, ocr)), hidden: hidden.trim() || null }, true)
     }
     return { kind: 'pages', pages }
   } finally {
@@ -312,8 +334,8 @@ const MAX_TIFF_PAGES = 20
  * Reads every page of a sniffed file (mime from sniffFile). `password` is used once and never stored (FR-ING-07).
  * `ocr` reads scanned pages and photos (FR-DOC-02, ADR-016); tesseract unless a caller passes another provider.
  */
-export async function readPages(bytes: Uint8Array, mime: string, password?: string, ocr: OcrProvider = tesseractOcr): Promise<ReadResult> {
-  if (mime === 'application/pdf') return readPdf(bytes, password, ocr)
+export async function readPages(bytes: Uint8Array, mime: string, password?: string, ocr: OcrProvider = tesseractOcr, hooks: ReadHooks = {}): Promise<ReadResult> {
+  if (mime === 'application/pdf') return readPdf(bytes, password, ocr, hooks)
   if (mime === 'text/plain') return { kind: 'pages', pages: [typedPage(Buffer.from(bytes).toString('utf8'), 'plain-text')] }
   if (mime === DOCX) {
     try {
@@ -324,12 +346,25 @@ export async function readPages(bytes: Uint8Array, mime: string, password?: stri
     }
   }
   const heic = mime === 'image/heic'
+  let hookError: unknown = null // a failing hook (lost lock, consent withdrawn) is not an unreadable image
+  const call = async (info: Parameters<NonNullable<ReadHooks['onPage']>>[0]) => {
+    try { await hooks.onPage?.(info) } catch (e) { hookError = e; throw e }
+  }
   try {
     const count = mime === 'image/tiff' ? Math.min((await sharp(bytes).metadata()).pages ?? 1, MAX_TIFF_PAGES) : 1
     const pages: PageRead[] = []
-    for (let i = 0; i < count; i++) pages.push(await ocrPage(i + 1, await normaliseImage(bytes, i, heic), ocr))
+    for (let i = 0; i < count; i++) {
+      await call({ pageNo: i + 1, total: count, page: null, fresh: false })
+      const image = await normaliseImage(bytes, i, heic)
+      const before = hooks.cached?.get(i + 1)
+      const reuse = before && before.source === 'ocr' && before.processor === ocr.name && before.processorVersion === ocr.version
+      const page = reuse ? { ...before, image } : await ocrPage(i + 1, image, ocr)
+      pages.push(page)
+      await call({ pageNo: i + 1, total: count, page, fresh: !reuse })
+    }
     return { kind: 'pages', pages }
   } catch {
+    if (hookError) throw hookError
     return { kind: 'unreadable', reason: heic ? 'heic_decode_unsupported' : 'image_decode_failed' }
   }
 }

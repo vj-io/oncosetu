@@ -18,6 +18,7 @@ import { deviceOf } from '../portal/access'
 import { loadShares, revokeShare, type ShareRow } from '../portal/shares'
 import { describeRows } from '../radar-ui/completeness'
 import { scanOf, titleOf } from '../records/core'
+import { consentFormOf } from '../portal/home'
 import type { L2 } from '../radar-ui/wording'
 import { primaryContactTarget } from '../registration/contact'
 import type { Session } from '../session'
@@ -85,16 +86,19 @@ export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareSco
     for (const d of await describeRows(tx, rows)) absentNeutral[d.dedupeKey] = d.neutral
   }
   const scans: Record<string, string> = {}
+  const consentForms: Record<string, 'sign' | 'withdraw'> = {}
   const docIds = snapshot.documents.map((d) => d.id)
   if (docIds.length) {
     for (const d of await tx.select({ id: documents.id, flags: documents.flags }).from(documents).where(inArray(documents.id, docIds))) {
       const flags = (d.flags ?? {}) as Record<string, unknown>
       const scan = scanOf({ flags })
+      const form = consentFormOf(flags)
+      if (form) consentForms[d.id] = form
       if (scan) scans[d.id] = titleOf({ flags, docType: null } as Parameters<typeof titleOf>[0], scan, () => 'Scan')
     }
   }
   try {
-    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans, createdBy: session.kind })
+    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans, consentForms, createdBy: session.kind })
     return signSharePayload({ ...payload, snapshotId: snap.id, issuedAt: (await now(session.orgId)).toISOString() })
   } catch (e) {
     if (e instanceof QuotesNotAllowed) throw new HttpError(403, 'quotes_not_allowed', 'Source quotes can be shared only when disclosure is cleared')

@@ -30,3 +30,6 @@ Every work package follows these. Garv can overrule any of them; the date in bra
 - Never touch the live site or the live database. Real patient files are never committed or uploaded anywhere.
 - Commits are short, plain sentences ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - Before pushing: unit tests, typecheck, lint and build all pass. Add tests for new logic.
+
+## Garv's answers (20 Nov)
+19. **Desk reopening from "Today's encounters" (DESK-02): same day only.** If today's check-in was verified (SMS code or witnessed in person), desk staff can reopen that record until the end of the day (IST). For any earlier encounter they need a fresh code or witness. Every reopen is audited.

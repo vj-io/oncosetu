@@ -131,3 +131,25 @@ describe('REC-02: one unreadable patient row does not fail the list or search', 
     expect(JSON.parse(line)).toMatchObject({ patientId: badPid })
   })
 })
+
+describe('REC-02 in the records To do: one unreadable name does not fail the queue', () => {
+  it('shows the row with the plain flag and logs only the id and an error code', async () => {
+    const c = await imp()
+    await owner.begin(async (tx) => {
+      await tx`select set_config('app.org_id', ${ORG}, true)`
+      await tx`insert into documents (org_id, patient_id, sha256, mime, size_bytes, intake_route, uploaded_by_kind, attach_state, status, doc_type)
+        values (${ORG}, ${badPid}, ${randomUUID()}, 'application/pdf', 1, 'desk_capture', 'staff', 'pending_decision', 'done', 'discharge_summary')`
+      await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${badPid}, 'grant', ${tx.json({ store: true, ai: false, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
+    })
+    const logged: string[] = []
+    const spy = (await import('vitest')).vi.spyOn(console, 'error').mockImplementation((l: unknown) => { logged.push(String(l)) })
+    let queue
+    try { queue = await c.db.withOrg(ORG, (tx) => c.queue.loadRecordsQueue(tx, 5000)) } finally { spy.mockRestore() }
+    expect(queue.rows.find((r) => r.patientId === badPid)?.name).toBe(c.search.UNREADABLE_NAME)
+    expect(queue.rows.find((r) => r.patientId === pid)?.name).toBe('Mixed Held Test')
+    const line = logged.find((l) => l.includes(badPid))!
+    expect(line).toBeTruthy()
+    expect(line).not.toContain('Corrupt Row Test')
+  })
+})
+

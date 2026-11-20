@@ -135,7 +135,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
       )}
 
       {(live || doc.attachState === 'pending_decision' || d.status === 'failed') && (
-        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
+        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages, progress: d.progress }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
       )}
 
       {/* Notices: what the pipeline did with this file */}

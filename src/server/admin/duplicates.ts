@@ -96,7 +96,7 @@ export async function rejectMerge(ctx: AdminCtx, mergeId: string) {
 const MOVE = [
   'patient_aliases', 'caregivers', 'encounters', 'documents', 'document_files', 'document_pages', 'events', 'evidence',
   'patient_statements', 'missing_records', 'record_requests', 'share_links', 'share_views', 'ai_runs', 'outbox', 'break_glass',
-  'document_links',
+  'document_links', 'document_read_cache',
 ] as const
 
 /** Second approval, then execute. The requester cannot approve their own request. */

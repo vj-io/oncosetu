@@ -31,7 +31,7 @@ const erase = (tx: TransactionSql, requestId: string) => tx`select erase_patient
 
 const PATIENT_TABLES = ['documents', 'document_files', 'document_pages', 'events', 'evidence', 'verifications', 'verification_qa_reviews',
   'patient_statements', 'missing_records', 'record_requests', 'snapshots', 'share_links', 'share_views', 'caregivers', 'patient_aliases',
-  'encounters', 'sessions', 'ai_runs', 'outbox', 'break_glass', 'voice_clips']
+  'encounters', 'sessions', 'ai_runs', 'outbox', 'break_glass', 'voice_clips', 'document_read_cache']
 const rand = () => randomUUID().replace(/-/g, '')
 
 /** A patient with something in every table erasure touches. Returns the ids the assertions need. */
@@ -47,6 +47,7 @@ async function seedPatient(tx: TransactionSql, staff: { records: string; admin: 
   await tx`insert into document_files (org_id, patient_id, document_id, kind, mime, bytes_enc, dek_wrapped, size, sha256)
     values (${ORG}, ${id}, ${doc.id}, 'original', 'application/pdf', ${Buffer.from('x')}, 'v1.dek', 1, ${rand()})`
   await tx`insert into document_pages (org_id, patient_id, document_id, page_no, text) values (${ORG}, ${id}, ${doc.id}, 1, 'page text')`
+  await tx`insert into document_read_cache (org_id, patient_id, document_id, page_no, data) values (${ORG}, ${id}, ${doc.id}, 1, ${tx.json({ text: 'ocr page' })})` // 0026: a half-read scan
   const [ev1] = await tx`insert into events (org_id, patient_id, encounter_id, document_id, event_type, source_type, extraction_method)
     values (${ORG}, ${id}, ${enc.id}, ${doc.id}, 'lab_report_documented', 'external_document', 'manual') returning id`
   const [ev2] = await tx`insert into events (org_id, patient_id, document_id, event_type, source_type, extraction_method, version, supersedes_id)

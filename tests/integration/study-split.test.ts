@@ -64,14 +64,17 @@ describe('a study larger than one stored document', () => {
     for (const d of r.documents) if (d.status === 'queued') await c.proc.runDocument(d.documentId, ORG_NARMADA_ID)
     expect(r.documents.length).toBeGreaterThan(1)
 
-    const { loadRecords } = await import('../../src/server/records/queries')
+    const { loadRecords, filedPaperCount } = await import('../../src/server/records/queries')
     const { studyParts, previewTarget } = await import('../../src/server/pipeline/study-parts')
     const { bundleSliceAt } = await import('../../src/server/pipeline/study')
     const { readDicomMeta } = await import('../../src/server/pipeline/dicom')
     const { readFile } = await import('../../src/server/files')
-    const rows = (await c.db.withOrg(ORG_NARMADA_ID, (tx) => loadRecords(tx, pid))).rows.filter((x) => x.scan?.studyUid === uid)
+    const all = (await c.db.withOrg(ORG_NARMADA_ID, (tx) => loadRecords(tx, pid))).rows
+    const rows = all.filter((x) => x.scan?.studyUid === uid)
     expect(rows).toHaveLength(1)
     expect(rows[0].scan).toMatchObject({ instances: 8, parts: r.documents.length })
+    // the "All records" tab badge counts what the list shows: the parts once, not once each
+    expect(await c.db.withOrg(ORG_NARMADA_ID, (tx) => filedPaperCount(tx, pid))).toBe(all.length)
 
     // every slice, through the preview route's own path (previewTarget -> part -> bundleSliceAt), in reading order
     const seen = await c.db.withOrg(ORG_NARMADA_ID, async (tx) => {

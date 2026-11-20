@@ -56,7 +56,8 @@ export class BundleWriter {
   }
   /** Returns false once the bundle has grown past its limit (the caller then stops and refuses the study). */
   add(name: string, data: Uint8Array, squeeze: boolean): boolean {
-    const f = squeeze ? new ZipDeflate(name, { level: 1 }) : new ZipPassThrough(name)
+    // each deflater costs a few ms to set up, so only pictures big enough to repay it are squeezed
+    const f = squeeze && data.length >= 128 * 1024 ? new ZipDeflate(name, { level: 1 }) : new ZipPassThrough(name)
     this.zip.add(f)
     f.push(data, true)
     return this.size <= this.maxBytes

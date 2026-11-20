@@ -10,6 +10,7 @@ import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge,
 import { inBacklogOrder } from '@/core/backlog'
 import { MB } from '@/core/limits'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
+import { checkZipBeforeUpload } from '@/lib/zip-check'
 import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
 import { HeldStages } from './HeldStages'
@@ -115,11 +116,13 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
         const it = items[i]
         try {
           const blob = await prepare(new File([await batch[i].get()], batch[i].name, { type: batch[i].name.endsWith('.pdf') ? 'application/pdf' : undefined }))
-          if (blob.size > capFor(it.name)) { patch(it.key, { state: 'error', note: 'Larger than the limit (50 MB per file, 200 MB per ZIP)' }); continue }
+          if (blob.size > capFor(it.name)) { patch(it.key, { state: 'error', note: 'Larger than the limit (50 MB per file, 300 MB per ZIP)' }); continue }
+          const zc = await checkZipBeforeUpload(blob, it.name) // read the ZIP directory here, before uploading anything
+          if (!zc.ok) { patch(it.key, { state: 'error', note: zc.reason }); continue }
           patch(it.key, { state: 'uploading', size: blob.size })
           if (needsChunks(blob.size)) {
             const c = await uploadChunked(`/api/patients/${patientId}/uploads`, blob, it.name, (pct) => patch(it.key, { pct }))
-            if (c.status !== 200) { patch(it.key, { state: 'error', note: c.code === 'checksum_mismatch' ? 'The file was damaged on the way. Try again.' : c.code === 'chunk_failed' ? 'The connection dropped. Try again.' : 'Upload failed. Check the file type and size.' }); continue }
+            if (c.status !== 200) { patch(it.key, { state: 'error', note: c.code === 'checksum_mismatch' ? 'The file was damaged on the way. Try again.' : c.code === 'chunk_failed' ? 'The connection dropped. Try again.' : c.message ?? 'Upload failed. Check the file type and size.' }); continue }
             const skip = c.skipped.length ? `${c.skipped.length} file${c.skipped.length > 1 ? 's' : ''} in the ZIP skipped: ${[...new Set(c.skipped.map((x) => x.reason))].join('; ')}` : undefined
             patch(it.key, { state: 'done', pct: 100, note: c.duplicate ? 'Already in file — linked, not reprocessed' : skip })
             void refresh()
@@ -184,7 +187,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <Upload aria-hidden className="size-7 text-muted" strokeWidth={1.5} />
             <div className="grid gap-1">
               <p className="font-display text-lg tracking-[-0.015em]">Drop the patient’s records here</p>
-              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · 50 MB per file, 200 MB per ZIP.</p>
+              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · 50 MB per file, 300 MB per ZIP.</p>
               <p className="text-sm text-muted">OncoSetu keeps the scan and reads the written report; it doesn’t interpret images.</p>
             </div>
             <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />

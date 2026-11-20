@@ -131,7 +131,9 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
 
       <footer className="border-t border-rule">
         <p className="mx-auto max-w-gallery px-4 py-5 font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase sm:px-8">
-          A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document
+          {pathname === "/admin" || pathname.startsWith("/admin/")
+            ? "OncoSetu is a records index, not a clinical tool · Every change made here is written to the activity log"
+            : "A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document"}
         </p>
       </footer>
 

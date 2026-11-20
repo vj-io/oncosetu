@@ -91,6 +91,11 @@ export default function StaffLoginPage() {
         <div>
           <h1 className="text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Hospital staff sign-in</h1>
           <p className="mt-4 text-muted">Use your email, your password and the 6-digit code from your authenticator app.</p>
+          {accounts && (
+            <p className="mt-2 text-[15px] lg:hidden">
+              <a href="#demo-accounts" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Trying the demo? Pick a demo role ↓</a>
+            </p>
+          )}
 
           <Frame animate className="mt-8 px-5 py-6 sm:px-8 sm:py-8">
             {/* method="post": a submit before hydration must never put the password in the URL (it did, as a GET). */}

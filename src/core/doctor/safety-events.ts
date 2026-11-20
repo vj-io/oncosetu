@@ -15,7 +15,7 @@ export const SAFETY_META: Record<SafetyKind, { label: string; tone: SafetyTone; 
   handwriting: { label: 'Handwriting kept as an image', tone: 'unverified', explain: 'A handwritten page is shown as the original picture only. The software does not guess at handwriting.' },
   role_refused: { label: 'Refused by role', tone: 'conflict', explain: 'Someone tried to open a page their job role does not allow.' },
   no_consent: { label: 'Refused: no consent or ID check', tone: 'conflict', explain: 'A record was not opened because the patient had not consented or had not been verified.' },
-  break_glass: { label: 'Emergency access used', tone: 'conflict', explain: 'A clinician opened a record without consent, giving a reason. The patient is told and the reason is kept.' },
+  break_glass: { label: 'Emergency access used', tone: 'conflict', explain: 'A staff member opened a record without consent, giving a reason. The patient is told and the reason is kept.' },
   share_refused: { label: 'Share link refused', tone: 'unverified', explain: 'Someone opened a share link with the wrong passcode, after it expired, or after it was switched off.' },
   sms_limit: { label: 'SMS code limit reached', tone: 'unverified', explain: 'A phone asked for too many verification codes, so no further code was sent for a while.' },
   id_number_rejected: { label: 'Full ID number rejected', tone: 'unverified', explain: 'A full government ID number was typed where it must not be stored, and was refused.' },

@@ -36,3 +36,7 @@ export function groupsFor(role: string): NavGroup[] {
     return { id: g.id, title: g.title, href: pages[0]?.href ?? '', pages }
   }).filter((g) => g.pages.length > 0)
 }
+
+/** Plain role names for people reading the console (never the stored code such as org_admin). */
+export const ROLE_LABEL: Record<string, string> = { desk: 'Desk', records: 'Records', clinician: 'Clinician', org_admin: 'Administrator', auditor: 'Auditor', patient: 'Patient', caregiver: 'Family member', system: 'System' }
+export const roleLabel = (r: string) => ROLE_LABEL[r] ?? 'Staff member'

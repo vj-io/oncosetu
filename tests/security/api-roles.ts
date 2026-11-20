@@ -20,7 +20,7 @@ export const EXPECTED: Record<string, Expect> = {
   // admin, audit, metrics
   'GET /api/admin/audit.csv': AUDIT,
   'POST /api/admin/audit/verify': AUDIT,
-  'POST /api/admin/break-glass/[id]/review': 'org_admin',
+  'POST /api/admin/break-glass/[id]/review': AUDIT,
   'POST /api/admin/duplicates': 'records org_admin',
   'POST /api/admin/duplicates/[id]': 'records org_admin',
   'POST /api/admin/erasure/[id]/execute': 'org_admin',

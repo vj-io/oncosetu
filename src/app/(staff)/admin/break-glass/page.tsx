@@ -1,22 +1,23 @@
+import { roleLabel } from '@/components/admin/groups'
 import { ReviewBreakGlass } from '@/components/admin/ReviewBreakGlass'
 import { Badge, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { withOrg } from '@/db'
 import { istDateTime } from '@/server/admin/format'
-import { listBreakGlass } from '@/server/admin/ops'
+import { activeAdminIds, listBreakGlass, reviewState } from '@/server/admin/ops'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
 
-export const metadata = { title: 'Break-glass · Admin · OncoSetu' }
+export const metadata = { title: 'Emergency access · Admin · OncoSetu' }
 
 export default async function BreakGlassPage() {
   const s = await requireStaff(sectionRoles('breakGlass'))
-  const rows = await withOrg(s.orgId, (tx) => listBreakGlass(tx, s.orgId))
+  const { rows, admins } = await withOrg(s.orgId, async (tx) => ({ rows: await listBreakGlass(tx, s.orgId), admins: await activeAdminIds(tx, s.orgId) }))
   const active = rows.filter((r) => r.active)
   const waiting = rows.filter((r) => !r.reviewedAt).length
   return (
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
-        description="Clinician access to a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. An administrator reviews every grant; until then it is shown as an alert on the admin pages. Patients are shown by record code only." />
+        description="Staff opening a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Someone other than the person who used it reviews every grant: another administrator, or the auditor when the hospital has only one administrator. Until then it is shown as an alert on the admin pages. Patients are shown by record code only." />
       {rows.length === 0 ? <EmptyState title="No break-glass grants" description="Nobody has used break-glass access in this organisation." /> : (
         <>
           <p className="font-mono text-sm text-muted" role="status">{active.length} active now · {waiting} not yet reviewed · {rows.length} shown</p>
@@ -26,15 +27,18 @@ export default async function BreakGlassPage() {
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td><Badge tone={r.active ? 'conflict' : 'shadow'}>{r.active ? 'Active' : 'Expired'}</Badge></td>
-                  <td>{r.staff}<span className="block font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{r.role}</span></td>
+                  <td>{r.staff}<span className="block font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{roleLabel(r.role)}</span></td>
                   <td className="font-mono text-[13px]">{r.patient}</td>
                   <td className="max-w-sm text-[15px]">{r.reason}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.createdAt)}</td>
                   <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.expiresAt)}</td>
                   <td>
-                    {r.reviewedAt ? <span className="text-sm text-muted">Reviewed by {r.reviewedBy ?? '—'}<span className="block font-mono text-[13px]">{istDateTime(r.reviewedAt)}</span></span>
-                      : s.role === 'org_admin' ? <ReviewBreakGlass id={r.id} patient={r.patient} />
-                      : <Badge tone="unverified">Not yet reviewed</Badge>}
+                    {(() => {
+                      const st = reviewState({ reviewedAt: r.reviewedAt, grantStaffId: r.staffId, viewerId: s.staffId, viewerRole: s.role, activeAdminIds: admins })
+                      if (st.kind === 'done') return <span className="text-sm text-muted">Reviewed by {r.reviewedBy ?? '—'}<span className="block font-mono text-[13px]">{istDateTime(r.reviewedAt)}</span></span>
+                      if (st.kind === 'can_review') return <ReviewBreakGlass id={r.id} patient={r.patient} />
+                      return <span className="grid gap-1 text-sm text-muted"><Badge tone="unverified">Not yet reviewed</Badge>{st.text}</span>
+                    })()}
                   </td>
                 </tr>
               ))}

@@ -3,7 +3,10 @@ import { ArrowUpRight } from 'lucide-react'
 import { ADMIN_GROUPS, groupsFor, PLAIN_LABEL } from '@/components/admin/groups'
 import { SectionHeader } from '@/components/ui'
 import { withOrg } from '@/db'
+import { SAFETY_KINDS, SAFETY_META } from '@/core/doctor/safety-events'
 import { duplicateCounts, overviewCounts } from '@/server/admin/ops'
+import { listErasureRequests } from '@/server/erasure/erasure'
+import { plural } from '@/server/admin/format'
 import { loadSafetyEvents } from '@/server/admin/safety'
 import { now } from '@/server/clock'
 import { SECTIONS, type SectionKey } from '@/server/admin/sections'
@@ -14,29 +17,32 @@ export const metadata = { title: 'Admin · OncoSetu' }
 export default async function AdminOverview() {
   const s = await requireStaff(SECTIONS.overview.roles)
   const admin = s.role === 'org_admin'
-  const { c, d, safety } = await withOrg(s.orgId, async (tx) => ({ c: await overviewCounts(tx, s.orgId), d: admin ? await duplicateCounts(tx, s.orgId).catch(() => null) : null, // one unreadable row must not take the whole overview down
+  const { c, d, safety, erasures } = await withOrg(s.orgId, async (tx) => ({ c: await overviewCounts(tx, s.orgId), erasures: admin ? (await listErasureRequests(tx, s.orgId).catch(() => [])).filter((r) => r.state === 'queued' || r.state === 'scheduled').length : null, d: admin ? await duplicateCounts(tx, s.orgId).catch(() => null) : null, // one unreadable row must not take the whole overview down
     safety: await loadSafetyEvents(tx, s.orgId, await now(s.orgId), 0) }))
-  const stopped = safety.counts.wrong_patient + safety.counts.hidden_instructions + safety.counts.handwriting + safety.counts.role_refused + safety.counts.no_consent + safety.counts.share_refused + safety.counts.upload_rejected + safety.counts.sms_limit + safety.counts.id_number_rejected
+  // The same total as the Blocked and held page, with its three biggest kinds named (never a fixed pair).
+  const top = SAFETY_KINDS.filter((k) => safety.counts[k] > 0).sort((a, b) => safety.counts[b] - safety.counts[a]).slice(0, 3)
+    .map((k) => `${safety.counts[k]} ${SAFETY_META[k].label.toLowerCase()}`).join(', ')
 
   const note: Record<SectionKey, { value: string; note: string }> = {
     overview: { value: '', note: '' },
-    safety: { value: `${stopped}`, note: `blocked or held in ${safety.days} days (${safety.counts.wrong_patient} wrong patient, ${safety.counts.hidden_instructions} hidden instructions)` },
+    safety: { value: `${safety.total}`, note: `${safety.total === 1 ? 'event' : 'events'} in ${safety.days} days${top ? `: ${top}` : ''}` },
     staff: { value: `${c.staff}`, note: 'active staff accounts' },
     rules: { value: c.rulesProduction === c.rulesTotal ? `All ${c.rulesTotal}` : `${c.rulesProduction} of ${c.rulesTotal}`, note: c.rulesProduction === c.rulesTotal ? 'missing-papers checks reviewed by a clinician and in use' : 'missing-papers checks in use; the rest are with a clinician for review' },
     audit: { value: c.audit.toLocaleString('en-IN'), note: 'entries in the activity log. Entries can be added, never changed' },
-    metrics: { value: 'Targets', note: 'how well it works, and the safety numbers that must stay at zero' },
+    metrics: { value: '', note: 'how well it works, and the safety numbers that must stay at zero' },
     measurement: { value: `${c.forms}`, note: 'consultation forms filled in for the study' },
-    devices: { value: `${c.devices}`, note: 'capture devices in use' },
+    devices: { value: `${c.devices}`, note: `capture ${plural(c.devices, 'device')} in use` },
     duplicates: { value: d ? `${d.candidates} likely` : '—', note: d ? `${d.pendingMerges} merge${d.pendingMerges === 1 ? '' : 's'} waiting for a second person to approve` : 'org admin only' },
-    breakGlass: { value: `${c.breakGlassActive} open`, note: 'times a doctor opened a record without consent, with a reason' },
-    erasure: { value: '', note: 'patients who asked for their records to be erased' },
-    settings: { value: 'Hospital', note: 'switches, how long records are kept, daily limits' },
+    breakGlass: { value: `${c.breakGlassActive} open`, note: 'times staff opened a record without consent, with a reason' },
+    erasure: { value: erasures == null ? '' : `${erasures} waiting`, note: 'patients who asked for their records to be erased' },
+    settings: { value: '', note: 'switches, how long records are kept, daily limits' },
   }
   const groups = groupsFor(s.role)
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker={`Admin · ${s.orgName}`} title="Admin" description="Five areas. Every change made here is written to the activity log, without names or document text." />
+      <SectionHeader as="h1" kicker={`${admin ? 'Admin' : 'Audit'} · ${s.orgName}`} title={admin ? 'Admin' : 'Audit and oversight'}
+        description={admin ? 'Five areas. Every change made here is written to the activity log, without names or document text.' : 'Two areas you can review: safety and activity, and quality. You cannot open patient records or change settings.'} />
       {groups.map((g) => {
         const def = ADMIN_GROUPS.find((x) => x.id === g.id)!
         return (

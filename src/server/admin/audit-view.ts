@@ -2,7 +2,9 @@
 import { and, asc, desc, eq, gte, lt, sql, type SQL } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { auditLog, staff } from '@/db/schema'
+import { describeAction } from '@/core/doctor/audit-words'
 import { toCsv } from './csv'
+import { istDateTime } from './format'
 
 export type AuditFilter = { actorId?: string; action?: string; targetType?: string; from?: string; to?: string }
 export const AUDIT_PAGE_SIZE = 50
@@ -46,13 +48,13 @@ export async function staffNames(tx: Tx, orgId: string): Promise<Map<string, str
   return new Map(rows.map((r) => [r.id, r.name]))
 }
 
-export const AUDIT_CSV_HEADER = ['seq', 'at', 'actor_id', 'actor_role', 'action', 'target_type', 'target_id', 'request_id', 'details', 'prev_hash', 'hash'] as const
+export const AUDIT_CSV_HEADER = ['seq', 'at', 'actor_id', 'actor_role', 'action', 'target_type', 'target_id', 'request_id', 'details', 'prev_hash', 'hash', 'at_ist', 'action_label'] as const
 
 type AuditCsvRow = { seq: number; at: Date; actorId: string | null; actorRole: string; action: string; targetType: string | null; targetId: string | null; requestId: string | null; details: Record<string, unknown>; prevHash: string; hash: string }
 
-/** Ids only: actors are ids (no names), details are the ids/enums the audit writer already restricts to. */
+/** Ids only: actors are ids (no names), details are the ids/enums the audit writer already restricts to. `at` is UTC; `at_ist` (India time) and `action_label` (plain words) sit beside the raw columns. */
 export function auditCsv(rows: readonly AuditCsvRow[]): string {
-  return toCsv(AUDIT_CSV_HEADER, rows.map((r) => [r.seq, r.at, r.actorId, r.actorRole, r.action, r.targetType, r.targetId, r.requestId, r.details, r.prevHash, r.hash]))
+  return toCsv(AUDIT_CSV_HEADER, rows.map((r) => [r.seq, r.at, r.actorId, r.actorRole, r.action, r.targetType, r.targetId, r.requestId, r.details, r.prevHash, r.hash, istDateTime(r.at), describeAction(r.action)]))
 }
 
 export async function exportAudit(tx: Tx, orgId: string, f: AuditFilter) {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import clsx from "clsx";
 import { LanguageToggle, Spotlight, Wordmark, type Lang } from "@/components/ui";
 import { htmlLang } from "@/core/copy";
+import { LangMemory } from "@/components/portal/LangMemory";
 import { shellCopy } from "@/i18n/shell";
 
 /**
@@ -28,6 +29,7 @@ export function PatientShell({
 }) {
   return (
     <div lang={htmlLang(lang)} className={clsx("relative flex min-h-dvh flex-col text-[17px] leading-relaxed", lang === "hi" && "font-deva")}>
+      <LangMemory lang={lang} />
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-obsidian focus:px-4 focus:py-3 focus:text-gallery">
         {shellCopy.skipToContent[lang]}
       </a>

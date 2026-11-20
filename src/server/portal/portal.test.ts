@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { brandFor, lintText } from '@/core/copy'
 import { DOC_TYPES, type Disclosure, type Lang } from '@/core/types'
 import { en, hi, hinglish, tp, type PatientKey } from '@/i18n/patient'
+import { pickLang } from './lang'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, isPastDate, labelWithoutDates, type HomeData } from './summary'
 import { openShadow, sealShadow } from './statements'
@@ -277,5 +278,14 @@ describe('access log wording', () => {
     expect(deviceOf('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)')).toBe('tablet')
     expect(deviceOf('Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120')).toBe('computer')
     expect(deviceOf(null)).toBe('unknown')
+  })
+})
+
+describe('language choice (PAT-01)', () => {
+  it('the address wins, then the remembered choice, then the fallback', () => {
+    expect(pickLang('en', 'hi', 'hi')).toBe('en')
+    expect(pickLang(null, 'hinglish', 'hi')).toBe('hinglish')
+    expect(pickLang(null, undefined, 'hi')).toBe('hi')
+    expect(pickLang(null, 'fr', 'en')).toBe('en')
   })
 })

@@ -1,10 +1,11 @@
 // Per-request context for every /p/** page: who is signed in, which language, which brand (FR-CON-07).
 import { eq } from 'drizzle-orm'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { brandFor, langFromAcceptLanguage } from '@/core/copy'
 import type { Disclosure, Lang } from '@/core/types'
 import { withOrg } from '@/db'
 import { orgSettings, patients, type OrgFlags } from '@/db/schema'
+import { LANG_COOKIE, langParam, pickLang } from './lang'
 import { decryptField } from '../crypto'
 import { activeConsent, assertPatientAccess, initials, type ActiveConsent } from '../patients'
 import { requirePatientSession, type PatientSession } from '../session'
@@ -23,18 +24,17 @@ export type PortalCtx = {
   actor: { kind: 'patient' | 'caregiver'; id: string }
 }
 
-/** `?lang=hi|en|hinglish` (first value wins) or null. */
-export function langParam(raw: string | string[] | undefined): Lang | null {
-  const v = Array.isArray(raw) ? raw[0] : raw
-  return v === 'hi' || v === 'en' || v === 'hinglish' ? v : null
-}
+const remembered = async () => (await cookies()).get(LANG_COOKIE)?.value
+
+export { langParam }
 
 export type PortalSearch = Promise<{ lang?: string | string[] }>
 
 /** Before sign-in nothing is known about the visitor: the browser's language (Hindi or English). */
-export const browserLang = async (): Promise<Lang> => langFromAcceptLanguage((await headers()).get('accept-language'))
+export const browserLang = async (): Promise<Lang> =>
+  pickLang(null, await remembered(), langFromAcceptLanguage((await headers()).get('accept-language')))
 
-/** Signed-in patient or caregiver, or redirect to /p/login. Language: ?lang= first, else the patient's preferred language. */
+/** Signed-in patient or caregiver, or redirect to /p/login. Language: ?lang= first, then the remembered choice, then the patient's preferred language. */
 export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx> {
   const session = await requirePatientSession()
   const fromUrl = langParam((await searchParams)?.lang)
@@ -49,7 +49,7 @@ export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx
   })
   return {
     session,
-    lang: fromUrl ?? data.p.lang,
+    lang: pickLang(fromUrl, await remembered(), data.p.lang),
     brand: brandFor(data.p.disclosure),
     disclosure: data.p.disclosure,
     initials: initials(decryptField(data.p.nameEnc)),

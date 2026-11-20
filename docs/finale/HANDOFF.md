@@ -17,7 +17,7 @@ Garv is the owner. The orchestrator (Opus) only decides and delegates. Sonnet an
 | fix/privacy `c14a4dd` | done; full unit suite not re-run after its last fix; portal/share integration tests not run | No file or physician names on family surfaces, a "Signed consent form" label, the resolved state after a held paper is attached, labelled tab counts, clear code-resend messages |
 | fix/imaging `bf7ede0` | **WORK IN PROGRESS, unchecked** | JPEG 2000 DICOM preview (WASM codec), ZIP limits for real CDs (~3000 entries, 300 MB), study grouping by StudyInstanceUID, an in-browser ZIP pre-check and the real rejection reason, window/level presets and cine |
 | fix/pipeline `eb315ee` | **WORK IN PROGRESS, unchecked** | A heartbeat on the processing lock and an atomic claim (no duplicate OCR runners); page progress. Adds migration 0026 `document_read_cache`, which must also be added to seed-demo's ORG_TABLES reset list |
-| fix/extract `879b0a7` | **WORK IN PROGRESS, unchecked** | Radiology history as diagnosis-as-written; oncology drug lexicon (PARP, CDK4/6, …); Margins and Radiotherapy misfiles; whole impressions; strip signature footers from quotes; prior-study references raise missing papers. The eval must not regress |
+| fix/extract `879b0a7` | **DONE and checked**: its commit message says WIP, but tsc, eslint and unit 1491/1491 pass, the eval is unchanged on all 4 sets and the zero-gates are 0. Ready to merge | Radiology history as diagnosis-as-written; oncology drug lexicon (PARP, CDK4/6, …); Margins and Radiotherapy misfiles; whole impressions; strip signature footers from quotes; prior-study references raise missing papers. The eval must not regress |
 | fix/records `1ead4f7` | **WORK IN PROGRESS, unchecked** | records.md: REC-01 (P0, a rejected wrong-patient report still counted as filed); REC-02 (one unreadable row 500s /patients); REC-03 to REC-12 |
 
 For each WIP branch: open its worktree `Documents/onco-wt/fix-<name>` (or `git worktree add` it fresh), run `npx tsc --noEmit && npx eslint src tests && npx vitest run --project unit --testTimeout=60000 --maxWorkers=2`, finish the brief above, push, and then merge into feat/finale-polish.
@@ -59,7 +59,7 @@ For each WIP branch: open its worktree `Documents/onco-wt/fix-<name>` (or `git w
    - held thumbnails blurred
    - "Not a match" undo on both sides
    - Hindi arrived-scan labels
-2. Finish and check fix/imaging, fix/pipeline, fix/extract and fix/records. Merge them together with fix/privacy into feat/finale-polish, one at a time, running the full checks (unit, integration, build in the main folder, seed-demo) after each.
+2. Finish and check fix/imaging, fix/pipeline and fix/records (fix/extract is already done). Merge them together with fix/privacy into feat/finale-polish, one at a time, running the full checks (unit, integration, build in the main folder, seed-demo) after each.
 3. Browser check of everything merged (screenshots in docs/finale/wave4-shots/, git-ignored).
 4. Next.js security upgrade (approved): a separate branch, read the advisory, full tests, build, seed, then merge.
 5. Real-scan test round 2 with video (local only).

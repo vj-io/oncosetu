@@ -8,7 +8,7 @@ import { writeAudit } from '@/server/audit'
 import { HttpError } from '@/server/http'
 import { ingestDocument, type IngestInput, type IngestResult } from './ingest'
 import { sniffFile } from './filetypes'
-import { isCompressedSyntax, studyLabel, type DicomMeta } from './dicom'
+import { isCompressedSyntax, readDicomMeta, studyLabel, type DicomMeta } from './dicom'
 import { BundleWriter } from './study'
 import { inspectZip, openEntries, ZipMismatch, type Skipped, type ZipEntry } from './zip'
 

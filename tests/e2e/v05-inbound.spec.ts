@@ -21,6 +21,8 @@ const env = (k: string) => {
   if (!v) throw new Error(`${k} is not set (see .env.local)`)
   return v
 }
+/** Skip, with the reason, when this machine has no copy of the external service the test talks to (never fake it). */
+const lacks = (...keys: string[]) => keys.filter((k) => !process.env[k])
 const SETTLED_OK = ['done', 'needs_review']
 const PDF = 'hero__01-discharge-summary.pdf'
 const JPG = 'hero__03-ct-thorax-abdomen.jpg'
@@ -60,6 +62,8 @@ const mediaMsg = (phone: string, file: 'a.pdf' | 'b.jpg') =>
 const textMsg = (phone: string, Body: string) => ({ From: `whatsapp:${e164(phone)}`, Body })
 
 test('FR-ING-04 email drop: staff verify a caregiver address in person; its PDF is stored and processed; V05-E2E-07 an unregistered sender is refused and nothing is stored', async ({ staff, ui, anon }) => {
+  const gone = lacks('INBOUND_EMAIL_DOMAIN', 'INBOUND_EMAIL_USER', 'INBOUND_EMAIL_PASSWORD')
+  test.skip(gone.length > 0, `needs ${gone.join(', ')}: the Postmark inbound-email service is not set up in this environment`)
   const records = await staff('records')
   const p = await registerPatient(records, { base: 'hero' })
   const cgId = await caregiverOf(p.id)
@@ -122,6 +126,8 @@ test('FR-ING-04 email drop: staff verify a caregiver address in person; its PDF 
 })
 
 test('FR-ING-05 WhatsApp: signed media from the registered caregiver phone are held, released by the code, then processed', async ({ staff, anon }) => {
+  const gone = lacks('TWILIO_AUTH_TOKEN', 'PUBLIC_BASE_URL')
+  test.skip(gone.length > 0, `needs ${gone.join(', ')}: the Twilio WhatsApp webhook is not set up in this environment`)
   const records = await staff('records')
   const p = await registerPatient(records, { base: 'hero', preferredLanguage: 'en' }) // caregiver-primary: only the caregiver's phone is matched
   const cgPhone = p.caregiverPhone!
@@ -170,6 +176,8 @@ test('FR-ING-05 WhatsApp: signed media from the registered caregiver phone are h
 })
 
 test('FR-ING-05 WhatsApp: five wrong codes discard the files, an expired hold is dropped, and the per-phone code budget is respected', async ({ staff, anon }) => {
+  const gone = lacks('TWILIO_AUTH_TOKEN', 'PUBLIC_BASE_URL', 'CRON_SECRET')
+  test.skip(gone.length > 0, `needs ${gone.join(', ')}: the Twilio WhatsApp webhook is not set up in this environment`)
   const records = await staff('records')
   const p = await registerPatient(records, { base: 'hero', preferredLanguage: 'hi' }) // replies in Hindi
   const cgPhone = p.caregiverPhone!

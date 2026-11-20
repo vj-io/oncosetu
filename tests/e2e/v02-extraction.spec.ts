@@ -76,7 +76,8 @@ test('V02-E2E-02 a scanned discharge summary is read by OCR into events with evi
   const page = await ui('records')
   await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
   await expect(page.getByText('Low OCR confidence on at least one page')).toBeVisible()
-  for (const x of pages.filter((x) => x.text.trim())) await expect(page.getByText(`Page ${x.pageNo} · OCR mean confidence ${x.ocrConfidence!.toFixed(2)}`)).toBeVisible()
+  await page.getByRole('button', { name: 'Words', exact: true }).click() // finale: the page text sits behind a Page / Words switch
+  for (const x of pages.filter((x) => x.text.trim())) await expect(page.getByText(`Page ${x.pageNo} · read from a photo, confidence ${x.ocrConfidence!.toFixed(2)}`)).toBeVisible()
 })
 
 test('V02-E2E-11 a fact read from a low-confidence photo stays out of the record until a person checks it against the page (FR-DOC-06)', async ({ staff, ui }) => {
@@ -103,7 +104,8 @@ test('V02-E2E-11 a fact read from a low-confidence photo stays out of the record
   await expect(page.locator(`#item-${heldId}`)).toHaveCount(0)
   await page.goto(`/patients/${p.id}/documents/${up.documentId}`)
   const card = page.locator(`#ev-${heldId}`)
-  await expect(card).toContainText('Needs checking against the page')
+  await expect(card).toContainText('Needs checking') // finale: one line per fact; the details open on a click
+  await card.getByRole('button', { name: /Lab report documented/ }).click()
   await expect(card).toContainText('Not in the record until a person checks it against the page')
   await card.getByRole('button', { name: 'Checked against the page' }).click()
   await until(async () => (await eventsOf(p.id)).find((e) => e.id === heldId && e.verificationStatus === 'verified_matches_source'))
@@ -238,19 +240,22 @@ test('V02-E2E-07 an ambiguous date shows both readings until a clinician picks o
   const amb = (await eventsOf(p.id)).find((e) => e.documentId === up.documentId && e.dateFlags.includes('date_ambiguous'))!
   expect(amb, 'an item whose day and month could be swapped').toBeTruthy()
   const other = swappedReading(amb.eventDate!)!
-  const both = `${formatDateIN(amb.eventDate)} or ${formatDateIN(other)}`
+  // 773a5bc + DECISIONS 5: the date column shows the day-first reading only, with the "could be swapped" warning beside it;
+  // the other reading lives only on the clinician's "Pick the date" buttons.
+  const shown = formatDateIN(amb.eventDate)
 
-  // Every staff view shows both readings; the desk (no verification role) cannot pick.
+  // Every staff view shows the date with the warning; the desk (no verification role) cannot pick.
   const desk = await ui('desk')
   await desk.goto(`/patients/${p.id}/ledger`)
-  await expect(desk.locator(`#item-${amb.id} > summary`)).toContainText(both)
+  await expect(desk.locator(`#item-${amb.id} > summary`)).toContainText(shown)
+  await expect(desk.locator(`#item-${amb.id} > summary`)).toContainText('Day and month could be swapped')
   await expect(desk.getByRole('group', { name: 'Pick the date' })).toHaveCount(0)
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
   const item = page.locator(`#item-${amb.id}`)
-  await expect(item.locator('summary')).toContainText(both)
-  await item.locator('summary').click()
+  await expect(item.locator(':scope > summary')).toContainText(shown)
+  await item.locator(':scope > summary').click()
   await expect(item.getByText('Day and month could be swapped').first()).toBeVisible()
   await item.getByRole('group', { name: 'Pick the date' }).getByRole('button', { name: formatDateIN(other) }).click()
 
@@ -284,7 +289,8 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   const page = await ui('records')
   for (const d of [ct, cbc]) {
     await page.goto(`/patients/${p.id}/documents/${d.id}`)
-    await expect(page.getByText(/OCR mean confidence 0\.\d\d/).first()).toBeVisible()
+    await page.getByRole('button', { name: 'Words', exact: true }).click()
+    await expect(page.getByText(/read from a photo, confidence 0\.\d\d/).first()).toBeVisible()
   }
   // "Verify all" skips what is uncertain and says why. Imaging belongs to the clinician tier; the uncertain OCR lab item is never bulk-verified.
   const evs = await eventsOf(p.id)
@@ -295,7 +301,7 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   const crop = page.locator(`#ev-${cbcEv.id}`).getByRole('img', { name: 'Page image around the quote' })
   await expect(crop).toBeVisible()
   await expect.poll(() => crop.evaluate((c) => (c as HTMLCanvasElement).width * (c as HTMLCanvasElement).height)).toBeGreaterThan(0)
-  await expect(page.locator(`#ev-${cbcEv.id}`)).toContainText('compare with the image. Cannot be bulk-verified.')
+  await expect(page.locator(`#ev-${cbcEv.id}`)).toContainText('Compare with the picture. Cannot be checked in bulk.')
   const byRecords = await records.post(`/api/patients/${p.id}/verify-bulk`, { eventIds: [ctEv.id, cbcEv.id] })
   expect(byRecords.body.verified).toEqual([])
   expect(byRecords.body.skipped).toEqual(expect.arrayContaining([{ id: ctEv.id, reasons: ['clinician_tier'] }, { id: cbcEv.id, reasons: ['binding_uncertain'] }]))

@@ -7,6 +7,7 @@ import { ConflictCard } from '@/components/ledger/ConflictCard'
 import { LedgerItem, SourceWords } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
 import { mergeNoAnswers } from '@/core/doctor/ledger-view'
+import { groupAmended, newItemTotal } from '@/core/doctor/new-since-seal'
 import { writeAudit } from '@/server/audit'
 import { now } from '@/server/clock'
 import type { LedgerView } from '@/server/ledger/core'
@@ -102,12 +103,14 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   const initial = v.mode === 'initial'
   const said = mergeNoAnswers(v.patientSaid)
   const newCount = initial ? v.events.initial_record.length : v.events.new_since_last_visit.length + v.events.newly_received_older.length
+  const newTotal = newItemTotal(v)
+  const amendedGroups = groupAmended(v.events.amended)
   let n = 0
   const num = () => String(++n).padStart(2, '0')
 
   const jump = [
     { href: '#conflicts', label: 'Disagreements', n: v.conflicts.length },
-    ...(initial ? [] : [{ href: '#amended', label: 'Corrected', n: v.events.amended.length }]),
+    ...(initial ? [] : [{ href: '#amended', label: 'Corrected or added to', n: v.events.amended.length }]),
     { href: '#missing', label: 'Not in file', n: v.missing.length },
     { href: '#new', label: initial ? 'On file' : 'New', n: newCount },
     { href: '#said', label: 'Patient said', n: v.patientSaid.length },
@@ -119,13 +122,19 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
       <div className="grid gap-6">
         <SectionHeader
           kicker="What’s new"
-          title={initial ? 'Everything on file so far' : 'What changed since the last sealed visit'}
+          title={initial ? 'Everything on file (first visit)' : 'What changed since the last sealed visit'}
           description={initial
             ? 'Everything received so far, each with the words it came from. Check what you can; the first visit can be sealed with some items still unchecked, and they stay marked as unchecked.'
             : 'Each item shows what it is, where it is written, who checked it and when. Grouped by kind of change and ordered by date, never by importance.'}
           actions={canAct ? <LedgerToolbar patientId={id} eligibleIds={eligible} counts={v.counts} canSeal={session.role === 'clinician'} /> : undefined}
         />
         <Explainer>{EXPLAIN.ledger}</Explainer>
+        {!initial && (
+          <p className="text-[15px]" data-testid="new-total">
+            <span className="font-medium">{newTotal} new in all</span>
+            <span className="text-muted"> · {v.events.new_since_last_visit.length} new, {v.events.newly_received_older.length} older papers that arrived late, {v.events.amended.length} corrected or added to. Patient answers are listed separately.</span>
+          </p>
+        )}
         <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(16rem,22rem)]">
           <SealPlaque v={v} patientId={id} />
           <ProgressMeter label="Checked against the page" value={v.counts.verified} max={Math.max(total, 1)} detail={`${v.counts.verified} of ${total}`} tone="verified" />
@@ -140,8 +149,20 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
       </Section>
 
       {!initial && (
-        <Section id="amended" n={num()} title="Corrected reports" count={v.events.amended.length} description="A later report that replaces an item in the last sealed visit. The original version is kept and can be compared." empty="No report has been corrected.">
-          <div className="grid gap-5 lg:grid-cols-2">{v.events.amended.map((i, k) => <LedgerItem key={i.id} item={i} index={k} />)}</div>
+        <Section id="amended" n={num()} title="Corrected reports and addenda" count={v.events.amended.length} description="A later paper that adds to, or replaces, an item in the last sealed visit. The original is kept and can be opened to compare. An addendum adds words; it does not change what the original says." empty="No report has been corrected or added to.">
+          <div className="grid gap-6">
+            {amendedGroups.map((g) => (
+              <div key={g.key} className="grid gap-3" data-testid="amended-group">
+                <p className="text-[15px]">
+                  <span className="ds-kicker mr-1.5">{g.kind === 'addendum' ? 'Addendum, adds to' : 'Replaces'}</span>
+                  {g.label}{g.date && <span className="text-muted"> · {g.date}</span>}
+                  <span className="text-muted"> · {g.items.length} {g.items.length === 1 ? 'line' : 'lines'}</span>
+                  {g.href && <> · <Link href={g.href} className="text-setu-ink underline decoration-brass underline-offset-4">Open the original to compare</Link></>}
+                </p>
+                <div className="grid gap-5 lg:grid-cols-2">{g.items.map((i, k) => <LedgerItem key={i.id} item={i} index={k} hideAmends />)}</div>
+              </div>
+            ))}
+          </div>
         </Section>
       )}
 
@@ -156,15 +177,15 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
 
       {initial ? (
         <Section id="new" n={num()} title="On file" count={v.events.initial_record.length} description="Listed by kind of document, with pathology and molecular reports first, then by date. Open a line to see the exact words." empty="Nothing received yet. Documents appear here once processed.">
-          <div className="grid gap-2">{v.events.initial_record.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+          <div className="grid gap-2">{v.events.initial_record.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
         </Section>
       ) : (
         <>
           <Section id="new" n={num()} title="New since the last visit" count={v.events.new_since_last_visit.length} description={`Dated after the visit sealed on ${sealedDay}. Open a line to see the exact words.`}>
-            <div className="grid gap-2">{v.events.new_since_last_visit.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+            <div className="grid gap-2">{v.events.new_since_last_visit.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
           </Section>
           <Section id="older" n={num()} title="Older papers that arrived late" count={v.events.newly_received_older.length} description="Dated on or before the last sealed visit but not part of it: older papers that arrived since. The date they describe comes first.">
-            <div className="grid gap-2">{v.events.newly_received_older.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+            <div className="grid gap-2">{v.events.newly_received_older.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
           </Section>
         </>
       )}

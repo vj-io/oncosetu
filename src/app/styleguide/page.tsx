@@ -523,8 +523,9 @@ export default function StyleguidePage() {
                 minor: false,
               }}
               counts={{ documents: 14, ledger: 6, completeness: 2, requests: 1 }}
+              inertTabs
             />
-            <div className="py-6 text-sm text-muted">Tabs link to /patients/demo/…; the active tab follows the pathname.</div>
+            <div className="py-6 text-sm text-muted">Example only: the tabs here are not links. In the app the active tab follows the page.</div>
           </Frame>
           <div className="mt-6 flex flex-wrap gap-3">
             <ButtonLink href="/styleguide/staff" variant="secondary">

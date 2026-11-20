@@ -13,7 +13,7 @@ import { WRAP } from "./style";
 export type DeskHit = { id: string; initials: string; accession: string };
 type Mode = "scan" | "phone" | "mrn" | "name";
 const MODES: { key: Mode; label: string; placeholder: string }[] = [
-  { key: "scan", label: "Scan QR", placeholder: "Card code, for example ABCD-EFGH-…" },
+  { key: "scan", label: "Card code", placeholder: "Card code, for example ABCD-EFGH-…" },
   { key: "phone", label: "Phone", placeholder: "Mobile number" },
   { key: "mrn", label: "MRN / UHID", placeholder: "MRN or UHID" },
   { key: "name", label: "Name", placeholder: "Full or partial name" },
@@ -44,7 +44,7 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
     if (!r.ok) { setHits(null); return setMessage(r.message); }
     setHits(r.data.results);
     if (r.data.status === "revoked") setMessage("This card has been revoked. Ask for the replacement card, or look the patient up another way.");
-    else if (!r.data.results.length) setMessage("No matching patient in this organisation.");
+    else if (!r.data.results.length) setMessage(m === "scan" ? "No matching patient in this organisation. Check the letters O and the digit 0, and I and 1, on the card." : "No matching patient in this organisation.");
     else if (r.data.results.length === 1) setSelected(r.data.results[0]);
   }, []);
 
@@ -75,7 +75,7 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
 
           {message && <Notice tone={hits && !hits.length ? "neutral" : "unverified"} title={message} />}
 
-          {hits && hits.length > 0 && (
+          {hits && hits.length > 1 && (
             <ul aria-label="Matches" className="grid gap-2">
               {hits.map((h) => (
                 <li key={h.id}>
@@ -84,7 +84,7 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
                     className={clsx("flex min-h-14 w-full flex-wrap items-center gap-x-4 gap-y-2 border px-4 py-2 text-left hover:bg-spotlight", selected?.id === h.id ? "border-ink bg-matte" : "border-rule")}
                   >
                     <span className="grid size-10 place-items-center border border-rule bg-matte font-display text-lg">{h.initials}</span>
-                    <span className="font-mono text-xs tracking-[0.1em] text-faint">ACC. {h.accession}</span>
+                    <span className="font-mono text-xs tracking-[0.1em] text-faint">Record code {h.accession}</span>
                     <Badge tone="unverified" className="ml-auto">Verification required</Badge>
                   </button>
                 </li>
@@ -164,6 +164,7 @@ function Scanner({ onCode }: { onCode: (code: string) => void }) {
 function Verification({ hit }: { hit: DeskHit }) {
   const router = useRouter();
   const [sent, setSent] = useState(false);
+  const [paused, setPaused] = useState(false); // the server refused more codes for this phone
   const [code, setCode] = useState("");
   const [attest, setAttest] = useState(false);
   const [busy, setBusy] = useState<"send" | "verify" | "witness" | null>(null);
@@ -180,7 +181,11 @@ function Verification({ hit }: { hit: DeskHit }) {
     const r = await postJson("/api/desk/verify/start", { patientId: hit.id });
     setBusy(null);
     if (r.ok) setSent(true);
-    else setError({ text: r.message, code: r.code });
+    else {
+      setSent(false); // never leave "Sent" showing beside a refusal
+      if (r.code === "locked") setPaused(true);
+      setError({ text: r.message, code: r.code });
+    }
   }
   async function verify() {
     setBusy("verify"); setError(null);
@@ -214,7 +219,7 @@ function Verification({ hit }: { hit: DeskHit }) {
         <div className="flex flex-wrap items-center gap-4">
           <span className="grid size-14 place-items-center border border-rule bg-matte font-display text-2xl shadow-placard">{hit.initials}</span>
           <div className="grid gap-1">
-            <p className="ds-kicker">ACC. {hit.accession}</p>
+            <p className="ds-kicker">Record code {hit.accession}</p>
             <Badge tone="unverified" icon={<KeyRound />}>Verification required</Badge>
           </div>
         </div>
@@ -223,7 +228,7 @@ function Verification({ hit }: { hit: DeskHit }) {
         </p>
 
         <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-end">
-          <Button variant="secondary" className={WRAP} onClick={send} loading={busy === "send"} icon={<Send aria-hidden />}>{sent ? "Send a new code" : "Send code"}</Button>
+          <Button variant="secondary" className={WRAP} onClick={send} loading={busy === "send"} disabled={paused} icon={<Send aria-hidden />}>{sent ? "Send a new code" : "Send code"}</Button>
           <Field label="Code from the SMS" hint={sent ? "Sent to the registered contact. Demo: see the Demo phone drawer." : undefined}>
             <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="6 digits" />
           </Field>

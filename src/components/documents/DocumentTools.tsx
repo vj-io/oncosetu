@@ -10,7 +10,7 @@ import { postJson } from './IdentityDecision'
 import { DOC_TYPE_OPTIONS, EVENT_LABEL, FIELD_LABEL, STAGE_LABELS, trackerPosition, type StageState } from './labels'
 
 /** Polls the status route while the document is in the pipeline; refreshes the page when it moves. */
-export function LiveStage({ documentId, initial }: { documentId: string; initial: { status: string; stages: { key: string; state: StageState }[] } }) {
+export function LiveStage({ documentId, initial, identityFailed = false, storedOnly = false }: { documentId: string; initial: { status: string; stages: { key: string; state: StageState }[]; progress?: string | null }; identityFailed?: boolean; storedOnly?: boolean }) {
   const router = useRouter()
   const [s, setS] = useState(initial)
   const last = useRef(JSON.stringify(initial))
@@ -20,7 +20,7 @@ export function LiveStage({ documentId, initial }: { documentId: string; initial
       const r = await fetch(`/api/documents/${documentId}/status`, { cache: 'no-store' })
       if (!r.ok) return
       const j = await r.json()
-      const next = { status: j.status, stages: j.stages }
+      const next = { status: j.status, stages: j.stages, progress: (j.progress as string | null) ?? null }
       if (JSON.stringify(next) !== last.current) {
         last.current = JSON.stringify(next)
         setS(next)
@@ -32,7 +32,8 @@ export function LiveStage({ documentId, initial }: { documentId: string; initial
   const pos = trackerPosition(s.stages)
   return (
     <div className="grid gap-2">
-      {pos.waiting ? <HeldStages at={pos.current} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label="Processing stages" />}
+      {pos.waiting ? <HeldStages at={pos.current} identityFailed={identityFailed} storedOnly={storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label="Processing stages" />}
+      {s.progress && (s.status === 'processing' || s.status === 'queued') && <p className="text-sm text-muted" role="status" data-testid="read-progress">{s.progress}</p>}
     </div>
   )
 }

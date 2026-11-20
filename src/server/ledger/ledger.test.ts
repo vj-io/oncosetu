@@ -2,7 +2,7 @@ import { generateKeyPairSync } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { buildSnapshot, canonicalJson, type Snapshot } from '@/core/ledger'
 import {
-  assembleRecord, buildLedgerView, buildTimeline, checkVerification, editedVersion, itemsById, permitsFor, resolvedKey,
+  assembleRecord, buildLedgerView, buildTimeline, checkVerification, editedVersion, eventFlags, itemsById, permitsFor, resolvedKey,
   snapshotSummary, tierOf, type DocumentRow, type EventRow, type EvidenceRow, type RecordRows, type StatementRow,
 } from './core'
 import { checkSnapshot, sealBytes } from './seal'
@@ -106,9 +106,10 @@ describe('edit versioning (E-LED-05)', () => {
     const old = event({ fields: { test_name: 'CBC', event_date_text: '05/06/2026' }, eventDate: '2026-06-05', dateFlags: ['date_ambiguous'], flags: { date_ambiguous: true } })
     const view = (e: EventRow) => itemsById(buildLedgerView({ rows: rows({ events: [e] }), prev: null, role: 'records', now: NOW })).get(e.id)!
     const before = view(old)
-    expect(before.when.event).toBe('5 Jun 2026 or 6 May 2026')
+    expect(before.when.event).toBe('5 Jun 2026') // day first, never "X or Y"
+    expect(before.when.alsoReadAs).toBe('6 May 2026')
     expect(before.when.readings).toEqual([{ iso: '2026-06-05', label: '5 Jun 2026' }, { iso: '2026-05-06', label: '6 May 2026' }])
-    expect(buildTimeline(buildSnapshot(assembleRecord(rows({ events: [old] })).record, NOW), { quoteByHash: new Map() }).years[0].months[0].items[0].dateLabel).toBe('5 Jun 2026 or 6 May 2026')
+    expect(buildTimeline(buildSnapshot(assembleRecord(rows({ events: [old] })).record, NOW), { quoteByHash: new Map() }).years[0].months[0].items[0].dateLabel).toBe('5 Jun 2026')
 
     const next = editedVersion(old, { event_date_text: before.when.readings![1].label }, { staffId: 's1' }, new Date(NOW))
     expect(next).toMatchObject({ eventDate: '2026-05-06', datePrecision: 'day', dateFlags: [], verificationStatus: 'edited' })
@@ -338,5 +339,20 @@ describe('timeline hospital facet', () => {
   it('a shouting name alone is shown in Title Case', async () => {
     const { canonicalInstitutions } = await import('./core')
     expect([...canonicalInstitutions(['KASTURI DAY-CARE UNIT']).values()]).toEqual(['Kasturi Day-Care Unit'])
+  })
+})
+
+describe('identity warning after a person attached the paper with a reason', () => {
+  const ev = event({ flags: { identity_warning: true } })
+  it('shows the warning while the paper is unresolved', () => {
+    expect(eventFlags(ev, doc({ identityResult: 'mismatch', attachState: 'attached', attachReason: null }))).toContain('identity_warning')
+    expect(eventFlags(event(), doc({ identityResult: 'insufficient', attachState: 'auto' }))).toContain('identity_warning')
+  })
+  it('drops it once attached with a reason (the stored flag and audit rows stay)', () => {
+    for (const identityResult of ['mismatch', 'insufficient'] as const) {
+      expect(eventFlags(ev, doc({ identityResult, attachState: 'attached', attachReason: 'Checked with the family: same person' }))).not.toContain('identity_warning')
+    }
+    expect(eventFlags(ev, doc({ identityResult: 'mismatch', attachState: 'attached', attachReason: '   ' }))).toContain('identity_warning')
+    expect(ev.flags.identity_warning).toBe(true)
   })
 })

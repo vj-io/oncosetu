@@ -32,9 +32,16 @@ export async function listBreakGlass(tx: Tx, orgId: string) {
     .where(eq(breakGlass.orgId, orgId)).orderBy(desc(breakGlass.createdAt)).limit(200)
   const t = Date.now()
   return rows.map(({ g, who, role, reviewedByName }) => ({
-    id: g.id, patient: accession(g.patientId), staff: who, role, reason: g.reason, createdAt: g.createdAt, expiresAt: g.expiresAt, active: g.expiresAt.getTime() > t,
+    id: g.id, staffId: g.staffId, patient: accession(g.patientId), staff: who, role, reason: g.reason, createdAt: g.createdAt, expiresAt: g.expiresAt, active: g.expiresAt.getTime() > t,
     reviewedAt: g.reviewedAt, reviewedBy: reviewedByName,
   }))
+}
+
+/** The emergency-access grant now in force for this person and patient (latest end time), if any. */
+export async function activeGrantFor(tx: Tx, patientId: string, staffId: string): Promise<{ expiresAt: Date; reason: string } | null> {
+  const [g] = await tx.select({ expiresAt: breakGlass.expiresAt, reason: breakGlass.reason }).from(breakGlass)
+    .where(and(eq(breakGlass.patientId, patientId), eq(breakGlass.staffId, staffId), gt(breakGlass.expiresAt, new Date()))).orderBy(desc(breakGlass.expiresAt)).limit(1)
+  return g ?? null
 }
 
 export async function unreviewedBreakGlass(tx: Tx, orgId: string): Promise<number> {
@@ -42,19 +49,59 @@ export async function unreviewedBreakGlass(tx: Tx, orgId: string): Promise<numbe
   return r.n
 }
 
-/** An org_admin has looked at the grant and its reason. Once only, never one's own grant; the audit row carries ids. */
+/** Grants nobody has reviewed yet: who made each (id and role), for the alert wording and for who may review. */
+export async function unreviewedGrants(tx: Tx, orgId: string) {
+  return tx.select({ staffId: breakGlass.staffId, role: staff.role }).from(breakGlass).innerJoin(staff, eq(staff.id, breakGlass.staffId))
+    .where(and(eq(breakGlass.orgId, orgId), isNull(breakGlass.reviewedAt)))
+}
+
+/**
+ * Who may review a grant (FR-ID-10). The rule keeps a second person involved every time:
+ *  1. Nobody reviews their own grant.
+ *  2. Another administrator may always review.
+ *  3. An auditor may review only when no other active administrator exists besides the person who made the grant
+ *     (a hospital with one administrator). The audit row records the reviewer's role and that the fallback was used.
+ * Pure, so the page can say who must review and the server enforces the same rule.
+ */
+export function breakGlassReviewer(input: { grantStaffId: string; activeAdminIds: readonly string[] }): { admins: boolean; auditors: boolean } {
+  const otherAdmins = input.activeAdminIds.filter((id) => id !== input.grantStaffId)
+  return { admins: true, auditors: otherAdmins.length === 0 }
+}
+
+/** What the grants page shows for one grant: a button, or a plain sentence saying who must review. */
+export function reviewState(input: { reviewedAt: Date | null; grantStaffId: string; viewerId: string; viewerRole: string; activeAdminIds: readonly string[] }):
+  { kind: 'done' } | { kind: 'can_review' } | { kind: 'waiting'; text: string } {
+  if (input.reviewedAt) return { kind: 'done' }
+  const who = breakGlassReviewer({ grantStaffId: input.grantStaffId, activeAdminIds: input.activeAdminIds })
+  const mine = input.viewerId === input.grantStaffId
+  if (mine) return { kind: 'waiting', text: who.auditors ? 'This is your own access, so you cannot review it. As the only administrator, ask the hospital auditor to review it.' : 'This is your own access, so another administrator must review it.' }
+  if (input.viewerRole === 'org_admin') return { kind: 'can_review' }
+  if (input.viewerRole === 'auditor') return who.auditors ? { kind: 'can_review' } : { kind: 'waiting', text: 'Another administrator reviews this one.' }
+  return { kind: 'waiting', text: 'Not yet reviewed' }
+}
+
+export async function activeAdminIds(tx: Tx, orgId: string): Promise<string[]> {
+  const rows = await tx.select({ id: staff.id }).from(staff).where(and(eq(staff.orgId, orgId), eq(staff.role, 'org_admin'), eq(staff.active, true)))
+  return rows.map((r) => r.id)
+}
+
+/** Reviews a grant once. Never one's own; an auditor only where the rule above allows it. The audit row carries ids and the reviewer's role. */
 export async function reviewBreakGlass(ctx: AdminCtx, id: string) {
+  const role = ctx.session.role
+  if (role !== 'org_admin' && role !== 'auditor') throw new HttpError(403, 'forbidden', 'Not allowed')
+  const [x] = await ctx.db.select({ staffId: breakGlass.staffId, reviewedAt: breakGlass.reviewedAt }).from(breakGlass)
+    .where(and(eq(breakGlass.id, id), eq(breakGlass.orgId, ctx.session.orgId)))
+  if (!x) throw new HttpError(404, 'not_found', 'Not found')
+  if (x.reviewedAt) throw new HttpError(409, 'already_reviewed', 'This grant has already been reviewed')
+  if (x.staffId === ctx.session.staffId) throw new HttpError(409, 'own_grant', 'You cannot review your own emergency access. Another person must.')
+  if (role === 'auditor' && !breakGlassReviewer({ grantStaffId: x.staffId, activeAdminIds: await activeAdminIds(ctx.db, ctx.session.orgId) }).auditors) {
+    throw new HttpError(409, 'admin_reviews', 'Another administrator reviews this grant. An auditor reviews only when the hospital has no other administrator.')
+  }
   const [g] = await ctx.db.update(breakGlass).set({ reviewedAt: new Date(), reviewedBy: ctx.session.staffId })
     .where(and(eq(breakGlass.id, id), eq(breakGlass.orgId, ctx.session.orgId), isNull(breakGlass.reviewedAt), ne(breakGlass.staffId, ctx.session.staffId)))
     .returning({ patientId: breakGlass.patientId, staffId: breakGlass.staffId })
-  if (!g) {
-    const [x] = await ctx.db.select({ staffId: breakGlass.staffId, reviewedAt: breakGlass.reviewedAt }).from(breakGlass)
-      .where(and(eq(breakGlass.id, id), eq(breakGlass.orgId, ctx.session.orgId)))
-    if (!x) throw new HttpError(404, 'not_found', 'Not found')
-    throw x.reviewedAt ? new HttpError(409, 'already_reviewed', 'This grant has already been reviewed')
-      : new HttpError(409, 'own_grant', 'Another administrator reviews your own emergency access')
-  }
-  await ctx.audit('break_glass.reviewed', 'patient', g.patientId, { breakGlassId: id, grantedTo: g.staffId })
+  if (!g) throw new HttpError(409, 'already_reviewed', 'This grant has already been reviewed')
+  await ctx.audit('break_glass.reviewed', 'patient', g.patientId, { breakGlassId: id, grantedTo: g.staffId, reviewerRole: role, fallback: role === 'auditor' })
 }
 
 // ── settings (FR-ADM-04, §10.5) ──

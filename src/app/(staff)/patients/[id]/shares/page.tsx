@@ -26,7 +26,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
   if (!UUID.test(id)) notFound()
   const session = await requireStaff()
   if (!['desk', 'records', 'clinician'].includes(session.role)) return <RoleRestricted roles={['desk', 'records', 'clinician']} role={session.role} backHref={`/patients/${id}/overview`} />
-  const got = await withPatientAccess(id, async (tx, s) => ({ rows: await listSharesForStaff(tx, s.orgId, id), fresh: await sealFreshness(tx, id) }))
+  const got = await withPatientAccess(id, async (tx, s) => ({ rows: await listSharesForStaff(tx, s.orgId, id), fresh: await sealFreshness(tx, id, s.orgId) }))
   if (!got) return null // the workspace layout explains the denial
   const { rows, fresh } = got
   return (
@@ -44,7 +44,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
         </Notice>
       )}
       <div className="grid gap-4 lg:grid-cols-[minmax(0,28rem)_1fr] lg:items-start">
-        <CreateShareForm patientId={id} actor="staff" allowQuotes={session.role !== 'desk'} />
+        <CreateShareForm patientId={id} actor="staff" allowQuotes={session.role !== 'desk'} sealed={!!fresh.sealedLabel} />
         <section aria-labelledby="links-h" className="grid min-w-0 gap-4">
           <h2 id="links-h" className="ds-kicker">Links and who opened them · the patient can see this too</h2>
           {rows.length ? (
@@ -54,6 +54,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
                 {rows.map((r) => (
                   <tr key={r.id} className="align-top">
                     <td>
+                      {r.label && <span className="block font-medium">{r.label}</span>}
                       <span className="block">{formatDateTimeIN(r.createdAt, 'en')}</span>
                       <span className="font-mono text-[11px] text-faint">{r.createdBy} · {r.scope === 'summary' ? 'list only' : 'list and quotes'} · {r.passcode ? 'passcode' : 'no passcode'}</span>
                     </td>

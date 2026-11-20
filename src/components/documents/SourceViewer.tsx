@@ -2,10 +2,10 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
-import { Crosshair, ScanText } from 'lucide-react'
-import { Badge, Chip, Placard, StatusBadge, type Tone } from '@/components/ui'
+import { ChevronDown, Crosshair, ScanText } from 'lucide-react'
+import { Badge, StatusBadge, type Tone } from '@/components/ui'
 import { PageCheckButton } from './DocumentTools'
-import { EVENT_LABEL, FIELD_LABEL, FLAG_LABEL, fmtDate, shortId } from './labels'
+import { EVENT_LABEL, FIELD_LABEL, FLAG_LABEL, fmtDate } from './labels'
 
 export type ViewerEvidence = { pageNo: number | null; charStart: number | null; charEnd: number | null; quote: string | null; bbox: number[][] | null }
 export type ViewerEvent = {
@@ -22,9 +22,20 @@ export type ViewerPage = { pageNo: number; text: string; words: { c: number; s: 
 
 const METHOD: Record<string, string> = { text_layer: 'Typed PDF', ocr_llm: 'Read from a photo: check the numbers', manual: 'Entered by staff', structured_map: 'From a health record', asr: 'From speech' }
 
+const SHORT_DATE = (e: Pick<ViewerEvent, 'eventDate'>) => (e.eventDate ? fmtDate(e.eventDate) : 'No date')
+
 function spanConfidence(page: ViewerPage | undefined, s: number, e: number): number | null {
   const ws = (page?.words ?? []).filter((w) => w.s < e && w.e > s)
   return ws.length ? ws.reduce((a, w) => a + (w.c > 1 ? w.c / 100 : w.c), 0) / ws.length : null
+}
+
+/** The title of a fact line. When the fields give nothing beyond the label ("Margins as written"), the first words of its own quote are shown. */
+export function lineTitle(e: ViewerEvent): string {
+  const h = headline(e)
+  const label = EVENT_LABEL[e.eventType] ?? e.eventType
+  const quote = e.evidence[0]?.quote?.replace(/\s+/g, ' ').trim()
+  if ((h === label || !h) && quote) return quote.length > 60 ? `${quote.slice(0, 60).trimEnd()}…` : quote
+  return h
 }
 
 function headline(e: ViewerEvent): string {
@@ -89,12 +100,33 @@ function PageText({ page, events, active, onPick }: { page: ViewerPage; events: 
   )
 }
 
-export function SourceViewer({ documentId, pages, events, pageImages, focusEventId }: {
-  documentId: string; pages: ViewerPage[]; events: ViewerEvent[]; pageImages: number[]; focusEventId: string | null
+/** One page picture with a frame drawn round the words of the fact being looked at (when the file gives their position). */
+function PageImage({ src, n, boxes }: { src: string; n: number; boxes: number[][] }) {
+  const [dim, setDim] = useState<{ w: number; h: number } | null>(null)
+  return (
+    <div className="relative border border-rule bg-white">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={`Page ${n} of the paper as it was received`} className="block h-auto w-full" onLoad={(e) => setDim({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
+      {dim && boxes.map((b, i) => (
+        <span key={i} aria-hidden className="pointer-events-none absolute border-2 border-brass bg-brass/20"
+          style={{ left: `${(b[0] / dim.w) * 100}%`, top: `${(b[1] / dim.h) * 100}%`, width: `${((b[2] - b[0]) / dim.w) * 100}%`, height: `${((b[3] - b[1]) / dim.h) * 100}%` }} />
+      ))}
+    </div>
+  )
+}
+
+export function SourceViewer({ documentId, pages, events, pageImages, focusEventId, mime, pageCount }: {
+  documentId: string; pages: ViewerPage[]; events: ViewerEvent[]; pageImages: number[]; focusEventId: string | null; mime: string; pageCount: number
 }) {
   const live = useMemo(() => events.filter((e) => !e.withdrawnAt), [events])
-  const [active, setActive] = useState<string | null>(focusEventId && live.some((e) => e.id === focusEventId) ? focusEventId : null)
+  const initial = focusEventId && live.some((e) => e.id === focusEventId) ? focusEventId : null
+  const [active, setActive] = useState<string | null>(initial)
+  const isPdf = mime === 'application/pdf'
+  const textPages = pages.filter((p) => p.text.trim())
+  // A link to one fact opens where its words are lit: the words view, unless the file gives the place on the picture.
+  const [mode, setMode] = useState<'page' | 'text'>(initial && textPages.length && (isPdf || !events.find((e) => e.id === initial)?.evidence.some((x) => x.bbox?.length)) ? 'text' : 'page')
   const viewed = useRef(new Set<string>())
+  const imageDoc = !isPdf && (pageImages.length > 0 || mime.startsWith('image/'))
 
   // FR-VER-03: opening an event's source is logged once per event per visit.
   const markViewed = (id: string) => {
@@ -102,8 +134,8 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
     viewed.current.add(id)
     void fetch(`/api/events/${id}/viewed`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
   }
-  // On wide screens the source column is its own scroll box: move only it, so the placard stays where it is.
-  const scrollQuote = (id: string) => requestAnimationFrame(() => {
+  // On wide screens the page column is its own scroll box: move only it, so the facts stay where they are.
+  const scrollQuote = (id: string) => requestAnimationFrame(() => requestAnimationFrame(() => {
     const q = document.getElementById(`q-${id}`)
     const panel = document.getElementById('source-panel')
     if (!q) return
@@ -111,107 +143,120 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
       const top = q.getBoundingClientRect().top - panel.getBoundingClientRect().top + panel.scrollTop - panel.clientHeight / 3
       panel.scrollTo({ top, behavior: 'smooth' })
     } else q.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  })
+  }))
   const pick = (id: string, scroll = true) => {
     setActive(id)
     markViewed(id)
+    const ev = events.find((e) => e.id === id)
+    // A typed PDF is drawn as plain pictures with no positions, so its highlighted words are on the words view.
+    const needsText = isPdf || !ev?.evidence.some((x) => x.bbox?.length)
+    if (needsText && textPages.length) setMode('text')
     if (scroll) scrollQuote(id)
   }
-  // Deep link ?event=<id>: the placard and its quote are already lit (initial state); bring them into view.
   useEffect(() => {
     if (!focusEventId || !live.some((e) => e.id === focusEventId)) return
     markViewed(focusEventId)
     document.getElementById(`ev-${focusEventId}`)?.scrollIntoView({ block: 'start' })
-    scrollQuote(focusEventId)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusEventId])
 
-  const textPages = pages.filter((p) => p.text.trim())
+  const activeEvent = events.find((e) => e.id === active)
+  const boxesOn = (n: number) => (activeEvent?.evidence ?? []).filter((x) => x.pageNo === n && x.bbox?.length).flatMap((x) => x.bbox!)
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] [&>*]:min-w-0">
-      {/* Placards */}
-      <section aria-labelledby="facts-h" className="grid content-start gap-4">
-        <h2 id="facts-h" className="ds-kicker">Facts on file · {live.length}</h2>
-        {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">No machine-extracted facts. Anything listed here must be quoted from the page text.</p>}
-        {events.map((e, i) => {
-          const ev = e.evidence[0]
-          const page = pages.find((p) => p.pageNo === ev?.pageNo)
-          const conf = ev?.charStart != null && ev.charEnd != null ? spanConfidence(page, ev.charStart, ev.charEnd) : null
-          const low = !!e.flags.low_confidence || !!e.flags.binding_uncertain || (conf !== null && conf < 0.8) // OCR'd result rows always show the image
-          const flags = Object.keys(e.flags).filter((k) => e.flags[k] && FLAG_LABEL[k])
-          const fields = Object.entries(e.fields).filter(([k]) => k !== 'event_date_text' && k !== 'institution_name')
-          const withdrawn = !!e.withdrawnAt
-          const held = needsPageCheck(e)
-          return (
-            <div key={e.id} id={`ev-${e.id}`} className="scroll-mt-24" data-held={held || undefined}>
-              <Placard
-                animate
-                delay={120 + i * 70}
-                className={clsx(active === e.id && 'outline-2 outline-offset-4 outline-brass', withdrawn && 'opacity-60')}
-                kicker={EVENT_LABEL[e.eventType] ?? e.eventType}
-                status={withdrawn ? <Badge tone="shadow">Withdrawn</Badge> : held ? <Badge tone="unverified" icon={<ScanText />}>Needs checking against the page</Badge> : <StatusBadge status={e.verificationStatus as 'unverified'} />}
-                title={headline(e)}
-                what={fields.length ? (
-                  <span className="grid gap-0.5">
-                    {fields.map(([k, v]) => <span key={k}><span className="text-muted">{FIELD_LABEL[k] ?? k}:</span> {Array.isArray(v) ? v.join(', ') : String(v)}</span>)}
-                  </span>
-                ) : undefined}
-                where={ev ? (
-                  <span className="grid gap-2">
-                    <span className="text-muted">Page {ev.pageNo}{e.fields.institution_name ? ` · ${String(e.fields.institution_name)}` : ''}</span>
-                    <q className="font-display text-[15px] leading-snug text-ink italic">{ev.quote}</q>
-                    {low && pageImages.includes(ev.pageNo ?? 1) && ev.bbox?.length ? (
-                      <span className="grid gap-1">
-                        <ImageCrop src={`/api/documents/${documentId}/file?kind=page&page=${ev.pageNo}`} boxes={ev.bbox} />
-                        <span className="flex items-start gap-1.5 text-[13px] text-amber-ink"><ScanText aria-hidden className="mt-0.5 size-3.5 shrink-0" />OCR confidence {conf !== null ? conf.toFixed(2) : 'low'} — compare with the image. Cannot be bulk-verified.</span>
-                      </span>
-                    ) : null}
-                  </span>
-                ) : undefined}
-                who={withdrawn ? `Withdrawn${e.withdrawnReason ? ` (${e.withdrawnReason.replace(/_/g, ' ')})` : ''}` : held ? 'Not in the record until a person checks it against the page' : e.verificationStatus === 'unverified' ? 'Not yet verified by a person' : e.verificationStatus.replace(/_/g, ' ')}
-                when={
-                  <span>
-                    {e.eventDate ? fmtDate(e.eventDate) : 'Date not stated in the quote'}
-                    {e.fields.event_date_text ? <span className="text-muted"> (written “{String(e.fields.event_date_text)}”)</span> : null}
-                    {e.flags.date_from_document ? <span className="text-muted"> — the document’s own date</span> : null}
-                  </span>
-                }
-                accession={shortId(e.id)}
-                footer={
-                  <span className="flex flex-wrap items-center gap-1.5">
-                    <Chip kicker="Source" tone="setu">Document</Chip>
-                    <Chip kicker="Method" tone="neutral">{METHOD[e.extractionMethod] ?? e.extractionMethod}</Chip>
-                    {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
-                    {held && e.rowVersion !== undefined && <PageCheckButton eventId={e.id} rowVersion={e.rowVersion} />}
-                    {ev && !withdrawn && (
-                      <button type="button" onClick={() => pick(e.id)} className="ml-auto inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">
-                        <Crosshair aria-hidden className="size-4" /> Show in source
-                      </button>
-                    )}
-                  </span>
-                }
-              />
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] [&>*]:min-w-0">
+      {/* The original page, first */}
+      <section id="source-panel" aria-labelledby="page-h" className="grid content-start gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id="page-h" className="ds-kicker">{mode === 'page' ? 'The paper as it was received' : 'Words on the page'}</h2>
+          {textPages.length > 0 && (
+            <div className="inline-flex border border-rule text-sm" role="group" aria-label="How to show the paper">
+              {(['page', 'text'] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={clsx('min-h-9 px-3', mode === m ? 'bg-obsidian text-gallery' : 'hover:bg-spotlight')}>{m === 'page' ? 'Page' : 'Words'}</button>
+              ))}
             </div>
-          )
-        })}
+          )}
+        </div>
+        {mode === 'page' ? (
+          isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
+          : imageDoc ? (
+            <div className="grid gap-2">{(pageImages.length ? pageImages : [1]).map((n) => <PageImage key={n} n={n} src={`/api/documents/${documentId}/file?kind=page&page=${n}`} boxes={boxesOn(n)} />)}</div>
+          ) : <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
+        ) : (
+          <div className="grid gap-3">
+            <p className="text-[13px] text-muted">Highlighted words are the ones the record uses.</p>
+            {!textPages.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">No words were read from this paper (picture only).</p>}
+            {textPages.map((p) => (
+              <article key={p.pageNo} className="border border-rule bg-matte shadow-frame">
+                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-surface px-4 py-2">
+                  <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Page {p.pageNo}{p.ocrConfidence != null ? ` · read from a photo, confidence ${p.ocrConfidence.toFixed(2)}` : ''}</span>
+                  {p.lowConfidence && <StatusBadge status="low_confidence" />}
+                </header>
+                <div className="px-4 py-4 sm:px-5"><PageText page={p} events={live} active={active} onPick={(id) => pick(id, false)} /></div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Source text */}
-      <section id="source-panel" aria-labelledby="source-h" className="grid content-start gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
-        <h2 id="source-h" className="ds-kicker">Source text · every lit passage is a quote the record relies on</h2>
-        {!textPages.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">No machine text is kept for this document (image only).</p>}
-        {textPages.map((p) => (
-          <article key={p.pageNo} className="border border-rule bg-matte shadow-frame">
-            <header className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-surface px-4 py-2">
-              <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Page {p.pageNo}{p.ocrConfidence != null ? ` · OCR mean confidence ${p.ocrConfidence.toFixed(2)}` : ' · text layer'}</span>
-              {p.lowConfidence && <StatusBadge status="low_confidence" />}
-            </header>
-            <div className="px-4 py-4 sm:px-5">
-              <PageText page={p} events={live} active={active} onPick={(id) => pick(id, false)} />
-            </div>
-          </article>
-        ))}
+      {/* Facts, one line each */}
+      <section aria-labelledby="facts-h" className="grid content-start gap-3">
+        <h2 id="facts-h" className="ds-kicker">What the paper says · {live.length} {live.length === 1 ? 'line' : 'lines'}</h2>
+        {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">Nothing was picked out of this paper automatically. Read the page.</p>}
+        <ul className="grid border border-rule bg-surface">
+          {events.map((e) => {
+            const ev = e.evidence[0]
+            const page = pages.find((p) => p.pageNo === ev?.pageNo)
+            const conf = ev?.charStart != null && ev.charEnd != null ? spanConfidence(page, ev.charStart, ev.charEnd) : null
+            const low = !!e.flags.low_confidence || !!e.flags.binding_uncertain || (conf !== null && conf < 0.8) // photo-read rows always show the image
+            const flags = Object.keys(e.flags).filter((k) => e.flags[k] && FLAG_LABEL[k])
+            const fields = Object.entries(e.fields).filter(([k]) => k !== 'event_date_text' && k !== 'institution_name')
+            const withdrawn = !!e.withdrawnAt
+            const held = needsPageCheck(e)
+            const open = active === e.id
+            const state = withdrawn ? <Badge tone="shadow">Withdrawn</Badge> : held ? <Badge tone="unverified" icon={<ScanText />}>Needs checking</Badge> : <StatusBadge status={e.verificationStatus as 'unverified'} />
+            return (
+              <li key={e.id} id={`ev-${e.id}`} data-held={held || undefined} className={clsx('scroll-mt-24 border-b border-rule last:border-b-0', open && 'bg-spotlight/50', withdrawn && 'opacity-60')}>
+                <button type="button" aria-expanded={open} onClick={() => (open ? setActive(null) : pick(e.id, false))}
+                  className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2 text-left hover:bg-spotlight/60">
+                  <span className="min-w-0 break-words text-[15px] leading-snug"><span className="text-muted">{EVENT_LABEL[e.eventType] ?? e.eventType}</span> · {lineTitle(e)}</span>
+                  <ChevronDown aria-hidden className={clsx('size-4 shrink-0 text-muted transition-transform', open && 'rotate-180')} />
+                  <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted"><span>{SHORT_DATE(e)}</span>{ev && <span>· page {ev.pageNo}</span>}</span>
+                  <span className="justify-self-end">{state}</span>
+                </button>
+                {open && (
+                  <div className="grid gap-3 border-t border-rule px-3 py-3 text-[14px]">
+                    {fields.length > 0 && (
+                      <p className="grid gap-0.5">{fields.map(([k, v]) => <span key={k} className="break-words"><span className="text-muted">{FIELD_LABEL[k] ?? k}:</span> {Array.isArray(v) ? v.join(', ') : String(v)}</span>)}</p>
+                    )}
+                    {ev && <q className="font-display text-[15px] leading-snug break-words text-ink italic">{ev.quote}</q>}
+                    {e.fields.event_date_text ? <p className="text-muted">Date as written: “{String(e.fields.event_date_text)}”{e.flags.date_from_document ? ' (the paper’s own date)' : ''}</p> : null}
+                    {low && ev && pageImages.includes(ev.pageNo ?? 1) && ev.bbox?.length ? (
+                      <span className="grid gap-1">
+                        <ImageCrop src={`/api/documents/${documentId}/file?kind=page&page=${ev.pageNo}`} boxes={ev.bbox} />
+                        <span className="flex items-start gap-1.5 text-[13px] text-amber-ink"><ScanText aria-hidden className="mt-0.5 size-3.5 shrink-0" />Read from a photo ({conf !== null ? conf.toFixed(2) : 'low'} sure). Compare with the picture. Cannot be checked in bulk.</span>
+                      </span>
+                    ) : null}
+                    <p className="text-muted">{withdrawn ? `Withdrawn${e.withdrawnReason ? ` (${e.withdrawnReason.replace(/_/g, ' ')})` : ''}` : held ? 'Not in the record until a person checks it against the page.' : e.verificationStatus === 'unverified' ? 'Not yet verified by a person.' : e.verificationStatus.replace(/_/g, ' ')}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
+                      {held && e.rowVersion !== undefined && <PageCheckButton eventId={e.id} rowVersion={e.rowVersion} />}
+                      {ev && !withdrawn && (
+                        <button type="button" onClick={() => pick(e.id)} className="inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">
+                          <Crosshair aria-hidden className="size-4" /> Show on the page
+                        </button>
+                      )}
+                    </div>
+                    <details className="text-[13px] text-muted">
+                      <summary className="w-fit cursor-pointer underline underline-offset-4">Details</summary>
+                      <p className="mt-1">How it was read: {METHOD[e.extractionMethod] ?? e.extractionMethod}</p>
+                    </details>
+                  </div>
+                )}
+              </li>
+            )
+          })}
+        </ul>
       </section>
     </div>
   )

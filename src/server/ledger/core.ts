@@ -1,7 +1,7 @@
 // Ledger read model + verification rules (FR-LED-02..07, FR-VER-01..03, FR-TML-01..04, FR-ONB-01).
 // Pure and server-only (imports core/ledger → node:crypto): DB rows in, serialisable view models out.
 import { formatDateIN, patientDocLabel, staffDocLabel } from '@/core/copy'
-import { parseDate, swappedReading } from '@/core/dates'
+import { parseDate, plausibleSwap } from '@/core/dates'
 import {
   buildSnapshot, bulkVerifyEligible, diffLedger, ONBOARDING_PRIORITY,
   type LedgerConflict, type LedgerEventItem, type LedgerRecord, type MissingLike, type Snapshot, type SnapshotEvent,
@@ -17,7 +17,7 @@ import type { documents, events, evidence, missingRecords, patientStatements, ve
 export type EventRow = typeof events.$inferSelect
 export type EvidenceRow = Pick<typeof evidence.$inferSelect, 'eventId' | 'documentId' | 'pageNo' | 'charStart' | 'charEnd' | 'quote' | 'quoteSha256' | 'statementId'>
 export type DocumentRow = Pick<typeof documents.$inferSelect,
-  'id' | 'docType' | 'documentDate' | 'receivedAt' | 'institutionName' | 'sha256' | 'amendmentOf' | 'duplicateOf' | 'attachState' | 'attachDecidedAt' | 'identityResult' | 'status'>
+  'id' | 'docType' | 'documentDate' | 'receivedAt' | 'institutionName' | 'sha256' | 'amendmentOf' | 'duplicateOf' | 'attachState' | 'attachDecidedAt' | 'identityResult' | 'status'> & { attachReason?: string | null }
 export type StatementRow = Pick<typeof patientStatements.$inferSelect, 'id' | 'questionId' | 'answer' | 'transcript' | 'language' | 'confirmation' | 'createdAt'>
 export type MissingRow = Pick<typeof missingRecords.$inferSelect, 'ruleId' | 'ruleVersion' | 'mode' | 'triggerEventId' | 'expectedTypes' | 'state' | 'dedupeKey' | 'matchWindow'>
 export type VerificationRow = Pick<typeof verifications.$inferSelect, 'eventId' | 'action' | 'toStatus' | 'role' | 'at' | 'viewedSource'> & { actorName: string | null }
@@ -81,15 +81,21 @@ const HEADLINE_FIELDS = ['section_text', 'marker_text', 'margins_text', 'addendu
 const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
 const fieldText = (v: FieldValue | unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v))
+const ADDENDUM_WORD = /addendum|supplementary report/i
 const day = (iso: string | null, precision: CoreEvent['datePrecision'] = 'day') => formatDateIN(iso, 'en', precision)
-/** Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null. */
-const readingsOf = (iso: string | null, flags: readonly EventFlag[]) => {
-  const other = iso && flags.includes('date_ambiguous') ? swappedReading(iso) : null
+/**
+ * Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null.
+ * Only when the swapped reading is a believable date (not after the paper or today; a next-visit line the other way round).
+ */
+const readingsOf = (iso: string | null, flags: readonly EventFlag[], ctx?: Parameters<typeof plausibleSwap>[1]) => {
+  const other = iso && flags.includes('date_ambiguous') ? plausibleSwap(iso, ctx) : null
   return other ? [iso!, other].map((d) => ({ iso: d, label: day(d) })) : null
 }
-/** "12 Mar 2026", or "12 Mar 2026 or 3 Dec 2026" until someone picks the reading. */
-const eventDay = (iso: string, precision: CoreEvent['datePrecision'], flags: readonly EventFlag[]) =>
-  readingsOf(iso, flags)?.map((r) => r.label).join(' or ') ?? day(iso, precision)
+/**
+ * "12 Mar 2026": Indian papers are day first, so the stored day-first reading is the date shown. The other reading is never
+ * put in a date column (DECISIONS 5); `when.alsoReadAs` carries it for a small note, and `when.readings` for the edit path.
+ */
+const eventDay = (iso: string, precision: CoreEvent['datePrecision']) => day(iso, precision)
 
 export function headline(fields: Record<string, FieldValue>): string | null {
   const cycle = fields.cycle_number !== undefined ? `Cycle ${fields.cycle_number}` : null
@@ -121,12 +127,17 @@ export function fieldValues(f: Record<string, unknown>): Record<string, FieldVal
   return out
 }
 
+/** True once records staff or a clinician attached a held paper and wrote why (the identity question is answered). */
+export const isAttachedWithReason = (d: { attachState: string; attachReason?: string | null }) => d.attachState === 'attached' && !!d.attachReason?.trim()
+
 /** Stored flags (jsonb booleans + date flags) as EventFlag[]; a document attached without a header identity match adds identity_warning. */
-export function eventFlags(e: Pick<EventRow, 'flags' | 'dateFlags'>, doc?: Pick<DocumentRow, 'identityResult'>): EventFlag[] {
+export function eventFlags(e: Pick<EventRow, 'flags' | 'dateFlags'>, doc?: Pick<DocumentRow, 'identityResult' | 'attachState' | 'attachReason'>): EventFlag[] {
   const s = new Set<EventFlag>()
   for (const [k, v] of Object.entries(e.flags ?? {})) if (v === true && FLAG_SET.has(k)) s.add(k as EventFlag)
   for (const k of e.dateFlags ?? []) if (FLAG_SET.has(k)) s.add(k as EventFlag)
   if (doc && doc.identityResult !== 'match') s.add('identity_warning')
+  // A person attached the paper and gave a reason: the question is answered. The stored flag and the audit rows stay; the warning is not shown.
+  if (doc && isAttachedWithReason(doc)) s.delete('identity_warning')
   return [...s].sort()
 }
 
@@ -320,11 +331,13 @@ export type ItemView = {
     event: string; eventIso: string | null; dateFrom: 'event' | 'document' | null; document: string | null; received: string
     /** Day and month could be swapped: both readings, for one-click picking through the edit path. */
     readings: { iso: string; label: string }[] | null
+    /** The other reading of a day/month that could be swapped ("3 Dec 2026"), for a small "could also be read as" note; else null. */
+    alsoReadAs: string | null
   }
   provenance: { sourceType: string; method: string; docType: DocType | null; institution: string | null }
   viewedSource: boolean
   /** Amended items: what this replaces (the earlier report, or the earlier version of this item). */
-  amends: { label: string; date: string | null; href: string | null } | null
+  amends: { label: string; date: string | null; href: string | null; kind: 'addendum' | 'correction' } | null
   bulk: { eligible: boolean; reasons: string[] }
   permits: Record<VerifyAction, Permit>
   editable: { key: string; label: string; value: string; list: boolean }[]
@@ -384,18 +397,23 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     return id ? (isDocType(t) ? staffDocLabel(t) : 'Unclassified document') : 'No document'
   }
 
+  // A paper that calls itself an addendum adds to the original; it does not change what the original says (DOC-13).
+  const addendumDocs = new Set(record.events.filter((x) => x.eventType === 'addendum_documented' || x.evidence.some((ev) => ADDENDUM_WORD.test(ev.quote))).map((x) => x.documentId))
   const amendsOf = (e: CoreEvent): ItemView['amends'] => {
     const orig = e.documentId ? docById.get(e.documentId)?.amendmentOf : null
     const o = orig ? docById.get(orig) : null
-    if (o) return { label: docLabel(o.id), date: o.documentDate ? day(o.documentDate) : null, href: headlinesOnly ? null : `/patients/${rows.patientId}/documents/${o.id}` }
-    return e.supersedesId ? { label: 'The earlier version of this item (kept)', date: null, href: null } : null
+    if (o) return { label: docLabel(o.id), date: o.documentDate ? day(o.documentDate) : null, href: headlinesOnly ? null : `/patients/${rows.patientId}/documents/${o.id}`, kind: addendumDocs.has(e.documentId) ? 'addendum' : 'correction' }
+    return e.supersedesId ? { label: 'The earlier version of this item (kept)', date: null, href: null, kind: 'correction' } : null
   }
 
   const view = (it: LedgerEventItem): ItemView => {
     const e = it.event
     const row = rowById.get(e.id)!
     const dt = docType(e.documentId)
-    const flags = [...new Set([...it.flags.filter((f) => f !== 'conflict'), ...(inConflict.has(e.id) || row.flags?.conflict === true ? (['conflict'] as const) : [])])].sort() as EventFlag[]
+    // The "day and month could be swapped" warning stays only when the other reading is a believable date (DOC-03).
+    const swapCtx = { now, paperDate: e.documentDate ?? e.receivedAt, forward: e.eventType === 'follow_up_documented' }
+    const dropSwap = it.flags.includes('date_ambiguous') && !(e.eventDate && plausibleSwap(e.eventDate, swapCtx))
+    const flags = [...new Set([...it.flags.filter((f) => f !== 'conflict' && !(dropSwap && f === 'date_ambiguous')), ...(inConflict.has(e.id) || row.flags?.conflict === true ? (['conflict'] as const) : [])])].sort() as EventFlag[]
     const tier = tierOf({ eventType: e.eventType, flags, category: it.category, docType: isDocType(dt) ? dt : null })
     const v = latest.get(e.id)
     // The pipeline marks events whose date was taken from the document header (no date in the quote).
@@ -408,9 +426,9 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
       sources: headlinesOnly ? [] : sourcesOf(rows.patientId, e, docLabel),
       who: { actorName: v?.actorName ?? null, role: v?.role ?? null, at: v ? day(v.at.toISOString()) : null, action: v?.action ?? null },
       when: {
-        event: e.eventDate ? eventDay(e.eventDate, e.datePrecision, flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+        event: e.eventDate ? eventDay(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
         eventIso: e.eventDate ?? e.documentDate, dateFrom, document: e.documentDate ? day(e.documentDate) : null, received: day(e.receivedAt),
-        readings: readingsOf(e.eventDate, flags),
+        readings: readingsOf(e.eventDate, flags, swapCtx), alsoReadAs: readingsOf(e.eventDate, flags, swapCtx)?.[1]?.label ?? null,
       },
       provenance: { sourceType: e.sourceType, method: e.extractionMethod, docType: isDocType(dt) ? dt : null, institution: e.documentId ? docById.get(e.documentId)?.institutionName ?? null : null },
       viewedSource: !!viewedByMe?.has(e.id) || (!!e.supersedesId && !!viewedByMe?.has(e.supersedesId)),
@@ -550,7 +568,7 @@ export function buildTimeline(snap: Snapshot, ctx: { quoteByHash: ReadonlyMap<st
     return {
       id: e.id, typeLabel: EVENT_LABEL[e.eventType], headline: headline(fields), status: e.verificationStatus, label: e.label,
       quoted: STAFF_ONLY_EVENT_TYPES.has(e.eventType), flags: e.flags, conflict: !!ctx.conflicts?.has(e.id) || e.flags.includes('conflict'), dateIso,
-      dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision, e.flags) : e.documentDate ? day(e.documentDate) : 'Date not stated',
+      dateLabel: e.eventDate ? eventDay(e.eventDate, e.datePrecision) : e.documentDate ? day(e.documentDate) : 'Date not stated',
       dateFrom: e.eventDate ? 'event' : e.documentDate ? 'document' : null, docType: d?.docType ?? null, docLabel,
       institution: d?.institution ?? (typeof fields.institution_name === 'string' ? fields.institution_name : null), sourceType: e.sourceType,
       sources: e.evidence.map((v) => ({

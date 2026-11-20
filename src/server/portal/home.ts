@@ -11,6 +11,12 @@ import type { HomeData } from './summary'
 
 const asDocType = (t: string | null): DocType | null => ((DOC_TYPES as readonly string[]).includes(t ?? '') ? (t as DocType) : null)
 
+/** The signed consent form is stored with the doc type "other"; its flag says what it really is. */
+export const consentFormOf = (flags: Record<string, unknown> | null | undefined): 'sign' | 'withdraw' | null => {
+  const c = flags?.consentForm as { action?: string } | undefined
+  return c ? (c.action === 'withdraw' ? 'withdraw' : 'sign') : null
+}
+
 export const OPEN_REQUEST_STATES = ['drafted', 'sent', 'reminder_due', 'open_21d'] as const
 
 export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Promise<HomeData> {
@@ -27,7 +33,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
     tx.select({
       id: missingRecords.id, expectedTypes: missingRecords.expectedTypes, state: missingRecords.state, window: missingRecords.matchWindow,
       eventDate: events.eventDate, eventDocDate: events.documentDate, precision: events.datePrecision,
-      eventFields: events.fields, triggerInstitution: documents.institutionName,
+      eventFields: events.fields, triggerInstitution: documents.institutionName, sourceDocType: documents.docType, sourceDocDate: documents.documentDate,
     }).from(missingRecords).leftJoin(events, eq(events.id, missingRecords.triggerEventId)).leftJoin(documents, eq(documents.id, events.documentId))
       .where(and(
         eq(missingRecords.patientId, patientId), eq(missingRecords.mode, 'production'),
@@ -66,18 +72,29 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
       .where(inArray(patientStatements.id, stmtIds))
     : []
   const stmtInstitution = new Map(stmts.map((x) => [x.id, (x.answer as { institutionName?: unknown } | null)?.institutionName]))
+  // Items raised by a scan (its written report is missing or has arrived) have no trigger event either: take the scan's
+  // date and place, so two "Scan report" cards can be told apart.
+  const scanIds = looking.filter((m) => m.eventDate == null && m.window?.triggerKind === 'document' && typeof m.window.triggerId === 'string')
+    .map((m) => m.window!.triggerId as string)
+  const scans = scanIds.length
+    ? await tx.select({ id: documents.id, date: documents.documentDate, institution: documents.institutionName }).from(documents)
+      .where(and(eq(documents.patientId, patientId), inArray(documents.id, scanIds)))
+    : []
+  const scanOf = new Map(scans.map((x) => [x.id, x]))
   const text = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   const stmtDate = new Map(stmts.map((x) => {
     const a = (x.answer ?? {}) as { statedDate?: string | null; statedPrecision?: DatePrecision | null }
     return [x.id, a.statedDate ? { date: a.statedDate, precision: a.statedPrecision ?? 'day' } : { date: istDate(x.at.toISOString()), precision: 'day' as DatePrecision }]
   }))
   return {
+    today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
-      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true,
+      id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true, consentForm: consentFormOf(d.flags),
     })),
     looking: looking.map((m) => {
       const st = m.eventDate == null && typeof m.window?.triggerId === 'string' ? stmtDate.get(m.window.triggerId) : undefined
-      const date = st?.date ?? m.eventDate ?? m.eventDocDate
+      const scan = m.eventDate == null && typeof m.window?.triggerId === 'string' ? scanOf.get(m.window.triggerId) : undefined
+      const date = st?.date ?? m.eventDate ?? m.eventDocDate ?? scan?.date ?? null
       return {
         id: m.id,
         expectedTypes: m.expectedTypes.map(asDocType).filter((t): t is DocType => t !== null),
@@ -85,7 +102,9 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
         date,
         precision: (st?.precision ?? (m.eventDate ? m.precision : date ? 'day' : 'unknown')) as DatePrecision,
         // Where to ask: the hospital or lab that wrote the paper mentioning it, or the one the patient named
-        institution: text(m.eventFields?.institution_name) ?? text(m.triggerInstitution) ?? (typeof m.window?.triggerId === 'string' ? text(stmtInstitution.get(m.window.triggerId)) : null),
+        // The paper that mentions it, so cards that look alike can be told apart (PAT-03); a statement has no paper.
+        source: m.sourceDocType ? { docType: asDocType(m.sourceDocType), date: m.sourceDocDate } : null,
+        institution: text(m.eventFields?.institution_name) ?? text(m.triggerInstitution) ?? (typeof m.window?.triggerId === 'string' ? text(stmtInstitution.get(m.window.triggerId)) : null) ?? text(scan?.institution),
       }
     }),
     writtenDates: followUps.filter((f) => f.eventDate && f.status !== 'rejected' && !superseded.has(f.id)).map((f) => ({

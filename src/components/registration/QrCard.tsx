@@ -27,6 +27,7 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
   const [svg, setSvg] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -36,6 +37,7 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
   }, [token]);
 
   async function reissue() {
+    setConfirming(false);
     setBusy(true);
     setError(null);
     const r = await postJson<{ token: string }>(`/api/patients/${patientId}/token`, { action: "reissue" });
@@ -51,7 +53,7 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
         <EmptyState
           title="The card is not shown again"
           description="For safety only a scrambled form of the code is stored, so a printed card cannot be re-created. Issuing a replacement stops the old card from working."
-          action={<Button className={WRAP} onClick={reissue} loading={busy} icon={<RefreshCw aria-hidden />}>Issue a replacement card</Button>}
+          action={confirming ? <Confirm onYes={reissue} onNo={() => setConfirming(false)} busy={busy} /> : <Button className={WRAP} onClick={() => setConfirming(true)} loading={busy} icon={<RefreshCw aria-hidden />}>Issue a replacement card</Button>}
         />
         {error && <Notice tone="conflict" title={error} />}
       </div>
@@ -61,6 +63,7 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
   return (
     <div className="grid gap-6">
       <style>{PRINT_CSS}</style>
+      <Notice title="Print this card now">For safety the card is shown only once. After you leave this page it cannot be shown again; it can only be replaced.</Notice>
       <div className="print-area">
         <article aria-label="Records card" className="grid w-full max-w-[24rem] gap-3 border border-ink bg-matte p-5 text-ink print:max-w-[90mm] print:break-inside-avoid">
           <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -69,7 +72,7 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
           </header>
           <div className="mx-auto w-44 border border-rule bg-white p-1 [&_svg]:h-auto [&_svg]:w-full" role="img" aria-label="QR code of the card code" dangerouslySetInnerHTML={{ __html: svg }} />
           <p className="text-center font-mono text-[13px] tracking-[0.08em]" aria-label={`${registrationCopy.card.code.en}: ${token}`}>{group(token)}</p>
-          <p className="text-center font-mono text-[10px] tracking-[0.12em] text-faint">ACC. {accession}</p>
+          <p className="text-center font-mono text-[10px] tracking-[0.12em] text-faint">Record code {accession}</p>
           <p className="text-[13px] leading-snug">{registrationCopy.card.identifies.en}</p>
           <p lang="hi" className="font-deva text-[13px] leading-snug">{registrationCopy.card.identifies.hi}</p>
           <p className="border-t border-rule pt-2 text-[12px] leading-snug text-muted">{registrationCopy.card.lost.en}</p>
@@ -78,9 +81,23 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
       </div>
       <div className="flex flex-wrap gap-2">
         <Button onClick={() => window.print()} icon={<Printer aria-hidden />}>Print card</Button>
-        <Button variant="secondary" className={WRAP} onClick={reissue} loading={busy} icon={<RefreshCw aria-hidden />}>Replace card (old one stops working)</Button>
+        <Button variant="secondary" className={WRAP} onClick={() => setConfirming(true)} loading={busy} icon={<RefreshCw aria-hidden />}>Replace card (old one stops working)</Button>
       </div>
+      {confirming && <Confirm onYes={reissue} onNo={() => setConfirming(false)} busy={busy} />}
       {error && <Notice tone="conflict" title={error} />}
+    </div>
+  );
+}
+
+/** Replacing switches the patient's current card off at once, so it is asked twice. */
+function Confirm({ onYes, onNo, busy }: { onYes: () => void; onNo: () => void; busy: boolean }) {
+  return (
+    <div role="alertdialog" aria-label="Replace the card?" className="grid gap-3">
+      <Notice tone="conflict" title="The patient's current card will stop working. Replace it?" />
+      <div className="flex flex-wrap gap-2">
+        <Button className={WRAP} onClick={onYes} loading={busy}>Yes, replace the card</Button>
+        <Button variant="ghost" onClick={onNo}>Keep the current card</Button>
+      </div>
     </div>
   );
 }

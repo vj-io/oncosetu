@@ -5,8 +5,9 @@ import { MAX_ZIP_ENTRIES } from '@/core/limits'
 import { checkStart } from '../uploads/chunks'
 import { buildSyntheticDicom } from './dicom-synthetic'
 import { sniffFile } from './filetypes'
-import { bundleInstances, orderedInstances } from './study'
-import { groupDicom, planZip } from './zip'
+import { BundleWriter, bundleInstances, bundleNames, bundleSliceAt, orderedInstances } from './study'
+import { checkZipBeforeUpload } from '@/lib/zip-check'
+import { groupDicom, inspectZip, isCdFurniture, openEntries, planZip } from './zip'
 
 describe('planZip: opening a ZIP safely', () => {
   it('opens a mixed ZIP and lists what it skipped, with plain reasons', async () => {
@@ -88,11 +89,84 @@ describe('chunked upload start checks', () => {
     expect(checkStart({ fileName: 'ct.dcm', totalSize: 20 * 1048576, totalChunks: 6, sha256: sha })).toEqual({ ok: true })
     expect(checkStart({ fileName: 'ct.dcm', totalSize: 51 * 1048576, totalChunks: 15, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
     expect(checkStart({ fileName: 'series.zip', totalSize: 150 * 1048576, totalChunks: 43, sha256: sha })).toEqual({ ok: true })
-    expect(checkStart({ fileName: 'series.zip', totalSize: 201 * 1048576, totalChunks: 58, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
+    expect(checkStart({ fileName: 'series.zip', totalSize: 301 * 1048576, totalChunks: 87, sha256: sha })).toMatchObject({ ok: false, code: 'file_too_large' })
   })
   it('refuses a bad checksum format, an empty file and a chunk count that does not fit', () => {
     expect(checkStart({ fileName: 'a.pdf', totalSize: 1000, totalChunks: 1, sha256: 'nope' })).toMatchObject({ ok: false, code: 'invalid_request' })
     expect(checkStart({ fileName: 'a.pdf', totalSize: 0, totalChunks: 1, sha256: sha })).toMatchObject({ ok: false, code: 'empty_file' })
     expect(checkStart({ fileName: 'a.pdf', totalSize: 20 * 1048576, totalChunks: 1, sha256: sha })).toMatchObject({ ok: false })
+  })
+})
+
+describe('a real imaging CD: thousands of slices', () => {
+  it('accepts 2,500 slices, groups them as one study in order, and bundles them without holding a second copy', async () => {
+    const uid = '1.2.826.0.1.3680043.8.498.2500'
+    const base = await buildSyntheticDicom({ modality: 'MR', patientName: 'Test^Synthetic', studyUid: uid, instance: 1, size: 16 })
+    const files: Record<string, Uint8Array> = {}
+    for (let i = 2500; i >= 1; i--) { // written in reverse so ordering has to be recovered from the headers
+      const d = new Uint8Array(base)
+      files[`DICOM/IM${i}`] = d
+    }
+    const zip = zipSync(Object.fromEntries(Object.entries(files).map(([n, d]) => [n, [d, { level: 1 }] as [Uint8Array, { level: 1 }]])))
+    const info = inspectZip(zip)
+    expect(info.ok).toBe(true)
+    if (!info.ok) return
+    expect(info.take.size).toBe(2500)
+    let n = 0, peak = 0
+    const t0 = Date.now()
+    for (const e of openEntries(zip, info.take)) { n++; peak = Math.max(peak, e.data.length) }
+    expect(n).toBe(2500)
+    expect(Date.now() - t0).toBeLessThan(20_000)
+    const w = new BundleWriter(50 * 1048576)
+    let i = 0
+    for (const e of openEntries(zip, info.take)) w.add(`${String(++i).padStart(4, '0')}-${e.base}`, e.data, true)
+    const bundle = w.finish()
+    expect(bundleNames(bundle)).toHaveLength(2500)
+    expect(bundleSliceAt(bundle, 1250).count).toBe(2500)
+    expect(bundleSliceAt(bundle, 1250).data?.length).toBe(base.length)
+  })
+
+  it('refuses with the real numbers, not a generic message', () => {
+    const files: Record<string, Uint8Array> = {}
+    for (let i = 0; i < MAX_ZIP_ENTRIES + 1; i++) files[`f${i}.txt`] = strToU8(`file number ${i}`)
+    const r = inspectZip(zipSync(files))
+    expect(r).toMatchObject({ ok: false, code: 'zip_too_many_files' })
+    expect(!r.ok && r.message).toMatch(/3,001 files.*at most 3,000/)
+  })
+
+  it('the server and the browser pre-check refuse the same ZIPs for the same reason', async () => {
+    const many = (n: number, extra: Record<string, Uint8Array> = {}) => { const f: Record<string, Uint8Array> = { ...extra }; for (let i = 0; i < n; i++) f[`DICOM/IM${i}`] = strToU8(`slice ${i}`); return f }
+    const cases: [string, Record<string, Uint8Array>, string | null][] = [
+      ['2,500 slices', many(2500), null],
+      ['3,000 slices', many(3000), null],
+      ['3,001 slices', many(3001), 'zip_too_many_files'],
+      ['2,999 slices and two system files', many(2999, { '__MACOSX/a': strToU8('x'), '__MACOSX/b': strToU8('y') }), 'zip_too_many_files'],
+      ['folders do not count', many(3000, { 'DICOM/': new Uint8Array(0) }), null],
+      ['a ratio bomb', { 'zeros.bin': new Uint8Array(4 * 1024 * 1024) }, 'zip_bomb'],
+      ['a CD with its viewer', { ...many(10), 'VIEWER/viewer.exe': new Uint8Array([0x4d, 0x5a, 1, 2]), 'AUTORUN.INF': strToU8('[autorun]') }, null],
+    ]
+    for (const [label, files, code] of cases) {
+      const zip = zipSync(files)
+      const server = inspectZip(zip)
+      const browser = await checkZipBeforeUpload(new Blob([zip as BlobPart]), 'cd.zip')
+      expect(server.ok ? null : server.code, label).toBe(code)
+      expect(browser.ok ? null : browser.code, label).toBe(code)
+      if (!server.ok && !browser.ok) expect(browser.message, label).toBe(server.message)
+    }
+  })
+
+  it('knows the files an imaging CD carries besides the scans (its viewer program, autorun, web index)', async () => {
+    const e = (name: string, data: Uint8Array) => ({ name, base: name.split('/').pop()!, data })
+    const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 16 })
+    const pdf = Buffer.from('%PDF-1.4 a report')
+    for (const f of [e('VIEWER/RadiAnt.exe', new Uint8Array([0x4d, 0x5a, 0x90, 0])), e('VIEWER/codec.dll', new Uint8Array([0x4d, 0x5a, 0, 0])), e('AUTORUN.INF', strToU8('[autorun]\nopen=viewer.exe')),
+      e('index.html', strToU8('<!DOCTYPE html><html></html>')), e('VIEWER/app.js', strToU8('var x = 1')), e('VIEWER/style.css', strToU8('body{}')), e('VIEWER/settings.ini', strToU8('[x]\na=1')),
+      e('VIEWER/icon.ico', new Uint8Array([0, 0, 1, 0, 1, 0])), e('VIEWER/splash.bmp', new Uint8Array([0x42, 0x4d, 0x36, 0, 0, 0]))]) expect(isCdFurniture(f), f.name).toBe(true)
+    for (const f of [e('DICOM/IM1', dcm), e('REPORT.PDF', pdf), e('notes.txt', strToU8('typed report: no change'))]) expect(isCdFurniture(f), f.name).toBe(false)
+  })
+
+  it('still refuses a name that tries to leave the folder, and an entry that lies about its size', () => {
+    const r = inspectZip(zipSync({ '../x.dcm': strToU8('abc') }))
+    expect(r.ok && r.skipped[0].code).toBe('unsafe_file_name')
   })
 })

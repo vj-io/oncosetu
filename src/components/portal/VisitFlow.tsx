@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { Check, CircleCheck, Mic, Square, Volume2 } from "lucide-react";
 import { formatDateIN } from "@/core/copy";
-import { tp, type PatientKey } from "@/i18n/patient";
+import { tp, tpw, type PatientKey } from "@/i18n/patient";
 import { buildReadback, QUESTION_IDS, TEST_KINDS, type Answer, type Answers, type QuestionId } from "@/server/portal/visit-model";
 import { ErrorNote, PButton, PField, PInput, PLink, PSelect, PTextarea } from "./ui";
 
@@ -44,7 +44,7 @@ function submittable(a: Answers): Answers {
 }
 
 export function VisitFlow({
-  lang, questions, canVoice, shadow = false, canSpeak, sarvam, currentYear, lastAnswered, station = false,
+  lang, questions, canVoice, shadow = false, canSpeak, sarvam, currentYear, lastAnswered, station = false, who = null,
 }: {
   /** sarvam: the server can transcribe (SARVAM_API_KEY set), so record audio instead of using the browser's recogniser */
   lang: Lang; canVoice: boolean; canSpeak: boolean; sarvam: boolean; currentYear: number; lastAnswered: string | null;
@@ -54,6 +54,8 @@ export function VisitFlow({
   shadow?: boolean;
   /** On the shared desk-station tablet (FR-VOX-02): sign out by itself once the answers are saved. */
   station?: boolean;
+  /** The patient's first name when a family member is answering for them. */
+  who?: string | null;
 }) {
   const [phase, setPhase] = useState<Phase>("questions");
   const [step, setStep] = useState(0);
@@ -196,7 +198,7 @@ export function VisitFlow({
     setSaving(false);
   }
 
-  const readback = buildReadback(submittable(answers), lang, questions);
+  const readback = buildReadback(submittable(answers), lang, questions, who);
 
   // Spoken read-back (FR-VOX-04): Sarvam's voice when the server has it, else the browser's own voice.
   const player = useRef<HTMLAudioElement | null>(null);
@@ -339,7 +341,7 @@ export function VisitFlow({
           <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / questions.length) * 100}%` }} />
         </div>
       </div>
-      <h2 id="qh" ref={heading} tabIndex={-1} className="text-[1.65rem] leading-snug outline-none">{tp(lang, `q_${q.id}` as PatientKey)}</h2>
+      <h2 id="qh" ref={heading} tabIndex={-1} className="text-[1.65rem] leading-snug outline-none">{tpw(lang, `q_${q.id}` as PatientKey, who)}</h2>
 
       <div role="radiogroup" aria-labelledby="qh" className={choices.length === 3 ? "grid gap-3 sm:grid-cols-3" : "grid gap-3 sm:grid-cols-2"}>
         {choices.map((c) => (

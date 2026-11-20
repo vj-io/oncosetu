@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countNewSinceSeal, parseSealedCopy } from './new-since-seal'
+import { countNewSinceSeal, groupAmended, newestItemsFirst, newItemTotal, parseSealedCopy } from './new-since-seal'
 
 describe('countNewSinceSeal', () => {
   const sealed = { verified: [{ id: 'a' }], unverified: [{ id: 'b' }] }
@@ -20,5 +20,28 @@ describe('parseSealedCopy', () => {
     expect(parseSealedCopy('nope')).toBeNull()
     expect(parseSealedCopy('{"verified":1}')).toBeNull()
     expect(parseSealedCopy(null)).toBeNull()
+  })
+})
+
+describe('newItemTotal', () => {
+  const ev = (a: number, b: number, c: number, d: number) => ({ initial_record: Array(a), new_since_last_visit: Array(b), newly_received_older: Array(c), amended: Array(d) })
+  it('counts what the What is new page lists: everything before a seal, new + late + corrected after it', () => {
+    expect(newItemTotal({ mode: 'initial', events: ev(39, 0, 0, 0) })).toBe(39)
+    expect(newItemTotal({ mode: 'diff', events: ev(0, 15, 2, 5) })).toBe(22)
+  })
+})
+
+describe('newestItemsFirst', () => {
+  it('puts the newest date first, undated last, and keeps the order of equal dates', () => {
+    const l = [{ id: 'a', when: { eventIso: '2024-03-01' } }, { id: 'b', when: { eventIso: null } }, { id: 'c', when: { eventIso: '2026-04-28' } }, { id: 'd', when: { eventIso: '2026-04-28' } }]
+    expect(newestItemsFirst(l).map((x) => x.id)).toEqual(['c', 'd', 'a', 'b'])
+  })
+})
+
+describe('groupAmended', () => {
+  it('shows the five lines of one addendum under one heading', () => {
+    const a = { label: 'Histopathology report', date: '22 Jan 2026', href: '/d/1', kind: 'addendum' as const }
+    const g = groupAmended([{ id: '1', amends: a }, { id: '2', amends: a }, { id: '3', amends: { ...a, href: '/d/2', kind: 'correction' as const } }])
+    expect(g.map((x) => [x.kind, x.items.length])).toEqual([['addendum', 2], ['correction', 1]])
   })
 })

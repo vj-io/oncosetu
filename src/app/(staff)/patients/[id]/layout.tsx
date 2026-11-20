@@ -1,23 +1,28 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { and, count, eq, inArray, ne } from 'drizzle-orm'
+import { and, count, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { Notice } from '@/components/registration/Notice'
 import { PatientWorkspaceHeader } from '@/components/shell'
 import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import { RecordErasure } from '@/components/erasure/RecordErasure'
 import { documents, missingRecords } from '@/db/schema'
-import { accession, istDate } from '@/server/admin/format'
+import { accession, istDate, istDateTime } from '@/server/admin/format'
 import { erasureContext, loadErasure } from '@/server/erasure/erasure'
 import { HttpError } from '@/server/http'
 import { writeAudit } from '@/server/audit'
 import { newSinceSealCounts } from '@/server/registration/doctor-overview'
-import { assertPatientAccess, loadPatient } from '@/server/patients'
+import { activeGrantFor } from '@/server/admin/ops'
+import { activeConsent, assertPatientAccess, loadPatient } from '@/server/patients'
 import { requireStaff } from '@/server/session'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export default async function PatientWorkspaceLayout({ children, params }: { children: ReactNode; params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await requireStaff()
+  if (!UUID.test(id)) notFound() // a mistyped id is a 404, not a database error
   const data = await withOrg(session.orgId, async (tx) => {
     try {
       await assertPatientAccess({ db: tx, session }, id)
@@ -34,11 +39,14 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
     const patient = await loadPatient(tx, id)
     if (!patient) return null
     const [[docs], [open], changed] = await Promise.all([
-      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'))), // filed documents only, so the badge matches the list
+      tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, id), inArray(documents.attachState, ['auto', 'attached']), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf))), // filed papers only (no repeat copies), so the badge matches the All records list
       tx.select({ n: count() }).from(missingRecords).where(and(eq(missingRecords.patientId, id), eq(missingRecords.mode, 'production'), inArray(missingRecords.state, ['expected', 'requested', 'received']))),
-      newSinceSealCounts(tx, [id]),
+      newSinceSealCounts(tx, [id], session.orgId),
     ])
-    return { patient, counts: { documents: docs.n, completeness: open.n, ledger: changed.get(id) ?? 0 } }
+    // Emergency access: shown when the record is open because of a break-glass grant (always for an administrator).
+    const grant = session.role === 'auditor' ? null : await activeGrantFor(tx, id, session.staffId)
+    const emergency = grant && (session.role === 'org_admin' || !(await activeConsent(tx, id))?.purposes.store) ? grant : null
+    return { patient, emergency, counts: { documents: docs.n, completeness: open.n, ledger: changed.get(id) ?? 0 } }
   }).catch((e) => {
     if (e instanceof HttpError && e.status === 404) return null
     throw e
@@ -104,6 +112,14 @@ export default async function PatientWorkspaceLayout({ children, params }: { chi
         counts={data.counts}
         role={session.role}
       />
+      {data.emergency && (
+        <div className="py-4">
+          <Notice tone="conflict" title={`Emergency access: ends ${istDateTime(data.emergency.expiresAt)}`}>
+            You opened this record without the patient&apos;s consent. Your reason is logged: &ldquo;{data.emergency.reason}&rdquo;. Everything you open is recorded.
+            {session.role === 'org_admin' && ' As an administrator you can read the record only; sending links, uploading and registering are for clinical staff.'}
+          </Notice>
+        </div>
+      )}
       {children}
     </div>
   )

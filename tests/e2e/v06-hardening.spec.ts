@@ -94,7 +94,7 @@ test('V06-E2E-04 a clinician completes the consultation form in under a minute; 
   // The form in the browser: a handful of taps, timed.
   const page = await ui('clinician')
   await page.goto('/measure')
-  await expect(page.getByRole('button', { name: 'Record consultation' })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Record consultation' })).toBeDisabled() // no answer is pre-picked (DOC-11)
   const started = Date.now()
   await page.getByLabel('Was at least one referenced document missing from the file?').selectOption('yes')
   await page.getByLabel('How many documents').fill('2')

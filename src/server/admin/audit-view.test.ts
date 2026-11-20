@@ -23,3 +23,12 @@ describe('audit CSV (ids only)', () => {
     expect(auditCsv([])).toBe(AUDIT_CSV_HEADER.join(',') + '\r\n')
   })
 })
+
+describe('audit CSV readability', () => {
+  it('adds India time and a plain action label next to the raw UTC time and code', () => {
+    const [header, line] = auditCsv([row()]).split('\r\n')
+    expect(header.split(',').slice(-2)).toEqual(['at_ist', 'action_label'])
+    expect(line).toContain('02 Nov 2026')
+    expect(line).toContain('Document filed to the record')
+  })
+})

@@ -11,6 +11,7 @@ import { assertPatientAccess } from '@/server/patients'
 import type { Session } from '@/server/session'
 import { gateAndDate, type GatedPages } from './core'
 import { scheduleProcessing } from './ingest'
+import { clearReadCache } from './process'
 import { needsRunner } from './queries'
 import { recomputeRadar } from './radar'
 import type { PageRead } from './text'
@@ -56,6 +57,19 @@ export async function decideAttachment(ctx: Ctx, d: Doc, body: z.infer<typeof at
   if (attach) scheduleProcessing(d.id, d.orgId)
   else await recomputeRadar(ctx.db, d.orgId, d.patientId)
   return { ok: true, attachState: attach ? 'attached' : 'rejected' }
+}
+
+/** REC-01: undo a "not this patient" rejection. The file goes back to the held group for a fresh decision; audited. */
+export const undoRejectSchema = z.object({})
+
+export async function undoRejection(ctx: Ctx, d: Doc, _body: z.infer<typeof undoRejectSchema>) {
+  if (d.attachState !== 'rejected') throw new HttpError(409, 'not_rejected', 'Only a rejected document can be brought back')
+  await ctx.db.update(documents).set({
+    attachState: 'pending_decision', attachDecidedBy: null, attachDecidedAt: null, attachReason: null, updatedAt: new Date(),
+  }).where(eq(documents.id, d.id))
+  await ctx.audit('document.rejection_undone', 'document', d.id, { previousDecidedBy: d.attachDecidedBy }) // ids only (audit rule): the first decision's reason stays in its own audit row
+  await recomputeRadar(ctx.db, d.orgId, d.patientId)
+  return { ok: true, attachState: 'pending_decision' }
 }
 
 // ── detach (FR-ID-06, E-LED-06) ─────────────────────────────────────────────
@@ -168,7 +182,8 @@ export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manu
 export async function reprocessDocument(ctx: Ctx, d: Doc) {
   if (d.status === 'quarantined') throw new HttpError(409, 'quarantined', 'A quarantined file is never processed')
   if (d.status === 'processing' && !needsRunner(d)) throw new HttpError(409, 'processing', 'Already processing')
-  await ctx.db.update(documents).set({ status: 'queued', attempts: 0, lastError: null, lockedAt: null, updatedAt: new Date() }).where(eq(documents.id, d.id))
+  await ctx.db.update(documents).set({ status: 'queued', attempts: 0, lastError: null, lockedAt: null, readProgress: null, updatedAt: new Date() }).where(eq(documents.id, d.id))
+  await clearReadCache(ctx.db, d.id) // a reprocess reads the file afresh
   await ctx.audit('document.reprocess', 'document', d.id)
   scheduleProcessing(d.id, d.orgId)
   return { ok: true, status: 'queued' }
@@ -179,7 +194,8 @@ export const passwordSchema = z.object({ password: z.string().min(1).max(128) })
 /** FR-ING-07: the password is passed to one processing run in memory and never stored or logged. */
 export async function submitPassword(ctx: Ctx, d: Doc, body: z.infer<typeof passwordSchema>) {
   if (!(d.status === 'unreadable' && d.flags.password_required)) throw new HttpError(409, 'no_password_needed', 'This document is not waiting for a password')
-  await ctx.db.update(documents).set({ status: 'queued', attempts: 0, lockedAt: null, updatedAt: new Date() }).where(eq(documents.id, d.id))
+  await ctx.db.update(documents).set({ status: 'queued', attempts: 0, lockedAt: null, readProgress: null, updatedAt: new Date() }).where(eq(documents.id, d.id))
+  await clearReadCache(ctx.db, d.id)
   await ctx.audit('document.password_submitted', 'document', d.id)
   scheduleProcessing(d.id, d.orgId, { password: body.password })
   return { ok: true, status: 'queued' }

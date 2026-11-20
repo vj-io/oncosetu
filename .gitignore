@@ -47,3 +47,22 @@ next-env.d.ts
 
 # synthetic audio for scripts/eval-asr.ts
 /.cache
+
+# real patient files must never be committed (finale-polish rule)
+/test-data/real/
+/test-data/real/**/*.dcm
+**/test-data/real/
+*.dcm
+# ...except the synthetic demo scans, made by scripts/demo-docs (fake names, SYN- ids, "SYNTHETIC" in the description)
+!/public/demo-docs/*.dcm
+/scans/
+/local-scans/
+/real-scans/
+
+# finale screenshots stay on the local machine (too large for git); the reports cite them by path
+/docs/finale/e2e-audit/shots/
+/docs/finale/wp*-shots/
+next.log
+
+# Real-scan test: everything under test-data/ stays local (de-identified copies, test DB, videos, reports)
+/test-data/

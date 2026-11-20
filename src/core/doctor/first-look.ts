@@ -18,6 +18,8 @@ export type FirstLookInput = {
   conflicts: { key: string; label: string }[]
   missing: { id: string; title: string; askAt: string | null; state: string }[]
   held: HeldDoc[]
+  /** Filed papers that are hard to read: a separate number, never inside `held`. */
+  hardToRead?: number
   unverified: number
   disputed: number
 }
@@ -63,9 +65,14 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
     details: i.newItems.slice(0, SHOWN).map((n) => ({ text: [n.typeLabel, n.headline].filter(Boolean).join(': '), meta: n.when, quote: n.quote ? clip(n.quote) : undefined, href: `${base}/ledger#item-${n.id}` })),
   })
 
+  // A paper that has arrived and only waits for a person to confirm it is not "not in file" any more (DOC-05).
+  const arrived = i.missing.filter((m) => m.state === 'received').length
+  const notInFile = i.missing.length - arrived
   rows.push({
     key: 'missing', label: 'Papers not in file', count: i.missing.length, tone: i.missing.length ? 'unverified' : 'verified',
-    summary: i.missing.length ? 'Other papers mention these, but we do not hold them. Not in file does not mean it was not done.' : 'No referred-to paper is missing.',
+    summary: i.missing.length
+      ? (arrived ? `${notInFile} not in file · ${arrived} arrived, confirm. ` : '') + 'Other papers mention these, but we do not hold them. Not in file does not mean it was not done.'
+      : 'No referred-to paper is missing.',
     href: `${base}/completeness`, linkLabel: 'Open the checklist and make a request letter',
     more: Math.max(i.missing.length - SHOWN, 0),
     details: i.missing.slice(0, SHOWN).map((m) => ({ text: m.title, meta: m.askAt ? `Ask at ${m.askAt}` : 'Place not stated', href: `${base}/completeness#m-${m.id}` })),
@@ -73,7 +80,7 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
 
   rows.push({
     key: 'held', label: 'Held for a person to check', count: i.held.length, tone: i.held.length ? 'conflict' : 'verified',
-    summary: i.held.length ? 'Held back because the name did not match, or because it is handwritten or hard to read.' : 'Nothing is waiting for an identity or reading check.',
+    summary: (i.held.length ? 'Held back because the name did not match, or because it is handwritten or not clearly this patient.' : 'Nothing is waiting for an identity check.') + (i.hardToRead ? ` ${plural(i.hardToRead, 'filed paper')} ${i.hardToRead === 1 ? 'is' : 'are'} hard to read (counted separately).` : ''),
     href: `${base}/documents`, linkLabel: 'Review the held documents',
     more: Math.max(i.held.length - SHOWN, 0),
     details: i.held.slice(0, SHOWN).map((h) => ({ text: h.docLabel, meta: HELD_WORDS[h.kind], href: `${base}/documents/${h.id}` })),

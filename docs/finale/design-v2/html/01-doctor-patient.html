@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OncoSetu v2: doctor patient view (Khan)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Devanagari:wdth,wght@75..100,400..700&family=Anek+Latin:wdth,wght@75..100,400..700&family=Mukta:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<style>
+ .tabs{display:flex;gap:4px;padding:0 28px;background:var(--surface);border-bottom:1px solid var(--divider)}
+ .tabs a{padding:9px 12px 10px;font-size:var(--fs-sm);color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+ .tabs a:hover{color:var(--ink)}
+ .tabs a[aria-current=page]{color:var(--ink);font-weight:600;border-color:var(--brand)}
+ .tabs .c{font-size:var(--fs-xs);color:var(--muted);margin-left:4px}
+ .fl{display:grid;grid-template-columns:1.12fr 1fr}
+ .fl>div{padding:14px 22px 12px}
+ .fl>div+div{border-left:1px solid var(--divider)}
+ .fl h3{font-size:var(--fs-lg);margin-bottom:2px}
+ .fl .lede{color:var(--muted);font-size:var(--fs-sm);margin-bottom:8px}
+ .mrow a.t{font-weight:500}
+ .fl .rows>*{padding:8px 0}.fl .rows>*:first-child{padding-top:0}
+ .nrow{display:grid;grid-template-columns:20px 1fr auto;gap:2px 10px;align-items:start}
+ .nrow .d{color:var(--muted);font-size:var(--fs-sm);white-space:nowrap;text-align:right}
+ .nrow .p{grid-column:2/4;color:var(--muted);font-size:var(--fs-xs)}
+ .sealed{display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--divider);font-size:var(--fs-sm)}
+ .sealed .pill{margin-left:auto}
+</style>
+</head>
+<body>
+<div class="app">
+ <nav id="rail" data-active="patients"></nav>
+ <div class="main">
+  <header class="pstrip">
+   <div class="who">
+    <div class="avatar" aria-hidden="true">MK</div>
+    <div>
+     <h1>Mohd. Abdul Rahim Khan</h1>
+     <div class="sub">64, male, record code ONC-4F7K2-91</div>
+    </div>
+   </div>
+   <dl class="facts">
+    <div class="fact"><dt>Contact</dt><dd>+91 99870 12345</dd></div>
+    <div class="fact"><dt>Allergies, as written</dt><dd>“Sulfa drugs” <a href="#">Discharge summary, p.1</a></dd></div>
+    <div class="fact"><dt>Insurer</dt><dd>Ayushman Bharat PM-JAY</dd></div>
+    <div class="fact"><dt>Last sealed visit</dt><dd>16 Feb 2026, Dr. Meera Iyer</dd></div>
+   </dl>
+   <div class="act"><a class="btn primary" href="#">Seal this visit</a></div>
+  </header>
+  <nav class="tabs" aria-label="Patient">
+   <a href="#" aria-current="page">Overview</a><a href="#">All records<span class="c">14</span></a><a href="#">What’s new<span class="c">4</span></a><a href="#">Missing papers<span class="c">3</span></a><a href="#">Patient said</a><a href="#">More</a>
+  </nav>
+
+  <section class="river" aria-labelledby="rvh">
+   <div class="top">
+    <div class="ttl">
+     <h2 id="rvh">Record river</h2>
+     <p class="lead" id="rvsum">14 papers from Jan 2024 to Jun 2026; 3 missing. Counts papers only, never what is written on them.</p>
+    </div>
+    <div class="rb" aria-hidden="true"><div class="txt"><b class="num">14</b> received</div>
+     <div class="bar"><span style="width:82.35%;background:var(--brand)"></span><span style="width:17.65%;background:var(--missing-bg);box-shadow:inset 0 0 0 2px var(--missing)"></span></div>
+     <div class="txt"><b class="num" style="color:var(--missing)">3</b> missing</div></div>
+   </div>
+   <div class="rivbox" id="riv" role="group" aria-label="Record river: 14 papers from Jan 2024 to Jun 2026; 3 missing. Each dot is one paper."></div>
+   <div class="legend" id="lg"></div>
+  </section>
+
+  <div class="page">
+   <div class="cols">
+    <section class="panel" aria-labelledby="flh">
+     <header style="padding:12px 22px 10px"><h2 id="flh" style="font-size:var(--fs-xl)">First look</h2><span class="pill plain">Not a clinical summary</span></header>
+     <div class="fl" style="border-top:1px solid var(--divider)">
+      <div>
+       <h3>3 papers are not in the file</h3>
+       <p class="lede">Other papers mention them, but we do not hold them. Not in file does not mean it was not done.</p>
+       <div class="rows">
+        <div class="mrow"><a class="t" href="#">Laboratory report, mentioned as pending</a><div class="small">“Lab report awaited” <a href="#">Discharge summary, p.1</a>, 20 Jan 2026</div><div class="askat">Ask at <b>Upvan Multispeciality Hospital</b></div></div>
+        <div class="mrow"><a class="t" href="#">Report for the PET-CT</a><div class="small">“PET-CT done at City Care” <a href="#">Patient said</a>, 14 Apr 2026</div><div class="askat">Ask at <b>City Care Hospital, Nagpur</b>, where the scan is held</div></div>
+        <div class="mrow"><a class="t" href="#">Prescription from City Care Hospital, Nagpur</a><div class="small">“New tablet started in May” <a href="#">Patient said</a>, 12 May 2026</div><div class="askat">Place not stated</div></div>
+       </div>
+       <p style="margin-top:10px"><a href="#">Make a request letter</a></p>
+      </div>
+      <div>
+       <h3>4 papers are new since the last visit</h3>
+       <p class="lede">Arrived after the visit sealed on 16 Feb 2026.</p>
+       <div class="rows">
+        <div class="nrow"><span id="g1"></span><a href="#">PET-CT, whole body</a><span class="d">14 Apr 2026</span><span class="p">City Care Hospital, Nagpur. Stored, not read.</span></div>
+        <div class="nrow"><span id="g2"></span><a href="#">Lab report</a><span class="d">20 May 2026</span><span class="p">Sarthak lab</span></div>
+        <div class="nrow"><span id="g3"></span><a href="#">Chest X-ray</a><span class="d">08 Jun 2026</span><span class="p">City Care Hospital, Nagpur. Stored, not read.</span></div>
+        <div class="nrow"><span id="g4"></span><a href="#">Referral letter</a><span class="d">12 Dec 2024</span><span class="p"><span class="pill info">Older paper, newly received</span></span></div>
+       </div>
+       <div style="border-top:1px solid var(--divider);margin-top:12px;padding-top:12px">
+        <h3 style="display:flex;gap:10px;align-items:center">1 paper is held <span class="pill held">Held for checking</span></h3>
+        <p class="small" style="margin-top:4px">A typed prescription whose name reads “Abdul Rahim”. Records staff are confirming whose it is. <a href="#">Review the held paper</a></p>
+       </div>
+      </div>
+     </div>
+     <div class="sealed"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E7A4C" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 9.5-4.1-1.9-7-5.3-7-9.5V6z"/><path d="M9 12l2.2 2.2L15.5 10"/></svg>
+      <span><b>Last sealed visit:</b> 16 Feb 2026, 10:31 IST, by Dr. Meera Iyer. <a href="#">Check the seal</a></span><span class="pill checked">Record unchanged since</span></div>
+    </section>
+
+    <aside class="panel timeline" aria-labelledby="tlh">
+     <h2 id="tlh">Timeline <span class="muted small" style="font-family:var(--font-body);font-weight:400">newest first</span></h2>
+     <ol class="tl">
+      <li><time>08 Jun 2026</time>Chest X-ray received from City Care Hospital, Nagpur</li>
+      <li><time>20 May 2026</time>Lab report received from Sarthak lab</li>
+      <li class="m"><time>12 May 2026</time>Prescription mentioned, not in file</li>
+      <li><time>14 Apr 2026</time>PET-CT scan received</li>
+      <li class="m"><time>14 Apr 2026</time>Report for the PET-CT mentioned, not in file</li>
+      <li><time>10 Apr 2026</time>Patient confirmed 5 answers before the visit</li>
+      <li class="s"><time>16 Feb 2026</time>Visit sealed by Dr. Meera Iyer</li>
+      <li class="m"><time>20 Jan 2026</time>Lab report mentioned as pending, not in file</li>
+      <li><time>20 Jan 2026</time>Discharge summary received from Upvan Multispeciality Hospital</li>
+     </ol>
+     <p class="small" style="padding:0 0 12px"><a href="#">Show earlier</a></p>
+    </aside>
+   </div>
+  </div>
+  <p class="foot">Document index, not a clinical summary. Synthetic demo data. OncoSetu does not read images or make a diagnosis.</p>
+ </div>
+</div>
+<script src="shell.js"></script><script src="river.js"></script>
+<script>
+ const items=[
+  {type:'report',date:'2024-01-18',title:'Histopathology report',where:'Triveni Multispeciality Hospital'},
+  {type:'scan',date:'2024-02-02',title:'CT chest',where:'Upvan Multispeciality Hospital'},
+  {type:'lab',date:'2024-02-05',title:'Blood tests',where:'Nirnay lab'},
+  {type:'rx',date:'2024-02-10',title:'Prescription',where:'Upvan Multispeciality Hospital'},
+  {type:'report',date:'2024-06-20',title:'Discharge summary',where:'Upvan Multispeciality Hospital'},
+  {type:'scan',date:'2024-11-14',title:'CT abdomen',where:'City Care Hospital, Nagpur'},
+  {type:'letter',date:'2024-12-12',title:'Referral letter',where:'Upvan Multispeciality Hospital'},
+  {type:'report',date:'2026-01-20',title:'Discharge summary',where:'Upvan Multispeciality Hospital'},
+  {type:'scan',date:'2026-02-10',title:'CT chest',where:'Upvan Multispeciality Hospital'},
+  {type:'lab',date:'2026-02-16',title:'Blood tests',where:'Upvan Multispeciality Hospital'},
+  {type:'rx',date:'2026-02-16',title:'Prescription',where:'Upvan Multispeciality Hospital'},
+  {type:'scan',date:'2026-04-14',title:'PET-CT, whole body',where:'City Care Hospital, Nagpur'},
+  {type:'lab',date:'2026-05-20',title:'Lab report',where:'Sarthak lab'},
+  {type:'scan',date:'2026-06-08',title:'Chest X-ray',where:'City Care Hospital, Nagpur'},
+  {type:'lab',date:'2026-01-20',title:'Laboratory report, mentioned as pending',where:'Upvan Multispeciality Hospital',missing:true,src:'Discharge summary, p.1'},
+  {type:'report',date:'2026-04-14',title:'Report for the PET-CT',where:'City Care Hospital, Nagpur',missing:true,src:'patient said'},
+  {type:'rx',date:'2026-05-12',title:'Prescription from City Care Hospital, Nagpur',where:'place not stated',missing:true,src:'patient said'}
+ ];
+ function draw(){buildRiver(document.getElementById('riv'),{items,start:'2024-01-01',end:'2026-06-30',marks:[{date:'2026-02-16',label:'Last sealed visit'}]});}
+ draw(); addEventListener('resize',draw);
+ document.getElementById('lg').innerHTML=['report','scan','lab','rx','letter'].map(t=>'<span>'+OncoGlyph(t,false,16)+OncoTypeName[t]+'</span>').join('')+'<span>'+OncoGlyph('report',true,16)+'Hollow amber: mentioned but not in file</span>';
+ [['g1','scan'],['g2','lab'],['g3','scan'],['g4','letter']].forEach(([id,t])=>document.getElementById(id).innerHTML=OncoGlyph(t,false,18));
+ if(location.search.includes('tip')) setTimeout(()=>document.getElementById('riv')._show(document.getElementById('riv')._sorted.findIndex(i=>i.missing&&i.type==='report')),200);
+</script>
+</body>
+</html>

@@ -52,9 +52,9 @@ describe('rule library', () => {
   it('rules.yaml and RULES_YAML are identical (runtime needs no fs)', () => {
     expect(readFileSync(new URL('./rules.yaml', import.meta.url), 'utf8')).toBe(RULES_YAML)
   })
-  it('has the 10 Appendix F rules, all unreviewed', () => {
+  it('has the 10 Appendix F rules, the scan-without-report rule and the earlier-study rule, all unreviewed', () => {
     expect(RADAR_RULES.map((r) => r.id).sort()).toEqual(
-      ['RAD-ADM-DS-01', 'RAD-CHEMO-PRIOR-01', 'RAD-HPE-IHC-01', 'RAD-IMG-PT-01', 'RAD-MOL-01', 'RAD-PEND-01', 'RAD-REF-01', 'RAD-RT-SUM-01', 'RAD-RX-OUT-01', 'RAD-SURG-HPE-01'].sort(),
+      ['RAD-ADM-DS-01', 'RAD-CHEMO-PRIOR-01', 'RAD-HPE-IHC-01', 'RAD-IMG-PRIOR-01', 'RAD-IMG-PT-01', 'RAD-IMG-RPT-01', 'RAD-MOL-01', 'RAD-PEND-01', 'RAD-REF-01', 'RAD-RT-SUM-01', 'RAD-RX-OUT-01', 'RAD-SURG-HPE-01'].sort(),
     )
     expect(RADAR_RULES.every((r) => r.clinician_reviewed === false && r.version === 1)).toBe(true)
   })
@@ -106,9 +106,15 @@ describe('RAD-SURG-HPE-01', () => {
     expect(r.items).toEqual([])
     expect(r.closureProposals).toEqual([{ dedupeKey: dedupeKeyFor('RAD-SURG-HPE-01', 'e-wle'), documentId: 'd-hpe' }])
   })
-  it('E-RAD-01 report from another institution → proposed with "institution differs" note', () => {
+  it('REC-05: a tissue report from a laboratory is proposed for the hospital that did the procedure, flagged for a person', () => {
     const r = run({ events: [WLE], documents: [DS, doc('d-hpe', 'pathology_report', '2026-03-20', 'Metro Labs')] })
+    expect(r.items).toEqual([])
     expect(r.closureProposals).toEqual([{ dedupeKey: dedupeKeyFor('RAD-SURG-HPE-01', 'e-wle'), documentId: 'd-hpe', note: 'institution_differs' }])
+  })
+  it('E-RAD-01 still holds for a paper that is not from a laboratory: another hospital is never proposed', () => {
+    const adm = ev('admission_documented', { institution_name: 'City Cancer Hospital' }, '2026-03-12', 'd-op', { id: 'e-adm' })
+    const r = run({ events: [adm], documents: [doc('d-op', 'consult_note', '2026-04-01'), doc('d-ds2', 'discharge_summary', '2026-03-20', 'Metro Labs')] })
+    expect(r.closureProposals).toEqual([])
   })
   it('prefers the same-institution report when both exist', () => {
     const r = run({ events: [WLE], documents: [DS, doc('a-other', 'pathology_report', '2026-03-14', 'Metro Labs'), doc('z-same', 'pathology_report', '2026-04-20', 'CITY CANCER HOSPITAL, Pune')] })
@@ -261,6 +267,15 @@ describe('patient-statement rules', () => {
     const r2 = run({ statements: [stmt('s3', { medicationNames: ['Letrozole'], institutionName: 'Sunrise Clinic' })] })
     expect(r2.items[0].wording.en).toContain('from Sunrise Clinic')
   })
+  it('a paper from a different hospital is not proposed for a statement that names one (proposed never crosses hospitals)', () => {
+    const s = stmt('s4', { medicationNames: ['Letrozole'], institutionName: 'City Care Hospital, Nagpur', statedDate: '2026-10-05' })
+    const other = doc('d-rx', 'prescription_printed', '2026-10-04', 'Madhyam Day-Care Centre')
+    const r = run({ statements: [s], documents: [other] })
+    expect(r.closureProposals).toEqual([])
+    expect(r.items).toHaveLength(1)
+    const same = run({ statements: [s], documents: [other, doc('d-rx2', 'prescription_printed', '2026-10-06', 'City Care Hospital')] })
+    expect(same.closureProposals).toEqual([{ dedupeKey: same.closureProposals[0].dedupeKey, documentId: 'd-rx2' }])
+  })
 })
 
 describe('modes (FR-RAD-05, E-RAD-03)', () => {
@@ -401,5 +416,106 @@ describe('one paper, one item (10 Nov 2026)', () => {
     const OPD = doc('d-opd', 'consult_note', '2026-03-14')
     const other = ev('report_pending_documented', { test_name: 'HPE' }, '2026-03-14', 'd-opd', { id: 'e-pend3' })
     expect(run({ events: [WLE, other], documents: [DS, OPD] }).items.filter((i) => i.expectedTypes.includes('pathology_report'))).toHaveLength(2)
+  })
+})
+
+describe('RAD-IMG-RPT-01: a scan with no written report', () => {
+  const scan = (id: string, label: string, studyDate: string | null, modality = 'CT', extra: Partial<CoreDocument> = {}) =>
+    ({ ...doc(id, 'other', studyDate, 'City Care Hospital', extra), imaging: { modality, modalities: [modality], label, studyDate } })
+  const PETCT = scan('d-pet', 'PET-CT', '2026-04-28', 'PT')
+  it('raises "Report for the <modality> on <date> not in file", quoting only the file header', () => {
+    const out = run({ documents: [PETCT] })
+    expect(out.items).toHaveLength(1)
+    expect(out.items[0]).toMatchObject({ ruleId: 'RAD-IMG-RPT-01', triggerKind: 'document', triggerEventId: 'd-pet', expectedTypes: ['imaging_report'] })
+    expect(out.items[0].wording.en).toBe('Report for the PET-CT on 28 Apr 2026 not in file (scan file).')
+    expect(lintText(`${out.items[0].neutralWording.en} ${out.items[0].neutralWording.hi}`, ['diagnosis', 'radar'])).toEqual([])
+  })
+  it('proposes closure (never closes) when an imaging report dated within the window arrives', () => {
+    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29', 'City Care Hospital')
+    const out = run({ documents: [PETCT, rpt] })
+    expect(out.items).toHaveLength(0)
+    expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-rpt' })])
+  })
+  it('a report from another hospital is not proposed', () => {
+    const out = run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-04-29', 'Metro Labs')] })
+    expect(out.items).toHaveLength(1)
+    expect(out.closureProposals).toEqual([])
+  })
+  it('REC-06: the written report dated the same day is the scan\'s report even when another place wrote it, flagged for a person', () => {
+    const out = run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-04-28', 'Metro Labs')] })
+    expect(out.items).toHaveLength(0)
+    expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-rpt', note: 'institution_differs' })])
+  })
+  it('a report from another date does not close it', () => {
+    expect(run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-06-01')] }).items).toHaveLength(1)
+  })
+  it('ignores ECG, files with no date, detached scans and scans dated in the future', () => {
+    expect(run({ documents: [scan('d-ecg', 'ECG', '2026-04-28', 'ECG'), scan('d-nd', 'CT scan', null), scan('d-fut', 'CT scan', '2027-01-01'), scan('d-det', 'CT scan', '2026-04-28', 'CT', { detachedAt: '2026-05-01T00:00:00Z' })] }).items).toHaveLength(0)
+  })
+  it('one study sent as several files makes one item', () => {
+    expect(run({ documents: [scan('d-a', 'CT scan', '2026-04-12'), scan('d-b', 'CT scan', '2026-04-12')] }).items).toHaveLength(1)
+  })
+  it('is deterministic in the input order', () => {
+    const docs = [PETCT, scan('d-ct', 'CT scan', '2026-04-12')]
+    expect(run({ documents: docs })).toEqual(run({ documents: [...docs].reverse() }))
+  })
+})
+
+describe('RAD-IMG-PRIOR-01: an earlier study the report names', () => {
+  const QUOTE = 'Compared with prior MRI dated 12 Feb 2025, the lesion is new.'
+  const RPT = doc('d-mr', 'imaging_report', '2026-08-14', 'City Care Hospital')
+  const prior = (id: string, test: string, date: string, quote = QUOTE, docId = 'd-mr') =>
+    ev('imaging_report_documented', { test_name: test, event_date_text: date }, date, docId, { id, evidence: [{ documentId: docId, pageNo: 1, charStart: 0, charEnd: 10, quote, quoteSha256: 'h' }] })
+  const MRI_PRIOR = prior('e-prior', 'MRI', '2025-02-12')
+  const scan = (id: string, label: string, studyDate: string, modality: string) => ({ ...doc(id, 'other', studyDate, 'City Care Hospital'), imaging: { modality, modalities: [modality], label, studyDate } })
+  const items = (o: ReturnType<typeof run>) => o.items.filter((i) => i.ruleId === 'RAD-IMG-PRIOR-01')
+
+  it('raises "Report for the <modality> on <date> not in file", quoting only the report that named it', () => {
+    const out = run({ events: [MRI_PRIOR], documents: [RPT] })
+    expect(items(out)).toHaveLength(1)
+    expect(items(out)[0]).toMatchObject({ triggerEventId: 'e-prior', triggerKind: 'event', expectedTypes: ['imaging_report'] })
+    expect(items(out)[0].wording.en).toBe('Report for the MRI on 12 Feb 2025 not in file (Imaging report, p.1).')
+    expect(lintText(`${items(out)[0].neutralWording.en} ${items(out)[0].neutralWording.hi}`, ['diagnosis', 'radar'])).toEqual([])
+  })
+  it('a second prior study with its own date is its own item', () => {
+    const ct = prior('e-ct', 'CT', '2025-08-26', 'Previous CT of 26 Aug 2025 showed a smaller lesion.')
+    expect(items(run({ events: [MRI_PRIOR, ct], documents: [RPT] })).map((i) => i.wording.en.slice(0, 31))).toEqual(['Report for the MRI on 12 Feb 20', 'Report for the CT on 26 Aug 202'])
+  })
+  it('the same study named in two reports makes one item', () => {
+    const RPT2 = doc('d-mr2', 'imaging_report', '2026-10-01', 'City Care Hospital')
+    expect(items(run({ events: [MRI_PRIOR, prior('e-prior2', 'MRI brain', '2025-02-12', QUOTE, 'd-mr2')], documents: [RPT, RPT2] }))).toHaveLength(1)
+  })
+  it('no item when a report of that study is on file near that date, and a closure is proposed', () => {
+    const old = doc('d-old', 'imaging_report', '2025-02-13', 'City Care Hospital')
+    const out = run({ events: [MRI_PRIOR, prior('e-old', 'MRI brain', '2025-02-13', 'MRI brain study.', 'd-old')], documents: [RPT, old] })
+    expect(items(out)).toHaveLength(0)
+    expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-old' })])
+  })
+  it('a report of another kind of study near that date does not count', () => {
+    const ct = doc('d-ct', 'imaging_report', '2025-02-12', 'City Care Hospital')
+    expect(items(run({ events: [MRI_PRIOR, prior('e-ctt', 'CT chest', '2025-02-12', 'CT chest.', 'd-ct')], documents: [RPT, ct] }))).toHaveLength(1)
+  })
+  it('a stored scan of that kind near that date is the study on file: no duplicate of the scan-without-report item', () => {
+    const out = run({ events: [MRI_PRIOR], documents: [RPT, scan('d-s', 'MR brain', '2025-02-12', 'MR')] })
+    expect(items(out)).toHaveLength(0)
+    expect(out.items.filter((i) => i.ruleId === 'RAD-IMG-RPT-01')).toHaveLength(1)
+  })
+  it('a scan of another kind does not count', () => {
+    expect(items(run({ events: [MRI_PRIOR], documents: [RPT, scan('d-s', 'CT chest', '2025-02-12', 'CT')] }))).toHaveLength(1)
+  })
+  it('a report far from that date does not count', () => {
+    expect(items(run({ events: [MRI_PRIOR], documents: [RPT, doc('d-far', 'imaging_report', '2025-04-12')] }))).toHaveLength(1)
+  })
+  it('ignores a study that is not named as an earlier one, and one dated on or after the report itself', () => {
+    expect(items(run({ events: [prior('e-a', 'MRI', '2025-02-12', 'MRI brain dated 12 Feb 2025.')], documents: [RPT] }))).toHaveLength(0)
+    expect(items(run({ events: [prior('e-b', 'MRI', '2026-08-14', 'MRI brain compared with the earlier study.')], documents: [RPT] }))).toHaveLength(0)
+  })
+  it('ignores a study with no kind, a report with no date and a study dated in the future', () => {
+    expect(items(run({ events: [prior('e-c', 'study', '2025-02-12')], documents: [RPT] }))).toHaveLength(0)
+    expect(items(run({ events: [MRI_PRIOR], documents: [doc('d-mr', 'imaging_report', null)] }))).toHaveLength(0)
+  })
+  it('is deterministic in the input order', () => {
+    const ct = prior('e-ct', 'CT', '2025-08-26', 'Previous CT of 26 Aug 2025 showed a smaller lesion.')
+    expect(run({ events: [MRI_PRIOR, ct], documents: [RPT] })).toEqual(run({ events: [ct, MRI_PRIOR], documents: [RPT] }))
   })
 })

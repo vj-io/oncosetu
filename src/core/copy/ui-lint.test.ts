@@ -13,8 +13,6 @@ const ROOT = fileURLToPath(new URL('../../..', import.meta.url))
 const PATIENT_SURFACES = ['src/app/(patient)/', 'src/components/portal/', 'src/app/s/', 'src/components/shares/']
 
 const ALLOW: { file: string; term: string; why: string }[] = [
-  { file: 'src/app/page.tsx', term: 'recommend*', why: 'the intended-use statement and the footer say the product does NOT recommend' },
-  { file: 'src/app/page.tsx', term: 'risk', why: 'the intended-use statement: it does not "risk-score"' },
   { file: 'src/app/(staff)/patients/[id]/documents/[docId]/page.tsx', term: 'urgency', why: 'staff-only evidence-gate log: names the advice or urgency wording a model value was rejected for' },
   { file: 'src/components/documents/labels.ts', term: 'risk', why: 'staff-only evidence-gate reason: a model asked for a judgement (stage, risk, …), which is never recorded' },
   { file: 'src/app/(patient)/layout.tsx', term: 'onco*', why: 'the tab title says OncoSetu only for a signed-in patient whose disclosure is cleared' },
@@ -50,7 +48,8 @@ function texts(path: string, source = readFileSync(path, 'utf8')): { line: numbe
 
 describe('copy lint: screens (src/app, src/components)', () => {
   it('no clinical-judgement words anywhere; no diagnosis words on patient surfaces', () => {
-    const all = [...files(join(ROOT, 'src/app')), ...files(join(ROOT, 'src/components'))].map((p) => relative(ROOT, p))
+    // Normalise to forward slashes: Windows reports backslashes, but ALLOW and PATIENT_SURFACES use '/'.
+    const all = [...files(join(ROOT, 'src/app')), ...files(join(ROOT, 'src/components'))].map((p) => relative(ROOT, p).replace(/\\/g, '/'))
     expect(all.length).toBeGreaterThan(100) // the walk actually found the screens
     const used = new Set<number>()
     const failures: string[] = []

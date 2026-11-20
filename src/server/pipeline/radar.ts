@@ -3,8 +3,8 @@
 import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, events, evidence, missingRecords, patientStatements, recordRequests, ruleStates } from '@/db/schema'
-import { runRadar, transitionMissing, type RadarOutput, type RuleMode } from '@/core/radar'
-import { EVENT_FLAGS, type CoreDocument, type CoreEvent, type CoreStatement, type DocType, type EventFlag, type MissingState } from '@/core/types'
+import { runRadar, transitionMissing, type RadarDocument, type RadarOutput, type RuleMode } from '@/core/radar'
+import { EVENT_FLAGS, type CoreEvent, type CoreStatement, type DocType, type EventFlag, type MissingState } from '@/core/types'
 import { now } from '@/server/clock'
 
 /** States a person set (or that follow a person's action): the engine never moves a row out of these. */
@@ -14,7 +14,7 @@ const HUMAN_STATES: MissingState[] = ['requested', 'closed', 'unobtainable', 'di
 export const rowKey = (patientId: string, engineKey: string) => `${patientId}:${engineKey}`
 
 /** The patient's current record in core shapes: attached, non-withdrawn events; attached documents; confirmed statements. */
-export async function loadRecord(tx: Tx, patientId: string): Promise<{ events: CoreEvent[]; documents: CoreDocument[]; statements: CoreStatement[] }> {
+export async function loadRecord(tx: Tx, patientId: string): Promise<{ events: CoreEvent[]; documents: RadarDocument[]; statements: CoreStatement[] }> {
   const docs = await tx.select().from(documents).where(and(
     eq(documents.patientId, patientId), inArray(documents.attachState, ['auto', 'attached']), notInArray(documents.status, ['quarantined', 'failed']),
   ))
@@ -27,6 +27,7 @@ export async function loadRecord(tx: Tx, patientId: string): Promise<{ events: C
     documents: docs.map((d) => ({
       id: d.id, docType: (d.docType ?? 'other') as DocType, documentDate: d.documentDate, datePrecision: 'day', receivedAt: d.receivedAt.toISOString(),
       institution: d.institutionName, sha256: d.sha256, amendmentOf: d.amendmentOf, duplicateOf: d.duplicateOf, detachedAt: null,
+      imaging: scanFacts(d.flags),
     })),
     events: evs.map((e) => ({
       id: e.id, eventType: e.eventType, fields: e.fields as CoreEvent['fields'], eventDate: e.eventDate, datePrecision: e.datePrecision,
@@ -48,6 +49,13 @@ export async function loadRecord(tx: Tx, patientId: string): Promise<{ events: C
       }
     }),
   }
+}
+
+/** Header facts of a stored scan (flags.imaging) for the "scan has no written report" check; null for anything else. */
+function scanFacts(flags: Record<string, unknown>): RadarDocument['imaging'] {
+  const im = flags.imaging as { modality?: string | null; modalities?: string[]; studyLabel?: string; modalityLabel?: string; studyDate?: string | null } | undefined
+  const label = im?.studyLabel ?? im?.modalityLabel
+  return im && label ? { modality: im.modality ?? null, modalities: im.modalities, label, studyDate: im.studyDate ?? null } : null
 }
 
 type MissingRow = Pick<typeof missingRecords.$inferSelect, 'id' | 'dedupeKey' | 'state' | 'proposedDocumentId'> & { matchWindow?: Record<string, unknown> | null }

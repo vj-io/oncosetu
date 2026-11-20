@@ -260,6 +260,8 @@ export const documents = pgTable('documents', {
   lockedAt: tsz('locked_at'),
   attempts: integer('attempts').notNull().default(0),
   lastError: text('last_error'), // error code only
+  /** Where the reading is while a runner works (0026): { page, total } for "Reading page 7 of 16". Null otherwise. */
+  readProgress: jsonb('read_progress').$type<{ page: number; total: number }>(),
   identityResult: identityResult('identity_result').notNull().default('pending'),
   identityDetails: jsonb('identity_details').$type<Record<string, unknown>>(),
   attachState: attachState('attach_state').notNull().default('pending_decision'),
@@ -328,6 +330,19 @@ export const documentPages = pgTable('document_pages', {
   uniqueIndex('document_pages_doc_page_uq').on(t.documentId, t.pageNo).where(sql`superseded_at is null`),
   index('document_pages_doc_idx').on(t.documentId),
 ])
+
+/**
+ * 0026: one OCR'd page of a long scan, saved the moment it is read, so a retry after a crash or a lost lock resumes at the next
+ * page instead of reading the whole file again. Working data only: cleared when the document finishes, fails or is reprocessed.
+ */
+export const documentReadCache = pgTable('document_read_cache', {
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
+  orgId: orgId(),
+  patientId: patientId(),
+  pageNo: integer('page_no').notNull(),
+  data: jsonb('data').$type<Record<string, unknown>>().notNull(),
+  createdAt: createdAt(),
+}, (t) => [primaryKey({ columns: [t.documentId, t.pageNo] })])
 
 // ── events, evidence, statements, verification ───────────────────────────────
 export const events = pgTable('events', {
@@ -490,6 +505,8 @@ export const shareLinks = pgTable('share_links', {
   iv: text('iv').notNull(),
   expiresAt: tsz('expires_at').notNull(),
   passcodeHash: text('passcode_hash'),
+  /** Who the link is for, in the creator's words (plain text, never inside the encrypted record). */
+  label: text('label'),
   attempts: integer('attempts').notNull().default(0),
   lockedAt: tsz('locked_at'),
   revokedAt: tsz('revoked_at'),
@@ -793,6 +810,8 @@ export const RLS_TABLES = [
   'privacy_acknowledgements', 'id_verifications', // 0014
   'upload_sessions', 'upload_chunks', // 0015
   'signed_consents', // 0016
+  'document_links', // 0023
+  'document_read_cache', // 0026
 ] as const
 
 // ── privacy, ID and chunked uploads (0014, 0015) ─────────────────────────────

@@ -130,7 +130,8 @@ describe('opaque token (FR-ID-01)', () => {
     expect(tokenHash(` ${t.toLowerCase()} `)).toBe(tokenHash(t))
     expect(canonicalToken(groupToken(t))).toBe(t)
     expect(isTokenShape('short')).toBe(false)
-    expect(isTokenShape('1'.repeat(26))).toBe(false) // base32 has no 0/1/8/9
+    expect(isTokenShape('9'.repeat(26))).toBe(false) // base32 has no 9
+    expect(tokenHash('60GR-3OH0-1B8I')).toBe(tokenHash('6OGR-3OHO-IBBI')) // 0, 1 and 8 are read as O, I and B (DESK-01)
   })
 })
 

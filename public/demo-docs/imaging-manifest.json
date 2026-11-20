@@ -126,5 +126,47 @@
     "demoStep": "video: stored and played, not read",
     "kind": "video",
     "expect": "Video file - stored, not read; plays inline"
+  },
+  {
+    "file": "returning__17-ct-chest-earlier.zip",
+    "patientKey": "returning",
+    "title": "CT chest, 10 slices in a ZIP, 10 Nov 2025 (earlier study of the same area)",
+    "demoStep": "imaging: earlier study for comparison",
+    "kind": "zip",
+    "studyDate": "2025-11-10",
+    "expect": "one CT study of 10 images dated 10 Nov 2025; the 12 Apr 2026 CT chest lists it under earlier studies"
+  },
+  {
+    "file": "returning__18-ct-chest-report-earlier.pdf",
+    "patientKey": "returning",
+    "title": "CT chest report, 10 Nov 2025 (typed PDF)",
+    "demoStep": "imaging: the report of the earlier CT",
+    "kind": "pdf",
+    "expect": "imaging report dated 10 Nov 2025, pairs with returning__17"
+  },
+  {
+    "file": "hero__19-mammogram-report.pdf",
+    "patientKey": "hero",
+    "title": "Mammography report, 5 Jan 2026 (typed PDF)",
+    "demoStep": "imaging: report of the mammogram (hero__14)",
+    "kind": "pdf",
+    "expect": "imaging report dated 5 Jan 2026, pairs with hero__14"
+  },
+  {
+    "file": "hero__20-breast-ultrasound.dcm",
+    "patientKey": "hero",
+    "title": "Breast ultrasound, 12 frames (DICOM), 8 Jan 2026",
+    "demoStep": "imaging: breast ultrasound",
+    "kind": "dicom",
+    "studyDate": "2026-01-08",
+    "expect": "identity: match; Ultrasound study of 12 frames"
+  },
+  {
+    "file": "hero__21-breast-ultrasound-report.pdf",
+    "patientKey": "hero",
+    "title": "Breast ultrasound report, 8 Jan 2026 (typed PDF)",
+    "demoStep": "imaging: report of the breast ultrasound (hero__20)",
+    "kind": "pdf",
+    "expect": "imaging report dated 8 Jan 2026, pairs with hero__20"
   }
 ]

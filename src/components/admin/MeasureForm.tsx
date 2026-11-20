@@ -14,23 +14,23 @@ const IMPACTS: [string, string][] = [
 const REASONS: [string, string][] = [['unavailable', 'Earlier result unavailable'], ['quality', 'Earlier result of poor quality'], ['clinical_need', 'Clinical need']]
 
 /** The 60-second consultation form (§16.4). It holds no patient field: the only link is an encounter id. */
-export function MeasureForm({ encounters, today }: { encounters: EncounterOption[]; today: string }) {
+export function MeasureForm({ encounters, today, initialEncounterId }: { encounters: EncounterOption[]; today: string; initialEncounterId?: string }) {
   const { busy, run } = useRun()
-  const [encounterId, setEncounterId] = useState('')
+  const [encounterId, setEncounterId] = useState(initialEncounterId && encounters.some((e) => e.id === initialEncounterId) ? initialEncounterId : '')
   const [date, setDate] = useState(today)
   const [phase, setPhase] = useState('baseline')
   const [firstVisit, setFirstVisit] = useState(true)
-  const [missing, setMissing] = useState<'no' | 'yes'>('no')
+  const [missing, setMissing] = useState<'' | 'no' | 'yes'>('') // no pre-picked answer: one click must not record a negative (DOC-11)
   const [count, setCount] = useState('1')
   const [types, setTypes] = useState<DocType[]>([])
-  const [impact, setImpact] = useState('none')
+  const [impact, setImpact] = useState('')
   const [repeat, setRepeat] = useState(false)
   const [reason, setReason] = useState('')
   const [prep, setPrep] = useState('')
 
   const present = missing === 'yes'
   const effectiveImpact = impact
-  const ready = !!date && (!present || (Number(count) >= 1)) && (!repeat || !!reason) && (effectiveImpact !== 'repeat_test_ordered' || repeat)
+  const ready = !!date && missing !== '' && impact !== '' && (!present || (Number(count) >= 1)) && (!repeat || !!reason) && (effectiveImpact !== 'repeat_test_ordered' || repeat)
 
   function pickEncounter(id: string) {
     setEncounterId(id)
@@ -44,7 +44,7 @@ export function MeasureForm({ encounters, today }: { encounters: EncounterOption
       missingRecordCount: present ? Number(count) : 0, missingTypes: present ? types : [], impact, repeatTestOrdered: repeat,
       repeatTestReason: repeat ? reason : null, prepMinutes: prep === '' ? null : Number(prep),
     }), 'Consultation recorded')
-    if (r) { setEncounterId(''); setMissing('no'); setTypes([]); setImpact('none'); setRepeat(false); setReason(''); setPrep(''); setCount('1') }
+    if (r) { setEncounterId(''); setMissing(''); setTypes([]); setImpact(''); setRepeat(false); setReason(''); setPrep(''); setCount('1') }
   }
 
   return (
@@ -65,7 +65,7 @@ export function MeasureForm({ encounters, today }: { encounters: EncounterOption
       <fieldset className="grid gap-4 border border-rule p-4">
         <legend className="ds-kicker px-2">Referenced but absent</legend>
         <Field label="Was at least one referenced document missing from the file?">
-          <Select value={missing} onChange={(e) => setMissing(e.target.value as 'no' | 'yes')}><option value="no">No, nothing missing</option><option value="yes">Yes, at least one</option></Select>
+          <Select value={missing} required onChange={(e) => setMissing(e.target.value as '' | 'no' | 'yes')}><option value="">Choose an answer</option><option value="no">No, nothing missing</option><option value="yes">Yes, at least one</option></Select>
         </Field>
         {present && (
           <>
@@ -85,7 +85,7 @@ export function MeasureForm({ encounters, today }: { encounters: EncounterOption
 
       <fieldset className="grid gap-4 border border-rule p-4">
         <legend className="ds-kicker px-2">Impact</legend>
-        <Field label="Impact of missing records on this consultation"><Select value={impact} onChange={(e) => setImpact(e.target.value)}>{IMPACTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
+        <Field label="Impact of missing records on this consultation"><Select value={impact} required onChange={(e) => setImpact(e.target.value)}><option value="">Choose an answer</option>{IMPACTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
         <Checkbox label="A test was re-ordered that the patient reports having had elsewhere" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />
         {repeat && <Field label="Reason for the repeat test"><Select value={reason} onChange={(e) => setReason(e.target.value)}><option value="">Choose a reason</option>{REASONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>}
         {impact === 'repeat_test_ordered' && !repeat && <p className="text-sm text-madder-ink">Tick the re-ordered test box above to record this impact.</p>}

@@ -5,7 +5,7 @@ import { requireStaff } from '@/server/session'
 
 export const metadata = { title: 'Your sign-ins · OncoSetu' }
 
-const when = (d: Date) => d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+const when = (d: Date) => d.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false })
 
 /** ASVS 3.3.3 / 3.3.4: where this account is signed in, and a way to end the others (a lost phone, a shared desk computer). */
 export default async function SessionsPage() {

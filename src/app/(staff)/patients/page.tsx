@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
-import { TourButton } from '@/components/shell/Tour'
+import { CircleHelp, EyeOff, ShieldCheck } from 'lucide-react'
 import { withOrg } from '@/db'
 import { writeAudit } from '@/server/audit'
 import { patientGlances } from '@/server/registration/doctor-overview'
@@ -8,7 +8,11 @@ import { searchPatients } from '@/server/registration/search'
 import { requireStaff } from '@/server/session'
 
 const DATE = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
-const DISCLOSURE = { cleared: 'Diagnosis may be discussed', not_cleared: 'Do not discuss diagnosis', unknown: 'Not yet recorded' } as const
+const DISCLOSURE = {
+  cleared: { label: 'Diagnosis may be discussed', icon: ShieldCheck, cls: 'text-sage-ink' },
+  not_cleared: { label: 'Do not discuss the diagnosis with the patient', icon: EyeOff, cls: 'text-madder-ink' },
+  unknown: { label: 'Diagnosis disclosure not yet recorded: use neutral words', icon: CircleHelp, cls: 'text-faint' },
+} as const
 
 const Num = ({ n, hot = false }: { n: number; hot?: boolean }) => <span className={n ? (hot ? 'font-mono font-medium text-amber-ink tabular-nums' : 'font-mono tabular-nums') : 'font-mono text-faint tabular-nums'}>{n}</span>
 
@@ -19,14 +23,14 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const { rows, glance } = await withOrg(s.orgId, async (tx) => {
     const found = await searchPatients(tx, q)
     if (q.trim()) await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'patient.search', details: { results: found.length, role: s.role } })
-    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id)) }
+    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id), s.orgId) }
   })
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-8">
       <SectionHeader
         as="h1" kicker="Patients" title="Patients"
         description={desk ? 'The desk sees initials only. Open a record through Desk lookup, which checks who the person is first.' : 'Search by name, phone number, hospital number or record code. Each row shows what needs a look before the visit.'}
-        actions={<>{!desk && <TourButton />}<ButtonLink href="/patients/new">Register a patient</ButtonLink></>}
+        actions={<ButtonLink href="/patients/new">Register a patient</ButtonLink>}
       />
       <form role="search" className="flex flex-wrap gap-2" action="/patients">
         <label className="sr-only" htmlFor="q">Search patients</label>
@@ -44,29 +48,39 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
           <thead>
             <tr>
               <th>Patient</th>
-              {!desk && <><th>Age · sex</th><th className="text-right">Documents</th><th className="text-right">Papers not in file</th><th className="text-right">New since last seal</th><th>Last sealed</th></>}
-              <th>Diagnosis may be discussed?</th><th>Consent</th><th>Record code</th><th className="relative"><span className="sr-only">Open</span></th>
+              {!desk && <><th>Age · sex</th><th className="text-right">New since last visit</th><th className="text-right">Missing papers</th><th>Last visit sealed</th></>}
+              {desk && <th className="text-right"><span className="sr-only">Action</span></th>}
             </tr>
           </thead>
           <tbody>
             {rows.map((r) => {
               const g = glance.get(r.id)
+              const D = DISCLOSURE[r.disclosure]
+              const href = desk ? `/desk?patient=${r.id}` : `/patients/${r.id}/overview`
+              const masked = desk || !r.hasConsent
               return (
                 <tr key={r.id}>
-                  <td>{desk || !r.hasConsent ? <span className="font-display text-lg">{r.initials}</span> : <span>{r.name}{r.minor && <> <Badge tone="unverified">Minor</Badge></>}{r.deceased && <> <Badge tone="shadow">Deceased</Badge></>}</span>}</td>
+                  <td>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {r.unreadable
+                        ? <span className="text-[15px] font-medium text-madder-ink" data-testid="unreadable-row">{r.name}</span>
+                        : <Link href={href} className={masked ? 'font-display text-lg underline decoration-brass underline-offset-4' : 'text-[15px] font-medium text-ink underline decoration-brass underline-offset-4'}>{masked ? r.initials : r.name}</Link>}
+                      {!masked && r.minor && <Badge tone="unverified">Minor</Badge>}
+                      {!masked && r.deceased && <Badge tone="shadow">Deceased</Badge>}
+                      {!desk && !r.hasConsent && !r.unreadable && <Badge tone="shadow">No consent on file</Badge>}
+                      {!desk && <span title={D.label} className={`inline-flex ${D.cls}`}><D.icon aria-hidden className="size-4" /><span className="sr-only">{D.label}</span></span>}
+                    </div>
+                    <p className="mt-0.5 font-mono text-[11px] tracking-[0.08em] text-faint">{r.accession}</p>
+                  </td>
                   {!desk && (
                     <>
-                      <td>{r.hasConsent ? `${r.ageYears ?? '—'} · ${r.sex}` : '—'}</td>
-                      <td className="text-right">{g ? <Num n={g.documents} /> : '—'}</td>
+                      <td className="whitespace-nowrap">{r.hasConsent ? `${r.ageYears ?? '—'} · ${r.sex}` : '—'}</td>
+                      <td className="text-right">{g ? (g.lastSealed ? <Num n={g.newSinceSeal} hot /> : <span className="text-[13px] text-muted"><Num n={g.newSinceSeal} /> on file, first visit</span>) : '—'}</td>
                       <td className="text-right">{g ? <Num n={g.notInFile} hot /> : '—'}</td>
-                      <td className="text-right">{g ? <Num n={g.newSinceSeal} hot /> : '—'}</td>
                       <td className="font-mono text-xs whitespace-nowrap">{g ? (g.lastSealed ? DATE.format(g.lastSealed) : 'Not yet') : '—'}</td>
                     </>
                   )}
-                  <td><Badge tone={r.disclosure === 'cleared' ? 'verified' : r.disclosure === 'not_cleared' ? 'conflict' : 'unverified'}>{DISCLOSURE[r.disclosure]}</Badge></td>
-                  <td>{r.hasConsent ? <Badge tone="verified">On file</Badge> : <Badge tone="shadow">None</Badge>}</td>
-                  <td className="font-mono text-xs">{r.accession}</td>
-                  <td><Link className="underline" href={desk ? `/desk?patient=${r.id}` : `/patients/${r.id}/overview`}>{desk ? 'Check identity' : 'Open'}</Link></td>
+                  {desk && <td className="text-right"><Link className="underline" href={href}>Check identity</Link></td>}
                 </tr>
               )
             })}

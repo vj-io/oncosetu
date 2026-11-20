@@ -59,7 +59,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
   const from = it.window.from ?? t?.date ?? undefined
   const to = it.window.to && it.window.to < today ? it.window.to : today
   const proposed = it.proposedDoc
-  const rows = [
+  const detailRows = [
     {
       label: 'Mentioned in',
       value: t ? (
@@ -70,11 +70,22 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
             {src && !view.desk && <> · <Link href={src} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Show the exact words<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
           </span>
         </span>
+      ) : it.scanDoc ? (
+        <span className="grid gap-1">
+          <span className="text-[14px] text-muted">
+            Scan on file: {it.scanDoc.scanLabel ?? 'scan'} · {it.scanDoc.documentDate ? formatDateIN(it.scanDoc.documentDate) : 'date not stated'}{it.scanDoc.institution ? ` · ${it.scanDoc.institution}` : ''}
+            {!view.desk && <> · <Link href={`/patients/${patientId}/documents/${it.scanDoc.id}`} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Open the scan<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
+          </span>
+          <span className="text-[13px] text-faint">The scan is stored, not read. This only notes that no written report came with it.</span>
+        </span>
       ) : 'Patient statement',
     },
     { label: 'Looking for', value: it.expectedTypes.map(docLabel).join(' or ') },
     ...(it.cycles.length ? [{ label: 'Covers', value: <span>Cycles {it.cycles.join(', ')}, asked for together in one request</span> }] : []),
     { label: 'Dated about', value: it.window.from || it.window.to ? `${d(it.window.from)} to ${d(it.window.to)}` : '—' },
+    { label: 'What happened', value: <History created={it.createdAt} entries={history} /> },
+  ]
+  const rows = [
     ...(proposed ? [{
       label: it.state === 'closed' ? 'Matched' : 'Proposed',
       value: (
@@ -93,7 +104,6 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
         </span>
       ),
     }] : []),
-    { label: 'What happened', value: <History created={it.createdAt} entries={history} /> },
   ]
   const listed = (view.neutral ? it.neutral : it.wording)[lang]
   // A received item is still open, but "not in file" next to a "Received" badge reads as a contradiction (mentor review).
@@ -101,7 +111,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
   const actions = (
     <MissingActions id={it.id} patientId={patientId} state={it.state} institutionDiffers={it.institutionDiffers} canAct={canAct} canRequest={canRequest}
       proposed={proposed ? { label: docLabel(proposed.docType), date: proposed.documentDate ? d(proposed.documentDate) : 'not stated', institution: proposed.institution, href: `/patients/${patientId}/documents/${proposed.id}` } : null}
-      prefill={{ missingIds: [it.id], institution: t?.institution ?? undefined, documents: it.expectedTypes, dateRange: { from, to } }} />
+      prefill={{ missingIds: [it.id], institution: t?.institution ?? it.scanDoc?.institution ?? undefined, documents: it.expectedTypes, dateRange: { from, to } }} />
   )
   return (
     <article id={`m-${it.id}`} data-tour={it.expectedTypes.includes('pathology_report') ? 'missing-histopath' : 'missing'} className="grid scroll-mt-32 gap-4 border-b border-rule pb-8 last:border-b-0">
@@ -118,7 +128,11 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
           </div>
         </div>
       )}
-      <KeyValue className="sm:ml-25" items={rows} />
+      {rows.length > 0 && <KeyValue className="sm:ml-25" items={rows} />}
+      <details className="group sm:ml-25">
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-setu-ink underline decoration-brass underline-offset-4">Where this came from, and what has happened</summary>
+        <KeyValue className="mt-2" items={detailRows} />
+      </details>
     </article>
   )
 }
@@ -162,6 +176,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
           <h2 id="open-h" className="text-xl tracking-[-0.02em] sm:text-2xl">Not in file</h2>
           <InfoTip>{EXPLAIN.completeness}</InfoTip>
           <span className="min-w-6 border border-rule bg-matte px-1.5 text-center font-mono text-xs text-muted tabular-nums">{c.open.length}</span>
+          {c.open.some((x) => x.state === 'received') && <span className="text-sm text-muted" data-testid="missing-split">{c.open.filter((x) => x.state !== 'received').length} not in file · {c.open.filter((x) => x.state === 'received').length} arrived, confirm</span>}
         </header>
         {c.open.length ? c.open.map((it, i) => (
           <Item key={it.id} it={it} index={i} patientId={id} lang={lang} today={today} history={c.history[it.id] ?? []} requests={c.requests[it.id] ?? []} canAct={canAct} canRequest={canRequest} view={view} />

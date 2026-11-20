@@ -15,7 +15,7 @@ export const SAFETY_META: Record<SafetyKind, { label: string; tone: SafetyTone; 
   handwriting: { label: 'Handwriting kept as an image', tone: 'unverified', explain: 'A handwritten page is shown as the original picture only. The software does not guess at handwriting.' },
   role_refused: { label: 'Refused by role', tone: 'conflict', explain: 'Someone tried to open a page their job role does not allow.' },
   no_consent: { label: 'Refused: no consent or ID check', tone: 'conflict', explain: 'A record was not opened because the patient had not consented or had not been verified.' },
-  break_glass: { label: 'Emergency access used', tone: 'conflict', explain: 'A clinician opened a record without consent, giving a reason. The patient is told and the reason is kept.' },
+  break_glass: { label: 'Emergency access used', tone: 'conflict', explain: 'A staff member opened a record without consent, giving a reason. The patient is told and the reason is kept.' },
   share_refused: { label: 'Share link refused', tone: 'unverified', explain: 'Someone opened a share link with the wrong passcode, after it expired, or after it was switched off.' },
   sms_limit: { label: 'SMS code limit reached', tone: 'unverified', explain: 'A phone asked for too many verification codes, so no further code was sent for a while.' },
   id_number_rejected: { label: 'Full ID number rejected', tone: 'unverified', explain: 'A full government ID number was typed where it must not be stored, and was refused.' },
@@ -79,6 +79,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
       if (why === 'forbidden' || why === 'break_glass_required') return mk('role_refused', `${roleWords(r.actorRole)} accounts cannot open patient records${why === 'break_glass_required' ? ' without emergency access' : ''}.`)
       return mk('no_consent', why === 'verification_required' ? 'The patient or contact had not yet confirmed a code at the desk.' : 'There was no active consent for this patient.')
     }
+    case 'access.desk_reopen_refused': return mk('no_consent', 'The desk tried to reopen a record, but the patient had not been verified today. A new code or in-person witness is needed.')
     case 'break_glass.granted': return mk('break_glass', r.reason ? `Reason given: “${r.reason}”` : 'A reason was recorded.')
     case 'share.locked': return mk('share_refused', 'The link was locked: too many wrong passcodes.', 'Someone with the link')
     case 'auth.otp_blocked': case 'auth.otp_limited': return mk('sms_limit', 'No sign-in code was sent: this phone has reached its limit of codes for now.')
@@ -99,7 +100,7 @@ export function describeSafety(r: RawSafety): SafetyEvent | null {
 
 /** The audit actions the loader must fetch. Kept next to the mapper so they cannot drift apart. */
 export const SAFETY_AUDIT_ACTIONS = [
-  'access.refused', 'break_glass.granted', 'share.locked', 'desk.otp_requested', 'consent.otp_requested', 'desk.verify_failed',
+  'access.refused', 'access.desk_reopen_refused', 'break_glass.granted', 'share.locked', 'desk.otp_requested', 'consent.otp_requested', 'desk.verify_failed',
   'identity.full_id_rejected', 'document.upload_rejected', 'document.quarantined', 'inbound.email_rejected', 'document.unreadable', 'document.duplicate_upload',
   'consent.withdrawn', 'consent.sign_withdraw', 'consent.withdraw', 'auth.otp_blocked', 'auth.otp_limited', 'erasure.executed',
 ] as const

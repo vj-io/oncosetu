@@ -28,9 +28,8 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
   return (
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tv(lang, 'kicker')}</Kicker>
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <div className="mt-3">
         <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tv(lang, 'title')}</h1>
-        <span data-testid="draft-badge" className="inline-flex items-center border border-amber bg-amber-tint px-2.5 py-1 font-mono text-[12px] tracking-[0.06em] text-amber-ink uppercase">{tv(lang, 'badge')}</span>
       </div>
       <p className="mt-3 max-w-prose text-muted">{tv(lang, 'intro')}</p>
 
@@ -45,6 +44,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
             initial={view.purposes}
             caregivers={view.caregivers}
             isPatient={ctx.session.kind === 'patient'}
+            minor={guardian}
             erasure={erasure && erasure.state !== 'cancelled' ? { state: erasure.state, eligibleAfter: erasure.eligibleAfter, completedAt: erasure.completedAt } : null}
             lastUpdated={view.recordedAt ? formatDateTimeIN(view.recordedAt, lang) : null}
           />
@@ -61,10 +61,8 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
             <li>{tv(lang, 'rightAccess')}</li>
             <li>{tv(lang, 'rightCorrect')}</li>
             <li>{tv(lang, 'rightErase')}</li>
-            <li>{tv(lang, 'rightGrievance')}</li>
+            <li>{tp(lang, 'rightGrievanceDesk')}</li>
           </ul>
-          <p className="font-mono text-[16px]" data-testid="grievance">{tv(lang, 'grievanceOfficer')}</p>
-          <p className="text-[16px] text-muted">{tv(lang, 'grievanceBlank')}</p>
         </section>
 
         <section aria-labelledby="id-h" className="grid gap-2 border border-rule bg-surface px-5 py-5">
@@ -77,10 +75,6 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
           <p className="text-[16px] text-muted">{tv(lang, 'idNote')}</p>
         </section>
 
-        <section aria-labelledby="future-h" className="grid gap-2 border border-dashed border-rule px-5 py-4">
-          <h2 id="future-h" className="text-lg">{tv(lang, 'futureTitle')}</h2>
-          <p className="text-[16px] text-muted">{tv(lang, 'futureText')}</p>
-        </section>
       </div>
       <p className="sr-only">{tp(lang, 'consentTitle')}</p>
     </PortalFrame>

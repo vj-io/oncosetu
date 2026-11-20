@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lintText, type Ruleset } from '@/core/copy'
-import { buildLetter, cycleList, DEFAULT_REQUEST_DOCS, letterText, neutralName, type LetterInput } from './letter'
+import { guardFree, buildLetter, cycleList, DEFAULT_REQUEST_DOCS, letterText, neutralName, type LetterInput } from './letter'
 
 const input: LetterInput = {
   lang: 'en', disclosure: 'not_cleared', requestId: '0193b000-0000-7000-8000-00000000abcd',
@@ -58,12 +58,20 @@ describe('neutralName and cycles', () => {
     expect(cycleList([2], 'en')).toBe('2')
     expect(cycleList([], 'en')).toBe('')
   })
-  it('names the cycles on the day-care line, neutrally', () => {
-    const l = buildLetter({ ...input, institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
-    expect(l.to.institution).toBe('Kasturi Day-Care Unit')
+  it('names the cycles on the day-care line only when disclosure is cleared', () => {
+    const l = buildLetter({ ...input, disclosure: 'cleared', institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
     expect(l.documents).toEqual([expect.stringMatching(/cycles 1, 2 and 3$/)])
-    expect(letterText(l)).not.toMatch(/chemo/i)
   })
+  for (const disclosure of ['unknown', 'not_cleared'] as const) {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      it(`${disclosure} / ${lang}: the day-care line carries no cycles or other treatment detail`, () => {
+        const l = buildLetter({ ...input, lang, disclosure, institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
+        expect(l.documents).toHaveLength(1)
+        expect(l.documents[0]).not.toMatch(/cycle|चक्र/i)
+        expect(letterText(l)).not.toMatch(/chemo|cycle|चक्र/i)
+      })
+    }
+  }
 })
 
 describe('the hospital name on the patient requests card', () => {
@@ -77,5 +85,13 @@ describe('the hospital name on the patient requests card', () => {
   it('says "the hospital" only when nothing safe is left', async () => {
     const { patientInstitution } = await import('./letter')
     expect(patientInstitution('Cancer Chemo', 'not_cleared')).toBe('the hospital')
+  })
+})
+
+describe('physician names never reach a family-facing place name', () => {
+  it('neutralName and guardFree drop a titled name', () => {
+    expect(neutralName("Dr. R. Mehta's Day-Care Clinic", 'unknown')).toBe('Day-Care Clinic')
+    expect(guardFree("Dr Anil Kumar's Imaging Centre", 'cleared')).toBe('Imaging Centre')
+    expect(guardFree('City Hospital', 'unknown')).toBe('City Hospital')
   })
 })

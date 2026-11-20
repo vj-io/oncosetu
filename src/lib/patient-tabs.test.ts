@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { PATIENT_TABS } from '@/components/shell/PatientWorkspaceHeader'
-import { rolesSentence, tabAllowed, PATIENT_TAB_ROLES } from './patient-tabs'
+import { rolesSentence, tabAllowed, tabsFor, PATIENT_TAB_LIST, PATIENT_TAB_ROLES } from './patient-tabs'
 import { STAFF_ROLES } from './staff-nav'
 
 describe('patient workspace tabs by role', () => {
@@ -17,8 +17,31 @@ describe('patient workspace tabs by role', () => {
     expect(tabAllowed('preauth', 'desk')).toBe(false)
     for (const t of ['ledger', 'requests', 'shares']) expect(tabAllowed(t, 'desk')).toBe(true)
   })
+  it('desk staff never see the All records tab, which carries what each paper says (DESK-08)', () => {
+    expect(tabAllowed('records', 'desk')).toBe(false)
+    expect(tabsFor('desk').main.map((t) => t.key)).toEqual(['overview', 'ledger', 'completeness', 'requests', 'shares'])
+    expect(tabsFor('desk').more.map((t) => t.key)).not.toContain('records')
+    for (const r of ['records', 'clinician'] as const) expect(tabAllowed('records', r)).toBe(true)
+  })
   it('administrators only get the checklist and the pre-auth file among the role-limited tabs', () => {
-    expect(PATIENT_TABS.map(([k]) => k).filter((k) => !tabAllowed(k, 'org_admin') ).sort()).toEqual(['ledger', 'requests', 'shares', 'timeline'])
+    expect(PATIENT_TABS.map(([k]) => k).filter((k) => !tabAllowed(k, 'org_admin') ).sort()).toEqual(['ledger', 'records', 'requests', 'shares', 'timeline'])
+  })
+  it('every role gets exactly the six main tabs it may open, in order, and the rest under More', () => {
+    const six = ['overview', 'records', 'ledger', 'completeness', 'requests', 'shares']
+    expect(PATIENT_TAB_LIST.filter((t) => t.main).map((t) => t.key)).toEqual(six)
+    for (const r of STAFF_ROLES) {
+      const { main, more } = tabsFor(r)
+      expect(main.map((t) => t.key)).toEqual(six.filter((k) => tabAllowed(k, r)))
+      expect(more.every((t) => !t.main && tabAllowed(t.key, r))).toBe(true)
+      expect([...main, ...more].length).toBe(PATIENT_TAB_LIST.filter((t) => tabAllowed(t.key, r)).length)
+    }
+    expect(tabsFor('clinician').main).toHaveLength(6)
+    expect(tabsFor('org_admin').main.map((t) => t.key)).toEqual(['overview', 'completeness'])
+  })
+  it('"records" is labelled All records and nothing is listed twice', () => {
+    expect(PATIENT_TAB_LIST.find((t) => t.key === 'records')?.label).toBe('All records')
+    const keys = PATIENT_TAB_LIST.map((t) => t.key)
+    expect(new Set(keys).size).toBe(keys.length)
   })
   it('words the roles in a sentence', () => {
     expect(rolesSentence(['records', 'clinician'])).toBe('clinicians and records staff')

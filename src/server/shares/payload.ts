@@ -1,7 +1,7 @@
 // The share payload (FR-PAS-01, §6.6): the latest SEALED snapshot as a document index — never a clinical summary.
 // Pure. Unless disclosure is cleared: neutral document labels, neutral absent-document wording, no quotes, brand
 // "Setu Records", and free text that names a diagnosis (an institution) is dropped (FR-CON-07).
-import { brandFor, patientDocLabel } from '@/core/copy'
+import { brandFor, consentFormLabel, familySafeQuote, patientDocLabel } from '@/core/copy'
 import type { Snapshot } from '@/core/ledger'
 import { STAFF_ONLY_EVENT_TYPES, type DatePrecision, type Disclosure, type DocType, type EventType, type Lang, type MissingState } from '@/core/types'
 import { ts } from '@/i18n/shares'
@@ -9,6 +9,7 @@ import type { L2 } from '../radar-ui/wording'
 import { guardFree } from '../requests/letter'
 
 export type ShareScope = 'index' | 'index_with_quotes'
+export type ShareCreator = 'staff' | 'patient' | 'caregiver'
 export type Verification = 'records' | 'clinician' | 'verified' | 'unverified' | 'disputed'
 
 export type SharePayload = {
@@ -27,7 +28,11 @@ export type SharePayload = {
     quote?: string
   }[]
   documents: { id: string; label: L2; date: string | null; institution: string | null; receivedAt: string }[]
+  /** Scan files: listed so the reader knows they exist, never included (images stay at the clinic). Absent on older links. */
+  scans?: { label: L2; date: string | null; institution: string | null }[]
   absent: { text: L2; state: MissingState }[]
+  /** Who made the link: the viewer words "shared by the clinic / the patient / the family" from it. Absent on older links. */
+  createdBy?: ShareCreator
   /** FR-ID-06: documents of the previous seal taken out of this record since (only when there are any). */
   errata?: { label: L2; date: string | null; withdrawn: number }[]
   seal: { snapshotId: string; sha256: string; verifyPath: string }
@@ -45,6 +50,11 @@ export type PayloadInput = {
   quotes: Record<string, string>
   /** dedupeKey → neutral wording of the absent document (used unless cleared). */
   absentNeutral: Record<string, L2>
+  /** documentId → the scan's plain title ("Mammogram", "CT chest"), for documents that are scan files. */
+  scans?: Record<string, string>
+  /** documentId → 'sign' | 'withdraw' for the signed consent form (stored as "other"): listed by that name. */
+  consentForms?: Record<string, 'sign' | 'withdraw'>
+  createdBy?: ShareCreator
 }
 
 export class QuotesNotAllowed extends Error {}
@@ -65,13 +75,20 @@ const EVENT_DOC: Partial<Record<EventType, DocType>> = {
 }
 
 const both = (f: (l: Lang) => string): L2 => ({ en: f('en'), hi: f('hi'), hinglish: f('hinglish') })
+/** Unless disclosure is cleared a scan is only "Scan": a study name (PET-CT, mammogram) can hint at the diagnosis. */
+const NEUTRAL_SCAN: L2 = { en: 'Scan', hi: 'स्कैन', hinglish: 'Scan' }
 
 export function buildSharePayload(i: PayloadInput): SharePayload {
   const cleared = i.disclosure === 'cleared'
   if (i.scope === 'index_with_quotes' && !cleared) throw new QuotesNotAllowed('Quotes are shared only when disclosure is cleared')
   const brand = brandFor(i.disclosure)
-  const label = (t: DocType) => both((l) => patientDocLabel(t, i.disclosure, l))
+  const label = (t: DocType, id?: string | null) => {
+    const form = id ? i.consentForms?.[id] : undefined
+    return form ? both((l) => consentFormLabel(l, form)) : both((l) => patientDocLabel(t, i.disclosure, l))
+  }
   const docs = new Map(i.snapshot.documents.map((d) => [d.id, d]))
+  const scanTitle = i.scans ?? {}
+  const isScan = (id: string) => Object.hasOwn(scanTitle, id)
 
   const items = [...i.snapshot.verified, ...i.snapshot.unverified]
     .filter((e) => e.eventType !== 'patient_statement' && !STAFF_ONLY_EVENT_TYPES.has(e.eventType))
@@ -85,13 +102,14 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
       const type = EVENT_DOC[e.eventType] ?? src?.docType ?? 'other'
       const inst = typeof e.fields.institution_name === 'string' ? e.fields.institution_name : src?.institution ?? null
       const verification: Verification = e.label === 'Disputed' ? 'disputed' : e.label === 'Verified' ? i.verifiers[e.id] ?? 'verified' : 'unverified'
-      const quote = cleared && i.scope === 'index_with_quotes' ? i.quotes[e.id] : undefined
+      // the paper's own words, without a physician's name or the signature footer
+      const quote = cleared && i.scope === 'index_with_quotes' ? familySafeQuote(i.quotes[e.id]) ?? undefined : undefined
       return {
-        label: label(type),
+        label: label(type, src?.id),
         date: e.eventDate ?? e.documentDate,
         precision: e.eventDate ? e.datePrecision : e.documentDate ? 'day' as const : 'unknown' as const,
         institution: guardFree(inst, i.disclosure),
-        source: { documentId: srcId ?? null, label: src ? label(src.docType) : null, page: ev?.pageNo ?? null },
+        source: { documentId: srcId ?? null, label: src ? label(src.docType, src.id) : null, page: ev?.pageNo ?? null },
         verification,
         ...(quote ? { quote } : {}),
       }
@@ -106,9 +124,17 @@ export function buildSharePayload(i: PayloadInput): SharePayload {
     notice: both((l) => ts(l, 'notice', { brand })),
     asOf: i.snapshot.sealedAt,
     items,
-    documents: i.snapshot.documents.map((d) => ({
-      id: d.id, label: label(d.docType), date: d.documentDate, institution: guardFree(d.institution, i.disclosure), receivedAt: d.receivedAt,
+    documents: i.snapshot.documents.filter((d) => !isScan(d.id)).map((d) => ({
+      id: d.id, label: label(d.docType, d.id), date: d.documentDate, institution: guardFree(d.institution, i.disclosure), receivedAt: d.receivedAt,
     })).sort((a, b) => (a.date ?? a.receivedAt).localeCompare(b.date ?? b.receivedAt)),
+    ...(i.snapshot.documents.some((d) => isScan(d.id))
+      ? {
+          scans: i.snapshot.documents.filter((d) => isScan(d.id))
+            .map((d) => ({ label: cleared ? both(() => scanTitle[d.id]) : NEUTRAL_SCAN, date: d.documentDate, institution: guardFree(d.institution, i.disclosure) }))
+            .sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '')),
+        }
+      : {}),
+    ...(i.createdBy ? { createdBy: i.createdBy } : {}),
     absent: i.snapshot.missing.map((m) => ({
       state: m.state,
       text: cleared && m.wording?.en

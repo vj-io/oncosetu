@@ -46,9 +46,9 @@ export function FirstLook({ rows }: { rows: FirstLookRow[] }) {
                   ))}
                 </ul>
               )}
-              <Link href={r.href} className="inline-flex min-h-9 w-fit items-center gap-0.5 pl-8 text-sm text-setu-ink underline decoration-brass underline-offset-4">
+              {r.count !== 0 && <Link href={r.href} className="inline-flex min-h-9 w-fit items-center gap-0.5 pl-8 text-sm text-setu-ink underline decoration-brass underline-offset-4">
                 {r.more > 0 ? `See all ${r.count}` : r.linkLabel}<ArrowUpRight aria-hidden className="size-3.5" />
-              </Link>
+              </Link>}
             </li>
           )
         })}

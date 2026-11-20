@@ -26,7 +26,7 @@ function Hung({ i, k }: { i: TimelineItem; k: number }) {
           {i.headline && <span className="mt-0.5 block text-[15px] tracking-normal text-muted"><SourceWords quoted={i.quoted}>{i.headline}</SourceWords></span>}
         </h4>
         <div className="flex flex-wrap gap-1.5">
-          <Chip kicker={i.label} tone={LABEL_TONE[i.label]}>{i.docLabel}{i.institution ? ` · ${i.institution}` : ''}</Chip>
+          <Chip tone={LABEL_TONE[i.label]}>{i.docLabel}{i.institution ? ` · ${i.institution}` : ''}</Chip>
           {i.conflict && <Badge tone="conflict" icon={<GitCompare />}>Sources disagree</Badge>}
           {i.flags.includes('low_confidence') && <Badge tone="unverified">Read from a photo: check the numbers</Badge>}
         </div>

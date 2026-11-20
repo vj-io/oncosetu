@@ -12,6 +12,8 @@ export async function postJson(url: string, body: unknown = {}): Promise<{ ok: b
 }
 
 
+const QUICK = ['Same person, name spelt differently', 'Not this patient', 'Cannot tell, the desk should check']
+
 /** FR-ID-05: a person attaches (reason required) or rejects a document whose identity check did not match. */
 export function IdentityDecision({ documentId, result, reasons, onDone, compact = false }: {
   documentId: string; result: string; reasons: string[]; onDone?: () => void; compact?: boolean
@@ -41,8 +43,13 @@ export function IdentityDecision({ documentId, result, reasons, onDone, compact 
         {!compact && <p className="text-[15px]">Nothing from this file reaches the timeline until a person decides. Check the header against the registered patient.</p>}
         {reasons.length > 0 && <p className="text-sm text-muted">Why: {reasons.map(identityReasonText).join('; ')}.</p>}
       </div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
+        {QUICK.map((q) => (
+          <button key={q} type="button" onClick={() => setReason(q)} aria-pressed={reason === q} className="min-h-9 border border-rule bg-surface px-3 text-sm hover:bg-spotlight aria-pressed:border-obsidian">{q}</button>
+        ))}
+      </div>
       <Field label="Reason for your decision" error={error ?? undefined}>
-        <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Header shows another patient (Sunil D., 61 M); report belongs elsewhere" maxLength={500} />
+        <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Pick one above, or write your own: what you checked on the paper" maxLength={500} />
       </Field>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="danger" icon={<UserX />} loading={busy === 'reject'} disabled={!!busy} onClick={() => decide('reject')}>Reject — not this patient</Button>

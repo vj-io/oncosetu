@@ -14,7 +14,7 @@ import { PREVISIT_WINDOW_DAYS } from '@/server/admin/metrics-compute'
 import { sectionRoles } from '@/server/admin/sections'
 import { requireStaff } from '@/server/session'
 
-export const metadata = { title: 'Metrics · Admin · OncoSetu' }
+export const metadata = { title: 'How well it works · Admin · OncoSetu' }
 
 const docLabel = (t: string) => (t === 'no_document' ? 'No source document' : staffDocLabel(t as DocType))
 const institutionLabel = (t: string) => ((INSTITUTION_TYPES as readonly string[]).includes(t) ? tr('en', `instType_${t as InstitutionType}`) : 'Not recorded')
@@ -29,19 +29,19 @@ export default async function MetricsPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Metrics" title="How it is working, and the safety targets"
-        description="Computed from the live tables on every load. Each ratio shows its numerator and denominator; a dash means there is no denominator yet, never zero." />
+      <SectionHeader as="h1" kicker="Admin · How well it works" title="How well it works, and the safety targets"
+        description="Worked out fresh each time the page opens. Each percentage shows the counts behind it; a dash means there is nothing to count yet, not zero." />
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Headline metrics">
-        <li><Stat label="Provenance coverage" value={pctText(prov.coverage)} detail={`${prov.coverage.num} of ${prov.coverage.den} live events have evidence or are patient statements`} tone={prov.coverage.den > 0 && !unsupportedBad ? 'verified' : unsupportedBad ? 'conflict' : 'neutral'} /></li>
-        <li><Stat label="Unsupported facts displayed" value={prov.unsupported} detail="Target 0. Live events without evidence that are not patient statements" tone={unsupportedBad ? 'conflict' : 'verified'} /></li>
+        <li><Stat label="Facts with their source words" value={pctText(prov.coverage)} detail={`${prov.coverage.num} of ${prov.coverage.den} facts show the words behind them or are the patient’s own statements`} tone={prov.coverage.den > 0 && !unsupportedBad ? 'verified' : unsupportedBad ? 'conflict' : 'neutral'} /></li>
+        <li><Stat label="Facts shown without source words" value={prov.unsupported} detail="Target 0. Facts with no document quote behind them that are not the patient’s own words" tone={unsupportedBad ? 'conflict' : 'verified'} /></li>
         <li><Stat label="Pre-visit completion" value={pctText(previsit)} detail={`${previsit.num} of ${previsit.den} returning visits with a confirmed statement, linked or captured in the ${PREVISIT_WINDOW_DAYS} days before`} /></li>
-        <li><Stat label="Not-cleared disclosure" value={pctText(disclosure.nonCleared)} detail={`${disclosure.nonCleared.num} of ${disclosure.total} active patients: disclosure not cleared`} /></li>
+        <li><Stat label="Diagnosis not to be discussed" value={pctText(disclosure.nonCleared)} detail={`${disclosure.nonCleared.num} of ${disclosure.total} active patients: diagnosis not cleared for discussion`} /></li>
       </ul>
 
-      <Block kicker="Safety" title="Safety targets" note="Reviewed weekly in the pilot; any safety target that is not zero pauses the pilot. Zero targets are outlined; a target that is not measured here says so instead of showing a number.">
-        <Table caption="Safety KPIs">
-          <thead><tr><th>KPI</th><th>Target</th><th>Observed</th><th>Status</th><th>How it is measured</th></tr></thead>
+      <Block kicker="Safety" title="Safety targets" note="Reviewed every week during the pilot; if a safety number that must be zero is not zero, the pilot pauses. Zero targets are outlined; a measure the app cannot count says so instead of showing a number.">
+        <Table caption="Safety targets">
+          <thead><tr><th>Measure</th><th>Target</th><th>Observed</th><th>Status</th><th>How it is measured</th></tr></thead>
           <tbody>
             {safety.map((k) => (
               <tr key={k.key} className={k.status === 'breach' ? 'bg-madder-tint' : undefined}>
@@ -56,8 +56,10 @@ export default async function MetricsPage() {
         </Table>
       </Block>
 
-      <EvalReport />
-      <AsrReport />
+      <details className="group grid gap-4 bg-matte p-5 shadow-frame sm:p-6">
+        <summary className="cursor-pointer text-xl tracking-[-0.02em]">Technical test results <span className="text-sm text-muted">(for the engineering team; tests on made-up documents, not patient data)</span></summary>
+        <div className="mt-4 grid gap-8"><EvalReport /><AsrReport /></div>
+      </details>
 
       <div className="grid gap-8 lg:grid-cols-2">
         <Block kicker="Where facts come from" title="Every fact has its words" note="Each live fact is backed by at least one quote from a document or a patient statement, or is itself a patient statement. Withdrawn and rejected facts are left out.">
@@ -91,7 +93,7 @@ export default async function MetricsPage() {
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
             <dt className="text-muted">Closed before the next sealed visit</dt><dd className="tabular-nums">{pctText(radar.closure)} ({radar.closure.num} of {radar.closure.den})</dd>
             <dt className="text-muted">Waiting for the visit to be sealed</dt><dd className="tabular-nums">{radar.awaitingSnapshot}</dd>
-            <dt className="text-muted">Hits from checks still under review (not shown)</dt><dd className="tabular-nums">{radar.shadow}</dd>
+            <dt className="text-muted">Found by checks still under review (not shown)</dt><dd className="tabular-nums">{radar.shadow}</dd>
           </dl>
         </Block>
 

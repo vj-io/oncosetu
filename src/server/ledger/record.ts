@@ -32,7 +32,7 @@ export async function loadRecordRows(tx: Tx, patientId: string): Promise<RecordR
     tx.select({
       id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt,
       institutionName: documents.institutionName, sha256: documents.sha256, amendmentOf: documents.amendmentOf,
-      duplicateOf: documents.duplicateOf, attachState: documents.attachState, attachDecidedAt: documents.attachDecidedAt,
+      duplicateOf: documents.duplicateOf, attachState: documents.attachState, attachDecidedAt: documents.attachDecidedAt, attachReason: documents.attachReason,
       identityResult: documents.identityResult, status: documents.status,
     }).from(documents).where(idIs(documents.patientId, patientId)),
     tx.select({

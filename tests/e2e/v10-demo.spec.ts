@@ -96,7 +96,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
   await test.step('4 · request letter from the histopathology frame: hospital prefilled, Hindi letter, no deadline claimed', async () => {
     const page = await ui('records')
     await page.goto(`/patients/${p.id}/completeness`)
-    await page.locator(`article#m-${(await itemOf(p.id, HPE)).id}`).getByRole('button', { name: 'Request', exact: true }).click()
+    await page.locator(`article#m-${(await itemOf(p.id, HPE)).id}`).getByRole('button', { name: 'Request letter', exact: true }).click()
     const dialog = page.getByRole('dialog')
     await expect(dialog.getByLabel('Hospital or clinic')).toHaveValue(/triveni multispeciality hospital/i)
     await dialog.getByLabel('Letter language').selectOption('hi')
@@ -173,7 +173,7 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     await viewer.getByLabel('Passcode').fill('246810')
     await viewer.getByRole('button', { name: 'Open', exact: true }).click()
     await expect(viewer.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
-    await expect(viewer.getByText(/Signature verified — issued by Setu Records/)).toBeVisible()
+    await expect(viewer.getByText(/Signature verified. This link was signed by Setu Records/)).toBeVisible()
     await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
     const text = await viewer.locator('body').innerText()
     expect(text).toMatch(/not in file/i)

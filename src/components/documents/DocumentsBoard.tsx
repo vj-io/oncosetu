@@ -8,13 +8,16 @@ import {
 } from 'lucide-react'
 import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
 import { inBacklogOrder } from '@/core/backlog'
-import { MB } from '@/core/limits'
+import { MAX_FILE_BYTES, MAX_ZIP_BYTES, MB } from '@/core/limits'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
+import { checkZipBeforeUpload } from '@/lib/zip-check'
 import { MAX_BATCH, MAX_BATCH_BYTES, batchProblem } from './batch'
 import type { DocSummary } from '@/server/pipeline/queries'
+import { isHeldRow } from '@/core/held'
 import { HeldStages } from './HeldStages'
-import { IdentityDecision } from './IdentityDecision'
-import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, shortId, statusBadge, trackerPosition } from './labels'
+import { ThumbPicture, isHeldFile } from './HeldReveal'
+import { IdentityDecision, postJson } from './IdentityDecision'
+import { PRIORITY_GROUPS, STAGE_LABELS, fmtDate, fmtDateTime, statusBadge, trackerPosition } from './labels'
 
 export type Progress = { documents: number; pagesReceived: number; pagesProcessed: number; pagesVerified: number; inQueue: number; minutesLeft: number | null; awaitingDecision: number }
 
@@ -115,11 +118,13 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
         const it = items[i]
         try {
           const blob = await prepare(new File([await batch[i].get()], batch[i].name, { type: batch[i].name.endsWith('.pdf') ? 'application/pdf' : undefined }))
-          if (blob.size > capFor(it.name)) { patch(it.key, { state: 'error', note: 'Larger than the limit (50 MB per file, 200 MB per ZIP)' }); continue }
+          if (blob.size > capFor(it.name)) { patch(it.key, { state: 'error', note: `Larger than the limit (${MAX_FILE_BYTES / MB} MB per file, ${MAX_ZIP_BYTES / MB} MB per ZIP)` }); continue }
+          const zc = await checkZipBeforeUpload(blob, it.name) // read the ZIP directory here, before uploading anything
+          if (!zc.ok) { patch(it.key, { state: 'error', note: zc.message }); continue }
           patch(it.key, { state: 'uploading', size: blob.size })
           if (needsChunks(blob.size)) {
             const c = await uploadChunked(`/api/patients/${patientId}/uploads`, blob, it.name, (pct) => patch(it.key, { pct }))
-            if (c.status !== 200) { patch(it.key, { state: 'error', note: c.code === 'checksum_mismatch' ? 'The file was damaged on the way. Try again.' : c.code === 'chunk_failed' ? 'The connection dropped. Try again.' : 'Upload failed. Check the file type and size.' }); continue }
+            if (c.status !== 200) { patch(it.key, { state: 'error', note: c.code === 'checksum_mismatch' ? 'The file was damaged on the way. Try again.' : c.code === 'chunk_failed' ? 'The connection dropped. Try again.' : c.message ?? 'Upload failed. Check the file type and size.' }); continue }
             const skip = c.skipped.length ? `${c.skipped.length} file${c.skipped.length > 1 ? 's' : ''} in the ZIP skipped: ${[...new Set(c.skipped.map((x) => x.reason))].join('; ')}` : undefined
             patch(it.key, { state: 'done', pct: 100, note: c.duplicate ? 'Already in file — linked, not reprocessed' : skip })
             void refresh()
@@ -147,15 +152,17 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
   const fromSamples = (names: string[]) => upload(names.map((n) => ({ name: n, get: () => fetch(`/demo-docs/${n}`).then((r) => r.blob()) })), null)
 
   // Documents waiting for a person to confirm the patient sit in their own group, never under a clinical heading.
-  const held = useMemo(() => data.rows.filter((r) => r.attachState === 'pending_decision' && r.status !== 'queued' && r.status !== 'processing' && r.status !== 'quarantined'), [data.rows])
+  // REC-01: a rejected or detached file is not this patient's paper: it leaves the counts and the kind groups and is listed on its own.
+  const removed = useMemo(() => data.rows.filter((r) => r.status !== 'quarantined' && (r.attachState === 'rejected' || r.attachState === 'detached')), [data.rows])
+  const held = useMemo(() => data.rows.filter(isHeldRow), [data.rows])
   const blocked = useMemo(() => data.rows.filter((r) => r.status === 'quarantined'), [data.rows])
   const groups = useMemo(() => {
-    const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r))
+    const rest = data.rows.filter((r) => !held.includes(r) && !blocked.includes(r) && !removed.includes(r))
     const forms = rest.filter((r) => r.file?.label === 'Consent')
     const stored = rest.filter((r) => r.file?.storedOnly && !forms.includes(r))
     const text = rest.filter((r) => !r.file?.storedOnly)
     return PRIORITY_GROUPS.map((g) => ({ ...g, rows: g.title.startsWith('Scans') ? stored : g.title.startsWith('Signed consent') ? forms : text.filter((r) => g.types.includes(r.docType ?? 'other') || (g.title.startsWith('Other') && !r.docType)) })).filter((g) => g.rows.length)
-  }, [data.rows, held, blocked])
+  }, [data.rows, held, blocked, removed])
   const p = data.progress
 
   return (
@@ -164,7 +171,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
         {/* Summary */}
         <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
           <p className="ds-kicker">In this file</p>
-          <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}</h2>
+          <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length - removed.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}{removed.length ? ` · ${removed.length} rejected` : ''}</h2>
           <p className="text-sm text-muted">
             {p.inQueue > 0 ? <><LoaderCircle aria-hidden className="ds-spin mr-1 inline size-3.5" />{p.inQueue} being checked{p.minutesLeft ? `, about ${p.minutesLeft} min left` : ''} · </> : null}
             {p.awaitingDecision > 0 ? <span className="text-madder-ink">{p.awaitingDecision} held for checking · </span> : null}
@@ -184,7 +191,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <Upload aria-hidden className="size-7 text-muted" strokeWidth={1.5} />
             <div className="grid gap-1">
               <p className="font-display text-lg tracking-[-0.015em]">Drop the patient’s records here</p>
-              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · 50 MB per file, 200 MB per ZIP.</p>
+              <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · {MAX_FILE_BYTES / MB} MB per file, {MAX_ZIP_BYTES / MB} MB per ZIP.</p>
               <p className="text-sm text-muted">OncoSetu keeps the scan and reads the written report; it doesn’t interpret images.</p>
             </div>
             <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
@@ -246,7 +253,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <h3 className="ds-kicker flex items-center gap-2 border-b border-madder pb-2 text-madder-ink"><PauseCircle aria-hidden className="size-4" />Held for checking · {held.length}<InfoTip>{EXPLAIN.wrongPatient}</InfoTip></h3>
             <p className="text-sm text-muted">These files are kept out of the record until a person confirms they belong to this patient.</p>
             <ul className="grid gap-3">
-              {held.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={canDecide} index={i} onChange={refresh} />)}
+              {held.map((r, i) => <DocRow key={r.id} row={r} patientId={patientId} canDecide={canDecide} index={i} onChange={refresh} tour={r.id === held.find((h) => h.identity === 'mismatch')?.id ? 'mismatch' : undefined} />)}
             </ul>
           </div>
         )}
@@ -267,14 +274,54 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             </ul>
           </div>
         ))}
+        {removed.length > 0 && <RemovedGroup rows={removed} patientId={patientId} canDecide={canDecide} onChange={refresh} />}
       </section>
     </div>
   )
 }
 
+/** REC-01: files a person decided are not this patient's. Kept for the audit trail, never counted; staff can undo a rejection. */
+function RemovedGroup({ rows, patientId, canDecide, onChange }: { rows: DocSummary[]; patientId: string; canDecide: boolean; onChange: () => void }) {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  async function undo(id: string) {
+    setBusy(id)
+    setError(null)
+    const r = await postJson(`/api/documents/${id}/undo-reject`, {})
+    setBusy(null)
+    if (!r.ok) return setError(r.data.error?.message ?? 'Could not undo the rejection')
+    onChange()
+  }
+  return (
+    <details className="grid gap-3" data-testid="rejected-group">
+      <summary className="ds-kicker cursor-pointer border-b border-rule pb-2">Rejected — not this patient · {rows.length}</summary>
+      <p className="mt-3 text-sm text-muted">These files are kept for the record of the decision. They are not counted, not listed under a kind of paper and nothing from them reaches the timeline.</p>
+      {error && <p role="alert" className="text-sm text-madder-ink">{error}</p>}
+      <ul className="mt-3 grid gap-3">
+        {rows.map((r) => (
+          <li key={r.id} className="grid gap-1 border border-l-[3px] border-rule border-l-madder bg-matte p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start" data-testid="rejected-row">
+            <div className="grid gap-1">
+              <p className="text-base">{r.title}{r.documentDate ? ` · ${fmtDate(r.documentDate)}` : ''}</p>
+              <p className="text-sm text-muted">
+                {r.attachState === 'detached' ? 'Removed from this file' : 'Rejected: not this patient'}
+                {r.decision?.by ? ` by ${r.decision.by}` : ''}{r.decision?.at ? ` on ${fmtDateTime(r.decision.at)}` : ''}
+              </p>
+              {r.decision?.reason && <p className="text-sm">Reason: {r.decision.reason}</p>}
+              {canDecide && <Link href={`/patients/${patientId}/documents/${r.id}`} className="w-fit text-sm underline underline-offset-4">Open source viewer</Link>}
+            </div>
+            {canDecide && r.attachState === 'rejected' && (
+              <Button size="sm" variant="secondary" loading={busy === r.id} disabled={!!busy} onClick={() => undo(r.id)}>Undo: bring back for a decision</Button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
 const TONE_FOR: Record<string, Tone> = { done: 'verified', needs_review: 'unverified', needs_password: 'unverified', failed: 'conflict', quarantined: 'conflict', unreadable: 'conflict', queued: 'shadow', processing: 'setu' }
 
-function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSummary; patientId: string; canDecide: boolean; index: number; onChange: () => void }) {
+function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: DocSummary; patientId: string; canDecide: boolean; index: number; onChange: () => void; tour?: string }) {
   const live = r.status === 'queued' || r.status === 'processing'
   const pos = trackerPosition(r.stages)
   const blockedFile = r.status === 'quarantined'
@@ -297,7 +344,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
   if (r.flags.detached) chips.push({ icon: <Fingerprint />, text: 'Detached', tone: 'conflict' })
 
   return (
-    <li className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
+    <li data-tour={tour} className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-5">
         <div className="grid min-w-0 gap-1.5">
           <p className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
@@ -309,7 +356,9 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
           {r.imaging && (
             <p className="text-sm text-muted" data-testid="imaging-line">
               {[r.imaging.label, r.imaging.studyDate ? fmtDate(r.imaging.studyDate) : null, r.imaging.bodyPart, r.imaging.institution].filter(Boolean).join(' · ')}
-              {r.imaging.patientName && <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>}
+              {r.imaging.patientName && (canDecide
+                ? <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>
+                : r.identity === 'mismatch' ? <> · the name on the file does not match this patient</> : null)}
               {r.imaging.instances > 1 && <> · {r.imaging.instances} images</>}
             </p>
           )}
@@ -328,8 +377,7 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
         </div>
         <div className="flex flex-wrap items-start gap-2 sm:flex-col sm:items-end">
           {r.imaging && canDecide && r.status !== 'quarantined' && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/documents/${r.id}/preview`} alt={`Preview picture of ${r.imaging.label}`} width={96} height={96} loading="lazy" className="size-24 border border-rule bg-obsidian object-contain" />
+            <ThumbPicture src={`/api/documents/${r.id}/preview`} alt={`Preview picture of ${r.imaging.label}`} held={isHeldFile(r)} />
           )}
           <StatusBadge status={b.status} label={b.label} />
           {r.identity !== 'pending' && <StatusBadge status={r.identity} />}
@@ -342,7 +390,8 @@ function DocRow({ row: r, patientId, canDecide, index, onChange }: { row: DocSum
       </div>
       {(live || pending || r.status === 'failed' || r.status === 'unreadable') && (
         <div className="grid gap-3 border-t border-rule px-4 py-4 sm:px-5">
-          {pos.waiting ? <HeldStages at={pos.current} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
+          {pos.waiting ? <HeldStages at={pos.current} identityFailed={r.identity === 'mismatch'} storedOnly={!!r.file?.storedOnly} /> : <StageTracker stages={STAGE_LABELS} current={pos.current} failed={pos.failed} label={`Processing stages for ${r.title}`} />}
+          {live && r.progress && <p className="text-sm text-muted" role="status" data-testid="read-progress">{r.progress}</p>}
           {pending && canDecide && <IdentityDecision documentId={r.id} result={r.identity} reasons={r.identityReasons} compact onDone={onChange} />}
           {pending && !canDecide && <p className="text-sm text-muted">A records officer or clinician decides whether this file belongs to this patient.</p>}
         </div>

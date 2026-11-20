@@ -6,20 +6,24 @@ const all = JSON.stringify({ HEADLINE, NOT_CLAIMED, SECTIONS })
 describe('security and compliance content', () => {
   it('never claims to be HIPAA compliant or certified, and says so plainly', () => {
     expect(all).not.toMatch(/\bis HIPAA[- ]compliant|are HIPAA[- ]compliant|HIPAA[- ]certified|we are compliant|fully compliant/i)
-    expect(HEADLINE).toMatch(/Built to HIPAA's safeguards/)
-    expect(HEADLINE).toMatch(/roadmap/)
+    expect(HEADLINE).toMatch(/^Built for India's DPDP Act 2023 and ABDM.$/)
+    expect(HEADLINE).not.toMatch(/HIPAA|roadmap/)
     expect(NOT_CLAIMED).toMatch(/not HIPAA compliant/)
   })
   it('covers HIPAA, DPDP and ABDM and every HIPAA safeguard the team asked for', () => {
-    expect(SECTIONS.map((s) => s.id)).toEqual(['hipaa', 'dpdp', 'abdm'])
-    const hipaa = SECTIONS[0].rows.map((r) => r.area.toLowerCase()).join(' | ')
+    expect(SECTIONS.map((s) => s.id)).toEqual(['dpdp', 'abdm', 'hipaa'])
+    const hipaa = SECTIONS[2].rows.map((r) => r.area.toLowerCase()).join(' | ')
     for (const k of ['access control', 'unique user', 'audit controls', 'integrity', 'transmission', 'encryption at rest', 'automatic logoff', 'emergency access', 'minimum necessary', 'breach notification', 'business associate', 'risk assessment', 'workforce training']) expect(hipaa).toContain(k)
   })
   it('only the things that are really built are marked In place; BAAs, risk assessment and training are Planned', () => {
-    const by = (a: string) => SECTIONS[0].rows.find((r) => r.area.toLowerCase().includes(a))!
+    const by = (a: string) => SECTIONS.find((s) => s.id === 'hipaa')!.rows.find((r) => r.area.toLowerCase().includes(a))!
     for (const a of ['business associate', 'risk assessment', 'workforce training']) expect(by(a).status).toBe('planned')
     for (const a of ['audit controls', 'emergency access', 'automatic logoff']) expect(by(a).status).toBe('in_place')
-    expect(SECTIONS[1].rows.find((r) => r.area.includes('Data Protection Officer'))!.evidence).toContain('[ ]')
+    expect(SECTIONS.find((s) => s.id === 'dpdp')!.rows.find((r) => r.area.includes('Data Protection Officer'))!.evidence).toContain('[ ]')
+  })
+  it('leads with India (DPDP and ABDM) before HIPAA', () => {
+    expect(HEADLINE).toMatch(/^Built for India's DPDP Act 2023 and ABDM/)
+    expect(SECTIONS.map((s) => s.id).indexOf('hipaa')).toBe(SECTIONS.length - 1)
   })
   it('summary counts add up to every row', () => {
     const t = tally()

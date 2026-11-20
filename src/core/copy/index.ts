@@ -3,6 +3,7 @@ import type { DatePrecision, Disclosure, DocType, Lang } from '../types'
 
 export { DIAGNOSIS_WORDS, JUDGEMENT_WORDS, LEGAL_BANNED, LETTER_BANNED, RADAR_BANNED, lintText } from './banned'
 export type { LintHit, Ruleset } from './banned'
+export { NAME_REMOVED, familyDocTitle, familySafeQuote, namesPhysician, neutralSkipped, stripPhysician, withoutPhysician } from './family'
 
 type Label = { en: string; hi: string }
 
@@ -61,6 +62,14 @@ export function patientDocLabel(docType: DocType, disclosure: Disclosure, lang: 
   if (lang === 'hinglish') return disclosure === 'cleared' ? CLEARED[docType].en : NEUTRAL_HINGLISH[docType]
   return (disclosure === 'cleared' ? CLEARED : NEUTRAL)[docType][lang]
 }
+
+/** The signed consent form (or its withdrawal) is stored as "other" but a family must see what it is. */
+const CONSENT_FORM: Record<Lang, { sign: string; withdraw: string }> = {
+  en: { sign: 'Signed consent form', withdraw: 'Signed withdrawal of consent' },
+  hi: { sign: 'हस्ताक्षरित सहमति पत्र', withdraw: 'सहमति वापस लेने का हस्ताक्षरित पत्र' },
+  hinglish: { sign: 'Signed consent form', withdraw: 'Consent wapas lene ka signed form' },
+}
+export const consentFormLabel = (lang: Lang = 'en', action?: string | null): string => CONSENT_FORM[lang][action === 'withdraw' ? 'withdraw' : 'sign']
 
 export function staffDocLabel(docType: DocType): string {
   return CLEARED[docType].en

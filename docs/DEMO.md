@@ -3,6 +3,9 @@
 Live app: **https://oncosetu-zeta.vercel.app** (the local dev server and the deployed app share one Neon database, so
 whatever `scripts/seed-demo.ts` seeds is what the judges see). Everything is synthetic.
 
+**Only Vaibhav resets the live demo, right before the finale. Nobody uploads to the demo organisation on the live site.**
+Every count below is what the screens show straight after that reset; anything uploaded afterwards changes them.
+
 ## Before you start (2 minutes, once)
 
 ```bash
@@ -47,8 +50,8 @@ Patient / caregiver portal: `/p/login` → phone number → **Send code** → op
 
 | Patient | Documents | Record | Checklist (production) | Requests · seals · links |
 |---|---|---|---|---|
-| **Sunita Deshmukh** (hero) | hero__01–09 (hero__10/11 are kept for the live demo, at `/demo-docs/`). hero__07 wrong patient → *mismatch*, held. hero__05 handwritten → image only, identity *insufficient*, held. hero__08 → *Hidden instructions removed* | 31 items; 5 verified by Records (printed prescription, Hindi CBC and its result rows), 26 not yet verified; hero__08 deliberately left unverified | Histopathology report not in file (12 Mar 2026, discharge summary p.2) · IHC report and laboratory report mentioned as pending on 14 Mar 2026 · Chemotherapy records for cycles 1–3 (one grouped item, *requested*) | Letter for cycles 1–3 to Kasturi Day-Care, given today (for the +7 d step). **No snapshot** — S0 is sealed live |
-| **Mohd. Abdul Rahim Khan** (returning) | returning__01–03 on 16 Feb 2026 (all verified, sealed), returning__04–07 today | 34 items, 17 verified (in S0) | Report for the PET-CT the patient mentioned · Laboratory report mentioned as pending on 20 Jan 2026 · Prescription from City Care Hospital, Nagpur — *received · proposed* (see Known issues) | **S0 sealed 16 Feb 2026, 10:31 IST** by Dr. Meera Iyer; pre-visit answers confirmed |
+| **Sunita Deshmukh** (hero) | **16 documents**: hero__01–09 (hero__10/11 are kept for the live demo, at `/demo-docs/`) plus 4 scans (mammogram 5 Jan 2026, breast ultrasound 8 Jan, chest X-ray 18 Mar, and a chest X-ray with another patient's name) and 3 written imaging reports (mammogram, ultrasound, chest X-ray). hero__07 wrong patient → *mismatch*, held. hero__05 handwritten → image only, identity *insufficient*, held. hero__13 X-ray with another patient's name → *mismatch*, held (3 held in all). hero__08 → *Hidden instructions removed* | 39 items; 6 verified by Records (printed prescription, Hindi CBC and its result rows), 33 not yet verified; hero__08 deliberately left unverified. Scans are stored, not read: no item comes from a scan | Histopathology report not in file (12 Mar 2026, discharge summary p.2) · IHC report and laboratory report mentioned as pending on 14 Mar 2026 · Chemotherapy records for cycles 1–3 (one grouped item, *requested*) | Letter for cycles 1–3 to Kasturi Day-Care, given today (for the +7 d step). **No snapshot** — S0 is sealed live |
+| **Mohd. Abdul Rahim Khan** (returning) | returning__01–03 on 16 Feb 2026 (all verified, sealed), returning__04–07 today, plus **5 scans** (chest CT 10 Nov 2025, brain MRI 20 Feb 2026, bone scan 15 Mar, chest CT 12 Apr, PET-CT 28 Apr) and 2 imaging reports (the Nov 2025 chest CT, the PET-CT). The history runs 10 Nov 2025 to 20 May 2026. The 12 Apr chest CT has no report on purpose | 47 items, 22 verified, 25 not yet verified | Report for the PET-CT the patient mentioned — *received · to confirm* (the PET-CT report is proposed; a person confirms) · Laboratory report mentioned as pending on 20 Jan 2026 · Prescription from City Care Hospital, Nagpur — *received · proposed* (see Known issues) | **S0 sealed 16 Feb 2026, 10:31 IST** by Dr. Meera Iyer; pre-visit answers confirmed |
 | **Lakshmi Narayanan** (fulfilled) | fulfilled__01 (desk), fulfilled__02 (uploaded by her husband in the portal) | 12 items, 11 verified by the clinician (the 12th — the discharge summary's repeat of the admission — is a suppressed duplicate in the ledger, so it stays unverified) | Discharge summary for the 2 Apr 2026 admission — *closed* (confirmed by Records) | Request to Poompuhar given 12 days ago → 7-day reminder SMS → **fulfilled**; S0 sealed; share link below |
 | **Aarav Kulkarni** (minor) | none | — | — | Guardian consent by OTP to his mother; flagged minor, guardian-primary |
 
@@ -68,7 +71,7 @@ missing, and turns each into a records request. It never diagnoses."
    **Send code** → **Demo phone**: the SMS went to the son (primary contact), in Hindi, signed "Setu Records".
    Enter the code → the record opens.
    *Notice:* a scan or lookup identifies; only the OTP (or a witnessed in-person check) opens the record.
-2. **Documents** (sign in as Records). Patients → Sunita Deshmukh → **Documents**: 9 documents, processed.
+2. **Documents** (sign in as Records). Patients → Sunita Deshmukh → **Documents**: 16 documents, processed (9 papers, 4 scans, 3 imaging reports).
    - **Wrong-patient report** (Histopathology, Dhanvantari lab): identity **mismatch** (Sunil Deshpande, 61 M) — held
      with **Reject — not this patient / Attach with reason**. It has produced no events and no checklist items.
    - **Source viewer:** open the discharge summary → click an event → the **quote highlight** sweeps over the exact
@@ -79,6 +82,8 @@ missing, and turns each into a records request. It never diagnoses."
    - **Handwritten prescription** (Pawar Clinic): **"Handwritten: kept as an image"** — no machine text kept, zero events.
      Its handwritten header could not be read reliably, so it is also held for an identity decision (identity
      *insufficient*) — the system does not guess.
+   - **Wrong-patient X-ray** (a DICOM chest X-ray carrying another patient's name): identity **mismatch**, held next to the
+     histopathology report; **Reject — not this patient / Attach with reason**. Say: a scan is held exactly like a paper.
    - The printed prescription and the Hindi CBC are **verified · matches source** (Ravi); the rest are
      **not yet verified** — partial verification is normal.
    - The discharge summary also gives **Diagnosis as written** and **History as written** ("Known hypothyroidism on
@@ -125,7 +130,7 @@ missing, and turns each into a records request. It never diagnoses."
 
 Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Last seal: **S0 · 16 Feb 2026, 10:31 IST**
 (3 documents, 17 verified items). Everything below arrived after it and is not yet verified:
-- **New since last visit** (12): chemotherapy cycle 2 (12 May 2026) with its next-cycle date, pre-cycle results and its
+- **New since last visit** (15): chemotherapy cycle 2 (12 May 2026) with its next-cycle date, pre-cycle results and its
   "Diagnosis" row as written (staff-only, clinician tier);
   the 12 May prescription as three items (Capecitabine + Ondansetron · Pantoprazole + Loperamide · Metformin) and its
   allergy line; the haematology report (20 May 2026, OCR of a phone photo with a Devanagari name header) and its result
@@ -138,7 +143,8 @@ Clinician → Patients → **Mohd. Abdul Rahim Khan** → **Change ledger**. Las
 - **Patient said:** his five confirmed pre-visit answers (another hospital, the new medicine, a PET-CT in April 2026,
   no admissions) — "Not yet supported by a document".
 - **Missing records:** the PET-CT answer raises RAD-IMG-PT-01 ("Report for the PET-CT the patient mentioned is not in
-  file"). Until 5 Nov 2026 the seed left this rule in shadow mode to show the mechanism, which hid the item from
+  file"). It now reads **received · to confirm**: the PET-CT report of 28 Apr 2026 is already in the file and proposed;
+  **Confirm closure** closes it (a person decides). Until 5 Nov 2026 the seed left this rule in shadow mode to show the mechanism, which hid the item from
   clinicians; the mentor review flagged it, so every rule is now reviewed. Shadow mode is still the default for an
   unreviewed rule (Admin → Rules → Return to shadow shows it).
 - **Completeness checklist:** "Prescription the patient mentioned from City Care Hospital, Nagpur is not in file" is
@@ -185,6 +191,21 @@ Sign in as Admin (Farhan Sheikh).
   "today" is now **reminder due**, and the reminder SMS to Rohan is in the Demo phone — Hindi, "Setu Records", no
   diagnosis words. (Tracking is lazy: the reminder goes out on the first read after the threshold.)
   **Reset the clock afterwards** (Settings → Reset, or rerun the seed).
+
+## Imaging (40 s, after the Change Ledger)
+
+Records or Clinician → Mohd. Abdul Rahim Khan → **Documents**. Five scans sit among the papers, each with its date:
+chest CT (10 Nov 2025, 10 images), brain MRI (20 Feb 2026), bone scan (15 Mar), chest CT (12 Apr, 12 images, no written
+report) and PET-CT (28 Apr, 16 images, CT + PET). Open the 12 Apr chest CT: the viewer scrolls the images and the study
+lists the 10 Nov 2025 chest CT under **earlier studies**. Open the PET-CT report: it is the paper proposed for the
+PET-CT item. Say: the scans are stored and shown, never read or interpreted; every written report is a document with a
+quote like any other. Then Sunita → **Documents**: mammogram, breast ultrasound and chest X-ray each sit beside their
+report, and the second chest X-ray (another patient's name) is held. If the **All records** view is on in this build,
+show the same list in date order there.
+
+**Do not upload anything to Sunita (or any seeded patient) while judges are driving.** Her step 5 (hero__10) is the one
+planned upload; a judge's own file changes every count in this document until the next reset. If a judge wants to try an
+upload, use a new patient, or tell Vaibhav to reset afterwards.
 
 ## Added in the 8 Nov PRD-gap round (optional, if time allows)
 

@@ -20,7 +20,7 @@ export const EXPECTED: Record<string, Expect> = {
   // admin, audit, metrics
   'GET /api/admin/audit.csv': AUDIT,
   'POST /api/admin/audit/verify': AUDIT,
-  'POST /api/admin/break-glass/[id]/review': 'org_admin',
+  'POST /api/admin/break-glass/[id]/review': AUDIT,
   'POST /api/admin/duplicates': 'records org_admin',
   'POST /api/admin/duplicates/[id]': 'records org_admin',
   'POST /api/admin/erasure/[id]/execute': 'org_admin',
@@ -76,6 +76,7 @@ export const EXPECTED: Record<string, Expect> = {
   // documents and ledger items
   'POST /api/documents/[id]/attach': CLINICAL, // rbac 'document.identity_decision' (FR-ID-05), not 'document.attach'
   'POST /api/documents/[id]/detach': CLINICAL,
+  'POST /api/documents/[id]/undo-reject': CLINICAL,
   'GET /api/documents/[id]/file': originals,
   'GET /api/documents/[id]/preview': originals,
   'POST /api/documents/[id]/manual-events': CLINICAL,
@@ -100,6 +101,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/p/erasure': FAMILY,
   'POST /api/p/privacy': FAMILY,
   'GET /api/p/requests': FAMILY,
+  'POST /api/p/requests': FAMILY,
   'GET /api/p/share-payload': FAMILY,
   'POST /api/p/statements': FAMILY,
   'POST /api/p/uploads': FAMILY,

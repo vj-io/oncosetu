@@ -6,7 +6,7 @@ import { canonicalJson } from '@/core/canonical'
 import type { Snapshot } from '@/core/ledger'
 import { brandFor } from '@/core/copy'
 import { db, withOrg, type Tx } from '@/db'
-import { evidence, missingRecords, patients, shareLinks, shareViews, snapshots, verifications } from '@/db/schema'
+import { documents, evidence, missingRecords, patients, shareLinks, shareViews, snapshots, verifications } from '@/db/schema'
 import { ts } from '@/i18n/shares'
 import { writeAudit, type AuditDetails } from '../audit'
 import { now } from '../clock'
@@ -17,6 +17,8 @@ import { activeConsent, assertConsent, assertPatientAccess } from '../patients'
 import { deviceOf } from '../portal/access'
 import { loadShares, revokeShare, type ShareRow } from '../portal/shares'
 import { describeRows } from '../radar-ui/completeness'
+import { scanOf, titleOf } from '../records/core'
+import { consentFormOf } from '../portal/home'
 import type { L2 } from '../radar-ui/wording'
 import { primaryContactTarget } from '../registration/contact'
 import type { Session } from '../session'
@@ -83,8 +85,20 @@ export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareSco
     const rows = await tx.select().from(missingRecords).where(and(eq(missingRecords.patientId, patientId), inArray(missingRecords.dedupeKey, keys)))
     for (const d of await describeRows(tx, rows)) absentNeutral[d.dedupeKey] = d.neutral
   }
+  const scans: Record<string, string> = {}
+  const consentForms: Record<string, 'sign' | 'withdraw'> = {}
+  const docIds = snapshot.documents.map((d) => d.id)
+  if (docIds.length) {
+    for (const d of await tx.select({ id: documents.id, flags: documents.flags }).from(documents).where(inArray(documents.id, docIds))) {
+      const flags = (d.flags ?? {}) as Record<string, unknown>
+      const scan = scanOf({ flags })
+      const form = consentFormOf(flags)
+      if (form) consentForms[d.id] = form
+      if (scan) scans[d.id] = titleOf({ flags, docType: null } as Parameters<typeof titleOf>[0], scan, () => 'Scan')
+    }
+  }
   try {
-    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral })
+    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans, consentForms, createdBy: session.kind })
     return signSharePayload({ ...payload, snapshotId: snap.id, issuedAt: (await now(session.orgId)).toISOString() })
   } catch (e) {
     if (e instanceof QuotesNotAllowed) throw new HttpError(403, 'quotes_not_allowed', 'Source quotes can be shared only when disclosure is cleared')
@@ -101,7 +115,7 @@ export const shareDigestValid = (digest: string, sig: ShareSig) =>
   verifyEd25519(Buffer.from(SHARE_SIG_CONTEXT + digest, 'utf8'), sig.signature, sig.keyId)
 
 export type CreateShareInput = {
-  patientId?: string; snapshotId: string; ciphertext: string; iv: string; scope: ShareScope; expiresInDays: number; passcode: string | null
+  patientId?: string; snapshotId: string; ciphertext: string; iv: string; scope: ShareScope; expiresInDays: number; passcode: string | null; label?: string | null
 }
 
 export async function createShare(ctx: Ctx, input: CreateShareInput): Promise<{ id: string; expiresAt: string }> {
@@ -120,7 +134,7 @@ export async function createShare(ctx: Ctx, input: CreateShareInput): Promise<{ 
   const by = ctx.session.kind === 'staff' ? { kind: 'staff' as const, id: ctx.session.staffId } : { kind: ctx.session.kind, id: ctx.session.caregiverId ?? ctx.session.patientId }
   const [row] = await ctx.db.insert(shareLinks).values({
     orgId: ctx.session.orgId, patientId, snapshotId: snap.id, scope: SCOPE_DB[input.scope], ciphertext: input.ciphertext, iv: input.iv,
-    expiresAt, passcodeHash: input.passcode ? await hashPassword(input.passcode) : null, createdByKind: by.kind, createdById: by.id,
+    expiresAt, passcodeHash: input.passcode ? await hashPassword(input.passcode) : null, label: input.label?.trim() || null, createdByKind: by.kind, createdById: by.id,
   }).returning({ id: shareLinks.id })
   await ctx.audit('share.create', 'share_link', row.id, {
     patientId, snapshotId: snap.id, scope: input.scope, days: input.expiresInDays, passcode: !!input.passcode,

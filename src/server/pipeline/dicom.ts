@@ -3,6 +3,7 @@
 import dicomParser, { type DataSet } from 'dicom-parser'
 import sharp from 'sharp'
 import { MAX_PREVIEW_PIXELS } from '@/core/limits'
+import { decodeJ2k, decodeJpegLossless, decodeJpegLs, TS_J2K, TS_JLS, TS_JPEG_LOSSLESS, type Decoded } from './codecs'
 
 export type DicomMeta = {
   modality: string | null
@@ -48,6 +49,9 @@ export function modalityWord(modality: string | null, sopClass: string | null = 
   if (bySop && (!modality || !MODALITY_WORDS[modality] || ['OT', 'SC'].includes(modality))) return bySop[2]
   return (modality && MODALITY_WORDS[modality]) || (modality ? `Imaging (${modality})` : 'Imaging file')
 }
+
+/** True when the pixels are stored compressed (anything but plain little/big endian). */
+export const isCompressedSyntax = (ts: string | null) => !!ts && !['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', '1.2.840.10008.1.2.2'].includes(ts)
 
 /** A study with both PT and CT in it is a PET-CT. */
 export function studyLabel(modalities: string[]): string {
@@ -161,8 +165,21 @@ async function renderEcgWaveform(ds: DataSet): Promise<Preview | null> {
 /** The header's size drives every preview buffer: a picture too big to draw is refused before gigabytes are allocated for it. */
 export const tooBigToDraw = (rows: number, cols: number, samples: number) => rows * cols * samples > MAX_PREVIEW_PIXELS
 
-/** Renders one frame as a PNG (window/level from the header when present). Never throws: unsupported files return a plain note. */
-export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): Promise<Preview> {
+/** The compressed bytes of one frame of an encapsulated (compressed) pixel data element. */
+function encapsulatedFrame(ds: DataSet, el: NonNullable<DataSet['elements'][string]>, frames: number, frame: number): Uint8Array {
+  if (frames === 1) return dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, 0, el.fragments?.length ?? 1)
+  return el.fragments?.length === frames ? dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, frame, 1)
+    : dicomParser.readEncapsulatedImageFrame(ds, el, frame, el.basicOffsetTable)
+}
+
+/** A display window in the file's own units after rescale (Hounsfield units for CT). */
+export type DisplayWindow = { center: number; width: number }
+
+/**
+ * Renders one frame as a PNG (window/level from the header when present). `window` replaces the header's window for a CT slice only
+ * (its values are Hounsfield units); any other picture keeps its own. Never throws: unsupported files return a plain note.
+ */
+export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number, window?: DisplayWindow): Promise<Preview> {
   let ds: DataSet
   try { ds = dicomParser.parseDicom(bytes) } catch { return { ok: false, reason: 'parse_failed', note: 'Preview not available — file stored' } }
   const el = ds.elements.x7fe00010
@@ -175,9 +192,7 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
   const frame = Math.min(Math.max(frameIndex ?? Math.floor(frames / 2), 0), frames - 1) // default: the middle slice
   const samples = ds.uint16('x00280002') ?? 1
   const alloc = ds.uint16('x00280100') ?? 8
-  const signed = (ds.uint16('x00280103') ?? 0) === 1
   const photometric = str(ds, 'x00280004') ?? 'MONOCHROME2'
-  const bps = alloc > 8 ? 2 : 1
   const px = rows * cols
   if (tooBigToDraw(rows, cols, ds.uint16('x00280002') ?? 1)) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
   try {
@@ -189,33 +204,46 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
       return { ok: true, png, frames, frame, windowed: false }
     }
     let data: Uint8Array
+    let planar = (ds.uint16('x00280006') ?? 0) === 1
+    let bps = alloc > 8 ? 2 : 1
+    const signed = (ds.uint16('x00280103') ?? 0) === 1 // the header decides, also for decoded frames (a codestream may say otherwise)
+    let nSamples = samples
     if (RAW.has(ts)) {
       const frameLen = px * bps * samples
       data = new Uint8Array(ds.byteArray.buffer, ds.byteArray.byteOffset + el.dataOffset + frame * frameLen, frameLen)
       if (data.length < frameLen) return { ok: false, reason: 'parse_failed', note: 'Preview not available — file stored' }
     } else if (ts === RLE) {
-      const frag = el.fragments?.length === frames ? dicomParser.readEncapsulatedPixelDataFromFragments(ds, el, frame, 1)
-        : dicomParser.readEncapsulatedImageFrame(ds, el, frame, el.basicOffsetTable)
-      data = decodeRle(frag as Uint8Array, px, bps, samples)
+      data = decodeRle(encapsulatedFrame(ds, el, frames, frame), px, bps, samples)
+    } else if (TS_J2K.has(ts) || TS_JLS.has(ts) || TS_JPEG_LOSSLESS.has(ts)) {
+      // Display only: decode this one frame, draw it, drop it. The stored file is untouched.
+      const enc = encapsulatedFrame(ds, el, frames, frame)
+      const want = { width: cols, height: rows }
+      const d: Decoded = TS_J2K.has(ts) ? await decodeJ2k(enc, want) : TS_JLS.has(ts) ? await decodeJpegLs(enc, want) : await decodeJpegLossless(enc, want, samples)
+      if (d.width !== cols || d.height !== rows || d.data.length < px * d.bytesPerSample * d.samples) return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
+      data = d.data; bps = d.bytesPerSample; nSamples = d.samples; planar = false
     } else {
-      return { ok: false, reason: 'compression', note: NOT_AVAILABLE } // JPEG 2000, JPEG-LS, JPEG lossless: follow-up
+      return { ok: false, reason: 'compression', note: NOT_AVAILABLE }
     }
 
-    if (samples === 3) {
-      const planar = (ds.uint16('x00280006') ?? 0) === 1
+    if (nSamples === 3) {
       const rgb = Buffer.alloc(px * 3)
       for (let i = 0; i < px; i++) for (let c = 0; c < 3; c++) rgb[i * 3 + c] = planar ? data[c * px + i] : data[i * 3 + c]
       const png = await sharp(rgb, { raw: { width: cols, height: rows, channels: 3 } }).resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true }).png().toBuffer()
       return { ok: true, png, frames, frame, windowed: false }
     }
     const slope = firstNumber(str(ds, 'x00281053')) ?? 1, intercept = firstNumber(str(ds, 'x00281052')) ?? 0
+    // Only the low `stored` bits are the value (the rest may hold overlays or junk); a signed value's sign is bit stored - 1.
+    const stored = Math.min(Math.max(ds.uint16('x00280101') ?? bps * 8, 1), bps * 8)
+    const mask = 2 ** stored - 1, sign = 2 ** (stored - 1)
     const vals = new Float32Array(px)
     const dv = new DataView(data.buffer, data.byteOffset, data.byteLength)
     for (let i = 0; i < px; i++) {
-      const raw = bps === 2 ? (signed ? dv.getInt16(i * 2, true) : dv.getUint16(i * 2, true)) : (signed ? dv.getInt8(i) : dv.getUint8(i))
+      let raw = (bps === 2 ? dv.getUint16(i * 2, true) : dv.getUint8(i)) & mask
+      if (signed && raw >= sign) raw -= 2 * sign
       vals[i] = raw * slope + intercept
     }
-    const wc = firstNumber(str(ds, 'x00281050')), ww = firstNumber(str(ds, 'x00281051'))
+    const chosen = window && str(ds, 'x00080060') === 'CT' ? window : null
+    const wc = chosen?.center ?? firstNumber(str(ds, 'x00281050')), ww = chosen?.width ?? firstNumber(str(ds, 'x00281051'))
     let lo: number, hi: number, windowed = false
     if (wc !== null && ww !== null && ww > 0) { lo = wc - ww / 2; hi = wc + ww / 2; windowed = true } else {
       lo = Infinity; hi = -Infinity

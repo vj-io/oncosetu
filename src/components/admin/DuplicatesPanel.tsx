@@ -68,7 +68,7 @@ export function DuplicatesPanel({ candidates, merges, meId }: { candidates: Cand
     <div className="grid grid-cols-1 gap-10">
       <section aria-labelledby="pending-h" className="grid grid-cols-1 gap-4">
         <h2 id="pending-h" className="text-2xl tracking-[-0.025em]">Waiting for a second approval</h2>
-        {pending.length === 0 ? <EmptyState title="No merge is pending" description="A merge starts when one staff member requests it below; a different staff member then approves." /> : (
+        {pending.length === 0 ? <EmptyState title="No merge is pending" description="A merge starts when one staff member requests it; a different staff member then approves." /> : (
           <ul className="grid gap-3">
             {pending.map((m) => {
               const mine = m.requestedById === meId
@@ -92,7 +92,7 @@ export function DuplicatesPanel({ candidates, merges, meId }: { candidates: Cand
 
       <section aria-labelledby="cand-h" className="grid grid-cols-1 gap-4">
         <h2 id="cand-h" className="text-2xl tracking-[-0.025em]">Likely duplicate records</h2>
-        <p className="max-w-prose text-muted">Found from the ABHA number, phone number, name with date of birth, and transliteration-aware name matching. Names are not shown here.</p>
+        <p className="max-w-prose text-muted">Found from the national health ID (ABHA), phone number, name with date of birth, and names spelled differently in Hindi and English. Names are not shown here.</p>
         {candidates.length === 0 ? <EmptyState title="No likely duplicates" description="No two active records share an identifier or a matching name and date of birth." /> : (
           <div className="grid grid-cols-1 gap-4">
             {candidates.map((c) => (

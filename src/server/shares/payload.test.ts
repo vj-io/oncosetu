@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { formatDateIN, istDate, lintText } from '@/core/copy'
 import { buildSnapshot } from '@/core/ledger'
 import type { CoreDocument, CoreEvent, EventType, FieldValue } from '@/core/types'
-import { ts } from '@/i18n/shares'
+import { tn, ts } from '@/i18n/shares'
 import { buildSharePayload, type PayloadInput } from './payload'
 
 const ev = (id: string, eventType: EventType, fields: Record<string, FieldValue>, eventDate: string, documentId: string, verificationStatus: CoreEvent['verificationStatus'] = 'unverified'): CoreEvent => ({
@@ -94,5 +94,99 @@ describe('errata in the share and the passport (FR-ID-06)', () => {
     expect(p.documents.map((d) => d.id)).toEqual(['d-ds'])
     expect(buildSharePayload(base)).not.toHaveProperty('errata')
     expect(ts('en', 'errataLine', { label: p.errata![0].label.en, date: formatDateIN(istDate(p.errata![0].date!)), n: 1 })).toBe('Day-care record · taken out on 25 Oct 2026 · items withdrawn: 1')
+  })
+})
+
+describe('scans in a share link (decision 12: listed, never included)', () => {
+  const withScan = buildSnapshot({ patientId: 'p1', events, documents: [...docs,
+    { id: 'd-pet', docType: 'other', documentDate: '2026-04-28', receivedAt: '2026-10-01T10:00:00Z', institution: 'City Care Hospital', sha256: 'cc' }],
+  statements: [], missing }, '2026-10-20T06:00:00.000Z')
+  const input: PayloadInput = { ...base, snapshot: withScan, scans: { 'd-pet': 'PET-CT' } }
+
+  it('lists a scan under scans, not among the papers', () => {
+    const p = buildSharePayload({ ...input, disclosure: 'cleared' })
+    expect(p.documents.map((d) => d.id)).not.toContain('d-pet')
+    expect(p.scans).toEqual([{ label: { en: 'PET-CT', hi: 'PET-CT', hinglish: 'PET-CT' }, date: '2026-04-28', institution: 'City Care Hospital' }])
+  })
+  it('says only "Scan" until disclosure is cleared: a study name can hint at the diagnosis', () => {
+    for (const disclosure of ['not_cleared', 'unknown'] as const) {
+      const p = buildSharePayload({ ...input, disclosure })
+      expect(p.scans?.[0].label.en).toBe('Scan')
+      expect(JSON.stringify(p)).not.toContain('PET')
+    }
+  })
+  it('has no scans section when there are no scan files', () => {
+    expect(buildSharePayload(base).scans).toBeUndefined()
+  })
+})
+
+describe('share payload creator and share wording (PUB-02, PUB-06, PUB-07, PAT-04)', () => {
+  it('carries who made the link, and leaves it out when unknown', () => {
+    expect(buildSharePayload({ ...base, createdBy: 'staff' }).createdBy).toBe('staff')
+    expect(buildSharePayload({ ...base, createdBy: 'caregiver' }).createdBy).toBe('caregiver')
+    expect('createdBy' in buildSharePayload(base)).toBe(false)
+  })
+  it('uses the singular for exactly one paper or item, in every language', () => {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      expect(tn(lang, 'papersN', 'papersOne', 1)).toBe(ts(lang, 'papersOne'))
+      expect(tn(lang, 'papersN', 'papersOne', 3)).toContain('3')
+      expect(tn(lang, 'itemsN', 'itemsOne', 1)).toBe(ts(lang, 'itemsOne'))
+      expect(tn(lang, 'papersN', 'papersOne', 1)).not.toContain('1 papers')
+    }
+    expect(tn('en', 'itemsN', 'itemsOne', 1)).toBe('1 recorded item')
+  })
+  it('the signature line names both the link date and the sealed date', () => {
+    for (const lang of ['en', 'hi', 'hinglish'] as const) {
+      const line = ts(lang, 'sigVerified', { brand: 'OncoSetu', date: '19 Nov 2026', sealDate: '16 Feb 2026' })
+      expect(line).toContain('19 Nov 2026')
+      expect(line).toContain('16 Feb 2026')
+    }
+    expect(ts('en', 'sigVerified', { brand: 'B', date: 'D', sealDate: 'S' })).not.toContain('issued by')
+  })
+  it('says what the link covers, without calling the papers themselves shared', () => {
+    const line = ts('en', 'scopeSummary', { n: 3, date: '16 Feb 2026' })
+    expect(line).toContain('3 papers')
+    expect(line).toContain('after that date are not included')
+    expect(ts('en', 'scopeScans')).toContain('images stay at the clinic')
+    expect(ts('en', 'scopeQuotesName')).not.toMatch(/and the documents/)
+  })
+})
+
+describe('share payload: family-facing privacy', () => {
+  const cleared: PayloadInput = { ...base, disclosure: 'cleared', scope: 'index_with_quotes' }
+
+  it('quotes carry no physician name and no signature footer', () => {
+    const quote = ['wide local excision for carcinoma', 'Reported by: Dr. Anil Mehta, MD', 'Electronically signed by Dr Mehta on 12/03/2026', 'Page 2 of 2'].join('\n')
+    const p = buildSharePayload({ ...cleared, quotes: { e1: quote } })
+    const shown = p.items.find((i) => i.quote)?.quote
+    expect(shown).toBe('wide local excision for carcinoma')
+    expect(JSON.stringify(p)).not.toMatch(/Mehta|signed by|Page 2/)
+  })
+
+  it('a quote that is only a signature is left out', () => {
+    const p = buildSharePayload({ ...cleared, quotes: { e1: 'Reported by: Dr. Anil Mehta, MD' } })
+    expect(p.items.every((i) => !i.quote)).toBe(true)
+  })
+
+  it('a physician named inside a hospital name does not reach the list', () => {
+    const snap = buildSnapshot({ patientId: 'p1', events, documents: [{ ...docs[0], institution: "Dr. R. Mehta's Cancer Clinic" }, docs[1]], statements: [], missing }, '2026-10-20T06:00:00.000Z')
+    const p = buildSharePayload({ ...cleared, snapshot: snap })
+    expect(JSON.stringify(p)).not.toContain('Mehta')
+  })
+
+  it('lists the signed consent form by name in every language, never as "Other document"', () => {
+    const form: CoreDocument = { id: 'd-cf', docType: 'other', documentDate: '2026-10-01', receivedAt: '2026-10-01T10:00:00Z', institution: null, sha256: 'cc' }
+    const snap = buildSnapshot({ patientId: 'p1', events, documents: [...docs, form], statements: [], missing }, '2026-10-20T06:00:00.000Z')
+    for (const disclosure of ['cleared', 'not_cleared'] as const) {
+      const p = buildSharePayload({ ...base, snapshot: snap, disclosure, consentForms: { 'd-cf': 'sign' } })
+      const row = p.documents.find((d) => d.id === 'd-cf')!
+      expect(row.label).toEqual({ en: 'Signed consent form', hi: 'हस्ताक्षरित सहमति पत्र', hinglish: 'Signed consent form' })
+      expect(JSON.stringify(p)).not.toMatch(/Other document|Doosra kaagaz/)
+    }
+  })
+
+  it('a document list carries the kind and date only: no file name field exists', () => {
+    const p = buildSharePayload(cleared)
+    for (const d of p.documents) expect(Object.keys(d).sort()).toEqual(['date', 'id', 'institution', 'label', 'receivedAt'])
   })
 })

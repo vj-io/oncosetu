@@ -6,12 +6,17 @@ import { normaliseName } from '@/core/identity'
 import { decryptField, maskPhone, normalizePhone, phoneHmac } from '../crypto'
 import { ageYears, initials } from '../patients'
 import { accession } from './http'
+import { log } from '../log'
 
 export type PatientRow = {
   id: string; accession: string; name: string; initials: string; ageYears: number | null
   sex: 'female' | 'male' | 'other' | 'unknown'; mrn: string | null; disclosure: 'cleared' | 'not_cleared' | 'unknown'
   minor: boolean; deceased: boolean; hasConsent: boolean; createdAt: Date; phoneMasked: string | null
+  /** REC-02: a stored field could not be decrypted (written with another key). The row is shown, flagged, instead of failing the page. */
+  unreadable?: boolean
 }
+
+export const UNREADABLE_NAME = 'Record unreadable — contact admin'
 
 /** What the desk may see before the person is verified (FR-ID-02): initials and a non-identifying code. */
 export const initialsView = (r: Pick<PatientRow, 'id' | 'initials' | 'accession'>) => ({ id: r.id, initials: r.initials, accession: r.accession })
@@ -39,7 +44,25 @@ async function consentFlags(tx: Tx): Promise<Map<string, boolean>> {
   return new Map(rows.map((r) => [r.patient_id, r.action !== 'withdraw' && r.store === true]))
 }
 
+/** Decrypts a stored name for matching; a field that cannot be read matches nothing (and is logged by toRow when the row is built). */
+function safeName(enc: string): string | null {
+  try { return decryptField(enc) } catch { return null }
+}
+
 function toRow(p: typeof patients.$inferSelect, consent: Map<string, boolean>): PatientRow {
+  try {
+    return readRow(p, consent)
+  } catch (e) {
+    // One undecryptable row must not take down the whole list. Never log the contents, only the id and the error code.
+    log.error('patient row could not be decrypted', { patientId: p.id, code: (e as { code?: unknown }).code ?? (e as Error).name })
+    return {
+      id: p.id, accession: accession(p.id), name: UNREADABLE_NAME, initials: '?', ageYears: null, sex: 'unknown', mrn: null, disclosure: p.disclosureStatus,
+      minor: p.minor, deceased: p.deceased, hasConsent: false, createdAt: p.createdAt, phoneMasked: null, unreadable: true,
+    }
+  }
+}
+
+function readRow(p: typeof patients.$inferSelect, consent: Map<string, boolean>): PatientRow {
   const name = decryptField(p.nameEnc)
   const dob = p.dobEnc ? decryptField(p.dobEnc) : null
   return {
@@ -76,8 +99,8 @@ export async function searchPatients(tx: Tx, rawQuery: string, limit = 50, mode:
     const all = await tx.select({ id: patients.id, nameEnc: patients.nameEnc }).from(patients).where(eq(patients.status, 'active'))
     const aliases = await tx.select({ patientId: patientAliases.patientId, nameEnc: patientAliases.nameEnc }).from(patientAliases)
     const aliasBy = new Map<string, string[]>()
-    for (const a of aliases) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), decryptField(a.nameEnc)])
-    for (const p of all) if (nameMatchesQuery(q, decryptField(p.nameEnc), ...(aliasBy.get(p.id) ?? []))) ids.add(p.id)
+    for (const a of aliases) { const n = safeName(a.nameEnc); if (n) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), n]) }
+    for (const p of all) { const n = safeName(p.nameEnc); if (n && nameMatchesQuery(q, n, ...(aliasBy.get(p.id) ?? []))) ids.add(p.id) }
   }
   if (!ids.size) return []
   const rows = await tx.select().from(patients).where(and(inArray(patients.id, [...ids].slice(0, limit)), ne(patients.status, 'erased'))).orderBy(desc(patients.createdAt))

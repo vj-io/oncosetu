@@ -58,6 +58,19 @@ export async function decideAttachment(ctx: Ctx, d: Doc, body: z.infer<typeof at
   return { ok: true, attachState: attach ? 'attached' : 'rejected' }
 }
 
+/** REC-01: undo a "not this patient" rejection. The file goes back to the held group for a fresh decision; audited. */
+export const undoRejectSchema = z.object({ reason: z.string().trim().max(500).optional() })
+
+export async function undoRejection(ctx: Ctx, d: Doc, body: z.infer<typeof undoRejectSchema>) {
+  if (d.attachState !== 'rejected') throw new HttpError(409, 'not_rejected', 'Only a rejected document can be brought back')
+  await ctx.db.update(documents).set({
+    attachState: 'pending_decision', attachDecidedBy: null, attachDecidedAt: null, attachReason: null, updatedAt: new Date(),
+  }).where(eq(documents.id, d.id))
+  await ctx.audit('document.rejection_undone', 'document', d.id, { previousReason: d.attachReason, previousDecidedBy: d.attachDecidedBy, note: body.reason ?? null })
+  await recomputeRadar(ctx.db, d.orgId, d.patientId)
+  return { ok: true, attachState: 'pending_decision' }
+}
+
 // ── detach (FR-ID-06, E-LED-06) ─────────────────────────────────────────────
 export const detachSchema = z.object({ reason: z.string().trim().min(3).max(500) })
 

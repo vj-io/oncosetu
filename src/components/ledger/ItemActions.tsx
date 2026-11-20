@@ -77,7 +77,16 @@ export function ItemActions({ item }: Props) {
   }
 
   if (!anyAllowed) {
-    return <p className="flex items-center gap-1.5 text-sm text-faint"><Lock aria-hidden className="size-3.5" />Headline view: verification is done by records staff and clinicians.</p>
+    // REC-03: records staff meet clinician-tier lines too. Say who checks this line and keep the way to the source.
+    if (typeof p.verify === 'string' && p.verify.startsWith('Clinician-tier')) {
+      return (
+        <div className="flex flex-wrap items-center gap-3">
+          {source?.href && <ButtonLink href={source.href} variant="secondary" size="sm" icon={<BookOpen aria-hidden />}>Open source</ButtonLink>}
+          <p className="flex items-center gap-1.5 text-sm text-muted" data-testid="clinician-checks"><Lock aria-hidden className="size-3.5 shrink-0" />A clinician checks this line. You can open the source.</p>
+        </div>
+      )
+    }
+    return <p className="flex items-center gap-1.5 text-sm text-faint"><Lock aria-hidden className="size-3.5" />Headline view: records staff and clinicians check the lines.</p>
   }
 
   return (

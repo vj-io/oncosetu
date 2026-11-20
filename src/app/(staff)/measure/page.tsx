@@ -3,7 +3,8 @@ import { MeasureForm } from '@/components/admin/MeasureForm'
 import { withOrg } from '@/db'
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
-import { istDateTime, shortId } from '@/server/admin/format'
+import { accession, istDateTime } from '@/server/admin/format'
+import { formatDateIN } from '@/core/copy'
 import { istToday, myRecentForms, recentEncounters } from '@/server/admin/measurement'
 import { requireStaff } from '@/server/session'
 
@@ -21,7 +22,7 @@ export default async function MeasurePage({ searchParams }: { searchParams: Prom
       <SectionHeader as="h1" kicker="Study form · takes about a minute" title="Record this consultation"
         description="Answer after the consultation. The form carries no patient details: it is linked to the visit by a code only. These answers feed the measurement study of how missing papers affect consultations."
         />
-      <MeasureForm today={istToday()} initialEncounterId={typeof visit === 'string' ? visit : undefined} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `Visit ${shortId(e.id)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
+      <MeasureForm today={istToday()} initialEncounterId={typeof visit === 'string' ? visit : undefined} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `${accession(e.patientId)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
       <section aria-labelledby="mine-h" className="grid gap-3">
         <h2 id="mine-h" className="text-xl tracking-[-0.02em]">Your recent forms</h2>
         {mine.length === 0 ? <EmptyState title="Nothing recorded yet" className="py-8" /> : (
@@ -30,7 +31,7 @@ export default async function MeasurePage({ searchParams }: { searchParams: Prom
             <tbody>
               {mine.map((f) => (
                 <tr key={f.id}>
-                  <td className="font-mono text-[13px]">{f.consultationDate}</td><td className="capitalize">{f.phase}</td>
+                  <td className="font-mono text-[13px]">{formatDateIN(f.consultationDate, 'en')}</td><td className="capitalize">{f.phase}</td>
                   <td>{f.missingRecordPresent ? `${f.missingRecordCount}: ${f.missingTypes.map((t) => staffDocLabel(t as DocType)).join(', ') || 'types not given'}` : 'None'}</td>
                   <td>{IMPACT[f.impact]}</td><td>{f.repeatTestOrdered ? f.repeatTestReason?.replace('_', ' ') : 'No'}</td>
                 </tr>

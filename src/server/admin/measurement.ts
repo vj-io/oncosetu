@@ -56,6 +56,6 @@ export async function myRecentForms(tx: Tx, staffId: string, limit = 15) {
 
 /** Encounters of the last 14 days, by id/type/time only (no patient data), for linking a form. */
 export async function recentEncounters(tx: Tx, limit = 40) {
-  return tx.select({ id: encounters.id, type: encounters.type, startedAt: encounters.startedAt }).from(encounters)
+  return tx.select({ id: encounters.id, patientId: encounters.patientId, type: encounters.type, startedAt: encounters.startedAt }).from(encounters)
     .where(gte(encounters.startedAt, new Date(Date.now() - 14 * 86_400_000))).orderBy(desc(encounters.startedAt)).limit(limit)
 }

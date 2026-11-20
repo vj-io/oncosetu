@@ -270,16 +270,16 @@ export function runRadar(input: RadarInput): RadarOutput {
             const dated = !!d.documentDate
             const [ds, de] = dated ? dateRange(d.documentDate!, d.datePrecision ?? 'day') : ['', '']
             const inWindow = !dated || (de >= window.from && ds <= window.to)
-            const differs = rule.expects.same_institution_preferred && !!t.institution && !!d.institution && !sameInstitution(t.institution, d.institution)
+            // Two hospitals that are both known never match (a referral note is the one rule that expects another place).
+            const differs = (rule.expects.same_institution_preferred || t.kind !== 'event') && !!t.institution && !!d.institution && !sameInstitution(t.institution, d.institution)
             return { d, dated, inWindow, differs, dist: dated ? Math.abs(Date.parse(ds) - Date.parse(tStart)) : Infinity }
           })
-          .filter((c) => c.inWindow)
+          .filter((c) => c.inWindow && !c.differs)
           .sort((a, b) => Number(a.differs) - Number(b.differs) || Number(b.dated) - Number(a.dated) || a.dist - b.dist || a.d.id.localeCompare(b.d.id))
         const best = candidates[0]
         if (best) {
           match = { dedupeKey, documentId: best.d.id }
           if (!best.dated) match.note = 'document_date_unknown'
-          else if (best.differs) match.note = 'institution_differs'
         }
       }
       if (match) {

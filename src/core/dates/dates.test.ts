@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addDays, dateRange, daysBetween, findDates, parseDate, swappedReading, toAsciiDigits, type DateOptions } from '.'
+import { addDays, dateRange, daysBetween, findDates, parseDate, plausibleSwap, swappedReading, toAsciiDigits, type DateOptions } from '.'
 
 const NOW = '2026-11-02'
 type Exp = [iso: string | null, precision: string, flags?: string[], alternatives?: string[]]
@@ -270,5 +270,26 @@ describe('helpers', () => {
     }
     expect(swappedReading('2026-03-13')).toBeNull() // day 13 is no month
     expect(swappedReading('2026-03')).toBeNull()
+  })
+})
+
+describe('plausibleSwap (DOC-03: the day/month warning only when the other reading is believable)', () => {
+  const now = '2026-11-19T10:00:00.000Z'
+  it('keeps the other reading when it is not after the paper or today', () => {
+    expect(plausibleSwap('2026-03-04', { now, paperDate: '2026-05-01' })).toBe('2026-04-03')
+  })
+  it('drops it when the other reading is in the future of today', () => {
+    expect(plausibleSwap('2026-05-12', { now, paperDate: null })).toBeNull() // 5 Dec 2026 is after 19 Nov 2026
+  })
+  it('drops it when the other reading is after the paper own date', () => {
+    expect(plausibleSwap('2026-01-02', { now, paperDate: '2026-01-10' })).toBeNull()
+  })
+  it('a next-visit line is the reverse: an earlier reading than the paper is not believable', () => {
+    expect(plausibleSwap('2026-06-02', { now, paperDate: '2026-05-12', forward: true })).toBeNull()
+    expect(plausibleSwap('2026-01-02', { now, paperDate: '2026-01-01', forward: true })).toBe('2026-02-01')
+  })
+  it('is null when the day is above 12 or both parts match', () => {
+    expect(plausibleSwap('2026-03-25', { now })).toBeNull()
+    expect(plausibleSwap('2026-03-03', { now })).toBeNull()
   })
 })

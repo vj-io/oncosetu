@@ -83,7 +83,9 @@ export function Tour() {
       const el = document.querySelector<HTMLElement>(selectorFor(step.target ?? "")) ?? (step.fallback ? document.querySelector<HTMLElement>(selectorFor(step.fallback)) : null);
       if (el) {
         el.classList.add(...RING);
-        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        // Top of the screen, so the card pinned at the bottom never covers the thing it describes (DOC-20).
+        el.style.scrollMarginTop = "7rem";
+        el.scrollIntoView({ block: "start", behavior: "smooth" });
       }
     }, 400);
     return () => {

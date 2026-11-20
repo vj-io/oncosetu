@@ -23,7 +23,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const { rows, glance } = await withOrg(s.orgId, async (tx) => {
     const found = await searchPatients(tx, q)
     if (q.trim()) await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'patient.search', details: { results: found.length, role: s.role } })
-    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id)) }
+    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id), s.orgId) }
   })
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-8">
@@ -73,7 +73,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
                   {!desk && (
                     <>
                       <td className="whitespace-nowrap">{r.hasConsent ? `${r.ageYears ?? '—'} · ${r.sex}` : '—'}</td>
-                      <td className="text-right">{g ? <Num n={g.newSinceSeal} hot /> : '—'}</td>
+                      <td className="text-right">{g ? (g.lastSealed ? <Num n={g.newSinceSeal} hot /> : <span className="text-[13px] text-muted"><Num n={g.newSinceSeal} /> on file, first visit</span>) : '—'}</td>
                       <td className="text-right">{g ? <Num n={g.notInFile} hot /> : '—'}</td>
                       <td className="font-mono text-xs whitespace-nowrap">{g ? (g.lastSealed ? DATE.format(g.lastSealed) : 'Not yet') : '—'}</td>
                     </>

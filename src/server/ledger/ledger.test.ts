@@ -2,7 +2,7 @@ import { generateKeyPairSync } from 'node:crypto'
 import { beforeAll, describe, expect, it } from 'vitest'
 import { buildSnapshot, canonicalJson, type Snapshot } from '@/core/ledger'
 import {
-  assembleRecord, buildLedgerView, buildTimeline, checkVerification, editedVersion, itemsById, permitsFor, resolvedKey,
+  assembleRecord, buildLedgerView, buildTimeline, checkVerification, editedVersion, eventFlags, itemsById, permitsFor, resolvedKey,
   snapshotSummary, tierOf, type DocumentRow, type EventRow, type EvidenceRow, type RecordRows, type StatementRow,
 } from './core'
 import { checkSnapshot, sealBytes } from './seal'
@@ -339,5 +339,20 @@ describe('timeline hospital facet', () => {
   it('a shouting name alone is shown in Title Case', async () => {
     const { canonicalInstitutions } = await import('./core')
     expect([...canonicalInstitutions(['KASTURI DAY-CARE UNIT']).values()]).toEqual(['Kasturi Day-Care Unit'])
+  })
+})
+
+describe('identity warning after a person attached the paper with a reason', () => {
+  const ev = event({ flags: { identity_warning: true } })
+  it('shows the warning while the paper is unresolved', () => {
+    expect(eventFlags(ev, doc({ identityResult: 'mismatch', attachState: 'attached', attachReason: null }))).toContain('identity_warning')
+    expect(eventFlags(event(), doc({ identityResult: 'insufficient', attachState: 'auto' }))).toContain('identity_warning')
+  })
+  it('drops it once attached with a reason (the stored flag and audit rows stay)', () => {
+    for (const identityResult of ['mismatch', 'insufficient'] as const) {
+      expect(eventFlags(ev, doc({ identityResult, attachState: 'attached', attachReason: 'Checked with the family: same person' }))).not.toContain('identity_warning')
+    }
+    expect(eventFlags(ev, doc({ identityResult: 'mismatch', attachState: 'attached', attachReason: '   ' }))).toContain('identity_warning')
+    expect(ev.flags.identity_warning).toBe(true)
   })
 })

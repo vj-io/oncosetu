@@ -129,3 +129,11 @@ const REASON_TEXT: Record<string, string> = {
   no_corroborating_field: 'name matches but no age, date of birth or ID to confirm it', handwritten_header: 'handwritten header — not machine-read',
 }
 export const identityReasonText = (r: string) => REASON_TEXT[r] ?? r.replace(/_/g, ' ')
+
+const ROLE_WORDS: Record<string, string> = { records: 'records staff', clinician: 'a clinician', org_admin: 'an admin', desk: 'the front desk', auditor: 'an auditor' }
+/** "Attached by records staff with a reason, 18 Nov 2026": what the paper shows once a person attached it, instead of the old identity warning. */
+export function attachedWithReasonText(role: string | null | undefined, decidedAt: string | null | undefined): string {
+  const who = role ? ROLE_WORDS[role] ?? 'a person' : 'a person'
+  const day = decidedAt ? fmtDate(new Date(Date.parse(decidedAt) + IST_MS).toISOString().slice(0, 10)) : null
+  return `Attached by ${who} with a reason${day ? `, ${day}` : ''}`
+}

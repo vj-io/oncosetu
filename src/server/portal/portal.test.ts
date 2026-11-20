@@ -1,7 +1,7 @@
 // FR-CON-07 / FR-VOX-04..07 for the patient portal: every sentence built for a patient who has not been told contains no
 // diagnosis word and no "Onco"; the read-back keeps the patient's words and never invents a date.
 import { describe, expect, it } from 'vitest'
-import { brandFor, lintText } from '@/core/copy'
+import { brandFor, consentFormLabel, lintText, patientDocLabel } from '@/core/copy'
 import { DOC_TYPES, type Disclosure, type Lang } from '@/core/types'
 import { en, hi, hinglish, tp, tpw, type PatientKey } from '@/i18n/patient'
 import { pickLang } from './lang'
@@ -307,5 +307,41 @@ describe('language choice (PAT-01)', () => {
     expect(pickLang(null, 'hinglish', 'hi')).toBe('hinglish')
     expect(pickLang(null, undefined, 'hi')).toBe('hi')
     expect(pickLang(null, 'fr', 'en')).toBe('en')
+  })
+})
+
+describe('patient surfaces: privacy and labels', () => {
+  it.each(LANGS)('lists the signed consent form by name, not "Other document" (%s)', (lang) => {
+    for (const disclosure of ['cleared', 'not_cleared'] as const) {
+      const docs = [
+        { id: 'cf', docType: 'other' as const, documentDate: null, receivedAt: '2026-11-02T04:44:00.000Z', consentForm: 'sign' as const },
+        { id: 'wd', docType: 'other' as const, documentDate: null, receivedAt: '2026-11-02T04:45:00.000Z', consentForm: 'withdraw' as const },
+        { id: 'ot', docType: 'other' as const, documentDate: null, receivedAt: '2026-11-02T04:46:00.000Z' },
+      ]
+      const s = buildHomeSummary({ ...home, documents: docs }, disclosure, lang)
+      const by = (id: string) => s.documents.find((d) => d.id === id)!.label
+      expect(by('cf')).toBe(consentFormLabel(lang, 'sign'))
+      expect(by('wd')).toBe(consentFormLabel(lang, 'withdraw'))
+      expect(by('ot')).toBe(patientDocLabel('other', disclosure, lang))
+      expect(by('cf')).not.toBe(by('ot'))
+    }
+    expect(consentFormLabel('en')).toBe('Signed consent form')
+  })
+
+  it('a paper is listed by its kind and dates only: no field carries a file name', () => {
+    const s = buildHomeSummary({ ...home, documents: [{ id: 'x', docType: 'imaging_report', documentDate: '2026-03-12', receivedAt: '2026-11-02T04:44:00.000Z', fileName: 'RAMESH_KUMAR_PET_report.pdf' } as HomeData['documents'][number]] }, 'not_cleared', 'en')
+    expect(Object.keys(s.documents[0]).sort()).toEqual(['dated', 'disputed', 'id', 'label', 'received'])
+    expect(JSON.stringify(s)).not.toMatch(/RAMESH|\.pdf/)
+  })
+
+  it('written dates drop a physician name and a signature line', () => {
+    const rows = [
+      { id: 'w1', what: 'Review with Dr. Anil Mehta', date: '2026-04-02', precision: 'day' as const, docType: 'consult_note' as const },
+      { id: 'w2', what: 'Signed by Dr. Anil Mehta', date: '2026-04-09', precision: 'day' as const, docType: 'consult_note' as const },
+    ]
+    for (const lang of LANGS) {
+      const s = buildHomeSummary({ ...home, writtenDates: rows }, 'not_cleared', lang)
+      expect(JSON.stringify(s)).not.toMatch(/Mehta|Signed by/)
+    }
   })
 })

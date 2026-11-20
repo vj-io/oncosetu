@@ -1,13 +1,13 @@
 // Pure builders for what the patient sees on the home page, plus small display helpers (FR-CON-07).
 // Everything here takes data in and returns plain strings: unit-tested for zero diagnosis words (portal.test.ts).
-import { formatDateIN, istDate, lintText, patientDocLabel } from '@/core/copy'
+import { consentFormLabel, formatDateIN, istDate, lintText, patientDocLabel, stripPhysician } from '@/core/copy'
 import type { DatePrecision, Disclosure, DocType, Lang } from '@/core/types'
 import { tp } from '@/i18n/patient'
 
 export type HomeData = {
   /** Today in India time (YYYY-MM-DD, demo-clock aware): splits the written dates into coming up and earlier. */
   today: string
-  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean }[]
+  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null }[]
   /** Production completeness items: a document type linked to a date, never a reason. */
   looking: {
     id: string; expectedTypes: DocType[]; state: 'expected' | 'requested' | 'received'
@@ -114,7 +114,7 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
     .sort((a, b) => sortKey(b).localeCompare(sortKey(a)) || b.receivedAt.localeCompare(a.receivedAt))
     .map((x) => ({
       id: x.id,
-      label: x.docType ? plainLabel(x.docType, disclosure, lang) : tp(lang, 'docPending'),
+      label: x.consentForm ? consentFormLabel(lang, x.consentForm) : x.docType ? plainLabel(x.docType, disclosure, lang) : tp(lang, 'docPending'),
       dated: x.documentDate ? tp(lang, 'docDatedOn', { date: formatDateIN(x.documentDate, lang) }) : null,
       received: tp(lang, 'docReceivedOn', { date: formatDateIN(istDate(x.receivedAt), lang) }),
       disputed: !!x.disputed,
@@ -142,7 +142,7 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
   const fallback = tp(lang, 'writtenDateFallback')
   type Row = WrittenDateRow & { iso: string; precision: DatePrecision; written: boolean }
   const rows: Row[] = d.writtenDates.map((x) => {
-    const clean = labelWithoutDates(x.what)
+    const clean = labelWithoutDates(stripPhysician(x.what))
     const safe = disclosure !== 'cleared' && /\bcycles?\b/i.test(clean) ? '' : guardText(clean, disclosure, '')
     return {
       id: x.id, iso: x.date, precision: x.precision, written: !!safe,

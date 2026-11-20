@@ -17,7 +17,7 @@ import type { documents, events, evidence, missingRecords, patientStatements, ve
 export type EventRow = typeof events.$inferSelect
 export type EvidenceRow = Pick<typeof evidence.$inferSelect, 'eventId' | 'documentId' | 'pageNo' | 'charStart' | 'charEnd' | 'quote' | 'quoteSha256' | 'statementId'>
 export type DocumentRow = Pick<typeof documents.$inferSelect,
-  'id' | 'docType' | 'documentDate' | 'receivedAt' | 'institutionName' | 'sha256' | 'amendmentOf' | 'duplicateOf' | 'attachState' | 'attachDecidedAt' | 'identityResult' | 'status'>
+  'id' | 'docType' | 'documentDate' | 'receivedAt' | 'institutionName' | 'sha256' | 'amendmentOf' | 'duplicateOf' | 'attachState' | 'attachDecidedAt' | 'identityResult' | 'status'> & { attachReason?: string | null }
 export type StatementRow = Pick<typeof patientStatements.$inferSelect, 'id' | 'questionId' | 'answer' | 'transcript' | 'language' | 'confirmation' | 'createdAt'>
 export type MissingRow = Pick<typeof missingRecords.$inferSelect, 'ruleId' | 'ruleVersion' | 'mode' | 'triggerEventId' | 'expectedTypes' | 'state' | 'dedupeKey' | 'matchWindow'>
 export type VerificationRow = Pick<typeof verifications.$inferSelect, 'eventId' | 'action' | 'toStatus' | 'role' | 'at' | 'viewedSource'> & { actorName: string | null }
@@ -127,12 +127,17 @@ export function fieldValues(f: Record<string, unknown>): Record<string, FieldVal
   return out
 }
 
+/** True once records staff or a clinician attached a held paper and wrote why (the identity question is answered). */
+export const isAttachedWithReason = (d: { attachState: string; attachReason?: string | null }) => d.attachState === 'attached' && !!d.attachReason?.trim()
+
 /** Stored flags (jsonb booleans + date flags) as EventFlag[]; a document attached without a header identity match adds identity_warning. */
-export function eventFlags(e: Pick<EventRow, 'flags' | 'dateFlags'>, doc?: Pick<DocumentRow, 'identityResult'>): EventFlag[] {
+export function eventFlags(e: Pick<EventRow, 'flags' | 'dateFlags'>, doc?: Pick<DocumentRow, 'identityResult' | 'attachState' | 'attachReason'>): EventFlag[] {
   const s = new Set<EventFlag>()
   for (const [k, v] of Object.entries(e.flags ?? {})) if (v === true && FLAG_SET.has(k)) s.add(k as EventFlag)
   for (const k of e.dateFlags ?? []) if (FLAG_SET.has(k)) s.add(k as EventFlag)
   if (doc && doc.identityResult !== 'match') s.add('identity_warning')
+  // A person attached the paper and gave a reason: the question is answered. The stored flag and the audit rows stay; the warning is not shown.
+  if (doc && isAttachedWithReason(doc)) s.delete('identity_warning')
   return [...s].sort()
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fmtDate, fmtDateTime } from './labels'
+import { attachedWithReasonText, fmtDate, fmtDateTime } from './labels'
 
 // The hand-written formatters must print exactly what Node's en-IN Intl printed before (server-rendered text unchanged).
 describe('document board date formatting', () => {
@@ -12,5 +12,13 @@ describe('document board date formatting', () => {
       expect(fmtDate(iso.slice(0, 10))).toBe(DATE.format(new Date(iso.slice(0, 10) + 'T00:00:00Z')))
     }
     expect(fmtDate(null)).toBe('date not stated')
+  })
+})
+
+describe('the resolved identity state', () => {
+  it('says who attached it with a reason, and when', () => {
+    expect(attachedWithReasonText('records', '2026-11-18T05:00:00.000Z')).toBe('Attached by records staff with a reason, 18 Nov 2026')
+    expect(attachedWithReasonText('clinician', null)).toBe('Attached by a clinician with a reason')
+    expect(attachedWithReasonText(null, '2026-11-18T20:00:00.000Z')).toBe('Attached by a person with a reason, 19 Nov 2026') // India time
   })
 })

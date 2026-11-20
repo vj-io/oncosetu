@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { lintText, type Ruleset } from '@/core/copy'
-import { buildLetter, cycleList, DEFAULT_REQUEST_DOCS, letterText, neutralName, type LetterInput } from './letter'
+import { guardFree, buildLetter, cycleList, DEFAULT_REQUEST_DOCS, letterText, neutralName, type LetterInput } from './letter'
 
 const input: LetterInput = {
   lang: 'en', disclosure: 'not_cleared', requestId: '0193b000-0000-7000-8000-00000000abcd',
@@ -85,5 +85,13 @@ describe('the hospital name on the patient requests card', () => {
   it('says "the hospital" only when nothing safe is left', async () => {
     const { patientInstitution } = await import('./letter')
     expect(patientInstitution('Cancer Chemo', 'not_cleared')).toBe('the hospital')
+  })
+})
+
+describe('physician names never reach a family-facing place name', () => {
+  it('neutralName and guardFree drop a titled name', () => {
+    expect(neutralName("Dr. R. Mehta's Day-Care Clinic", 'unknown')).toBe('Day-Care Clinic')
+    expect(guardFree("Dr Anil Kumar's Imaging Centre", 'cleared')).toBe('Imaging Centre')
+    expect(guardFree('City Hospital', 'unknown')).toBe('City Hospital')
   })
 })

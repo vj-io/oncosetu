@@ -11,6 +11,10 @@ import { ImagingViewer, type ImagingDetails } from '@/components/documents/Imagi
 import { PdfPages, SourceViewer } from '@/components/documents/SourceViewer'
 import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, Table, type Tone } from '@/components/ui'
 import { staffDocLabel } from '@/core/copy'
+import { eq } from 'drizzle-orm'
+import { staff } from '@/db/schema'
+import { attachedWithReasonText } from '@/components/documents/labels'
+import { isAttachedWithReason } from '@/server/ledger/core'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
 import { MODALITY_LABEL, filterRecords, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
@@ -38,11 +42,13 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
     if (session.role !== 'records' && session.role !== 'clinician') return { denied: true as const }
     if (!/^[0-9a-f-]{36}$/i.test(docId)) return null
     const [detail, patient, recs] = await Promise.all([documentDetail(tx, id, docId), loadPatient(tx, id), loadRecords(tx, id)])
-    return detail && patient ? { detail, patient, recs } : null
+    if (!detail || !patient) return null
+    const by = detail.doc.attachDecidedBy ? (await tx.select({ role: staff.role }).from(staff).where(eq(staff.id, detail.doc.attachDecidedBy)))[0] : undefined
+    return { detail, patient, recs, decidedByRole: by?.role ?? null }
   })
   if (data && 'denied' in data) forbidden()
   if (!data) notFound()
-  const { detail: d, patient, recs } = data
+  const { detail: d, patient, recs, decidedByRole } = data
   // The list the reader came from: the same kind, kind of scan and order as in All records, so Previous and Next stay inside it.
   const kind = (['report', 'scan', 'lab', 'rx', 'other'] as const).find((k) => k === kindQ) as RecordKind | undefined
   const modality = modQ && modQ in MODALITY_LABEL ? (modQ as ModalityKey) : undefined
@@ -71,6 +77,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
+  // A person attached it and wrote why: say so instead of the old mismatch badge (the header table and reasons below stay as the audit trail).
+  const resolved = isAttachedWithReason(doc) ? attachedWithReasonText(decidedByRole, doc.attachDecidedAt ? doc.attachDecidedAt.toISOString() : null) : null
   const fileInfo = flags.file as { kind?: string; category?: string; label?: string; storedOnly?: boolean; note?: string; previewNote?: string } | undefined
   const imaging = flags.imaging as (ImagingDetails & { modalityLabel?: string; studyLabel?: string }) | undefined
   const storedOnly = !!fileInfo?.storedOnly
@@ -114,7 +122,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         actions={
           <>
             <StatusBadge status={b.status} label={b.label} />
-            {doc.identityResult !== 'pending' && <StatusBadge status={doc.identityResult} />}
+            {resolved ? <Badge tone="verified">{resolved}</Badge> : doc.identityResult !== 'pending' && <StatusBadge status={doc.identityResult} />}
           </>
         }
       />
@@ -296,7 +304,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           <h2 id="id-h" className="ds-kicker">Is this the right patient? <span className="normal-case">header vs registered patient</span>{doc.attachState === 'pending_decision' && <InfoTip>{EXPLAIN.wrongPatient}</InfoTip>}</h2>
           <div className="border border-rule bg-surface p-5 shadow-placard">
             <div className="flex flex-wrap items-center gap-2">
-              {doc.identityResult !== 'pending' ? <StatusBadge status={doc.identityResult} /> : <Badge tone="shadow">Not checked yet</Badge>}
+              {resolved ? <Badge tone="verified">{resolved}</Badge> : doc.identityResult !== 'pending' ? <StatusBadge status={doc.identityResult} /> : <Badge tone="shadow">Not checked yet</Badge>}
+              {resolved && <Badge tone="neutral">{`Checked at first: ${doc.identityResult === 'mismatch' ? 'name did not match' : 'not enough to confirm'}`}</Badge>}
               <Badge tone={attached ? 'verified' : doc.attachState === 'pending_decision' ? 'unverified' : 'conflict'}>
                 {{ auto: 'Attached automatically', attached: 'Attached by a person', pending_decision: 'Held — decision needed', rejected: 'Rejected', detached: 'Detached' }[doc.attachState]}
               </Badge>

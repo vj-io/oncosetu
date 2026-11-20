@@ -9,7 +9,12 @@ import { tp } from "@/i18n/patient";
 import { DEMO_PEOPLE } from "@/lib/demo-people";
 import { ErrorNote, PButton, PField, PInput } from "./ui";
 
+const SEND_WINDOW_MS = 10 * 60_000; // the server allows 3 sends per phone per 10 minutes and answers the same every time
+const SEND_MAX = 3;
 const MAX_TRIES = 5; // the server locks the phone for 15 minutes after 5 wrong codes; its answers stay uniform
+
+const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+const minutesLeft = (ms: number) => Math.max(1, Math.ceil(ms / 60_000));
 
 /** `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for. */
 export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; demo: boolean; after: string; station?: boolean }) {
@@ -20,6 +25,9 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tries, setTries] = useState(0);
+  // When this browser last asked for a code. The server never says whether it sent one (a stranger must not learn which numbers are registered), so the page keeps its own count.
+  const [asked, setAsked] = useState<number[]>([]);
+  const [now, setNow] = useState(() => Date.now());
   const [demoText, setDemoText] = useState<string | null>(null);
   const [demoBusy, setDemoBusy] = useState(false);
 
@@ -35,6 +43,13 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
     if (phone.replace(/\D/g, "").length < 10) return setError(tp(lang, "phoneInvalid"));
+    const t = Date.now();
+    const recent = asked.filter((x) => t - x < SEND_WINDOW_MS);
+    if (recent.length >= SEND_MAX) { // the server would send nothing: say so, and when to try again
+      setNow(t);
+      setStep("code");
+      return; // the line above the code box now says when a new one can be asked for
+    }
     setBusy(true);
     setError(null);
     const res = await post("/api/auth/patient/otp/start", { phone });
@@ -42,6 +57,8 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
     if (!res) return;
     if (!res.ok) return setError(tp(lang, "genericError"));
     setCode("");
+    setAsked([...asked.filter((x) => t - x < SEND_WINDOW_MS), t]);
+    setNow(t);
     setStep("code"); // always: the answer never says whether the number is known
   }
 
@@ -140,6 +157,12 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
             <p role="status" className="text-[16px] text-muted">
               {tp(lang, "codeSent")}
             </p>
+            {asked.length > 0 && (() => {
+              const last = asked[asked.length - 1];
+              const recent = asked.filter((x) => now - x < SEND_WINDOW_MS);
+              const limited = recent.length >= SEND_MAX;
+              return <p role="status" data-testid="code-sent-at" className="text-[16px] text-muted">{limited ? tp(lang, "codeWaitMore", { time: clock(last), n: minutesLeft(recent[0] + SEND_WINDOW_MS - now) }) : tp(lang, "codeSentAt", { time: clock(last) })}</p>;
+            })()}
             <p data-testid="code-not-arrived" className="text-[16px] text-muted">{tp(lang, "codeNotArrived")}</p>
             <PField label={tp(lang, "codeLabel")} hint={tp(lang, "codeHint")}>
               <PInput

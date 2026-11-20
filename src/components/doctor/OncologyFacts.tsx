@@ -29,7 +29,7 @@ function FactRow({ f, showKind = false }: { f: Fact; showKind?: boolean }) {
 }
 
 /** A section with facts: the newest few are shown, the rest fold under "Show all". An empty section never gets a box. */
-function Block({ n, title, facts, showKind, keep = 2 }: { n: string; title: string; facts: Fact[]; showKind?: boolean; keep?: number }) {
+function Block({ n, title, facts, showKind, keep = 1 }: { n: string; title: string; facts: Fact[]; showKind?: boolean; keep?: number }) {
   const { shown, rest } = foldList(facts, keep)
   return (
     <section aria-labelledby={`onc-${n}`} className="grid content-start gap-1 border border-rule bg-matte px-4 py-3">
@@ -59,7 +59,7 @@ export function OncologyFacts({ v }: { v: OncologyView }) {
     { n: '02', title: 'Stage, as written', facts: dedupeFacts(v.stage) },
     { n: '03', title: 'Marker results, as written', facts: dedupeFacts(v.markers) },
     { n: '04', title: 'Margins, as written', facts: dedupeFacts(v.margins) },
-    { n: '05', title: 'Treatment, newest first', facts: dedupeFacts(newestFirst(v.treatment)), showKind: true, keep: 3, wide: true },
+    { n: '05', title: 'Treatment, newest first', facts: dedupeFacts(newestFirst(v.treatment)), showKind: true, keep: 2, wide: true },
     { n: '06', title: 'Allergies', facts: dedupeFacts(v.allergies) },
     { n: '07', title: 'Medicines', facts: dedupeFacts(v.medicines) },
     { n: '08', title: 'Follow-up dates', facts: dedupeFacts(newestFirst(v.followUp)) },

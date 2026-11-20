@@ -68,7 +68,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
         <p className="font-mono text-[12px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
       </header>
       <h1 className="mt-6 text-[1.6rem] leading-tight tracking-[-0.02em]">{inLang(p.heading, lang)}</h1>
-      <p className="mt-2">{inLang(p.notice, lang)}</p>
+      <p className="mt-2">{inLang(p.notice, lang).replace(/^This summary contains/, 'This list contains')}</p>
 
       <section aria-labelledby="items-h" className="mt-6">
         <h2 id="items-h" className="text-lg font-medium">{t('itemsTitle')}</h2>

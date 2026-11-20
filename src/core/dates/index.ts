@@ -260,6 +260,22 @@ export function swappedReading(iso: string): string | null {
   return m && +m[3] <= 12 && m[3] !== m[2] ? `${m[1]}-${m[3]}-${m[2]}` : null
 }
 
+/**
+ * The swapped (month-first) reading, only when it is also a believable date; otherwise null and no "day and month" warning
+ * is worth showing (DECISIONS 5: day/month is the default). Both readings must be real dates with the day 12 or less, and the
+ * swapped one must not be in the future of `now` or of the paper's own date (a paper cannot describe a day after it was written).
+ * A forward-looking line (a next visit) is the reverse: a reading before the paper's date is not believable.
+ */
+export function plausibleSwap(iso: string | null, ctx: { now?: string | null; paperDate?: string | null; forward?: boolean } = {}): string | null {
+  const other = iso ? swappedReading(iso) : null
+  if (!other) return null
+  const ref = ctx.paperDate ? ctx.paperDate.slice(0, 10) : null
+  if (ctx.forward) return ref && other < ref ? null : other
+  if (ctx.now && other > ctx.now.slice(0, 10)) return null
+  if (ref && other > ref) return null
+  return other
+}
+
 /** First and last calendar day covered by a date of the given precision. */
 export function dateRange(iso: string, precision: DatePrecision): [string, string] {
   const y = +iso.slice(0, 4)

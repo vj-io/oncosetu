@@ -12,6 +12,7 @@ export type FactItem = {
   fields: { key: string; label: string; value: string }[]
   sources: { docLabel: string; pageNo: number | null; quote: string; href: string | null }[]
   when: { event: string; eventIso: string | null }
+  provenance?: { docType: string | null }
 }
 
 export type Fact = {
@@ -93,9 +94,19 @@ export function dropDateOnlyImaging<T extends Noisy>(items: readonly T[]): T[] {
 
 const firstQuote = (i: FactItem) => i.sources.find((s) => s.quote)
 
+/**
+ * A line read from a table row can run into the next column ("Carcinoma colon - adjuvant chemotherapy Last cycle: Cycle 1 ...").
+ * Cut it where the next "Label:" starts, keeping at least the first few words.
+ */
+export function cutAtNextLabel(text: string): string {
+  const m = /\s+(?:[A-Z][A-Za-z/()]*)(?:\s+[A-Za-z/()]+){0,3}\s*:\s/.exec(text.slice(12))
+  return m ? text.slice(0, 12 + m.index).trim() : text
+}
+
 export function toFact(i: FactItem): Fact {
   const q = firstQuote(i)
-  const text = (i.headline ?? '').trim() || q?.quote.trim() || i.fields.map((f) => f.value).filter(Boolean).join(' · ') || '—'
+  const raw = (i.headline ?? '').trim() || q?.quote.trim() || i.fields.map((f) => f.value).filter(Boolean).join(' · ') || '—'
+  const text = i.eventType === 'diagnosis_documented' ? cutAtNextLabel(raw) : raw
   const src = i.sources[0]
   return {
     id: i.id,
@@ -117,6 +128,10 @@ export const byDateAsc = (a: Fact, b: Fact) => {
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
 }
 
+/** Which kind of paper says a diagnosis best: the pathology report first, then discharge and consult notes, the day-care sheet last (DOC-12). */
+const DIAGNOSIS_RANK: Record<string, number> = { pathology_report: 0, ihc_molecular_report: 1, discharge_summary: 2, consult_note: 3, procedure_note: 4, chemo_daycare_record: 6 }
+export const diagnosisRank = (docType: string | null | undefined) => (docType ? DIAGNOSIS_RANK[docType] ?? 5 : 5)
+
 /** Newest first, undated last. */
 const byDateDesc = (a: Fact, b: Fact) => {
   if (a.dateIso !== b.dateIso) return a.dateIso === null ? 1 : b.dateIso === null ? -1 : a.dateIso > b.dateIso ? -1 : 1
@@ -132,7 +147,8 @@ export function oncologyView(all: readonly FactItem[]): OncologyView {
   const items = dropDateOnlyImaging(all)
   const of = (...t: EventType[]) => items.filter((i) => t.includes(i.eventType)).map(toFact)
   return {
-    diagnosis: of('diagnosis_documented', 'pathology_report_documented').sort(byDateDesc),
+    diagnosis: items.filter((i) => i.eventType === 'diagnosis_documented' || i.eventType === 'pathology_report_documented')
+      .map((i) => ({ f: toFact(i), r: diagnosisRank(i.provenance?.docType) })).sort((a, b) => a.r - b.r || byDateDesc(a.f, b.f)).map((o) => o.f),
     stage: of('stage_documented').sort(byDateDesc),
     markers: of('marker_results_documented', 'molecular_test_documented').sort(byDateDesc),
     margins: of('margins_documented').sort(byDateDesc),

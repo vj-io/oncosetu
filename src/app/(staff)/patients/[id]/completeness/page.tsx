@@ -176,6 +176,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
           <h2 id="open-h" className="text-xl tracking-[-0.02em] sm:text-2xl">Not in file</h2>
           <InfoTip>{EXPLAIN.completeness}</InfoTip>
           <span className="min-w-6 border border-rule bg-matte px-1.5 text-center font-mono text-xs text-muted tabular-nums">{c.open.length}</span>
+          {c.open.some((x) => x.state === 'received') && <span className="text-sm text-muted" data-testid="missing-split">{c.open.filter((x) => x.state !== 'received').length} not in file · {c.open.filter((x) => x.state === 'received').length} arrived, confirm</span>}
         </header>
         {c.open.length ? c.open.map((it, i) => (
           <Item key={it.id} it={it} index={i} patientId={id} lang={lang} today={today} history={c.history[it.id] ?? []} requests={c.requests[it.id] ?? []} canAct={canAct} canRequest={canRequest} view={view} />

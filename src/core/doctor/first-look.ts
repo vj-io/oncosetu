@@ -63,9 +63,14 @@ export function buildFirstLook(i: FirstLookInput): FirstLookRow[] {
     details: i.newItems.slice(0, SHOWN).map((n) => ({ text: [n.typeLabel, n.headline].filter(Boolean).join(': '), meta: n.when, quote: n.quote ? clip(n.quote) : undefined, href: `${base}/ledger#item-${n.id}` })),
   })
 
+  // A paper that has arrived and only waits for a person to confirm it is not "not in file" any more (DOC-05).
+  const arrived = i.missing.filter((m) => m.state === 'received').length
+  const notInFile = i.missing.length - arrived
   rows.push({
     key: 'missing', label: 'Papers not in file', count: i.missing.length, tone: i.missing.length ? 'unverified' : 'verified',
-    summary: i.missing.length ? 'Other papers mention these, but we do not hold them. Not in file does not mean it was not done.' : 'No referred-to paper is missing.',
+    summary: i.missing.length
+      ? (arrived ? `${notInFile} not in file · ${arrived} arrived, confirm. ` : '') + 'Other papers mention these, but we do not hold them. Not in file does not mean it was not done.'
+      : 'No referred-to paper is missing.',
     href: `${base}/completeness`, linkLabel: 'Open the checklist and make a request letter',
     more: Math.max(i.missing.length - SHOWN, 0),
     details: i.missing.slice(0, SHOWN).map((m) => ({ text: m.title, meta: m.askAt ? `Ask at ${m.askAt}` : 'Place not stated', href: `${base}/completeness#m-${m.id}` })),

@@ -283,7 +283,7 @@ const ORG_TABLES = [
   'voice_clips', 'signed_consents', 'upload_chunks', 'upload_sessions', 'privacy_acknowledgements', 'id_verifications',
   'abdm_transfers', 'abdm_consent_requests', 'inbound_hold_files', 'inbound_holds', 'inbound_aliases', 'contact_emails',
   'share_views', 'share_links', 'record_requests', 'missing_records', 'verification_qa_reviews', 'measurement_form_doc_types',
-  'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_links', 'document_pages',
+  'measurement_forms', 'verifications', 'evidence', 'snapshots', 'ai_runs', 'events', 'patient_statements', 'document_links', 'document_read_cache', 'document_pages',
   'document_files', 'documents', 'break_glass', 'erasure_requests', 'consents', 'patient_merges', 'caregivers', 'patient_aliases',
   'outbox', 'encounters', 'patients', 'audit_log', 'devices', 'rule_states',
 ]

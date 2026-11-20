@@ -1,10 +1,12 @@
 // Postgres-backed processing state machine (ADR-001a; no queue). A runner claims a document with an atomic UPDATE,
 // advances documents.stage received → text → classified → identity → extracted → gate → completeness and ends in
 // done | needs_review | failed | quarantined | unreadable. A lock older than 3 minutes is re-claimable, so the status
-// poll (GET /api/documents/[id]/status) or "reprocess" restarts a runner that died.
+// poll (GET /api/documents/[id]/status) or "reprocess" restarts a runner that died. A live runner renews its lock every
+// 30 s (heartbeat, and at every page of a long scan), so a slow OCR is never mistaken for a dead runner; the claim is
+// capped at MAX_ATTEMPTS, and OCR'd pages are saved one by one so a retry resumes at the next page.
 import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
 import { withOrg, type Tx } from '@/db'
-import { aiRuns, documentFiles, documentPages, documents, events, evidence, patientAliases, patients, verifications } from '@/db/schema'
+import { aiRuns, documentFiles, documentPages, documentReadCache, documents, events, evidence, patientAliases, patients, verifications } from '@/db/schema'
 import { sha256Hex } from '@/core/hash'
 import { decideIdentity, type PatientIdentity } from '@/core/identity'
 import { writeAudit } from '@/server/audit'
@@ -17,25 +19,80 @@ import { aiAllowed } from '@/server/ai/provider'
 import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
 import { textSimilarity } from './safety'
-import { IMAGE_PROCESSOR, readPages, type PageRead } from './text'
+import { IMAGE_PROCESSOR, readPages, type CachedPage, type OcrProvider, type PageRead } from './text'
 
 export const STAGES = ['received', 'text', 'classified', 'identity', 'extracted', 'gate', 'completeness'] as const
 export type Stage = (typeof STAGES)[number]
 export const MAX_ATTEMPTS = 3
 export const STALE_LOCK_MINUTES = 3
+/** A runner renews its lock this often while it works; far inside STALE_LOCK_MINUTES. */
+export const HEARTBEAT_MS = 30_000
 
 class Abort extends Error {}
 
-/** Atomic claim: queued, or processing with a stale lock. Returns null if another runner has it (or it is finished). */
+/** Waiting for a runner: queued, or processing with no live runner (a lock never renewed for STALE_LOCK_MINUTES, or none at all). */
+const claimable = sql`(status = 'queued' OR (status = 'processing' AND (locked_at IS NULL OR locked_at < now() - make_interval(mins => ${STALE_LOCK_MINUTES}))))`
+
+/**
+ * Atomic claim (one UPDATE decides): queued, or processing with a stale lock, and never past MAX_ATTEMPTS. Returns null if
+ * another runner has it, it is finished, or it has used up its attempts (then it is marked failed, so nothing starts it again).
+ */
 export async function claimDocument(orgId: string, documentId: string): Promise<{ id: string; attempts: number } | null> {
   return withOrg(orgId, async (tx) => {
     const rows = await tx.execute(sql`
-      UPDATE documents SET status = 'processing', locked_at = now(), attempts = attempts + 1, updated_at = now()
-      WHERE id = ${documentId} AND (status = 'queued' OR (status = 'processing' AND locked_at < now() - make_interval(mins => ${STALE_LOCK_MINUTES})))
+      UPDATE documents SET status = 'processing', locked_at = now(), attempts = attempts + 1, read_progress = NULL, updated_at = now()
+      WHERE id = ${documentId} AND attempts < ${MAX_ATTEMPTS} AND ${claimable}
       RETURNING id, attempts`)
     const r = (rows as unknown as { id: string; attempts: number }[])[0]
-    return r ? { id: r.id, attempts: Number(r.attempts) } : null
+    if (r) return { id: r.id, attempts: Number(r.attempts) }
+    const spent = await tx.execute(sql`
+      UPDATE documents SET status = 'failed', locked_at = NULL, read_progress = NULL, last_error = 'too_many_attempts', updated_at = now()
+      WHERE id = ${documentId} AND attempts >= ${MAX_ATTEMPTS} AND ${claimable}
+      RETURNING id`)
+    if ((spent as unknown as unknown[]).length) {
+      await clearReadCache(tx, documentId)
+      log.error('pipeline.attempts_exhausted', { documentId })
+    }
+    return null
   })
+}
+
+/** The OCR'd pages saved for resuming a reading (working data; gone once the document finishes, fails or is reprocessed). */
+export async function clearReadCache(tx: Tx, documentId: string): Promise<void> {
+  await tx.delete(documentReadCache).where(eq(documentReadCache.documentId, documentId))
+}
+
+type Heartbeat = ReturnType<typeof startHeartbeat>
+
+/**
+ * Keeps one runner's lock alive while it works (OCR of a long scan can take minutes between stage changes). It renews
+ * only while this runner's claim is still the current one (status processing, same attempt number); once another claim
+ * or an abort took the document over, `check()` throws so this runner stops instead of working beside the new one.
+ */
+function startHeartbeat(orgId: string, documentId: string, attempt: number, everyMs: number) {
+  let lost = false
+  let busy = false
+  const beat = async () => {
+    if (busy || lost) return
+    busy = true
+    try {
+      const rows = await withOrg(orgId, (tx) => tx.execute(sql`
+        UPDATE documents SET locked_at = now() WHERE id = ${documentId} AND status = 'processing' AND attempts = ${attempt} RETURNING id`))
+      if (!(rows as unknown as unknown[]).length) lost = true
+    } catch (err) {
+      log.error('pipeline.heartbeat_failed', { documentId, err }) // a missed beat is harmless; the next one renews
+    } finally {
+      busy = false
+    }
+  }
+  const timer = setInterval(() => void beat(), everyMs)
+  timer.unref?.()
+  return {
+    beat,
+    check() { if (lost) throw new Abort('lock_lost') },
+    markLost() { lost = true },
+    stop() { clearInterval(timer) },
+  }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -48,7 +105,8 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 export async function nextWaiting(tx: Tx, patientId: string, skip: readonly string[] = []): Promise<string | null> {
   const [r] = await tx.select({ id: documents.id }).from(documents).where(and(
     eq(documents.patientId, patientId),
-    or(eq(documents.status, 'queued'), and(eq(documents.status, 'processing'), lt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`))),
+    lt(documents.attempts, MAX_ATTEMPTS),
+    or(eq(documents.status, 'queued'), and(eq(documents.status, 'processing'), or(isNull(documents.lockedAt), lt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`)))),
     skip.length ? notInArray(documents.id, [...skip]) : undefined,
   )).orderBy(asc(documents.id)).limit(1)
   return r?.id ?? null
@@ -68,21 +126,40 @@ export async function runPatientQueue(patientId: string, orgId: string): Promise
 }
 
 /** Claim + process with retries and backoff (E-DOC-20). Never throws. */
-export async function runDocument(documentId: string, orgId: string, opts: { password?: string } = {}): Promise<void> {
+export type RunOpts = {
+  password?: string
+  /** Page OCR (tesseract unless a test passes another). */
+  ocr?: OcrProvider
+  /** Lock renewal interval (HEARTBEAT_MS; tests shorten it). */
+  heartbeatMs?: number
+}
+
+export async function runDocument(documentId: string, orgId: string, opts: RunOpts = {}): Promise<void> {
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
     const claim = await claimDocument(orgId, documentId)
     if (!claim) return
+    const hb = startHeartbeat(orgId, documentId, claim.attempts, opts.heartbeatMs ?? HEARTBEAT_MS)
     try {
-      await processClaimed(orgId, documentId, opts)
+      await processClaimed(orgId, documentId, opts, claim.attempts, hb)
       return
     } catch (err) {
+      // Another runner owns the document now: leave its row alone.
+      if (err instanceof Abort && err.message === 'lock_lost') {
+        log.error('pipeline.lock_lost', { documentId, attempt: claim.attempts })
+        return
+      }
       const final = claim.attempts >= MAX_ATTEMPTS
       log.error('pipeline.stage_failed', { documentId, attempt: claim.attempts, final, err })
-      await withOrg(orgId, (tx) => tx.update(documents).set({
-        status: final ? 'failed' : 'queued', lockedAt: null, lastError: err instanceof Abort ? err.message : 'processing_error', updatedAt: new Date(),
-      }).where(and(eq(documents.id, documentId), eq(documents.status, 'processing')))).catch(() => {})
+      await withOrg(orgId, async (tx) => {
+        await tx.update(documents).set({
+          status: final ? 'failed' : 'queued', lockedAt: null, readProgress: null, lastError: err instanceof Abort ? err.message : 'processing_error', updatedAt: new Date(),
+        }).where(and(eq(documents.id, documentId), eq(documents.status, 'processing'), eq(documents.attempts, claim.attempts)))
+        if (final || err instanceof Abort) await clearReadCache(tx, documentId)
+      }).catch(() => {})
       if (final || err instanceof Abort) return
       await sleep(1000 * 2 ** i)
+    } finally {
+      hb.stop()
     }
   }
 }
@@ -96,6 +173,7 @@ async function consentStillActive(orgId: string, documentId: string, patientId: 
   const ok = await withOrg(orgId, async (tx) => !!(await activeConsent(tx, patientId))?.purposes.store)
   if (ok) return
   await withOrg(orgId, async (tx) => {
+    await clearReadCache(tx, documentId)
     await tx.delete(documentPages).where(eq(documentPages.documentId, documentId))
     await tx.delete(documentFiles).where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'page_image')))
     await tx.update(documents).set({ status: 'failed', stage: 'received', lockedAt: null, lastError: 'consent_withdrawn', updatedAt: new Date() }).where(eq(documents.id, documentId))
@@ -114,7 +192,7 @@ export async function patientIdentity(tx: Tx, patientId: string): Promise<Patien
   }
 }
 
-async function processClaimed(orgId: string, documentId: string, opts: { password?: string }) {
+async function processClaimed(orgId: string, documentId: string, opts: RunOpts, attempt: number, hb: Heartbeat) {
   const loaded = await withOrg(orgId, async (tx) => {
     const [doc] = await tx.select().from(documents).where(eq(documents.id, documentId))
     const [file] = await tx.select().from(documentFiles).where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'original')))
@@ -127,18 +205,43 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   for (const k of ['password_required', 'password_incorrect', 'unreadable_reason', 'injection', 'language_unsupported', 'mixed_document', 'gate', 'extraction', 'consent_withdrawn']) delete flags[k]
 
   if ((doc.flags.file as { storedOnly?: boolean } | undefined)?.storedOnly) return processStored(orgId, doc, flags)
+  /** Between stages: still the one runner on this document, and consent still on. */
+  const guard = async () => {
+    hb.check()
+    await consentStillActive(orgId, documentId, patientId)
+  }
 
   // ── text ──
-  await consentStillActive(orgId, documentId, patientId)
+  await guard()
   await setStage(orgId, documentId, 'text')
-  const read = await readPages(new Uint8Array(bytes), doc.mime, opts.password)
+  // Pages an earlier attempt already OCR'd are taken as read; every page read now is saved at once, and the lock is renewed
+  // before and after each page ("Reading page 7 of 16" is what staff see meanwhile).
+  const cached = new Map((await withOrg(orgId, (tx) => tx.select({ pageNo: documentReadCache.pageNo, data: documentReadCache.data }).from(documentReadCache)
+    .where(eq(documentReadCache.documentId, documentId)))).map((r) => [r.pageNo, r.data as unknown as CachedPage]))
+  const read = await readPages(new Uint8Array(bytes), doc.mime, opts.password, opts.ocr, {
+    cached,
+    onPage: async ({ pageNo, total, page, fresh }) => {
+      hb.check()
+      if (!page) {
+        const rows = await withOrg(orgId, (tx) => tx.execute(sql`
+          UPDATE documents SET read_progress = ${JSON.stringify({ page: pageNo, total })}::jsonb, locked_at = now(), updated_at = now()
+          WHERE id = ${documentId} AND status = 'processing' AND attempts = ${attempt} RETURNING id`))
+        if (!(rows as unknown as unknown[]).length) { hb.markLost(); hb.check() }
+      } else if (fresh && page.source === 'ocr') {
+        const data = { ...page, image: undefined } as CachedPage // the image is rebuilt on resume, never stored here
+        await withOrg(orgId, (tx) => tx.insert(documentReadCache).values({ documentId, orgId: doc.orgId, patientId, pageNo, data: data as unknown as Record<string, unknown> }).onConflictDoNothing())
+        await hb.beat()
+      }
+    },
+  })
   if (read.kind !== 'pages') {
     if (read.kind === 'needs_password') {
       flags.password_required = true
       if (read.incorrect) flags.password_incorrect = true
     } else flags.unreadable_reason = read.reason
     await withOrg(orgId, async (tx) => {
-      await tx.update(documents).set({ status: 'unreadable', lockedAt: null, flags, lastError: read.kind === 'needs_password' ? 'needs_password' : read.reason, updatedAt: new Date() }).where(eq(documents.id, documentId))
+      await clearReadCache(tx, documentId)
+      await tx.update(documents).set({ status: 'unreadable', lockedAt: null, readProgress: null, flags, lastError: read.kind === 'needs_password' ? 'needs_password' : read.reason, updatedAt: new Date() }).where(eq(documents.id, documentId))
       await writeAudit(tx, { orgId, actorId: null, actorRole: 'system', action: 'document.unreadable', targetType: 'document', targetId: documentId, details: { reason: read.kind === 'needs_password' ? 'needs_password' : read.reason } })
     })
     return
@@ -147,10 +250,10 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   const injection = injectionReport(pages)
   if (injection.flagged) flags.injection = injection
   await withOrg(orgId, (tx) => savePages(tx, doc, pages, flags))
-  await consentStillActive(orgId, documentId, patientId)
+  await guard()
 
   // ── classified ──
-  await setStage(orgId, documentId, 'classified')
+  await setStage(orgId, documentId, 'classified', { readProgress: null })
   const manualType = doc.manualTags.includes('doc_type') && doc.docType ? (doc.docType as Parameters<typeof classify>[1]) : null
   let classified = classify(pages, manualType)
   if (classified.languageUnsupported) flags.language_unsupported = true
@@ -193,7 +296,7 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
     await finish(orgId, documentId, patientId, ident.attachState === 'pending_decision' ? 'needs_review' : 'done', flags, { held: ident.attachState })
     return
   }
-  await consentStillActive(orgId, documentId, patientId)
+  await guard()
 
   // ── extracted ──
   await setStage(orgId, documentId, 'extracted')
@@ -211,7 +314,7 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
     }
     await tx.update(documents).set({ docType: classified.docType, docTypeConfidence: classified.docTypeConfidence, flags, stage: 'gate', lockedAt: new Date(), updatedAt: new Date() }).where(eq(documents.id, documentId))
   })
-  await consentStillActive(orgId, documentId, patientId)
+  await guard()
 
   // ── gate ──
   const { gate, drafts } = gateAndDate(ex.candidates, classified, ident.id, doc.receivedAt, ex.method)
@@ -219,7 +322,7 @@ async function processClaimed(orgId: string, documentId: string, opts: { passwor
   for (const r of gate.rejected) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1
   flags.gate = { candidates: ex.candidates.length, accepted: gate.accepted.length, kept: drafts.length, rejected: gate.rejected.length, reasons, rejections: rejectionLog(gate.rejected) }
   const counts = await withOrg(orgId, (tx) => persistEvents(tx, doc, drafts, pages, ident.attachState === 'attached'))
-  await consentStillActive(orgId, documentId, patientId)
+  await guard()
 
   // ── completeness ──
   await setStage(orgId, documentId, 'completeness', { flags })
@@ -256,7 +359,8 @@ async function processStored(orgId: string, doc: typeof documents.$inferSelect, 
 async function finish(orgId: string, documentId: string, patientId: string, status: 'done' | 'needs_review', flags: Record<string, unknown>, details: Record<string, string | number>) {
   await withOrg(orgId, async (tx) => {
     await recomputeRadar(tx, orgId, patientId)
-    await tx.update(documents).set({ status, lockedAt: null, lastError: null, flags, updatedAt: new Date() }).where(eq(documents.id, documentId))
+    await clearReadCache(tx, documentId)
+    await tx.update(documents).set({ status, lockedAt: null, lastError: null, readProgress: null, flags, updatedAt: new Date() }).where(eq(documents.id, documentId))
     await writeAudit(tx, { orgId, actorId: null, actorRole: 'system', action: 'document.processed', targetType: 'document', targetId: documentId, details: { status, ...details } })
   })
 }

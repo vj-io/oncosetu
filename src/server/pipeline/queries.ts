@@ -40,6 +40,13 @@ export const STAGE_LABELS: Record<Stage, string> = {
   received: 'Received', text: 'Text', classified: 'Classified', identity: 'Identity', extracted: 'Extracted', gate: 'Evidence gate', completeness: 'Completeness',
 }
 
+/** What staff read while a long file is being read: "Reading page 7 of 16". Null when nothing is being read. */
+export function readingNote(d: Pick<DocRow, 'status' | 'stage' | 'readProgress'>): string | null {
+  const p = d.readProgress
+  if (d.status !== 'processing' || d.stage !== 'text' || !p || !(p.total > 1) || !(p.page >= 1)) return null
+  return `Reading page ${Math.min(p.page, p.total)} of ${p.total}`
+}
+
 /** A runner should (re)start: queued, or a processing lock older than the stale window. */
 export function needsRunner(d: Pick<DocRow, 'status' | 'lockedAt'>, at = new Date()): boolean {
   return d.status === 'queued' || (d.status === 'processing' && (!d.lockedAt || at.getTime() - d.lockedAt.getTime() > STALE_LOCK_MINUTES * 60_000))
@@ -51,6 +58,8 @@ export type DocSummary = {
   identity: DocRow['identityResult']; identityReasons: string[]; attachState: DocRow['attachState']; events: number; verified: number; rejected: number
   flags: { lowConfidence: boolean; handwritten: boolean; injection: boolean; nearDuplicateOf: string | null; languageUnsupported: boolean; quarantined: boolean; amendmentOf: string | null; lateReceived: boolean; detached: boolean }
   needsRunner: boolean
+  /** "Reading page 7 of 16" while a long file is read; null otherwise. */
+  progress: string | null
   /** Kind of file (Report, Scan, ECG, Video, Photo) and, for imaging, what the header says. Never findings. */
   file: { kind: string; category: string; label: string; storedOnly: boolean; note: string | null } | null
   imaging: { label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null; patientName: string | null; patientSex: string | null; patientAge: string | null; frames: number; instances: number; synthetic: boolean } | null
@@ -72,6 +81,7 @@ function summary(d: DocRow, counts: { events: number; verified: number }, lateRe
       detached: d.attachState === 'detached',
     },
     needsRunner: needsRunner(d),
+    progress: readingNote(d),
     file: file ? { kind: file.kind, category: file.category, label: file.label, storedOnly: !!file.storedOnly, note: file.note ?? null } : null,
     imaging: im ? {
       label: String(im.studyLabel ?? im.modalityLabel), modality: (im.modality as string | null) ?? null, studyDate: (im.studyDate as string | null) ?? null, bodyPart: (im.bodyPart as string | null) ?? null,
@@ -191,6 +201,7 @@ export async function documentDetail(tx: Tx, patientId: string, documentId: stri
     doc: d,
     status: displayStatus(d),
     stages: stageStates(d),
+    progress: readingNote(d),
     pages: pages.map((p) => ({ pageNo: p.pageNo, text: p.text, words: p.words ?? null, ocrConfidence: p.ocrConfidence, lowConfidence: p.lowConfidence, processor: p.processor })),
     pageImages: files.filter((f) => f.kind === 'page_image').map((f) => f.pageNo ?? 1),
     original: files.find((f) => f.kind === 'original') ? { mime: d.mime } : null,

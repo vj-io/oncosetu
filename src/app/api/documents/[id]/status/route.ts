@@ -5,7 +5,7 @@ import { documentStatus } from '@/server/pipeline/queries'
 import { patientIdParam } from '@/server/registration/http'
 
 /**
- * `{ status, stage, stages:[{key,state}], identity, flags }`. Polling drives progress: a queued or stale-locked document gets a runner.
+ * `{ status, stage, progress ("Reading page 7 of 16" or null), stages:[{key,state}], identity, flags }`. Polling drives progress: a queued or stale-locked document gets a runner.
  * Staff only: the raw document class and safety flags never go to a patient session (FR-CON-07); /p/upload does not poll this.
  */
 export const GET = route({ auth: 'staff', roles: ['desk', 'records', 'clinician'] }, async (ctx) => {
@@ -15,7 +15,7 @@ export const GET = route({ auth: 'staff', roles: ['desk', 'records', 'clinician'
   if (s.summary.needsRunner) await pollRunner(ctx.db, s.doc.patientId, s.doc.orgId) // the queue's next document, not necessarily this one
   const { summary: d } = s
   return {
-    id: d.id, status: d.status, stage: d.stage, stages: d.stages, docType: d.docType, events: d.events,
+    id: d.id, status: d.status, stage: d.stage, progress: d.progress, stages: d.stages, docType: d.docType, events: d.events,
     identity: { result: d.identity, attachState: d.attachState }, flags: d.flags,
   }
 })

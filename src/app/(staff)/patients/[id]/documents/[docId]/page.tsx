@@ -115,10 +115,16 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           <>
             <StatusBadge status={b.status} label={b.label} />
             {doc.identityResult !== 'pending' && <StatusBadge status={doc.identityResult} />}
-            {doc.status !== 'quarantined' && !live && <ReprocessButton documentId={doc.id} />}
           </>
         }
       />
+
+      {doc.status !== 'quarantined' && !live && (
+        <details className="-mt-4 text-[13px] text-muted" data-testid="doc-details">
+          <summary className="w-fit cursor-pointer underline underline-offset-4">Details</summary>
+          <div className="mt-2 flex flex-wrap items-center gap-3"><span>Run the reading of this file again:</span><ReprocessButton documentId={doc.id} /></div>
+        </details>
+      )}
 
       {(live || doc.attachState === 'pending_decision' || d.status === 'failed') && (
         <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>

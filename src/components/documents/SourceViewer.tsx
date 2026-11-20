@@ -29,6 +29,15 @@ function spanConfidence(page: ViewerPage | undefined, s: number, e: number): num
   return ws.length ? ws.reduce((a, w) => a + (w.c > 1 ? w.c / 100 : w.c), 0) / ws.length : null
 }
 
+/** The title of a fact line. When the fields give nothing beyond the label ("Margins as written"), the first words of its own quote are shown. */
+export function lineTitle(e: ViewerEvent): string {
+  const h = headline(e)
+  const label = EVENT_LABEL[e.eventType] ?? e.eventType
+  const quote = e.evidence[0]?.quote?.replace(/\s+/g, ' ').trim()
+  if ((h === label || !h) && quote) return quote.length > 60 ? `${quote.slice(0, 60).trimEnd()}…` : quote
+  return h
+}
+
 function headline(e: ViewerEvent): string {
   const f = e.fields
   const v = (k: string) => (Array.isArray(f[k]) ? (f[k] as string[]).join(', ') : f[k] != null ? String(f[k]) : '')
@@ -210,7 +219,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
               <li key={e.id} id={`ev-${e.id}`} data-held={held || undefined} className={clsx('scroll-mt-24 border-b border-rule last:border-b-0', open && 'bg-spotlight/50', withdrawn && 'opacity-60')}>
                 <button type="button" aria-expanded={open} onClick={() => (open ? setActive(null) : pick(e.id, false))}
                   className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2 text-left hover:bg-spotlight/60">
-                  <span className="min-w-0 break-words text-[15px] leading-snug"><span className="text-muted">{EVENT_LABEL[e.eventType] ?? e.eventType}</span> · {headline(e)}</span>
+                  <span className="min-w-0 break-words text-[15px] leading-snug"><span className="text-muted">{EVENT_LABEL[e.eventType] ?? e.eventType}</span> · {lineTitle(e)}</span>
                   <ChevronDown aria-hidden className={clsx('size-4 shrink-0 text-muted transition-transform', open && 'rotate-180')} />
                   <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted"><span>{SHORT_DATE(e)}</span>{ev && <span>· page {ev.pageNo}</span>}</span>
                   <span className="justify-self-end">{state}</span>

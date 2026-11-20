@@ -81,6 +81,7 @@ const HEADLINE_FIELDS = ['section_text', 'marker_text', 'margins_text', 'addendu
 const isDocType = (t: string | null | undefined): t is DocType => !!t && (DOC_TYPES as readonly string[]).includes(t)
 const FLAG_SET = new Set<string>(EVENT_FLAGS)
 const fieldText = (v: FieldValue | unknown) => (Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v))
+const ADDENDUM_WORD = /addendum|supplementary report/i
 const day = (iso: string | null, precision: CoreEvent['datePrecision'] = 'day') => formatDateIN(iso, 'en', precision)
 /**
  * Both readings of a date whose day and month could be swapped, the stored (day-first) one first (V02-E2E-07); else null.
@@ -331,7 +332,7 @@ export type ItemView = {
   provenance: { sourceType: string; method: string; docType: DocType | null; institution: string | null }
   viewedSource: boolean
   /** Amended items: what this replaces (the earlier report, or the earlier version of this item). */
-  amends: { label: string; date: string | null; href: string | null } | null
+  amends: { label: string; date: string | null; href: string | null; kind: 'addendum' | 'correction' } | null
   bulk: { eligible: boolean; reasons: string[] }
   permits: Record<VerifyAction, Permit>
   editable: { key: string; label: string; value: string; list: boolean }[]
@@ -391,11 +392,13 @@ export function buildLedgerView({ rows, prev, role, now, viewedByMe }: LedgerInp
     return id ? (isDocType(t) ? staffDocLabel(t) : 'Unclassified document') : 'No document'
   }
 
+  // A paper that calls itself an addendum adds to the original; it does not change what the original says (DOC-13).
+  const addendumDocs = new Set(record.events.filter((x) => x.eventType === 'addendum_documented' || x.evidence.some((ev) => ADDENDUM_WORD.test(ev.quote))).map((x) => x.documentId))
   const amendsOf = (e: CoreEvent): ItemView['amends'] => {
     const orig = e.documentId ? docById.get(e.documentId)?.amendmentOf : null
     const o = orig ? docById.get(orig) : null
-    if (o) return { label: docLabel(o.id), date: o.documentDate ? day(o.documentDate) : null, href: headlinesOnly ? null : `/patients/${rows.patientId}/documents/${o.id}` }
-    return e.supersedesId ? { label: 'The earlier version of this item (kept)', date: null, href: null } : null
+    if (o) return { label: docLabel(o.id), date: o.documentDate ? day(o.documentDate) : null, href: headlinesOnly ? null : `/patients/${rows.patientId}/documents/${o.id}`, kind: addendumDocs.has(e.documentId) ? 'addendum' : 'correction' }
+    return e.supersedesId ? { label: 'The earlier version of this item (kept)', date: null, href: null, kind: 'correction' } : null
   }
 
   const view = (it: LedgerEventItem): ItemView => {

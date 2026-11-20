@@ -37,3 +37,18 @@ export function newestItemsFirst<T extends { when: { eventIso: string | null } }
     return x === null ? 1 : y === null ? -1 : x > y ? -1 : 1
   }).map((o) => o.it)
 }
+
+type AmendLike = { id: string; amends: { label: string; date: string | null; href: string | null; kind: 'addendum' | 'correction' } | null }
+
+/** Lines from the same later paper shown once under it, not one card each (DOC-13). The first line decides the order. */
+export function groupAmended<T extends AmendLike>(items: readonly T[]): { key: string; label: string; date: string | null; href: string | null; kind: 'addendum' | 'correction'; items: T[] }[] {
+  const out = new Map<string, { key: string; label: string; date: string | null; href: string | null; kind: 'addendum' | 'correction'; items: T[] }>()
+  for (const it of items) {
+    const a = it.amends ?? { label: 'An earlier version', date: null, href: null, kind: 'correction' as const }
+    const key = `${a.kind}|${a.href ?? a.label}|${a.date ?? ''}`
+    const g = out.get(key) ?? { key, label: a.label, date: a.date, href: a.href, kind: a.kind, items: [] }
+    g.items.push(it)
+    out.set(key, g)
+  }
+  return [...out.values()]
+}

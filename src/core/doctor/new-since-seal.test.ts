@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countNewSinceSeal, newestItemsFirst, newItemTotal, parseSealedCopy } from './new-since-seal'
+import { countNewSinceSeal, groupAmended, newestItemsFirst, newItemTotal, parseSealedCopy } from './new-since-seal'
 
 describe('countNewSinceSeal', () => {
   const sealed = { verified: [{ id: 'a' }], unverified: [{ id: 'b' }] }
@@ -35,5 +35,13 @@ describe('newestItemsFirst', () => {
   it('puts the newest date first, undated last, and keeps the order of equal dates', () => {
     const l = [{ id: 'a', when: { eventIso: '2024-03-01' } }, { id: 'b', when: { eventIso: null } }, { id: 'c', when: { eventIso: '2026-04-28' } }, { id: 'd', when: { eventIso: '2026-04-28' } }]
     expect(newestItemsFirst(l).map((x) => x.id)).toEqual(['c', 'd', 'a', 'b'])
+  })
+})
+
+describe('groupAmended', () => {
+  it('shows the five lines of one addendum under one heading', () => {
+    const a = { label: 'Histopathology report', date: '22 Jan 2026', href: '/d/1', kind: 'addendum' as const }
+    const g = groupAmended([{ id: '1', amends: a }, { id: '2', amends: a }, { id: '3', amends: { ...a, href: '/d/2', kind: 'correction' as const } }])
+    expect(g.map((x) => [x.kind, x.items.length])).toEqual([['addendum', 2], ['correction', 1]])
   })
 })

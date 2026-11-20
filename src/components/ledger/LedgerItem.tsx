@@ -75,11 +75,12 @@ export const SourceWords = ({ quoted, children }: { quoted: boolean; children: s
 const KICKER: Record<ItemView['category'], string> = {
   initial_record: 'On file', new_since_last_visit: 'New since the last visit', newly_received_older: 'Older paper that arrived late', amended: 'Corrected report',
 }
+const kickerOf = (i: ItemView) => (i.category === 'amended' && i.amends?.kind === 'addendum' ? 'Addendum' : KICKER[i.category])
 
 /** One exhibit on the ledger wall: WHAT · WHERE · WHO · WHEN (FR-LED-04), with its actions. */
-export function LedgerItem({ item, index = 0, collapsed = false }: { item: ItemView; index?: number; collapsed?: boolean }) {
+export function LedgerItem({ item, index = 0, collapsed = false, hideAmends = false }: { item: ItemView; index?: number; collapsed?: boolean; hideAmends?: boolean }) {
   if (collapsed) return <CollapsedItem item={item} index={index} />
-  return <LedgerCard item={item} index={index} />
+  return <LedgerCard item={item} index={index} hideAmends={hideAmends} />
 }
 
 /** One line (date, kind, the document's words, status) that opens to the full card with its quote and actions. */
@@ -100,7 +101,7 @@ function CollapsedItem({ item, index }: { item: ItemView; index: number }) {
   )
 }
 
-function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
+function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; index?: number; hideAmends?: boolean }) {
   const older = item.category === 'newly_received_older'
   const who = item.status === 'unverified'
     ? <span className="text-muted">Not yet checked{item.tier === 'clinician' ? ' · needs a doctor to verify' : ''}</span>
@@ -129,7 +130,7 @@ function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
       animate
       delay={Math.min(index * 40, 400)}
       className={clsx(older && 'border-l-[3px] border-l-brass')}
-      kicker={KICKER[item.category]}
+      kicker={kickerOf(item)}
       status={<StatusBadge status={item.status} label={STATUS_WORDS[item.status]} />}
       title={
         <>
@@ -165,9 +166,9 @@ function LedgerCard({ item, index = 0 }: { item: ItemView; index?: number }) {
         viewedSource: item.viewedSource, typeLabel: item.typeLabel, sources: item.sources.filter((s) => s.href).slice(0, 1), readings: item.when.readings,
       }} />}
     >
-      {item.amends && (
+      {item.amends && !hideAmends && (
         <p className="text-[15px]">
-          <span className="ds-kicker mr-1.5">Replaces</span>
+          <span className="ds-kicker mr-1.5">{item.amends.kind === 'addendum' ? 'Adds to' : 'Replaces'}</span>
           {item.amends.label}{item.amends.date && <span className="text-muted"> · {item.amends.date}</span>}
           {item.amends.href && <> · <Link href={item.amends.href} className="text-setu-ink underline decoration-brass underline-offset-4">Open the original to compare</Link></>}
         </p>

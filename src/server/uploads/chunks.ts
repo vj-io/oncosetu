@@ -6,7 +6,8 @@ import { createHash } from 'node:crypto'
 import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { uploadChunks, uploadSessions } from '@/db/schema'
-import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, STORAGE_BUDGET_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
+import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, objectBudgetBytes, STORAGE_BUDGET_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
+import { objectStore } from '@/server/objects'
 import { decryptBytes, encryptBytes, encryptField } from '../crypto'
 import { HttpError } from '../http'
 
@@ -33,6 +34,11 @@ export async function startUpload(tx: Tx, i: StartInput): Promise<{ id: string; 
   // Files are stored in the database twice while uploading (chunks, then the file), so refuse before the quota is reached.
   const [{ used }] = await tx.execute<{ used: string }>(sql`select pg_database_size(current_database())::text as used`)
   if (Number(used) + 2 * i.totalSize > STORAGE_BUDGET_BYTES) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
+  if (objectStore()) {
+    // ponytail: the sum is per organisation (RLS); one org per deployment today, a global sum needs the owner role
+    const [{ stored }] = await tx.execute<{ stored: string }>(sql`select coalesce(sum(size), 0)::text as stored from document_files where object_key is not null`)
+    if (Number(stored) + i.totalSize > objectBudgetBytes()) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
+  }
   const [row] = await tx.insert(uploadSessions).values({
     orgId: i.orgId, patientId: i.patientId, uploaderKind: i.uploader.kind, uploaderId: i.uploader.id, fileNameEnc: encryptField(i.fileName.slice(0, 200)),
     totalSize: i.totalSize, totalChunks: i.totalChunks, sha256: i.sha256, intakeRoute: i.intakeRoute, encounterId: i.encounterId ?? null,

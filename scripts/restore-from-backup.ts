@@ -43,7 +43,8 @@ import { GENESIS_HASH, verifyChainRows, type AuditRow } from '../src/server/audi
 import { listBackups, readBackup, verifyBackup, type Manifest } from '../src/server/backup/backup'
 import { backupKeysFromEnv } from '../src/server/backup/envelope'
 import { exportRows, listTables, rowLoader, type Table } from '../src/server/backup/jsonl'
-import { decryptBytes, decryptField, sha256Hex, verifyEd25519 } from '../src/server/crypto'
+import { decryptField, sha256Hex, verifyEd25519 } from '../src/server/crypto'
+import { storedBytes } from '../src/server/files'
 import { runRestoreSmoke } from './restore-smoke'
 
 const PROJECT = process.env.NEON_PROJECT_ID ?? 'icy-cloud-44319946'
@@ -152,10 +153,11 @@ async function verifySnapshotsAndFiles(sql: Sql) {
   for (const r of await sql`select name_enc from patients`) { if (!r.name_enc) { tombstones++; continue } decryptField(r.name_enc as string); names++ }
   let files = 0, bytes = 0, last = '00000000-0000-0000-0000-000000000000'
   for (;;) {
-    const page = await sql`select id, bytes_enc, dek_wrapped, sha256 from document_files where id > ${last} order by id limit 40`
+    const page = await sql`select id, bytes_enc, dek_wrapped, sha256, object_key from document_files where id > ${last} order by id limit 40`
     if (!page.length) break
     for (const f of page) {
-      const plain = decryptBytes(Buffer.from(f.bytes_enc as Buffer), f.dek_wrapped as string)
+      // an original kept in object storage (0028) is fetched from there; the backup holds its row, the bucket its bytes
+      const plain = await storedBytes({ objectKey: f.object_key as string | null, bytesEnc: f.bytes_enc as Buffer, dekWrapped: f.dek_wrapped as string })
       if (sha256Hex(plain) !== f.sha256) throw new Error(`stored file ${f.id} does not match its recorded SHA-256`)
       files++; bytes += plain.length
     }

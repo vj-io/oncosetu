@@ -14,6 +14,8 @@ export type HomeData = {
     date: string | null; precision: DatePrecision
     /** The hospital or lab that wrote the paper mentioning it (or the one the patient named): where to ask. */
     institution: string | null
+    /** The paper that mentions it (type and its date), or null when the patient said it. */
+    source?: { docType: DocType | null; date: string | null } | null
   }[]
   /** Follow-up dates already written in the papers ("Suture removal on 24/03/2026"), as written. */
   writtenDates: { id: string; what: string | null; date: string; precision: DatePrecision; docType: DocType | null }[]
@@ -38,6 +40,8 @@ export type LookingRow = {
   ask: string | null
   /** The patient can make a letter only while nothing has been asked for yet. */
   canLetter: boolean
+  /** "Mentioned in your Discharge summary, 20 Jan 2026": tells look-alike cards apart. Null when the patient said it. */
+  mentionedIn: string | null
 }
 
 export type HomeSummary = {
@@ -127,6 +131,9 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
       status: tp(lang, `lookingStatus_${x.state}`),
       ask: where ? tp(lang, 'lookingAsk', { institution: where }) : null,
       canLetter: x.state === 'expected',
+      mentionedIn: x.source?.docType
+        ? tp(lang, x.source.date ? 'lookingMentioned' : 'lookingMentionedNoDate', { label: plainLabel(x.source.docType, disclosure, lang), date: x.source.date ? formatDateIN(x.source.date, lang) : '' })
+        : null,
     }
   })
 

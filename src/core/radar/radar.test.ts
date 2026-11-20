@@ -426,10 +426,15 @@ describe('RAD-IMG-RPT-01: a scan with no written report', () => {
     expect(lintText(`${out.items[0].neutralWording.en} ${out.items[0].neutralWording.hi}`, ['diagnosis', 'radar'])).toEqual([])
   })
   it('proposes closure (never closes) when an imaging report dated within the window arrives', () => {
-    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29')
+    const rpt = doc('d-rpt', 'imaging_report', '2026-04-29', 'City Care Hospital')
     const out = run({ documents: [PETCT, rpt] })
     expect(out.items).toHaveLength(0)
     expect(out.closureProposals).toEqual([expect.objectContaining({ documentId: 'd-rpt' })])
+  })
+  it('a report from another hospital is not proposed', () => {
+    const out = run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-04-29', 'Metro Labs')] })
+    expect(out.items).toHaveLength(1)
+    expect(out.closureProposals).toEqual([])
   })
   it('a report from another date does not close it', () => {
     expect(run({ documents: [PETCT, doc('d-rpt', 'imaging_report', '2026-06-01')] }).items).toHaveLength(1)

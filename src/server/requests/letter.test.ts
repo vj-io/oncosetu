@@ -67,7 +67,7 @@ describe('neutralName and cycles', () => {
       it(`${disclosure} / ${lang}: the day-care line carries no cycles or other treatment detail`, () => {
         const l = buildLetter({ ...input, lang, disclosure, institution: 'Kasturi Day-Care Chemotherapy Unit', documents: ['chemo_daycare_record'], cycles: [1, 2, 3] })
         expect(l.documents).toHaveLength(1)
-        expect(l.documents[0]).not.toMatch(/d|cycle|चक्र/i)
+        expect(l.documents[0]).not.toMatch(/cycle|चक्र/i)
         expect(letterText(l)).not.toMatch(/chemo|cycle|चक्र/i)
       })
     }

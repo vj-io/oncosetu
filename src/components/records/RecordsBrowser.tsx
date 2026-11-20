@@ -9,12 +9,13 @@ import { ImagingViewer } from '@/components/documents/ImagingViewer'
 import { postJson } from '@/components/documents/IdentityDecision'
 import { Badge, useToast } from '@/components/ui'
 import {
-  KIND_LABEL, KIND_ORDER, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtDay, modalitiesPresent, neighbours, otherAreaStudies, sortRecords, yearOf,
+  KIND_LABEL, KIND_ORDER, applyLinkDecision, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtDay, modalitiesPresent, neighbours, otherAreaStudies, sortRecords, yearOf,
   type ModalityKey, type RecordKind, type RecordRow, type RejectedPair, type ResolvedPair,
 } from '@/server/records/core'
 import { PaperPreview } from './PaperPreview'
 
 type Initial = { kind: RecordKind | 'all'; modality: ModalityKey | 'any'; order: 'new' | 'old' }
+type Decide = (d: { scanId: string; reportId: string; decision: 'confirm' | 'reject' | 'reset' }) => void
 type Identity = { name: string; line: string | null; code: string }
 
 const ICON: Record<RecordKind, typeof FileText> = { report: FileText, scan: ScanLine, lab: FlaskConical, rx: Pill, other: Stethoscope }
@@ -37,13 +38,24 @@ function useUrlState(patientId: string) {
   }, [patientId])
 }
 
-export function RecordsBrowser({ patientId, rows, pairs, rejected, held, heldScans, canDecide, identity, initial }: {
+export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: rejectedIn, held, heldScans, canDecide, identity, initial }: {
   patientId: string; rows: RecordRow[]; pairs: ResolvedPair[]; rejected: RejectedPair[]; held: number; heldScans: number; canDecide: boolean; identity: Identity; initial: Initial
 }) {
   const [kind, setKind] = useState(initial.kind)
   const [modality, setModality] = useState(initial.modality)
   const [order, setOrder] = useState(initial.order)
   const [sel, setSel] = useState<string | null>(null)
+  // A decision shows at once; when the server's fresh lists arrive they replace it.
+  const [local, setLocal] = useState<{ pairs: ResolvedPair[]; rejected: RejectedPair[]; from: [ResolvedPair[], RejectedPair[]] } | null>(null)
+  const fresh = local && local.from[0] === pairsIn && local.from[1] === rejectedIn ? local : null
+  const pairs = fresh?.pairs ?? pairsIn
+  const rejected = fresh?.rejected ?? rejectedIn
+  const decide = useCallback((d: { scanId: string; reportId: string; decision: 'confirm' | 'reject' | 'reset' }) => {
+    setLocal((cur) => {
+      const base = cur && cur.from[0] === pairsIn && cur.from[1] === rejectedIn ? cur : { pairs: pairsIn, rejected: rejectedIn }
+      return { ...applyLinkDecision(base.pairs, base.rejected, d), from: [pairsIn, rejectedIn] }
+    })
+  }, [pairsIn, rejectedIn])
   const [sheet, setSheet] = useState(false)
   const syncUrl = useUrlState(patientId)
   const listRef = useRef<HTMLUListElement>(null)
@@ -205,7 +217,7 @@ export function RecordsBrowser({ patientId, rows, pairs, rejected, held, heldSca
             <Preview
               key={selected.id} patientId={patientId} row={selected} rows={rows} byId={byId} pair={pairsOf.get(selected.id) ?? null} rejected={rejectedOf.get(selected.id) ?? []} canDecide={canDecide}
               identity={identity} qs={qs} position={nb.index + 1} total={filtered.length} prev={nb.prev} next={nb.next}
-              onGo={go} onClose={() => setSheet(false)} onSelect={(id) => select(id)}
+              onGo={go} onClose={() => setSheet(false)} onSelect={(id) => select(id)} onDecide={decide}
             />
           ) : (
             <p className="p-6 text-[15px] text-muted">{filtered.length ? 'Choose a paper from the list to see it here.' : 'No paper to show with this filter.'}</p>
@@ -216,10 +228,10 @@ export function RecordsBrowser({ patientId, rows, pairs, rejected, held, heldSca
   )
 }
 
-function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identity, qs, position, total, prev, next, onGo, onClose, onSelect }: {
+function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identity, qs, position, total, prev, next, onGo, onClose, onSelect, onDecide }: {
   patientId: string; row: RecordRow; rows: RecordRow[]; byId: Map<string, RecordRow>; pair: ResolvedPair | null; rejected: RejectedPair[]; canDecide: boolean
   identity: Identity; qs: string
-  position: number; total: number; prev: RecordRow | null; next: RecordRow | null; onGo: (r: RecordRow | null) => void; onClose: () => void; onSelect: (id: string) => void
+  position: number; total: number; prev: RecordRow | null; next: RecordRow | null; onGo: (r: RecordRow | null) => void; onClose: () => void; onSelect: (id: string) => void; onDecide: Decide
 }) {
   const [compare, setCompare] = useState<string | null>(null)
   const earlier = useMemo(() => earlierStudies(rows, row.id), [rows, row.id])
@@ -264,7 +276,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
         </Link>
       </header>
 
-      <PairBox patientId={patientId} row={row} other={other} pair={pair} rejected={rejected} byId={byId} canDecide={canDecide} onSelect={onSelect} />
+      <PairBox patientId={patientId} row={row} other={other} pair={pair} rejected={rejected} byId={byId} canDecide={canDecide} onSelect={onSelect} onDecide={onDecide} />
 
       {row.kind === 'scan' && row.scan ? (
         <div className="grid gap-4">
@@ -315,8 +327,8 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
   )
 }
 
-function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSelect }: {
-  patientId: string; row: RecordRow; other: RecordRow | null; pair: ResolvedPair | null; rejected: RejectedPair[]; byId: Map<string, RecordRow>; canDecide: boolean; onSelect: (id: string) => void
+function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSelect, onDecide }: {
+  patientId: string; row: RecordRow; other: RecordRow | null; pair: ResolvedPair | null; rejected: RejectedPair[]; byId: Map<string, RecordRow>; canDecide: boolean; onSelect: (id: string) => void; onDecide: Decide
 }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -329,6 +341,7 @@ function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSel
     const r = await postJson(`/patients/${patientId}/records/links`, { scanId, reportId, decision })
     setBusy(null)
     if (!r.ok) { toast({ title: r.data.error?.message ?? 'Could not save', tone: 'conflict' }); return }
+    onDecide({ scanId, reportId, decision })
     setAsking(false)
     toast({ title: done, tone: 'verified' })
     router.refresh()

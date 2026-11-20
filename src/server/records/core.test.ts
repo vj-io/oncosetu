@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  applyLinkDecision,
   betterHeadline, bodyKey, bodyLabel, countsByKind, otherAreaStudies, earlierStudies, filterRecords, fmtDay, kindOf, modalityKey, neighbours, proposePairs, reportTerms, resolvePairs,
   sortRecords, toRecordRow, type DocLike, type RecordRow, type ReportCandidate, type ScanCandidate,
 } from './core'
@@ -190,5 +191,19 @@ describe('finale review fixes (RAD-08, RAD-11, RAD-13, RAD-17)', () => {
     expect(pick(lines)?.text).toBe('Cycle 1 · Capecitabine')
     expect(pick([...lines].reverse())?.text).toBe('Cycle 1 · Capecitabine')
     expect(pick(lines.slice(0, 1).concat(lines.slice(2)))?.text).toBe(pick(lines.slice(2).concat(lines.slice(0, 1)))?.text)
+  })
+})
+
+describe('applyLinkDecision (the list changes at once)', () => {
+  const pair = { scanId: 's', reportId: 'r', state: 'possible' as const, reason: 'same day', linkId: null }
+  it('rejecting drops the pair and keeps it undoable from either side', () => {
+    const o = applyLinkDecision([pair], [], { scanId: 's', reportId: 'r', decision: 'reject' })
+    expect(o.pairs).toEqual([])
+    expect(o.rejected).toEqual([{ scanId: 's', reportId: 'r' }])
+  })
+  it('undoing forgets the rejection; confirming links it', () => {
+    expect(applyLinkDecision([], [{ scanId: 's', reportId: 'r' }], { scanId: 's', reportId: 'r', decision: 'reset' }).rejected).toEqual([])
+    const c = applyLinkDecision([pair], [], { scanId: 's', reportId: 'r', decision: 'confirm' })
+    expect(c.pairs).toMatchObject([{ state: 'confirmed' }])
   })
 })

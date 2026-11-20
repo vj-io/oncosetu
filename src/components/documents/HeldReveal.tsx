@@ -29,3 +29,19 @@ export function HeldReveal({ nameOnFile, children }: { nameOnFile: string | null
     </div>
   )
 }
+
+/** True when a paper may belong to another patient: the identity check failed or a person has not yet decided. */
+export const isHeldFile = (r: { attachState?: string | null; identity?: string | null }) => r.attachState === 'pending_decision' || r.identity === 'mismatch'
+
+/** The small picture beside a list row. A held file is blurred, unreachable and labelled, the same as the large viewer. */
+export function ThumbPicture({ src, alt, held }: { src: string; alt: string; held: boolean }) {
+  return (
+    <div className="grid justify-items-start gap-1" data-testid="thumb" data-held={held ? 'true' : 'false'}>
+      <div className={held ? 'pointer-events-none size-24 overflow-hidden select-none' : 'size-24'} aria-hidden={held ? true : undefined} inert={held ? true : undefined}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={held ? '' : alt} width={96} height={96} loading="lazy" draggable={false} className={`size-24 border border-rule bg-obsidian object-contain ${held ? 'blur-xl' : ''}`} />
+      </div>
+      {held && <span className="text-[12px] font-medium text-madder-ink" data-testid="thumb-held-label">Held: may be another patient</span>}
+    </div>
+  )
+}

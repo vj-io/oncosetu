@@ -42,6 +42,8 @@ export type LookingRow = {
   canLetter: boolean
   /** "Mentioned in your Discharge summary, 20 Jan 2026": tells look-alike cards apart. Null when the patient said it. */
   mentionedIn: string | null
+  /** "At: City Care Hospital": the place the paper was mentioned or came from, for told-apart cards. Null when unknown. */
+  place: string | null
 }
 
 export type HomeSummary = {
@@ -131,6 +133,7 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
       status: tp(lang, `lookingStatus_${x.state}`),
       ask: where ? tp(lang, 'lookingAsk', { institution: where }) : null,
       canLetter: x.state === 'expected',
+      place: where ? tp(lang, 'lookingAt', { institution: where }) : null,
       mentionedIn: x.source?.docType
         ? tp(lang, x.source.date ? 'lookingMentioned' : 'lookingMentionedNoDate', { label: plainLabel(x.source.docType, disclosure, lang), date: x.source.date ? formatDateIN(x.source.date, lang) : '' })
         : null,

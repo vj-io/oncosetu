@@ -1,7 +1,7 @@
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { HeldReveal } from './HeldReveal'
+import { HeldReveal, ThumbPicture, isHeldFile } from './HeldReveal'
 import { HeldStages } from './HeldStages'
 
 const html = (el: Parameters<typeof renderToStaticMarkup>[0]) => renderToStaticMarkup(el)
@@ -32,5 +32,24 @@ describe('a file that may belong to another patient (RAD-06)', () => {
     expect(out).toContain('inert')
     expect(out).toContain('Show the file anyway')
     expect(out).toContain('Sanjay Kulkarni')
+  })
+  it('blurs and disables the small list picture of a held file, with a label', () => {
+    const out = html(createElement(ThumbPicture, { src: '/p.png', alt: 'Preview', held: true }))
+    expect(out).toContain('data-held="true"')
+    expect(out).toContain('blur-xl')
+    expect(out).toContain('inert')
+    expect(out).toContain('pointer-events-none')
+    expect(out).toContain('Held')
+  })
+  it('leaves the picture of a filed scan clear', () => {
+    const out = html(createElement(ThumbPicture, { src: '/p.png', alt: 'Preview', held: false }))
+    expect(out).toContain('data-held="false"')
+    expect(out).not.toContain('blur-xl')
+    expect(out).not.toContain('inert')
+  })
+  it('treats an identity mismatch or a pending decision as held', () => {
+    expect(isHeldFile({ attachState: 'pending_decision', identity: 'pending' })).toBe(true)
+    expect(isHeldFile({ attachState: 'auto', identity: 'mismatch' })).toBe(true)
+    expect(isHeldFile({ attachState: 'auto', identity: 'match' })).toBe(false)
   })
 })

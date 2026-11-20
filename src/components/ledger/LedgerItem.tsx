@@ -116,7 +116,7 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
     <span className="grid gap-0.5">
       <span>
         {item.when.event}
-        {item.when.dateFrom === 'document' && <span className="text-muted"> (the document’s own date; the quoted words give none)</span>}
+        {item.when.dateFrom === 'document' && <span className="text-muted"> (the paper’s own date)</span>}
       </span>
       {item.when.document && item.when.dateFrom !== 'document' && <span className="font-mono text-[13px] text-muted">Document dated {item.when.document}</span>}
       <span className="font-mono text-[13px] text-muted">
@@ -153,7 +153,11 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
         <span className="grid gap-1">
           {who}
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tracking-[0.1em] text-faint uppercase">
-            <span>{SOURCE_TYPE[item.provenance.sourceType] ?? item.provenance.sourceType} · {METHOD[item.provenance.method] ?? item.provenance.method}</span>
+            <span>{SOURCE_TYPE[item.provenance.sourceType] ?? item.provenance.sourceType}</span>
+            <details className="normal-case tracking-normal">
+              <summary className="cursor-pointer text-setu-ink underline decoration-brass underline-offset-4">Details</summary>
+              <span className="text-muted">How it was read: {METHOD[item.provenance.method] ?? item.provenance.method}</span>
+            </details>
             {item.viewedSource && <span className="inline-flex items-center gap-1 text-sage-ink"><Eye aria-hidden className="size-3.5" />Source opened by you</span>}
             {item.version > 1 && <span>Version {item.version}</span>}
           </span>

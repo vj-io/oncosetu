@@ -73,7 +73,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
                   {!desk && (
                     <>
                       <td className="whitespace-nowrap">{r.hasConsent ? `${r.ageYears ?? '—'} · ${r.sex}` : '—'}</td>
-                      <td className="text-right">{g ? <Num n={g.newSinceSeal} hot /> : '—'}</td>
+                      <td className="text-right">{g ? (g.lastSealed ? <Num n={g.newSinceSeal} hot /> : <span className="text-[13px] text-muted"><Num n={g.newSinceSeal} /> on file, first visit</span>) : '—'}</td>
                       <td className="text-right">{g ? <Num n={g.notInFile} hot /> : '—'}</td>
                       <td className="font-mono text-xs whitespace-nowrap">{g ? (g.lastSealed ? DATE.format(g.lastSealed) : 'Not yet') : '—'}</td>
                     </>

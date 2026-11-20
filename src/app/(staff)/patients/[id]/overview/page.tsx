@@ -10,7 +10,7 @@ import { loadDoctorOverview } from '@/server/registration/doctor-overview'
 import { loadOverview } from '@/server/registration/overview'
 import { withPatientAccess } from '@/server/registration/page'
 
-const DATETIME = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
+const DATETIME = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })
 const ENCOUNTER = { onboarding: 'First visit', returning: 'Returning visit', between: 'Between visits' } as Record<string, string>
 const linkCls = 'text-setu-ink underline decoration-brass underline-offset-4'
 

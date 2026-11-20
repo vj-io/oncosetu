@@ -810,6 +810,8 @@ export const RLS_TABLES = [
   'privacy_acknowledgements', 'id_verifications', // 0014
   'upload_sessions', 'upload_chunks', // 0015
   'signed_consents', // 0016
+  'document_links', // 0023
+  'document_read_cache', // 0026
 ] as const
 
 // ── privacy, ID and chunked uploads (0014, 0015) ─────────────────────────────

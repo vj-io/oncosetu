@@ -3,6 +3,7 @@
 // resumes at the page after the last one read. OCR is a fake, slow provider.   npm run test:integration
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
+import { sql as sqlTag } from 'drizzle-orm'
 import postgres from 'postgres'
 import { PDFDocument } from 'pdf-lib'
 import sharp from 'sharp'
@@ -202,4 +203,14 @@ describe('a retry resumes at the page after the last one read', () => {
     await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100 }) // nothing more happens
     expect(slow.state.pages).toBe(c.proc.MAX_ATTEMPTS)
   }, 60_000)
+})
+
+describe('the read cache follows the person', () => {
+  it('a patient merge can move cache rows (the app role may update patient_id, as the merge does)', async () => {
+    const c = await imp()
+    const id = await newDoc(1)
+    await owner`insert into document_read_cache (org_id, patient_id, document_id, page_no, data) values (${ORG}, ${pid}, ${id}, 1, ${owner.json({ text: 'x' })})`
+    const moved = await c.db.withOrg(ORG, (tx) => tx.execute(sqlTag`update document_read_cache set patient_id = ${pid} where patient_id = ${pid} and document_id = ${id}`))
+    expect((moved as unknown as { count: number }).count).toBe(1)
+  })
 })

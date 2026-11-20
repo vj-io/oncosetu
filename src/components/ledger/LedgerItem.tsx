@@ -78,13 +78,14 @@ const KICKER: Record<ItemView['category'], string> = {
 const kickerOf = (i: ItemView) => (i.category === 'amended' && i.amends?.kind === 'addendum' ? 'Addendum' : KICKER[i.category])
 
 /** One exhibit on the ledger wall: WHAT · WHERE · WHO · WHEN (FR-LED-04), with its actions. */
-export function LedgerItem({ item, index = 0, collapsed = false, hideAmends = false }: { item: ItemView; index?: number; collapsed?: boolean; hideAmends?: boolean }) {
-  if (collapsed) return <CollapsedItem item={item} index={index} />
+/** `desk`: the desk sees the headline view only, so the open link says "Details", not "Show quote" (DESK-13). */
+export function LedgerItem({ item, index = 0, collapsed = false, hideAmends = false, desk = false }: { item: ItemView; index?: number; collapsed?: boolean; hideAmends?: boolean; desk?: boolean }) {
+  if (collapsed) return <CollapsedItem item={item} index={index} desk={desk} />
   return <LedgerCard item={item} index={index} hideAmends={hideAmends} />
 }
 
 /** One line (date, kind, the document's words, status) that opens to the full card with its quote and actions. */
-function CollapsedItem({ item, index }: { item: ItemView; index: number }) {
+function CollapsedItem({ item, index, desk }: { item: ItemView; index: number; desk: boolean }) {
   const flags = item.flags.filter((f) => FLAG[f] && f !== 'late_received')
   return (
     <details id={`item-${item.id}`} className="group border border-rule bg-surface open:bg-transparent open:shadow-placard">
@@ -93,7 +94,7 @@ function CollapsedItem({ item, index }: { item: ItemView; index: number }) {
         <span className="min-w-0 flex-1 text-[15px]"><span className="font-medium">{item.typeLabel}</span>{item.headline && <span className="text-muted">: <SourceWords quoted={quoteOnly(item.eventType)}>{item.headline}</SourceWords></span>}</span>
         <StatusBadge status={item.status} label={STATUS_WORDS[item.status]} />
         {flags.slice(0, 2).map((f) => <Badge key={f} tone={FLAG[f]!.tone}>{FLAG[f]!.label}</Badge>)}
-        <span className="text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:hidden">Show quote</span>
+        <span className="text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:hidden">{desk ? 'Details' : 'Show quote'}</span>
         <span className="hidden text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:inline">Hide</span>
       </summary>
       <div className="border-t border-rule p-3 sm:p-4"><LedgerCard item={item} index={index} /></div>

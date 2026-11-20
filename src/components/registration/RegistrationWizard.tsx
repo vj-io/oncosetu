@@ -163,9 +163,9 @@ export function RegistrationWizard({ role }: { role: Role }) {
 
       {step === 0 && (
         <Frame matte>
-          <fieldset className="grid gap-5 p-4 sm:p-6">
-            <legend className="ds-kicker px-2">1 · Identity</legend>
-            <div className="grid gap-5 sm:grid-cols-2">
+          <div role="group" aria-labelledby="step-h" className="grid gap-5 p-4 sm:p-6">
+            <p id="step-h" className="ds-kicker">1 · Identity</p>
+            <div className="grid items-start gap-5 sm:grid-cols-2">
               <Field label="Full name" error={errors.fullName} className="sm:col-span-2">
                 <Input value={f.fullName} onChange={(e) => set("fullName", e.target.value)} autoComplete="off" />
               </Field>
@@ -248,14 +248,14 @@ export function RegistrationWizard({ role }: { role: Role }) {
                 <Input inputMode="numeric" placeholder="14 digits" value={f.abha} onChange={(e) => set("abha", e.target.value)} />
               </Field>
             </div>
-          </fieldset>
+          </div>
         </Frame>
       )}
 
       {step === 1 && (
         <Frame matte>
-          <fieldset className="grid gap-5 p-4 sm:p-6">
-            <legend className="ds-kicker px-2">2 · Contacts and disclosure</legend>
+          <div role="group" aria-labelledby="step-h" className="grid gap-5 p-4 sm:p-6">
+            <p id="step-h" className="ds-kicker">2 · Contacts and disclosure</p>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Primary contact" hint={minor ? "Fixed to the guardian for a patient under 18." : "Who receives links, codes and read-backs. Chosen with the patient and caregiver."}>
                 <Select value={primary} disabled={minor} onChange={(e) => set("primaryContact", e.target.value)}>
@@ -296,7 +296,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
                 onChange={(e) => set("cgGuardian", e.target.checked)}
               />
             </div>
-          </fieldset>
+          </div>
         </Frame>
       )}
 

@@ -1,5 +1,5 @@
 import type { Lang } from "@/core/types";
-import { FileX, Send } from "lucide-react";
+import { CheckCircle2, FileX, Send } from "lucide-react";
 import { Frame } from "@/components/ui";
 import { tp } from "@/i18n/patient";
 import type { LookingRow } from "@/server/portal/summary";
@@ -12,6 +12,19 @@ import { PLink } from "./ui";
  */
 export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; lang: Lang; showSend?: boolean }) {
   const q = `?lang=${lang}`;
+  if (row.state === "received") {
+    // already with the clinic: a tick, no "where to ask", nothing more to do
+    return (
+      <Frame className="flex items-start gap-3 px-4 py-4">
+        <CheckCircle2 aria-hidden className="mt-1 size-5 shrink-0 text-faint" strokeWidth={1.5} />
+        <div className="grid min-w-0 flex-1 gap-1">
+          <h3 className="font-display text-xl leading-snug tracking-[-0.015em]">{row.label}</h3>
+          {row.mentionedIn && <p className="text-[16px] text-muted">{row.mentionedIn}</p>}
+          <p className="text-[16px]">{row.status}</p>
+        </div>
+      </Frame>
+    );
+  }
   return (
     <Frame className="grid gap-3 px-4 py-4">
       <div className="flex items-start gap-3">
@@ -19,6 +32,7 @@ export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; 
         <div className="grid min-w-0 flex-1 gap-1">
           <h3 className="font-display text-xl leading-snug tracking-[-0.015em]">{row.label}</h3>
           {row.when && <p className="text-[16px] text-muted">{row.when}</p>}
+          {row.mentionedIn && <p className="text-[16px] text-muted">{row.mentionedIn}</p>}
           {row.state !== "expected" && <p className="text-[16px]">{row.status}</p>}
           <p className="text-[17px]">{row.ask ?? tp(lang, "lookingAskDesk")}</p>
         </div>

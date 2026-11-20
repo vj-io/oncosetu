@@ -17,11 +17,20 @@ export type PortalCtx = {
   brand: 'OncoSetu' | 'Setu Records'
   disclosure: Disclosure
   initials: string
+  /** The patient's first name when a family member is signed in (so wording says "Sunita", not "you"); null for the patient. */
+  who: string | null
   primaryContact: 'patient' | 'caregiver'
   flags: OrgFlags
   consent: ActiveConsent | null
   /** Who is acting: every mutation is attributed to this id (FR-CON-02). */
   actor: { kind: 'patient' | 'caregiver'; id: string }
+}
+
+/** "Mohd.", "Dr.", "K." are not names: use the whole name then. */
+export function firstNameOf(full: string): string {
+  const t = full.trim()
+  const first = t.split(/\s+/)[0]
+  return !first || first.endsWith('.') || first.length < 3 ? t : first
 }
 
 const remembered = async () => (await cookies()).get(LANG_COOKIE)?.value
@@ -53,6 +62,7 @@ export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx
     brand: brandFor(data.p.disclosure),
     disclosure: data.p.disclosure,
     initials: initials(decryptField(data.p.nameEnc)),
+    who: session.kind === 'caregiver' ? firstNameOf(decryptField(data.p.nameEnc)) : null,
     primaryContact: data.p.primaryContact,
     flags: data.flags,
     consent: data.consent,

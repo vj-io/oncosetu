@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest'
 import { brandFor, lintText } from '@/core/copy'
 import { DOC_TYPES, type Disclosure, type Lang } from '@/core/types'
-import { en, hi, hinglish, tp, type PatientKey } from '@/i18n/patient'
+import { en, hi, hinglish, tp, tpw, type PatientKey } from '@/i18n/patient'
 import { pickLang } from './lang'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, isPastDate, labelWithoutDates, type HomeData } from './summary'
@@ -186,6 +186,18 @@ describe('read-back (FR-VOX-04)', () => {
       expect(r.lines.length).toBeGreaterThan(0)
       expect(dirty([r.intro, ...r.lines.map((l) => l.text)])).toEqual([])
     }
+  })
+
+  it('speaks about the patient by name when a family member answers, and never says "you" for them', () => {
+    for (const lang of LANGS) {
+      const r = buildReadback(answers, lang, QUESTION_IDS, 'Sunita')
+      expect(r.intro).toContain('Sunita')
+      for (const l of r.lines.filter((x) => x.q !== 'anything_else')) expect(l.text).toContain('Sunita')
+      expect(dirty([r.intro, ...r.lines.map((l) => l.text)])).toEqual([])
+    }
+    expect(tpw('en', 'q_new_tests', 'Sunita')).toBe('Has Sunita had any new tests or scans?')
+    expect(tpw('en', 'q_new_tests', null)).toBe('Have you had any new tests or scans?')
+    expect(tpw('hi', 'homeKicker', 'Sunita')).toBe('Sunita की फ़ाइल')
   })
 
   it('shows what the patient said, with month/year dates formatted and relative phrases kept verbatim', () => {

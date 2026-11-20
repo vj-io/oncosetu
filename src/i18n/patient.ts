@@ -92,6 +92,8 @@ export const en = {
   secLooking: 'Papers still missing',
   lookingIntro: 'Your file mentions these papers, but the clinic does not have them. If you have one, send a photo.',
   lookingEmpty: 'Nothing is missing right now. Thank you.',
+  secArrived: 'We got these, the clinic is checking them',
+  lookingEmptyNoDocs: 'The clinic has no papers for this file yet. Please send photos of any reports, prescriptions or hospital papers.',
   lookingAsk: 'Ask at: {institution}',
   lookingFrom: 'From around {date}',
   lookingStatus_expected: 'Not in your file yet',
@@ -318,6 +320,9 @@ export const en = {
   cgRevoke: 'Remove access',
   cgRevoked: 'Access removed.',
   cgOnlyPatient: 'Only the patient can change this list.',
+  rightGrievanceDesk: 'Complaint: ask at the clinic desk to raise a complaint with the hospital.',
+  ackDonePlain: 'Acknowledged on {date}.',
+  cgOnlyClinic: 'Only the clinic can change this list. Ask at the desk.',
   cgInactive: 'Access removed',
 
   // ── access log ──
@@ -357,6 +362,40 @@ export const en = {
   dev_computer: 'on a computer',
   dev_unknown: 'on a device we could not identify',
 
+  // family member signed in for the patient: {who} is the patient's first name
+  homeKicker_cg: '{who}’s file',
+  visitIntro_cg: 'These five short questions help the doctor. Answer them for {who}. At the end you can check everything before it is sent.',
+  q_other_hospital_cg: 'Has {who} seen another hospital or doctor recently?',
+  q_new_medicines_cg: 'Has {who} been given any new medicines?',
+  q_new_tests_cg: 'Has {who} had any new tests or scans?',
+  q_admissions_cg: 'Has {who} been admitted to a hospital recently?',
+  q_anything_else_cg: 'Is there anything else you would like the doctor to know about {who}?',
+  reviewIntro_cg: 'You told us about {who}:',
+  rb_other_hospital_yes_cg: '{who} saw another hospital or doctor: {details}.',
+  rb_other_hospital_yes_plain_cg: '{who} saw another hospital or doctor.',
+  rb_other_hospital_no_cg: '{who} has not seen another hospital or doctor recently.',
+  rb_other_hospital_unsure_cg: 'You are not sure whether {who} saw another hospital or doctor.',
+  rb_new_medicines_yes_cg: '{who} was given new medicines: {details}.',
+  rb_new_medicines_yes_plain_cg: '{who} was given new medicines.',
+  rb_new_medicines_no_cg: '{who} has not been given new medicines.',
+  rb_new_medicines_unsure_cg: 'You are not sure whether {who} was given new medicines.',
+  rb_new_tests_yes_cg: '{who} had new tests or scans: {details}.',
+  rb_new_tests_yes_plain_cg: '{who} had new tests or scans.',
+  rb_new_tests_no_cg: '{who} has not had new tests or scans.',
+  rb_new_tests_unsure_cg: 'You are not sure whether {who} had new tests or scans.',
+  rb_admissions_yes_cg: '{who} was admitted to a hospital: {details}.',
+  rb_admissions_yes_plain_cg: '{who} was admitted to a hospital.',
+  rb_admissions_no_cg: '{who} has not been admitted to a hospital recently.',
+  rb_admissions_unsure_cg: 'You are not sure whether {who} was admitted to a hospital.',
+  rb_anything_else_yes_cg: 'You want the doctor to know: “{details}”',
+  rb_anything_else_no_cg: 'You have nothing else to add.',
+  permCan: 'Can',
+  permPart: 'Can, in part',
+  permCannot: 'Cannot',
+  perm_a_seal: 'Lock a checked copy of the file for a visit',
+  perm_a_accesslog: 'See the list of who opened the file',
+  perm_note1: 'Staff open a file only while you have given permission to keep your papers, or in an emergency, which is always recorded.',
+  perm_note3: 'Administrators open a file only in an emergency. Auditors never open patient files; they only see the list of who opened files, and counts.',
 } satisfies Record<string, string>
 
 export type PatientKey = keyof typeof en
@@ -448,6 +487,8 @@ export const hi: Record<PatientKey, string> = {
   secLooking: 'जो कागज़ात अभी नहीं मिले',
   lookingIntro: 'आपकी फ़ाइल में इन कागज़ात का ज़िक्र है, पर क्लिनिक के पास ये नहीं हैं। अगर आपके पास कोई हो, तो उसकी फ़ोटो भेज दें।',
   lookingEmpty: 'अभी कोई कागज़ गुम नहीं है। धन्यवाद।',
+  secArrived: 'ये मिल गए हैं, क्लिनिक इन्हें जाँच रहा है',
+  lookingEmptyNoDocs: 'क्लिनिक के पास इस फ़ाइल के अभी कोई कागज़ नहीं हैं। कृपया रिपोर्ट, पर्ची या अस्पताल के कागज़ों की फ़ोटो भेजें।',
   lookingAsk: 'कहाँ पूछें: {institution}',
   lookingFrom: 'लगभग {date} के आसपास का',
   lookingStatus_expected: 'अभी आपकी फ़ाइल में नहीं है',
@@ -673,6 +714,9 @@ export const hi: Record<PatientKey, string> = {
   cgRevoke: 'पहुँच हटाएँ',
   cgRevoked: 'पहुँच हटा दी गई।',
   cgOnlyPatient: 'यह सूची सिर्फ़ मरीज़ बदल सकते हैं।',
+  rightGrievanceDesk: 'शिकायत: शिकायत दर्ज करने के लिए क्लिनिक के डेस्क पर पूछें।',
+  ackDonePlain: '{date} को पावती दी गई।',
+  cgOnlyClinic: 'यह सूची सिर्फ़ क्लिनिक बदल सकता है। डेस्क पर पूछें।',
   cgInactive: 'पहुँच हटाई गई',
 
   // ── access log ──
@@ -711,6 +755,40 @@ export const hi: Record<PatientKey, string> = {
   dev_computer: 'कंप्यूटर पर',
   dev_unknown: 'ऐसे डिवाइस पर जिसे हम पहचान नहीं पाए',
 
+  // family member signed in for the patient: {who} is the patient's first name
+  homeKicker_cg: '{who} की फ़ाइल',
+  visitIntro_cg: 'ये पाँच छोटे सवाल डॉक्टर की मदद करते हैं। इनके जवाब {who} के बारे में दें। भेजने से पहले आख़िर में आप सब कुछ जाँच सकते हैं।',
+  q_other_hospital_cg: 'क्या {who} ने हाल ही में किसी और अस्पताल या डॉक्टर को दिखाया है?',
+  q_new_medicines_cg: 'क्या {who} को कोई नई दवाइयाँ दी गई हैं?',
+  q_new_tests_cg: 'क्या {who} की कोई नई जाँच या स्कैन हुई है?',
+  q_admissions_cg: 'क्या {who} को हाल ही में अस्पताल में भर्ती किया गया है?',
+  q_anything_else_cg: 'क्या {who} के बारे में कोई और बात है जो आप डॉक्टर को बताना चाहेंगे?',
+  reviewIntro_cg: 'आपने {who} के बारे में बताया:',
+  rb_other_hospital_yes_cg: '{who} ने किसी और अस्पताल या डॉक्टर को दिखाया: {details}।',
+  rb_other_hospital_yes_plain_cg: '{who} ने किसी और अस्पताल या डॉक्टर को दिखाया।',
+  rb_other_hospital_no_cg: '{who} ने हाल ही में किसी और अस्पताल या डॉक्टर को नहीं दिखाया।',
+  rb_other_hospital_unsure_cg: 'आपको पक्का नहीं है कि {who} ने किसी और अस्पताल या डॉक्टर को दिखाया या नहीं।',
+  rb_new_medicines_yes_cg: '{who} को नई दवाइयाँ दी गई हैं: {details}।',
+  rb_new_medicines_yes_plain_cg: '{who} को नई दवाइयाँ दी गई हैं।',
+  rb_new_medicines_no_cg: '{who} को नई दवाइयाँ नहीं दी गई हैं।',
+  rb_new_medicines_unsure_cg: 'आपको पक्का नहीं है कि {who} को नई दवाइयाँ दी गई हैं या नहीं।',
+  rb_new_tests_yes_cg: '{who} की नई जाँच या स्कैन हुई है: {details}।',
+  rb_new_tests_yes_plain_cg: '{who} की नई जाँच या स्कैन हुई है।',
+  rb_new_tests_no_cg: '{who} की कोई नई जाँच या स्कैन नहीं हुई है।',
+  rb_new_tests_unsure_cg: 'आपको पक्का नहीं है कि {who} की नई जाँच या स्कैन हुई है या नहीं।',
+  rb_admissions_yes_cg: '{who} को अस्पताल में भर्ती किया गया था: {details}।',
+  rb_admissions_yes_plain_cg: '{who} को अस्पताल में भर्ती किया गया था।',
+  rb_admissions_no_cg: '{who} को हाल ही में अस्पताल में भर्ती नहीं किया गया है।',
+  rb_admissions_unsure_cg: 'आपको पक्का नहीं है कि {who} को अस्पताल में भर्ती किया गया था या नहीं।',
+  rb_anything_else_yes_cg: 'आप चाहते हैं कि डॉक्टर यह जानें: “{details}”',
+  rb_anything_else_no_cg: 'आपको और कुछ नहीं जोड़ना है।',
+  permCan: 'कर सकते हैं',
+  permPart: 'कुछ हद तक कर सकते हैं',
+  permCannot: 'नहीं कर सकते',
+  perm_a_seal: 'विज़िट के लिए फ़ाइल की जाँची हुई कॉपी पक्की करना',
+  perm_a_accesslog: 'देखना कि फ़ाइल किसने खोली',
+  perm_note1: 'स्टाफ़ फ़ाइल तभी खोलता है जब आपने कागज़ात रखने की अनुमति दी हो, या आपातकाल में। यह हमेशा दर्ज होता है।',
+  perm_note3: 'प्रशासक फ़ाइल सिर्फ़ आपातकाल में खोलते हैं। ऑडिटर कभी मरीज़ की फ़ाइल नहीं खोलते; वे सिर्फ़ यह सूची कि किसने फ़ाइल खोली, और गिनती देखते हैं।',
 }
 
 /** Hinglish: Hindi in Roman script, as people write it on WhatsApp (patient's choice; never letters to hospitals). */
@@ -801,6 +879,8 @@ export const hinglish: Record<PatientKey, string> = {
   secLooking: 'Kaagazaat jo abhi nahi mile',
   lookingIntro: 'Aapki file mein in kaagazaat ka zikr hai, par clinic ke paas ye nahi hain. Agar aapke paas koi ho, toh uski photo bhej dein.',
   lookingEmpty: 'Abhi koi kaagaz gum nahi hai. Dhanyavaad.',
+  secArrived: 'Yeh mil gaye hain, clinic inhe jaanch raha hai',
+  lookingEmptyNoDocs: 'Clinic ke paas is file ke abhi koi kaagaz nahi hain. Kripya report, parchi ya hospital ke kaagazon ki photo bhejein.',
   lookingAsk: 'Yahan poochhein: {institution}',
   lookingFrom: '{date} ke aaspaas ka',
   lookingStatus_expected: 'Abhi aapki file mein nahi hai',
@@ -1026,6 +1106,9 @@ export const hinglish: Record<PatientKey, string> = {
   cgRevoke: 'Access hatayein',
   cgRevoked: 'Access hata diya gaya.',
   cgOnlyPatient: 'Yeh list sirf patient badal sakte hain.',
+  rightGrievanceDesk: 'Shikayat: shikayat darj karne ke liye clinic desk par poochhein.',
+  ackDonePlain: '{date} ko acknowledge kiya.',
+  cgOnlyClinic: 'Yeh list sirf clinic badal sakta hai. Desk par poochhein.',
   cgInactive: 'Access hataya gaya',
 
   // ── access log ──
@@ -1064,9 +1147,49 @@ export const hinglish: Record<PatientKey, string> = {
   dev_computer: 'computer par',
   dev_unknown: 'aise device par jise hum pehchaan nahi paaye',
 
+  // family member signed in for the patient: {who} is the patient's first name
+  homeKicker_cg: '{who} ki file',
+  visitIntro_cg: 'Yeh paanch chhote sawaal doctor ki madad karte hain. Inke jawab {who} ke baare mein dein. Aakhir mein, bhejne se pehle, aap sab kuch check kar sakte hain.',
+  q_other_hospital_cg: 'Kya {who} ne haal hi mein kisi aur hospital ya doctor ko dikhaya hai?',
+  q_new_medicines_cg: 'Kya {who} ko koi nayi dawaiyaan di gayi hain?',
+  q_new_tests_cg: 'Kya {who} ki koi nayi jaanch ya scan hui hai?',
+  q_admissions_cg: 'Kya {who} ko haal hi mein hospital mein admit kiya gaya hai?',
+  q_anything_else_cg: 'Kya {who} ke baare mein koi aur baat hai jo aap doctor ko batana chahenge?',
+  reviewIntro_cg: 'Aapne {who} ke baare mein bataya:',
+  rb_other_hospital_yes_cg: '{who} ne kisi aur hospital ya doctor ko dikhaya: {details}.',
+  rb_other_hospital_yes_plain_cg: '{who} ne kisi aur hospital ya doctor ko dikhaya.',
+  rb_other_hospital_no_cg: '{who} ne haal hi mein kisi aur hospital ya doctor ko nahi dikhaya.',
+  rb_other_hospital_unsure_cg: 'Aapko pakka nahi hai ki {who} ne kisi aur hospital ya doctor ko dikhaya ya nahi.',
+  rb_new_medicines_yes_cg: '{who} ko nayi dawaiyaan di gayi hain: {details}.',
+  rb_new_medicines_yes_plain_cg: '{who} ko nayi dawaiyaan di gayi hain.',
+  rb_new_medicines_no_cg: '{who} ko nayi dawaiyaan nahi di gayi hain.',
+  rb_new_medicines_unsure_cg: 'Aapko pakka nahi hai ki {who} ko nayi dawaiyaan di gayi hain ya nahi.',
+  rb_new_tests_yes_cg: '{who} ki nayi jaanch ya scan hui hai: {details}.',
+  rb_new_tests_yes_plain_cg: '{who} ki nayi jaanch ya scan hui hai.',
+  rb_new_tests_no_cg: '{who} ki koi nayi jaanch ya scan nahi hui hai.',
+  rb_new_tests_unsure_cg: 'Aapko pakka nahi hai ki {who} ki nayi jaanch ya scan hui hai ya nahi.',
+  rb_admissions_yes_cg: '{who} ko hospital mein admit kiya gaya tha: {details}.',
+  rb_admissions_yes_plain_cg: '{who} ko hospital mein admit kiya gaya tha.',
+  rb_admissions_no_cg: '{who} ko haal hi mein hospital mein admit nahi kiya gaya hai.',
+  rb_admissions_unsure_cg: 'Aapko pakka nahi hai ki {who} ko hospital mein admit kiya gaya tha ya nahi.',
+  rb_anything_else_yes_cg: 'Aap chahte hain ki doctor yeh jaanein: “{details}”',
+  rb_anything_else_no_cg: 'Aapko aur kuch nahi jodna hai.',
+  permCan: 'Kar sakte hain',
+  permPart: 'Kuch had tak kar sakte hain',
+  permCannot: 'Nahi kar sakte',
+  perm_a_seal: 'Visit ke liye file ki checked copy pakki karna',
+  perm_a_accesslog: 'Dekhna ki file kisne kholi',
+  perm_note1: 'Staff file tabhi kholta hai jab aapne kaagazaat rakhne ki permission di ho, ya emergency mein. Yeh hamesha record hota hai.',
+  perm_note3: 'Administrators file sirf emergency mein kholte hain. Auditors kabhi patient ki file nahi kholte; woh sirf yeh list ki kisne file kholi, aur counts dekhte hain.',
 }
 
 /** Read one string. `{token}` placeholders are replaced from `vars`; a missing token becomes an empty string. */
+/** Wording for a family member signed in for the patient: the `_cg` variant (with {who}) when one exists. */
+export function tpw(lang: Lang, key: PatientKey, who: string | null | undefined, vars?: Record<string, string | number>): string {
+  const cg = `${key}_cg`
+  return who && cg in en ? tp(lang, cg as PatientKey, { ...vars, who }) : tp(lang, key, vars)
+}
+
 export function tp(lang: Lang, key: PatientKey, vars?: Record<string, string | number>): string {
   const s = (lang === 'hi' ? hi : lang === 'hinglish' ? hinglish : en)[key]
   return vars ? s.replace(/\{(\w+)\}/g, (_, k: string) => String(vars[k] ?? '')) : s

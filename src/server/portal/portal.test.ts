@@ -81,6 +81,14 @@ describe.each(NOT_TOLD)('home summary, disclosure %s', (disclosure) => {
 })
 
 describe('home summary wording', () => {
+  it('says which paper mentions a missing one, so look-alike cards can be told apart (PAT-03)', () => {
+    const row = { ...home.looking[0], source: { docType: 'discharge_summary' as const, date: '2026-01-20' } }
+    for (const disclosure of NOT_TOLD) for (const lang of LANGS) expect(dirty(strings(buildHomeSummary({ ...home, looking: [row] }, disclosure, lang)))).toEqual([])
+    expect(buildHomeSummary({ ...home, looking: [row] }, 'not_cleared', 'en').looking[0].mentionedIn).toMatch(/^Mentioned in your .+, 20 Jan 2026$/)
+    expect(buildHomeSummary({ ...home, looking: [{ ...row, source: { docType: 'discharge_summary', date: null } }] }, 'not_cleared', 'en').looking[0].mentionedIn).toMatch(/^Mentioned in your [^,]+$/)
+    expect(buildHomeSummary(home, 'not_cleared', 'en').looking[0].mentionedIn).toBeNull()
+  })
+
   it('lists a missing paper as a neutral document with its date', () => {
     const s = buildHomeSummary(home, 'not_cleared', 'en')
     expect(s.looking[0]).toMatchObject({ label: 'Laboratory report (tissue)', when: 'From around 12 Mar 2026', status: 'Not in your file yet', canLetter: true })

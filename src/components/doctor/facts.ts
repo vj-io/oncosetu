@@ -30,7 +30,8 @@ export function foldList<T>(items: readonly T[], n: number): { shown: T[]; rest:
 
 /** "City Care Hospital, Nagpur" from a missing-paper line such as "Prescription the patient mentioned from City Care Hospital, Nagpur". */
 export function placeFromWording(wording: string): string | null {
-  const m = /\bfrom\s+(.{3,80}?)\s*[.]?\s*$/i.exec(wording.replace(/\s+/g, ' '))
+  const flat = wording.replace(/\s+/g, ' ').replace(/\s+(?:is|are)\s+not\s+in\s+(?:the\s+)?file\b.*$/i, '').replace(/\s*\(patient statement\)\s*$/i, '')
+  const m = /\bfrom\s+(.{3,80}?)\s*[.]?\s*$/i.exec(flat)
   return m ? m[1] : null
 }
 

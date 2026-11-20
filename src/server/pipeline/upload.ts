@@ -8,7 +8,7 @@ import { writeAudit } from '@/server/audit'
 import { HttpError } from '@/server/http'
 import { ingestDocument, type IngestInput, type IngestResult } from './ingest'
 import { sniffFile } from './filetypes'
-import { isCompressedSyntax, readDicomMeta, studyLabel, type DicomMeta } from './dicom'
+import { readDicomMeta, studyLabel, type DicomMeta } from './dicom'
 import { BundleWriter } from './study'
 import { inspectZip, isCdFurniture, openEntries, ZipMismatch, type Skipped, type ZipEntry } from './zip'
 
@@ -49,7 +49,7 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
   const skipped = [...plan.skipped]
   // Pass 1: open the ZIP a batch at a time and keep only what is small: each DICOM slice's header (the picture is let go), and any
   // other file as it is. A study of a few thousand slices is therefore never held in memory in full.
-  type Head = { name: string; base: string; meta: DicomMeta; squeeze: boolean; size: number }
+  type Head = { name: string; base: string; meta: DicomMeta; size: number }
   const heads: Head[] = []
   let others: ZipEntry[] = []
   let dicomdir = false
@@ -59,7 +59,7 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
       if (kind === 'zip') { skipped.push({ name: e.name, reason: 'a ZIP inside a ZIP is not accepted', code: 'nested_archive' }); continue }
       if (e.base.toUpperCase() === 'DICOMDIR') { dicomdir = true; skipped.push({ name: e.name, reason: 'DICOMDIR index (not needed, the images are read directly)' }); continue }
       const meta = kind === 'dicom' ? readDicomMeta(e.data) : null
-      if (meta) heads.push({ name: e.name, base: e.base, meta, squeeze: !isCompressedSyntax(meta.transferSyntax), size: e.data.length })
+      if (meta) heads.push({ name: e.name, base: e.base, meta, size: e.data.length })
       else others.push(e) // a header that cannot be read goes through intake alone (and is held or refused there)
     }
   } catch (e) {
@@ -125,7 +125,8 @@ export async function ingestUpload(tx: Tx, input: IngestInput): Promise<UploadRe
         const p = b.parts[b.part.get(e.name)!]
         if (p.tooBig) continue
         const h = b.heads[b.rank.get(e.name)!]
-        if (!p.writer.add(`${String(b.rank.get(e.name)! + 1).padStart(4, '0')}-${h.base.replace(/[^\w.-]/g, '_')}`, e.data, h.squeeze)) p.tooBig = true
+        // every slice is deflated: an already-compressed picture gains little, but real CDs carry large vendor headers (3x smaller overall)
+        if (!p.writer.add(`${String(b.rank.get(e.name)! + 1).padStart(4, '0')}-${h.base.replace(/[^\w.-]/g, '_')}`, e.data, true)) p.tooBig = true
       }
     } catch (e) {
       if (!(e instanceof ZipMismatch)) throw e

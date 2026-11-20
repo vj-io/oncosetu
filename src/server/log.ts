@@ -13,7 +13,11 @@ export function redact(value: unknown, depth = 0): unknown {
   if (typeof value === 'string') return value.replace(EMAIL, '[email]').replace(PHONE, '[phone]')
   if (Array.isArray(value)) return value.map((v) => redact(v, depth + 1))
   // A failed query's message carries its parameters; one holding a stored file was 431 MB, so only the start is kept.
-  if (value instanceof Error) return { name: value.name, message: redact(value.message.slice(0, 2000), depth + 1), code: (value as { code?: unknown }).code }
+  if (value instanceof Error) {
+    // a failed query's message is the SQL and its parameters; the database's own reason (code, message) is in `cause`
+    const cause = value.cause instanceof Error ? redact(value.cause, depth + 1) : undefined
+    return { name: value.name, message: redact(value.message.slice(0, 2000), depth + 1), code: (value as { code?: unknown }).code, ...(cause ? { cause } : {}) }
+  }
   if (value && typeof value === 'object') {
     const out: Fields = {}
     for (const [k, v] of Object.entries(value)) out[k] = SENSITIVE_KEY.test(k) ? '[redacted]' : redact(v, depth + 1)

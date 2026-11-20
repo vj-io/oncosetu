@@ -7,6 +7,7 @@ import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
 import { loadDocument, patientMayOpen } from '@/server/pipeline/actions'
 import { renderDicomFrame, type Preview } from '@/server/pipeline/dicom'
+import { bundleCache } from '@/server/pipeline/bundle-cache'
 import { bundleSliceAt, STUDY_BUNDLE_MIME } from '@/server/pipeline/study'
 import { previewTarget, studyParts } from '@/server/pipeline/study-parts'
 import { patientIdParam } from '@/server/registration/http'
@@ -27,11 +28,13 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   const win = ctx.query.window && CT_WINDOWS[ctx.query.window]
   const pictureOf = async (docId: string, mime: string, index?: number): Promise<Preview> => {
     const [f] = await ctx.db.select({ id: documentFiles.id }).from(documentFiles).where(and(eq(documentFiles.documentId, docId), eq(documentFiles.kind, 'original'))).limit(1)
-    const file = f && (await readFile(ctx.db, f.id))
-    if (!file) throw new HttpError(404, 'not_found', 'Not found')
-    if (mime !== STUDY_BUNDLE_MIME) return renderDicomFrame(file.bytes, index, win)
+    const read = async () => (f ? (await readFile(ctx.db, f.id))?.bytes ?? null : null)
+    // a study part is read and decrypted once per server instance, then every slice comes from memory (bundle-cache.ts)
+    const bytes = f && mime === STUDY_BUNDLE_MIME ? await bundleCache.get(f.id, read) : await read()
+    if (!bytes) throw new HttpError(404, 'not_found', 'Not found')
+    if (mime !== STUDY_BUNDLE_MIME) return renderDicomFrame(bytes, index, win)
     let slice: Uint8Array | null = null
-    try { slice = bundleSliceAt(file.bytes, index).data } catch { /* a damaged bundle: no picture, the file stays stored */ }
+    try { slice = bundleSliceAt(bytes, index).data } catch { /* a damaged bundle: no picture, the file stays stored */ }
     return slice ? renderDicomFrame(slice, 0, win) : { ok: false, reason: 'no_pixels', note: 'Preview not available — file stored' }
   }
   // A study that came in several uploads is stepped through as one series; the part that arrived first stands for it.

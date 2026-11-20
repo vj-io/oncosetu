@@ -1,4 +1,4 @@
-// A DICOM study kept as one document: the instances are stored together as a stored (uncompressed) ZIP bundle.
+// A DICOM study kept as one document: the instances are stored together as one ZIP bundle (slices deflated lightly).
 import { unzipSync, Zip, ZipDeflate, ZipPassThrough, zipSync } from 'fflate'
 import { parseDicomHeader } from './dicom'
 
@@ -46,7 +46,8 @@ export function bundleSliceAt(zipBytes: Uint8Array, index?: number): { count: nu
 
 /**
  * Builds a bundle one slice at a time (nothing but the packed result is kept), so a study of 2,500 slices never exists in memory
- * as a second full copy. `squeeze` deflates an uncompressed picture lightly; already-compressed pictures are stored as they are.
+ * as a second full copy. `squeeze` deflates a slice lightly (level 1). Upload squeezes every slice: on five real CDs the vendor
+ * headers made stored studies 3x smaller even where the picture itself was already JPEG 2000.
  */
 export class BundleWriter {
   private chunks: Uint8Array[] = []
@@ -57,8 +58,8 @@ export class BundleWriter {
   }
   /** Returns false once the bundle has grown past its limit (the caller then stops and refuses the study). */
   add(name: string, data: Uint8Array, squeeze: boolean): boolean {
-    // each deflater costs a few ms to set up, so only pictures big enough to repay it are squeezed
-    const f = squeeze && data.length >= 128 * 1024 ? new ZipDeflate(name, { level: 1 }) : new ZipPassThrough(name)
+    // each deflater costs a few ms to set up, so tiny slices are stored as they are (16 KB saved as much as 0 KB on real CDs)
+    const f = squeeze && data.length >= 16 * 1024 ? new ZipDeflate(name, { level: 1 }) : new ZipPassThrough(name)
     this.zip.add(f)
     f.push(data, true)
     return this.size <= this.maxBytes

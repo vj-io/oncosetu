@@ -43,7 +43,7 @@ async function main() {
     { patientKey: 'hero', title: 'Chest X-ray (DICOM)', demoStep: 'imaging: stored, not read', kind: 'dicom', expect: 'identity: match; Imaging file - stored, not read; preview shown' })
   put('hero__13-xray-wrong-patient.dcm', await buildSyntheticDicom({ modality: 'DX', patientName: 'Kulkarni^Sanjay', sex: 'M', age: '063Y', patientId: 'SYN-OTHER', studyDate: '20260318', studyUid: UID(2), description: 'Chest X-ray PA', bodyPart: 'CHEST', size: 192 }),
     { patientKey: 'hero', title: 'Chest X-ray with another patient name (DICOM)', demoStep: 'imaging: wrong patient is held', kind: 'dicom', expect: 'identity: mismatch; held for checking' })
-  put('hero__14-mammogram.dcm', await buildSyntheticDicom({ modality: 'MG', patientName: SUNITA.name, sex: SUNITA.sex, age: SUNITA.age, studyDate: '20260105', studyUid: UID(3), description: 'Mammogram', bodyPart: 'BREAST', size: 256, rle: true }),
+  put('hero__14-mammogram.dcm', await buildSyntheticDicom({ modality: 'MG', patientName: SUNITA.name, sex: SUNITA.sex, age: SUNITA.age, studyDate: '20260105', studyUid: UID(3), description: 'Mammogram', bodyPart: 'BREAST', institution: 'Medha Imaging & Diagnostic Centre', size: 256, rle: true }),
     { patientKey: 'hero', title: 'Mammogram (DICOM, RLE-compressed)', demoStep: 'imaging: compressed preview', kind: 'dicom', expect: 'identity: match; preview from RLE' })
 
   const ctSeries: Record<string, Uint8Array> = {}

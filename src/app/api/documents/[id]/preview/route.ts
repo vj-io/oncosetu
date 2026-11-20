@@ -11,7 +11,9 @@ import { bundleSliceAt, STUDY_BUNDLE_MIME } from '@/server/pipeline/study'
 import { previewTarget, studyParts } from '@/server/pipeline/study-parts'
 import { patientIdParam } from '@/server/registration/http'
 
-const q = z.object({ frame: z.coerce.number().int().min(0).max(100000).optional() })
+/** CT window presets the viewer offers, by name only: the numbers live here, never in the request. */
+const CT_WINDOWS = { soft: { center: 40, width: 400 }, lung: { center: -600, width: 1500 }, bone: { center: 400, width: 1800 } } as const
+const q = z.object({ frame: z.coerce.number().int().min(0).max(100000).optional(), window: z.enum(['soft', 'lung', 'bone']).optional() })
 export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   if (ctx.session.kind === 'staff' && !['records', 'clinician'].includes(ctx.session.role)) throw new HttpError(403, 'forbidden', 'Not allowed')
   const d = await loadDocument(ctx, patientIdParam(ctx))
@@ -22,14 +24,15 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   if (d.status === 'quarantined') throw new HttpError(403, 'quarantined', 'This file is quarantined and cannot be opened')
   if (d.mime !== 'application/dicom' && d.mime !== STUDY_BUNDLE_MIME) throw new HttpError(404, 'not_found', 'Not found')
   // One picture of one stored file: a single DICOM (frame `index`), or slice `index` of a study bundle. Never throws for a bad file.
+  const win = ctx.query.window && CT_WINDOWS[ctx.query.window]
   const pictureOf = async (docId: string, mime: string, index?: number): Promise<Preview> => {
     const [f] = await ctx.db.select({ id: documentFiles.id }).from(documentFiles).where(and(eq(documentFiles.documentId, docId), eq(documentFiles.kind, 'original'))).limit(1)
     const file = f && (await readFile(ctx.db, f.id))
     if (!file) throw new HttpError(404, 'not_found', 'Not found')
-    if (mime !== STUDY_BUNDLE_MIME) return renderDicomFrame(file.bytes, index)
+    if (mime !== STUDY_BUNDLE_MIME) return renderDicomFrame(file.bytes, index, win)
     let slice: Uint8Array | null = null
     try { slice = bundleSliceAt(file.bytes, index).data } catch { /* a damaged bundle: no picture, the file stays stored */ }
-    return slice ? renderDicomFrame(slice, 0) : { ok: false, reason: 'no_pixels', note: 'Preview not available — file stored' }
+    return slice ? renderDicomFrame(slice, 0, win) : { ok: false, reason: 'no_pixels', note: 'Preview not available — file stored' }
   }
   // A study that came in several uploads is stepped through as one series; the part that arrived first stands for it.
   const at = previewTarget(d, await studyParts(ctx.db, d), ctx.query.frame)

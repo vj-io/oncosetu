@@ -176,6 +176,22 @@ describe('uncompressed pixels: bits stored, signedness and rescale from the head
   })
 })
 
+describe('window presets for CT (chosen in the viewer, applied on the server)', () => {
+  const frame = (v: number) => { const b = Buffer.alloc(16 * 16 * 2); for (let i = 0; i < 256; i++) b.writeUInt16LE(v, i * 2); return b }
+  const ct = (modality: 'CT' | 'MR') => buildSyntheticDicom({ modality, patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 16, rawFrames: [frame(1064)], pixelHeader: { rescale: [1, -1024], window: [0, 2000] } }) // 40 HU
+  it('draws the same CT slice with a soft-tissue, lung or bone window instead of the one in the file', async () => {
+    const grey = async (w?: { center: number; width: number }) => { const r = await renderDicomFrame(await ct('CT'), 0, w); return r.ok ? greyAt(r.png, 4, 4) : -1 }
+    expect(await grey()).toBe(133) // the file's window: centre 0, width 2000
+    expect(await grey({ center: 40, width: 400 })).toBe(128)
+    expect(await grey({ center: -600, width: 1500 })).toBe(236)
+    expect(await grey({ center: 400, width: 1800 })).toBe(77)
+  })
+  it('ignores a CT window for anything that is not CT (its numbers are not Hounsfield units)', async () => {
+    const r = await renderDicomFrame(await ct('MR'), 0, { center: -600, width: 1500 }), own = await renderDicomFrame(await ct('MR'), 0)
+    expect(r.ok && own.ok && r.png.equals(own.png)).toBe(true)
+  })
+})
+
 describe('where the decoders come from on the server', () => {
   it('opens only codec files that next.config.ts traces into the API functions, wherever the server was started from', async () => {
     const home = process.cwd()

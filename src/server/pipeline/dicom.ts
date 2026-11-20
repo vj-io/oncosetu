@@ -172,8 +172,14 @@ function encapsulatedFrame(ds: DataSet, el: NonNullable<DataSet['elements'][stri
     : dicomParser.readEncapsulatedImageFrame(ds, el, frame, el.basicOffsetTable)
 }
 
-/** Renders one frame as a PNG (window/level from the header when present). Never throws: unsupported files return a plain note. */
-export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): Promise<Preview> {
+/** A display window in the file's own units after rescale (Hounsfield units for CT). */
+export type DisplayWindow = { center: number; width: number }
+
+/**
+ * Renders one frame as a PNG (window/level from the header when present). `window` replaces the header's window for a CT slice only
+ * (its values are Hounsfield units); any other picture keeps its own. Never throws: unsupported files return a plain note.
+ */
+export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number, window?: DisplayWindow): Promise<Preview> {
   let ds: DataSet
   try { ds = dicomParser.parseDicom(bytes) } catch { return { ok: false, reason: 'parse_failed', note: 'Preview not available — file stored' } }
   const el = ds.elements.x7fe00010
@@ -236,7 +242,8 @@ export async function renderDicomFrame(bytes: Uint8Array, frameIndex?: number): 
       if (signed && raw >= sign) raw -= 2 * sign
       vals[i] = raw * slope + intercept
     }
-    const wc = firstNumber(str(ds, 'x00281050')), ww = firstNumber(str(ds, 'x00281051'))
+    const chosen = window && str(ds, 'x00080060') === 'CT' ? window : null
+    const wc = chosen?.center ?? firstNumber(str(ds, 'x00281050')), ww = chosen?.width ?? firstNumber(str(ds, 'x00281051'))
     let lo: number, hi: number, windowed = false
     if (wc !== null && ww !== null && ww > 0) { lo = wc - ww / 2; hi = wc + ww / 2; windowed = true } else {
       lo = Infinity; hi = -Infinity

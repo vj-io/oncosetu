@@ -22,7 +22,7 @@ const imp = async () => ({
   doctor: await import('../../src/server/registration/doctor-overview'), queue: await import('../../src/server/ledger/queue'),
 })
 const ctxFor = (c: Awaited<ReturnType<typeof imp>>, tx: import('../../src/db').Tx, orgId = ORG) =>
-  ({ db: tx, session: { ...session, orgId }, audit: async (action: string, tt: string | null, tid: string | null, details?: Record<string, string | number | boolean | null>) => { await c.audit.writeAudit(tx, { orgId, actorId: session.staffId, actorRole: 'records', action, targetType: tt, targetId: tid, details }) } })
+  ({ db: tx, session: { ...session, orgId }, audit: async (action: string, tt: string | null, tid: string | null, details?: import('../../src/server/audit').AuditDetails) => { await c.audit.writeAudit(tx, { orgId, actorId: session.staffId, actorRole: 'records', action, targetType: tt, targetId: tid, details }) } })
 
 // One mixed set: 2 held, and one of every kind that is NOT held.
 const MIX: { key: string; attach: string; status: string }[] = [

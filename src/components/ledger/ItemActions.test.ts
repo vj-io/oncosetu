@@ -8,7 +8,7 @@ import { ItemActions } from './ItemActions'
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }))
 
 const item = (role: string, tier: 'records' | 'clinician') => ({
-  id: 'e1', rowVersion: 1, status: 'unverified' as never, permits: permitsFor(role, tier), editable: [], readings: [], typeLabel: 'Diagnosis', viewedSource: null,
+  id: 'e1', rowVersion: 1, status: 'unverified' as never, permits: permitsFor(role, tier), editable: [], readings: [], typeLabel: 'Diagnosis', viewedSource: false,
   sources: [{ href: '/patients/p/documents/d?page=1', label: 'Discharge summary p1' }] as never,
 })
 const html = (role: string, tier: 'records' | 'clinician') => renderToStaticMarkup(createElement(ToastProvider, null, createElement(ItemActions, { item: item(role, tier) })))

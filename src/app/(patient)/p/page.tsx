@@ -5,11 +5,11 @@ import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { MissingPaper } from '@/components/portal/MissingPaper'
 import { MoreLink } from '@/components/portal/MoreLink'
 import { PortalFrame } from '@/components/portal/PortalFrame'
-import { Kicker } from '@/components/portal/ui'
+import { Kicker, PLink } from '@/components/portal/ui'
 import { EmptyState, Frame } from '@/components/ui'
 import { withOrg } from '@/db'
 import type { Lang } from '@/core/types'
-import { tp } from '@/i18n/patient'
+import { tp, tpw } from '@/i18n/patient'
 import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadHomeData } from '@/server/portal/home'
 import { buildHomeSummary, type HomeSummary } from '@/server/portal/summary'
@@ -74,6 +74,8 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
   const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId))
   const sum = buildHomeSummary(data, ctx.disclosure, lang)
   const q = `?lang=${lang}`
+  const pending = sum.looking.filter((m) => m.state !== 'received')
+  const arrived = sum.looking.filter((m) => m.state === 'received')
   const parts = ctx.session.displayName.trim().split(/\s+/)
   // "Mohd.", "Dr.", "K." are not names: greet with the whole name
   const firstName = !parts[0] || parts[0].endsWith('.') || parts[0].length < 3 ? ctx.session.displayName.trim() : parts[0]
@@ -81,24 +83,40 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
 
   return (
     <PortalFrame ctx={ctx}>
-      <Kicker lang={lang}>{tp(lang, 'homeKicker')}</Kicker>
+      <Kicker lang={lang}>{tpw(lang, 'homeKicker', ctx.who)}</Kicker>
       <h1 className="mt-2 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tp(lang, 'homeHello', { name: firstName })}</h1>
       <p className="mt-2 max-w-prose text-muted">{tp(lang, 'homeIntro')}</p>
 
       {/* 1. What is missing and where to ask: the thing a family member most needs */}
       <section className="mt-8" aria-labelledby="look-h" id="missing">
         <h2 id="look-h" className={H2}>{tp(lang, 'secLooking')}</h2>
-        {sum.looking.length ? (
+        {pending.length ? (
           <>
             <p className="mt-2 max-w-prose text-muted">{tp(lang, 'lookingIntro')}</p>
             <ul className="mt-4 grid gap-3">
-              {sum.looking.map((m) => (
+              {pending.map((m) => (
                 <li key={m.id}><MissingPaper row={m} lang={lang} /></li>
               ))}
             </ul>
           </>
-        ) : (
+        ) : sum.documents.length ? (
           <p className="mt-3 text-muted">{tp(lang, 'lookingEmpty')}</p>
+        ) : (
+          // an empty file is not "nothing missing": say the clinic has nothing, and put the Send button first
+          <>
+            <p className="mt-3 max-w-prose text-muted">{tp(lang, 'lookingEmptyNoDocs')}</p>
+            <div className="mt-4"><PLink href={`/p/upload${q}`} icon={<Send />} className="w-full sm:w-auto">{tp(lang, 'lookingSend')}</PLink></div>
+          </>
+        )}
+        {arrived.length > 0 && (
+          <div className="mt-6">
+            <h3 className="text-xl leading-tight tracking-[-0.015em]">{tp(lang, 'secArrived')}</h3>
+            <ul className="mt-3 grid gap-3">
+              {arrived.map((m) => (
+                <li key={m.id}><MissingPaper row={m} lang={lang} /></li>
+              ))}
+            </ul>
+          </div>
         )}
       </section>
 

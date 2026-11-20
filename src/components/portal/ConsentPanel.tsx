@@ -19,9 +19,9 @@ const PURPOSES = CONSENT_PURPOSES;
 
 /** Purpose toggles, one-tap withdrawal (FR-CON-04) and the caregiver list. Each change is one request; the server re-reads it on every use. */
 export function ConsentPanel({
-  lang, initial, caregivers, isPatient, lastUpdated, erasure: initialErasure,
+  lang, initial, caregivers, isPatient, minor = false, lastUpdated, erasure: initialErasure,
 }: {
-  lang: Lang; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; lastUpdated: string | null; erasure: ErasureStatus | null;
+  lang: Lang; initial: Purposes; caregivers: Caregiver[]; isPatient: boolean; minor?: boolean; lastUpdated: string | null; erasure: ErasureStatus | null;
 }) {
   const router = useRouter();
   const [purposes, setPurposes] = useState<Purposes>(initial);
@@ -188,7 +188,7 @@ export function ConsentPanel({
             ))}
           </ul>
         )}
-        {!isPatient && <p className="text-[16px] text-muted">{tp(lang, "cgOnlyPatient")}</p>}
+        {!isPatient && <p className="text-[16px] text-muted">{tp(lang, minor ? "cgOnlyClinic" : "cgOnlyPatient")}</p>}
       </section>
     </div>
   );

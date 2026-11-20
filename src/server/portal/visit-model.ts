@@ -4,7 +4,7 @@
 import { z } from 'zod'
 import { formatDateIN } from '@/core/copy'
 import type { Lang } from '@/core/types'
-import { tp, type PatientKey } from '@/i18n/patient'
+import { tp, tpw, type PatientKey } from '@/i18n/patient'
 
 /** The five questions in their default order (ids must match StatementQuestion). An org switches them off and reorders them on /admin/settings (FR-VOX-01). */
 export const QUESTIONS = [
@@ -140,7 +140,7 @@ export type Readback = { intro: string; lines: { q: QuestionId; text: string }[]
  * What the system understood, as plain sentences in the chosen language (FR-VOX-04). Wording comes only from the
  * i18n catalogue; the patient's own words are passed through verbatim, nothing is interpreted or classified.
  */
-export function buildReadback(answers: Answers, lang: Lang, order: readonly QuestionId[] = QUESTION_IDS): Readback {
+export function buildReadback(answers: Answers, lang: Lang, order: readonly QuestionId[] = QUESTION_IDS, who: string | null = null): Readback {
   const lines: Readback['lines'] = []
   for (const q of order) {
     const a = answers[q]
@@ -155,9 +155,9 @@ export function buildReadback(answers: Answers, lang: Lang, order: readonly Ques
       key = d ? `rb_${q}_yes` : `rb_${q}_yes_plain`
     } else key = `rb_${q}_${a.yn}`
     // the sentence supplies its own full stop: "…subah shaam." from voice typing must not read "…subah shaam.."
-    lines.push({ q, text: tp(lang, key as PatientKey, { details: d.replace(/[\s.।!?]+$/u, '') }) })
+    lines.push({ q, text: tpw(lang, key as PatientKey, who, { details: d.replace(/[\s.।!?]+$/u, '') }) })
   }
-  return { intro: tp(lang, 'reviewIntro'), lines }
+  return { intro: tpw(lang, 'reviewIntro', who), lines }
 }
 
 /** A complete set: every enabled question but anything_else needs a tap; anything_else may be left out (blank = nothing to add). */

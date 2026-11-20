@@ -5,7 +5,7 @@ import { VisitFlow } from '@/components/portal/VisitFlow'
 import { formatDateIN, istDate } from '@/core/copy'
 import { withOrg } from '@/db'
 import { patientStatements } from '@/db/schema'
-import { tp } from '@/i18n/patient'
+import { tp, tpw } from '@/i18n/patient'
 import { now } from '@/server/clock'
 import { loadPortal } from '@/server/portal/context'
 import { enabledQuestions } from '@/server/portal/visit-model'
@@ -22,7 +22,7 @@ export default async function VisitPage({ searchParams }: { searchParams: Promis
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tp(lang, 'visitKicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tp(lang, 'visitTitle')}</h1>
-      <p className="mt-3 max-w-prose text-muted">{tp(lang, 'visitIntro')}</p>
+      <p className="mt-3 max-w-prose text-muted">{tpw(lang, 'visitIntro', ctx.who)}</p>
       <VisitFlow
         lang={lang}
         questions={enabledQuestions(ctx.flags.questions)}
@@ -35,6 +35,7 @@ export default async function VisitPage({ searchParams }: { searchParams: Promis
         currentYear={year}
         lastAnswered={last ? formatDateIN(istDate(last.at.toISOString()), lang) : null}
         station={station}
+        who={ctx.who}
       />
     </PortalFrame>
   )

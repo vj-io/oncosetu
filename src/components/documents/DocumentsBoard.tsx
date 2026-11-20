@@ -310,7 +310,9 @@ function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: 
           {r.imaging && (
             <p className="text-sm text-muted" data-testid="imaging-line">
               {[r.imaging.label, r.imaging.studyDate ? fmtDate(r.imaging.studyDate) : null, r.imaging.bodyPart, r.imaging.institution].filter(Boolean).join(' · ')}
-              {r.imaging.patientName && <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>}
+              {r.imaging.patientName && (canDecide
+                ? <> · header name: {r.imaging.patientName}{r.imaging.patientSex ? `, ${r.imaging.patientSex}` : ''}{r.imaging.patientAge ? `, ${r.imaging.patientAge}` : ''}</>
+                : r.identity === 'mismatch' ? <> · the name on the file does not match this patient</> : null)}
               {r.imaging.instances > 1 && <> · {r.imaging.instances} images</>}
             </p>
           )}

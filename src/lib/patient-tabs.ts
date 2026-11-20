@@ -25,7 +25,9 @@ export const PATIENT_TAB_LIST = [
 
 export type PatientTabKey = (typeof PATIENT_TAB_LIST)[number]['key']
 
+// `records` shows a one-line summary of what each paper says (as written), which is clinical content, so the desk never sees the tab.
 export const PATIENT_TAB_ROLES = {
+  records: ['records', 'clinician'],
   timeline: ['records', 'clinician'],
   ledger: ['desk', 'records', 'clinician'],
   completeness: ['desk', 'records', 'clinician', 'org_admin'],

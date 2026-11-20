@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -9,6 +9,7 @@ import { Badge, Button, Checkbox, Field, Frame, Input, Select, TONE } from "@/co
 import { istDate } from "@/core/copy";
 import { ageOn } from "@/core/identity";
 import { postJson, stashCardToken } from "./api";
+import { CONSENT_LANGS, type ConsentLang } from "@/i18n/consent";
 import { ConsentCapture, consentBody, consentConfirm, DEFAULT_CONSENT, type ConsentValue } from "./ConsentCapture";
 import { Notice } from "./Notice";
 import { WRAP } from "./style";
@@ -44,6 +45,8 @@ export function RegistrationWizard({ role }: { role: Role }) {
   const [consent, setConsent] = useState<ConsentValue>(DEFAULT_CONSENT);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [banner, setBanner] = useState<string | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (banner) bannerRef.current?.scrollIntoView({ block: "nearest" }); }, [banner]);
   const [checking, setChecking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
@@ -90,6 +93,12 @@ export function RegistrationWizard({ role }: { role: Role }) {
     if (validateIdentity()) setStep(1);
   }
 
+  /** The notice opens in the language chosen in step 1, unless staff already picked another one. */
+  function goConsent() {
+    setConsent((c) => (c.language === DEFAULT_CONSENT.language && (CONSENT_LANGS as readonly string[]).includes(f.preferredLanguage) ? { ...c, language: f.preferredLanguage as ConsentLang } : c));
+    setStep(2);
+  }
+
   async function toConsent() {
     setBanner(null);
     if (!validateContacts()) return;
@@ -101,7 +110,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
     setChecking(false);
     if (!r.ok) return setBanner(r.message);
     setCandidates(r.data.candidates);
-    if (!r.data.candidates.length || dupAck) setStep(2);
+    if (!r.data.candidates.length || dupAck) goConsent();
   }
 
   async function submit(e: FormEvent) {
@@ -150,13 +159,13 @@ export function RegistrationWizard({ role }: { role: Role }) {
         ))}
       </ol>
 
-      {banner && <Notice tone="conflict" title={banner} />}
+      {banner && step !== 2 && <Notice tone="conflict" title={banner} />}
 
       {step === 0 && (
         <Frame matte>
-          <fieldset className="grid gap-5 p-4 sm:p-6">
-            <legend className="ds-kicker px-2">1 · Identity</legend>
-            <div className="grid gap-5 sm:grid-cols-2">
+          <div role="group" aria-labelledby="step-h" className="grid gap-5 p-4 sm:p-6">
+            <p id="step-h" className="ds-kicker">1 · Identity</p>
+            <div className="grid items-start gap-5 sm:grid-cols-2">
               <Field label="Full name" error={errors.fullName} className="sm:col-span-2">
                 <Input value={f.fullName} onChange={(e) => set("fullName", e.target.value)} autoComplete="off" />
               </Field>
@@ -239,14 +248,14 @@ export function RegistrationWizard({ role }: { role: Role }) {
                 <Input inputMode="numeric" placeholder="14 digits" value={f.abha} onChange={(e) => set("abha", e.target.value)} />
               </Field>
             </div>
-          </fieldset>
+          </div>
         </Frame>
       )}
 
       {step === 1 && (
         <Frame matte>
-          <fieldset className="grid gap-5 p-4 sm:p-6">
-            <legend className="ds-kicker px-2">2 · Contacts and disclosure</legend>
+          <div role="group" aria-labelledby="step-h" className="grid gap-5 p-4 sm:p-6">
+            <p id="step-h" className="ds-kicker">2 · Contacts and disclosure</p>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Primary contact" hint={minor ? "Fixed to the guardian for a patient under 18." : "Who receives links, codes and read-backs. Chosen with the patient and caregiver."}>
                 <Select value={primary} disabled={minor} onChange={(e) => set("primaryContact", e.target.value)}>
@@ -287,7 +296,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
                 onChange={(e) => set("cgGuardian", e.target.checked)}
               />
             </div>
-          </fieldset>
+          </div>
         </Frame>
       )}
 
@@ -296,7 +305,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
           candidates={candidates}
           role={role}
           acknowledged={dupAck}
-          onContinue={() => { setDupAck(true); setStep(2); }}
+          onContinue={() => { setDupAck(true); goConsent(); }}
         />
       )}
 
@@ -317,6 +326,9 @@ export function RegistrationWizard({ role }: { role: Role }) {
           </div>
         </Frame>
       )}
+
+      {/* On the consent step the page is long: show the problem beside the button that was pressed, not at the top. */}
+      {banner && step === 2 && <div role="alert" ref={bannerRef}><Notice tone="conflict" title={banner} /></div>}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button variant="ghost" disabled={step === 0} onClick={() => { setBanner(null); setStep(step - 1); }} icon={<ArrowLeft aria-hidden />}>

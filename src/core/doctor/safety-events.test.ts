@@ -17,6 +17,10 @@ describe('describeSafety', () => {
     expect(describeSafety(audit('access.refused', { reason: 'consent_required' }))?.kind).toBe('no_consent')
     expect(describeSafety(audit('access.refused', { reason: 'verification_required' }))?.kind).toBe('no_consent')
   })
+  it('shows a refused desk reopen as a blocked access, and a successful one is not a safety event', () => {
+    expect(describeSafety(audit('access.desk_reopen_refused', { reason: 'verification_required' }, { actorRole: 'desk' }))?.kind).toBe('no_consent')
+    expect(describeSafety(audit('access.desk_reopen', {}, { actorRole: 'desk' }))).toBeNull()
+  })
   it('shows the break-glass reason', () => {
     expect(describeSafety(audit('break_glass.granted', {}, { reason: 'Unconscious in emergency' }))?.detail).toContain('Unconscious in emergency')
   })

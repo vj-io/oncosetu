@@ -68,7 +68,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="-ml-2 grid size-11 shrink-0 place-items-center hover:bg-spotlight lg:hidden">
             <Menu aria-hidden className="size-5" />
           </button>
-          <Link href={home} className="flex min-h-11 shrink-0 items-center gap-3">
+          <Link href={home} aria-label="OncoSetu home" className="flex min-h-11 shrink-0 items-center gap-3">
             <Wordmark />
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">
@@ -91,7 +91,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <details className="group relative">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+              <summary aria-label="Account menu" className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
                 <span className="sr-only">Your menu</span>
                 <Avatar name={user.name} size="sm" />
                 <span className="hidden text-left leading-tight whitespace-nowrap md:grid xl:max-2xl:hidden">

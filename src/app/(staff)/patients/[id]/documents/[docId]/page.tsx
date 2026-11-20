@@ -13,7 +13,7 @@ import { Badge, EXPLAIN, Frame, InfoTip, KeyValue, SectionHeader, StatusBadge, T
 import { staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
-import { fmtDay, neighbours } from '@/server/records/core'
+import { MODALITY_LABEL, filterRecords, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
 import { loadRecords } from '@/server/records/queries'
 import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
@@ -32,8 +32,8 @@ function Notice({ tone, icon, title, children }: { tone: Tone; icon: ReactNode; 
   )
 }
 
-export default async function DocumentSourcePage({ params, searchParams }: { params: Promise<{ id: string; docId: string }>; searchParams: Promise<{ event?: string }> }) {
-  const [{ id, docId }, { event }] = await Promise.all([params, searchParams])
+export default async function DocumentSourcePage({ params, searchParams }: { params: Promise<{ id: string; docId: string }>; searchParams: Promise<{ event?: string; kind?: string; mod?: string; order?: string }> }) {
+  const [{ id, docId }, { event, kind: kindQ, mod: modQ, order: orderQ }] = await Promise.all([params, searchParams])
   const data = await withPatientAccess(id, async (tx, session) => {
     if (session.role !== 'records' && session.role !== 'clinician') return { denied: true as const }
     if (!/^[0-9a-f-]{36}$/i.test(docId)) return null
@@ -43,7 +43,16 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   if (data && 'denied' in data) forbidden()
   if (!data) notFound()
   const { detail: d, patient, recs } = data
-  const nb = neighbours(recs.rows, docId)
+  // The list the reader came from: the same kind, kind of scan and order as in All records, so Previous and Next stay inside it.
+  const kind = (['report', 'scan', 'lab', 'rx', 'other'] as const).find((k) => k === kindQ) as RecordKind | undefined
+  const modality = modQ && modQ in MODALITY_LABEL ? (modQ as ModalityKey) : undefined
+  const order = orderQ === 'old' ? 'old' : 'new'
+  const walk = filterRecords(sortRecords(recs.rows, order), { kind: kind ?? 'all', modality: modality ?? 'any', withReports: true })
+  const inWalk = walk.some((r) => r.id === docId)
+  const list = inWalk ? walk : sortRecords(recs.rows, 'new')
+  const listQs = inWalk ? new URLSearchParams([...(kind ? [['kind', kind]] : []), ...(modality ? [['mod', modality]] : []), ...(order === 'old' ? [['order', 'old']] : [])]).toString() : ''
+  const q = listQs ? `?${listQs}` : ''
+  const nb = neighbours(list, docId)
   const myPair = recs.pairs.find((p) => p.scanId === docId || p.reportId === docId)
   const pairOther = myPair ? recs.rows.find((r) => r.id === (myPair.scanId === docId ? myPair.reportId : myPair.scanId)) : null
   const doc = d.doc
@@ -85,14 +94,14 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         </div>
       )}
       <nav aria-label="Move through the records" className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/patients/${id}/records${nb.index >= 0 ? `#doc=${docId}` : ''}`} className="inline-flex min-h-10 w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
+        <Link href={`/patients/${id}/records${q}${nb.index >= 0 ? `#doc=${docId}` : ''}`} className="inline-flex min-h-10 w-fit items-center gap-1.5 text-sm underline underline-offset-4 hover:text-setu-ink">
           <ArrowLeft aria-hidden className="size-4" /> Back to all records
         </Link>
         {nb.index >= 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {recs.rows.length}, newest first</span>
-            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
-            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
+            <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {list.length}, {order === 'old' && inWalk ? 'oldest' : 'newest'} first{inWalk && q ? ', in the list you came from' : ''}</span>
+            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
+            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
           </div>
         )}
       </nav>

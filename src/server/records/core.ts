@@ -52,6 +52,8 @@ export type RecordRow = {
   handwritten: boolean
   lowConfidence: boolean
   scan: ScanInfo | null
+  /** For a written imaging report: the kinds of study its heading words name. Used only to bring reports into a scan-kind filter. */
+  reportMods?: ModalityKey[]
 }
 
 // ── dates ────────────────────────────────────────────────────────────────────
@@ -174,12 +176,12 @@ export function sortRecords<T extends Pick<RecordRow, 'id' | 'date' | 'receivedA
   })
 }
 
-export type RecordFilter = { kind?: RecordKind | 'all'; modality?: ModalityKey | 'any'; q?: string }
+export type RecordFilter = { kind?: RecordKind | 'all'; modality?: ModalityKey | 'any'; q?: string; /** With a kind of scan chosen, also keep the written imaging reports about that kind of study. */ withReports?: boolean }
 export function filterRecords(rows: readonly RecordRow[], f: RecordFilter): RecordRow[] {
   const q = f.q?.trim().toLowerCase()
   return rows.filter((r) => {
     if (f.kind && f.kind !== 'all' && r.kind !== f.kind) return false
-    if (f.modality && f.modality !== 'any' && r.scan?.modality !== f.modality) return false
+    if (f.modality && f.modality !== 'any' && r.scan?.modality !== f.modality && !(f.withReports && r.reportMods?.includes(f.modality))) return false
     if (q && ![r.title, r.institution, r.asWritten].some((x) => x?.toLowerCase().includes(q))) return false
     return true
   })
@@ -236,9 +238,9 @@ const sameInstitution = (a: string | null, b: string | null) => !!norm(a) && !!n
 export const PAIR_DAYS = 3
 
 /** Plain words for why a pair is proposed. */
-export function reasonText(days: number, sameModality: boolean, sameHospital: boolean): string {
+export function reasonText(days: number, sameModality: boolean, hospital: boolean | 'differs'): string {
   const when = days === 0 ? 'same date' : `${days} day${days > 1 ? 's' : ''} apart`
-  return [when, sameModality ? 'same kind of study' : null, sameHospital ? 'same hospital' : null].filter(Boolean).join(', ')
+  return [when, sameModality ? 'same kind of study' : null, hospital === 'differs' ? 'different hospital' : hospital ? 'same hospital' : null].filter(Boolean).join(', ')
 }
 
 /**
@@ -259,7 +261,7 @@ export function proposePairs(scans: readonly ScanCandidate[], reports: readonly 
       if (!bodyOk) continue
       const hosp = sameInstitution(s.institution, r.institution)
       const bodyHit = !!s.bodyKey && rb.has(s.bodyKey)
-      all.push({ scanId: s.id, reportId: r.id, reason: reasonText(days, true, hosp), score: 10 - days * 3 + (hosp ? 2 : 0) + (bodyHit ? 1 : 0) })
+      all.push({ scanId: s.id, reportId: r.id, reason: reasonText(days, true, hosp ? true : norm(s.institution) && norm(r.institution) ? 'differs' : false), score: 10 - days * 3 + (hosp ? 2 : 0) + (bodyHit ? 1 : 0) })
     }
   }
   all.sort((a, b) => b.score - a.score || (a.scanId + a.reportId < b.scanId + b.reportId ? -1 : 1))
@@ -306,6 +308,28 @@ export function earlierStudies(rows: readonly RecordRow[], id: string, limit = 4
     if (r.scan.modality !== me.scan!.modality) return false
     return !r.scan.bodyKey || !me.scan!.bodyKey || r.scan.bodyKey === me.scan!.bodyKey
   }), 'new').slice(0, limit)
+}
+
+/**
+ * Earlier scans of the same body part but a different kind of study (a breast mammogram beside a breast ultrasound), newest first.
+ * Only shown; nothing is compared.
+ */
+export function otherAreaStudies(rows: readonly RecordRow[], id: string, limit = 4): RecordRow[] {
+  const me = rows.find((r) => r.id === id)
+  if (!me?.scan || !me.date || !me.scan.bodyKey || me.scan.bodyKey === 'whole') return []
+  return sortRecords(rows.filter((r) => r.id !== id && !!r.scan && !!r.date && r.date < me.date! && r.scan.modality !== me.scan!.modality && r.scan.bodyKey === me.scan!.bodyKey), 'new').slice(0, limit)
+}
+
+/** A person said this scan and this report are not a pair. Kept so it can be shown and undone. */
+export type RejectedPair = { scanId: string; reportId: string }
+
+/**
+ * One steady summary line per paper: of the candidate lines, the one whose source field ranks first, then the text itself, so the same
+ * paper always shows the same words however its facts were created or checked.
+ */
+export function betterHeadline(a: { rank: number; text: string } | null, b: { rank: number; text: string }): { rank: number; text: string } {
+  if (!a) return b
+  return b.rank < a.rank || (b.rank === a.rank && b.text < a.text) ? b : a
 }
 
 /** Year of a row's date, for the year dividers. */

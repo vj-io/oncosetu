@@ -4,35 +4,41 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import clsx from 'clsx'
-import { ArrowDownUp, ArrowLeft, ArrowRight, Check, ExternalLink, FileText, FlaskConical, Link2, Pill, ScanLine, Stethoscope, X } from 'lucide-react'
+import { ArrowDownUp, ArrowLeft, ArrowRight, Check, ExternalLink, FileText, FlaskConical, Link2, Pill, ScanLine, Stethoscope, Undo2, X } from 'lucide-react'
 import { ImagingViewer } from '@/components/documents/ImagingViewer'
 import { postJson } from '@/components/documents/IdentityDecision'
 import { Badge, useToast } from '@/components/ui'
 import {
-  KIND_LABEL, KIND_ORDER, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtDay, modalitiesPresent, neighbours, sortRecords, yearOf,
-  type ModalityKey, type RecordKind, type RecordRow, type ResolvedPair,
+  KIND_LABEL, KIND_ORDER, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtDay, modalitiesPresent, neighbours, otherAreaStudies, sortRecords, yearOf,
+  type ModalityKey, type RecordKind, type RecordRow, type RejectedPair, type ResolvedPair,
 } from '@/server/records/core'
 import { PaperPreview } from './PaperPreview'
 
 type Initial = { kind: RecordKind | 'all'; modality: ModalityKey | 'any'; order: 'new' | 'old' }
+type Identity = { name: string; line: string | null; code: string }
 
 const ICON: Record<RecordKind, typeof FileText> = { report: FileText, scan: ScanLine, lab: FlaskConical, rx: Pill, other: Stethoscope }
 
 const dateLine = (r: RecordRow) => (r.dateFrom === 'paper' ? fmtDay(r.date) : `${fmtDay(r.date)} (received; date not on paper)`)
 
+/** The filter as a query string, so the full page and its Back link keep the same list. */
+const listQuery = (s: { kind: string; modality: string; order: string }) => {
+  const q = new URLSearchParams()
+  if (s.kind !== 'all') q.set('kind', s.kind)
+  if (s.modality !== 'any') q.set('mod', s.modality)
+  if (s.order !== 'new') q.set('order', s.order)
+  const qs = q.toString()
+  return qs ? `?${qs}` : ''
+}
+
 function useUrlState(patientId: string) {
   return useCallback((s: { kind: string; modality: string; order: string }, sel: string | null) => {
-    const q = new URLSearchParams()
-    if (s.kind !== 'all') q.set('kind', s.kind)
-    if (s.modality !== 'any') q.set('mod', s.modality)
-    if (s.order !== 'new') q.set('order', s.order)
-    const qs = q.toString()
-    history.replaceState(null, '', `/patients/${patientId}/records${qs ? `?${qs}` : ''}${sel ? `#doc=${sel}` : ''}`)
+    history.replaceState(null, '', `/patients/${patientId}/records${listQuery(s)}${sel ? `#doc=${sel}` : ''}`)
   }, [patientId])
 }
 
-export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initial }: {
-  patientId: string; rows: RecordRow[]; pairs: ResolvedPair[]; held: number; canDecide: boolean; initial: Initial
+export function RecordsBrowser({ patientId, rows, pairs, rejected, held, heldScans, canDecide, identity, initial }: {
+  patientId: string; rows: RecordRow[]; pairs: ResolvedPair[]; rejected: RejectedPair[]; held: number; heldScans: number; canDecide: boolean; identity: Identity; initial: Initial
 }) {
   const [kind, setKind] = useState(initial.kind)
   const [modality, setModality] = useState(initial.modality)
@@ -43,7 +49,7 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
   const listRef = useRef<HTMLUListElement>(null)
 
   const sorted = useMemo(() => sortRecords(rows, order), [rows, order])
-  const filtered = useMemo(() => filterRecords(sorted, { kind, modality }), [sorted, kind, modality])
+  const filtered = useMemo(() => filterRecords(sorted, { kind, modality, withReports: true }), [sorted, kind, modality])
   const counts = useMemo(() => countsByKind(rows), [rows])
   const modalities = useMemo(() => modalitiesPresent(rows), [rows])
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows])
@@ -52,6 +58,11 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
     for (const p of pairs) { if (!m.has(p.scanId)) m.set(p.scanId, p); if (!m.has(p.reportId)) m.set(p.reportId, p) }
     return m
   }, [pairs])
+  const rejectedOf = useMemo(() => {
+    const m = new Map<string, RejectedPair[]>()
+    for (const p of rejected) for (const id of [p.scanId, p.reportId]) m.set(id, [...(m.get(id) ?? []), p])
+    return m
+  }, [rejected])
 
   // Start from the link: filters from the address, the open paper from its #doc=… part. On a wide screen the first paper opens.
   useEffect(() => {
@@ -69,10 +80,17 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
     if (id) requestAnimationFrame(() => document.getElementById(`rec-${id}`)?.scrollIntoView({ block: 'nearest' }))
   }, [kind, modality, order, syncUrl])
 
+  // A new filter or order: if the open paper is not in the new list, the preview moves to the first paper of it (or empties on a phone).
   const setFilter = (next: { kind?: RecordKind | 'all'; modality?: ModalityKey | 'any'; order?: 'new' | 'old' }) => {
     const s = { kind: next.kind ?? kind, modality: next.modality ?? modality, order: next.order ?? order }
-    setKind(s.kind); setModality(s.modality); setOrder(s.order)
-    syncUrl(s, sel)
+    const list = filterRecords(sortRecords(rows, s.order), { kind: s.kind, modality: s.modality, withReports: true })
+    let nextSel = sel
+    if (!sel || !list.some((r) => r.id === sel)) {
+      nextSel = window.matchMedia('(min-width: 1024px)').matches ? (list[0]?.id ?? null) : null
+      if (!nextSel) setSheet(false)
+    }
+    setKind(s.kind); setModality(s.modality); setOrder(s.order); setSel(nextSel)
+    syncUrl(s, nextSel)
   }
 
   const nb = sel ? neighbours(filtered, sel) : { prev: null, next: null, index: -1 }
@@ -90,27 +108,31 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
       if (!down && !up) return
       if (!filtered.length) return
       e.preventDefault()
-      if (!sel) return go(filtered[0])
+      if (!sel || nb.index < 0) return go(filtered[0])
       go(down ? nb.next : nb.prev)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [filtered, sel, nb.next, nb.prev, sheet, go])
+  }, [filtered, sel, nb.index, nb.next, nb.prev, sheet, go])
 
-  const selected = sel ? byId.get(sel) ?? null : null
+  // The open paper is shown only while it is in the filtered list.
+  const selected = sel && filtered.some((r) => r.id === sel) ? byId.get(sel) ?? null : null
+  const qs = listQuery({ kind, modality, order })
 
   return (
     <div className="grid gap-4">
       {held > 0 && (
         <p className="border border-l-[3px] border-rule border-l-amber bg-surface px-4 py-2 text-[15px]" data-testid="held-note">
-          {held} {held === 1 ? 'paper is' : 'papers are'} held until records staff confirm whose {held === 1 ? 'it is' : 'they are'}. {held === 1 ? 'It is' : 'They are'} not listed here.
+          {held} {held === 1 ? 'paper is' : 'papers are'} held until records staff confirm whose {held === 1 ? 'it is' : 'they are'}
+          {heldScans > 0 ? ` (${heldScans} ${heldScans === 1 ? 'scan' : 'scans'}${held - heldScans > 0 ? `, ${held - heldScans} ${held - heldScans === 1 ? 'paper' : 'papers'}` : ''})` : ''}. {held === 1 ? 'It is' : 'They are'} not listed here.{' '}
+          <Link href={`/patients/${patientId}/documents`} className="underline decoration-brass underline-offset-4 hover:text-setu-ink">Review held papers</Link>
         </p>
       )}
 
       <div className="grid gap-3" role="group" aria-label="Filter the records">
         <div className="flex flex-wrap items-center gap-2">
           {(['all', ...KIND_ORDER] as const).map((k) => (
-            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setFilter({ kind: k, modality: k === 'scan' || k === 'all' ? modality : 'any' })}
+            <button key={k} type="button" aria-pressed={kind === k} onClick={() => setFilter({ kind: k, modality: k === 'scan' || k === 'all' || k === 'report' ? modality : 'any' })}
               className={clsx('inline-flex min-h-10 items-center gap-1.5 border px-3 text-[15px]', kind === k ? 'border-obsidian bg-obsidian text-gallery' : 'border-rule bg-matte hover:bg-spotlight')}>
               {k === 'all' ? 'All' : KIND_LABEL[k]} <span className="tabular-nums opacity-70">{counts[k]}</span>
             </button>
@@ -118,7 +140,7 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
           {modalities.length > 0 && (
             <label className="ml-auto inline-flex items-center gap-2 text-sm">
               <span className="text-muted">Kind of scan</span>
-              <select value={modality} onChange={(e) => setFilter({ modality: e.target.value as ModalityKey | 'any', kind: e.target.value === 'any' ? kind : 'scan' })}
+              <select value={modality} onChange={(e) => setFilter({ modality: e.target.value as ModalityKey | 'any', kind: e.target.value === 'any' || kind === 'all' || kind === 'scan' || kind === 'report' ? kind : 'all' })}
                 className="min-h-10 border border-rule bg-surface px-2 text-[15px]">
                 <option value="any">Any</option>
                 {modalities.map((m) => <option key={m} value={m}>{MODALITY_LABEL[m]}</option>)}
@@ -129,7 +151,11 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
             <ArrowDownUp aria-hidden className="size-4" /> {order === 'new' ? 'Newest first' : 'Oldest first'}
           </button>
         </div>
-        <p className="text-[13px] text-muted" aria-live="polite">{filtered.length} of {rows.length} papers, in date order. Use the up and down arrow keys to go through them.</p>
+        <p className="text-[13px] text-muted" aria-live="polite">
+          {filtered.length} of {rows.length} papers, in date order.
+          {modality !== 'any' && kind !== 'scan' ? ` Includes the written imaging reports about ${MODALITY_LABEL[modality]}.` : ''}
+          <span className="hidden [@media(pointer:fine)]:inline"> Press ↑ ↓ or ← → to move through them.</span>
+        </p>
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] [&>*]:min-w-0">
@@ -172,17 +198,17 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
         </ul>
 
         <div
-          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:static lg:z-auto lg:block lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-rule lg:bg-surface lg:p-4')}
+          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:sticky lg:top-20 lg:z-auto lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-rule lg:bg-surface lg:p-4')}
           role="region" aria-label="Preview" data-testid="preview-panel"
         >
           {selected ? (
             <Preview
-              key={selected.id} patientId={patientId} row={selected} rows={rows} byId={byId} pair={pairsOf.get(selected.id) ?? null} canDecide={canDecide}
-              position={nb.index + 1} total={filtered.length} prev={nb.prev} next={nb.next}
+              key={selected.id} patientId={patientId} row={selected} rows={rows} byId={byId} pair={pairsOf.get(selected.id) ?? null} rejected={rejectedOf.get(selected.id) ?? []} canDecide={canDecide}
+              identity={identity} qs={qs} position={nb.index + 1} total={filtered.length} prev={nb.prev} next={nb.next}
               onGo={go} onClose={() => setSheet(false)} onSelect={(id) => select(id)}
             />
           ) : (
-            <p className="p-6 text-[15px] text-muted">Choose a paper from the list to see it here.</p>
+            <p className="p-6 text-[15px] text-muted">{filtered.length ? 'Choose a paper from the list to see it here.' : 'No paper to show with this filter.'}</p>
           )}
         </div>
       </div>
@@ -190,18 +216,38 @@ export function RecordsBrowser({ patientId, rows, pairs, held, canDecide, initia
   )
 }
 
-function Preview({ patientId, row, rows, byId, pair, canDecide, position, total, prev, next, onGo, onClose, onSelect }: {
-  patientId: string; row: RecordRow; rows: RecordRow[]; byId: Map<string, RecordRow>; pair: ResolvedPair | null; canDecide: boolean
+function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identity, qs, position, total, prev, next, onGo, onClose, onSelect }: {
+  patientId: string; row: RecordRow; rows: RecordRow[]; byId: Map<string, RecordRow>; pair: ResolvedPair | null; rejected: RejectedPair[]; canDecide: boolean
+  identity: Identity; qs: string
   position: number; total: number; prev: RecordRow | null; next: RecordRow | null; onGo: (r: RecordRow | null) => void; onClose: () => void; onSelect: (id: string) => void
 }) {
   const [compare, setCompare] = useState<string | null>(null)
   const earlier = useMemo(() => earlierStudies(rows, row.id), [rows, row.id])
+  const sameArea = useMemo(() => otherAreaStudies(rows, row.id), [rows, row.id])
   const other = pair ? byId.get(row.kind === 'scan' ? pair.reportId : pair.scanId) ?? null : null
-  const confirmedReport = row.kind === 'scan' && pair?.state === 'confirmed' ? other : null
+  // The candidate report is shown beside the scan whether or not it is confirmed, so the decision is made with both in view.
+  const reportBeside = row.kind === 'scan' ? other : null
   const cmp = compare ? byId.get(compare) ?? null : null
+  const fullHref = `/patients/${patientId}/documents/${row.id}${qs}`
+  const hasOthers = earlier.length + sameArea.length > 0
+
+  const studyButton = (e: RecordRow) => (
+    <li key={e.id}>
+      <button type="button" onClick={() => setCompare(compare === e.id ? null : e.id)} aria-pressed={compare === e.id}
+        className={clsx('grid min-h-12 gap-0.5 border px-3 py-2 text-left text-[14px] hover:bg-spotlight', compare === e.id ? 'border-obsidian bg-spotlight' : 'border-rule bg-matte')}>
+        <span className="font-medium">{e.title} · {fmtDay(e.date)}</span>
+        <span className="text-[12px] text-muted">{e.institution ?? 'Hospital not stated'} · {compare === e.id ? 'shown side by side' : 'show side by side'}</span>
+      </button>
+    </li>
+  )
 
   return (
     <article className="grid min-w-0 gap-4">
+      {/* Always in view while a paper is open: whose record this is. */}
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-rule bg-surface px-4 py-2 text-[14px]" data-testid="preview-identity">
+        <span className="font-medium">{identity.name}</span>
+        <span className="text-muted">{identity.line ? ` · ${identity.line}` : ''} · {identity.code}</span>
+      </div>
       <header className="grid gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" onClick={onClose} className="inline-flex min-h-10 items-center gap-1 border border-rule px-2 text-sm hover:bg-spotlight lg:hidden"><X aria-hidden className="size-4" />Close</button>
@@ -213,12 +259,12 @@ function Preview({ patientId, row, rows, byId, pair, canDecide, position, total,
         </div>
         <h2 className="text-xl tracking-[-0.015em] break-words">{row.title}</h2>
         <p className="text-[14px] break-words text-muted">{dateLine(row)}{row.institution ? ` · ${row.institution}` : ''}{row.pages ? ` · ${row.pages} page${row.pages > 1 ? 's' : ''}` : ''}</p>
-        <Link href={`/patients/${patientId}/documents/${row.id}`} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-brass underline-offset-4">
-          Open the full page with its facts <ExternalLink aria-hidden className="size-3.5" />
+        <Link href={fullHref} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-brass underline-offset-4">
+          {row.kind === 'scan' ? 'Open larger, with the file header' : 'Open the full page with its facts'} <ExternalLink aria-hidden className="size-3.5" />
         </Link>
       </header>
 
-      <PairBox patientId={patientId} row={row} other={other} pair={pair} canDecide={canDecide} onSelect={onSelect} />
+      <PairBox patientId={patientId} row={row} other={other} pair={pair} rejected={rejected} byId={byId} canDecide={canDecide} onSelect={onSelect} />
 
       {row.kind === 'scan' && row.scan ? (
         <div className="grid gap-4">
@@ -228,45 +274,38 @@ function Preview({ patientId, row, rows, byId, pair, canDecide, position, total,
                 <p className="text-[13px] text-muted">Side by side, for your own reading. OncoSetu does not read images.</p>
                 <button type="button" onClick={() => setCompare(null)} className="min-h-9 border border-rule px-3 text-sm hover:bg-spotlight">Close</button>
               </div>
-              <div className="grid gap-4 xl:grid-cols-2 [&>*]:min-w-0">
+              <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
                 <div className="grid content-start gap-1.5">
-                  <p className="font-medium">This study · {fmtDay(row.date)}</p>
-                  <ImagingViewer key={row.id} documentId={row.id} details={{ ...row.scan, studyDate: row.scan.studyDate, patientName: row.scan.patientName, patientSex: row.scan.patientSex, patientAge: row.scan.patientAge, label: row.scan.label }} canView compact />
+                  <p className="min-h-[3.25rem] text-[14px]"><span className="font-medium">{row.title} · {fmtDay(row.date)}</span><br /><span className="text-[12px] text-muted">This study</span></p>
+                  <ImagingViewer key={row.id} documentId={row.id} details={row.scan} canView compact showNote={false} seriesLabel={`Images of this study, ${fmtDay(row.date)}`} />
                 </div>
                 <div className="grid content-start gap-1.5">
-                  <p className="font-medium">{cmp.title} · {fmtDay(cmp.date)}</p>
-                  <p className="text-[13px] text-muted">Earlier study, for comparison. OncoSetu does not read images.</p>
-                  <ImagingViewer key={cmp.id} documentId={cmp.id} details={cmp.scan} canView compact />
+                  <p className="min-h-[3.25rem] text-[14px]"><span className="font-medium">{cmp.title} · {fmtDay(cmp.date)}</span><br /><span className="text-[12px] text-muted">Earlier study, for comparison</span></p>
+                  <ImagingViewer key={cmp.id} documentId={cmp.id} details={cmp.scan} canView compact showNote={false} seriesLabel={`Images of earlier study, ${fmtDay(cmp.date)}`} />
                 </div>
               </div>
             </div>
           ) : (
-            <div className={clsx('grid gap-4 [&>*]:min-w-0', confirmedReport && 'xl:grid-cols-2')}>
-              <ImagingViewer key={row.id} documentId={row.id} details={row.scan} canView compact={!!confirmedReport} />
-              {confirmedReport && (
-                <section aria-label="Report for this scan" className="grid content-start gap-2">
-                  <p className="font-medium">{confirmedReport.title} · {fmtDay(confirmedReport.date)}</p>
-                  <div className="max-h-[32rem] overflow-y-auto border border-rule"><PaperPreview id={confirmedReport.id} mime={confirmedReport.mime} pages={confirmedReport.pages} pageImages={confirmedReport.pageImages} /></div>
+            <div className={clsx('grid gap-4 [&>*]:min-w-0', reportBeside && 'xl:grid-cols-2')}>
+              <ImagingViewer key={row.id} documentId={row.id} details={row.scan} canView compact={!!reportBeside} enlargeHref={fullHref} />
+              {reportBeside && (
+                <section aria-label={pair?.state === 'confirmed' ? 'Report for this scan' : 'Possible report for this scan, not yet confirmed'} className="grid content-start gap-2" data-testid="report-beside">
+                  <p className="font-medium">{pair?.state === 'confirmed' ? '' : 'Possible report, not confirmed: '}{reportBeside.title} · {fmtDay(reportBeside.date)}</p>
+                  <div className="max-h-[32rem] overflow-y-auto border border-rule"><PaperPreview id={reportBeside.id} mime={reportBeside.mime} pages={reportBeside.pages} pageImages={reportBeside.pageImages} /></div>
                 </section>
               )}
             </div>
           )}
           <section aria-labelledby="earlier-h" className="grid gap-2 border-t border-rule pt-3">
-            <h3 id="earlier-h" className="ds-kicker">Earlier studies of the same area</h3>
-            {earlier.length === 0 ? <p className="text-[14px] text-muted">None on file.</p> : (
-              <ul className="flex flex-wrap gap-2">
-                {earlier.map((e) => (
-                  <li key={e.id}>
-                    <button type="button" onClick={() => setCompare(compare === e.id ? null : e.id)} aria-pressed={compare === e.id}
-                      className={clsx('grid min-h-12 gap-0.5 border px-3 py-2 text-left text-[14px] hover:bg-spotlight', compare === e.id ? 'border-obsidian bg-spotlight' : 'border-rule bg-matte')}>
-                      <span className="font-medium">{e.title} · {fmtDay(e.date)}</span>
-                      <span className="text-[12px] text-muted">{e.institution ?? 'Hospital not stated'} · {compare === e.id ? 'shown side by side' : 'show side by side'}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
+            <h3 id="earlier-h" className="ds-kicker">Earlier studies of the same kind and area</h3>
+            {earlier.length === 0 ? <p className="text-[14px] text-muted">None on file.</p> : <ul className="flex flex-wrap gap-2">{earlier.map(studyButton)}</ul>}
+            {sameArea.length > 0 && (
+              <>
+                <h3 className="ds-kicker mt-1">Other studies of this area</h3>
+                <ul className="flex flex-wrap gap-2">{sameArea.map(studyButton)}</ul>
+              </>
             )}
-            <p className="text-[12px] text-muted">Earlier study, for comparison. OncoSetu does not read images.</p>
+            {hasOthers && !cmp?.scan && <p className="text-[12px] text-muted">Earlier study, for comparison. OncoSetu does not read images.</p>}
           </section>
         </div>
       ) : (
@@ -276,38 +315,78 @@ function Preview({ patientId, row, rows, byId, pair, canDecide, position, total,
   )
 }
 
-function PairBox({ patientId, row, other, pair, canDecide, onSelect }: {
-  patientId: string; row: RecordRow; other: RecordRow | null; pair: ResolvedPair | null; canDecide: boolean; onSelect: (id: string) => void
+function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSelect }: {
+  patientId: string; row: RecordRow; other: RecordRow | null; pair: ResolvedPair | null; rejected: RejectedPair[]; byId: Map<string, RecordRow>; canDecide: boolean; onSelect: (id: string) => void
 }) {
   const router = useRouter()
   const { toast } = useToast()
   const [busy, setBusy] = useState<string | null>(null)
+  const [asking, setAsking] = useState(false)
   if (row.kind !== 'scan' && row.docType !== 'imaging_report') return null
-  if (!pair || !other) {
-    return row.kind === 'scan' ? <p className="text-[14px] text-muted" data-testid="no-report">No report matched. The written report is not on file.</p> : null
-  }
-  const decide = async (decision: 'confirm' | 'reject') => {
+
+  const send = async (scanId: string, reportId: string, decision: 'confirm' | 'reject' | 'reset', done: string) => {
     setBusy(decision)
-    const r = await postJson(`/patients/${patientId}/records/links`, { scanId: pair.scanId, reportId: pair.reportId, decision })
+    const r = await postJson(`/patients/${patientId}/records/links`, { scanId, reportId, decision })
     setBusy(null)
     if (!r.ok) { toast({ title: r.data.error?.message ?? 'Could not save', tone: 'conflict' }); return }
-    toast({ title: decision === 'confirm' ? 'Linked' : pair.state === 'confirmed' ? 'Unlinked' : 'Marked as not a match', tone: 'verified' })
+    setAsking(false)
+    toast({ title: done, tone: 'verified' })
     router.refresh()
+  }
+
+  // Pairs a person turned down are said so, with a way back. They are never described as a missing report.
+  const turnedDown = rejected.map((p) => {
+    const o = byId.get(row.kind === 'scan' ? p.reportId : p.scanId)
+    if (!o) return null
+    return (
+      <section key={`${p.scanId}|${p.reportId}`} aria-label="A pair marked not a match" data-testid="rejected-box" className="grid gap-2 border border-l-[3px] border-rule border-l-slate bg-matte px-3 py-3">
+        <p className="text-[15px]"><span className="font-medium">Marked not a match</span>: a person said {o.title} of {fmtDay(o.date)}{o.institution ? `, ${o.institution}` : ''} is not {row.kind === 'scan' ? "this scan's report" : "this report's scan"}. It is still on file.</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => onSelect(o.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Show the {row.kind === 'scan' ? 'report' : 'scan'}</button>
+          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'reset', 'Undone. It can be offered as a possible match again')} className="inline-flex min-h-10 items-center gap-1 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60"><Undo2 aria-hidden className="size-4" />Undo</button>}
+          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60"><Link2 aria-hidden className="size-4" />Link them anyway</button>}
+        </div>
+      </section>
+    )
+  })
+
+  if (!pair || !other) {
+    return (
+      <>
+        {row.kind === 'scan' && (turnedDown.some(Boolean)
+          ? <p className="text-[14px] text-muted" data-testid="no-report">No report is linked to this scan now.</p>
+          : <p className="text-[14px] text-muted" data-testid="no-report">No report matched. The written report is not on file.</p>)}
+        {turnedDown}
+      </>
+    )
   }
   const label = row.kind === 'scan' ? 'Report' : 'Scan'
   const confirmed = pair.state === 'confirmed'
   return (
-    <section aria-label="Scan and report pairing" data-testid="pair-box" className={clsx('grid gap-2 border border-l-[3px] border-rule bg-matte px-3 py-3', confirmed ? 'border-l-sage' : 'border-l-amber')}>
-      <p className="text-[15px]">
-        <span className="font-medium">{confirmed ? `${label} linked` : 'Possible match'}</span>
-        {': '}{other.title}, {fmtDay(other.date)}{other.institution ? `, ${other.institution}` : ''}
-      </p>
-      <p className="text-[13px] text-muted">{confirmed ? 'A person confirmed these belong together.' : `${pair.reason}. A person has to confirm it.`}</p>
-      <div className="flex flex-wrap gap-2">
-        <button type="button" onClick={() => onSelect(other.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Show the {label.toLowerCase()}</button>
-        {canDecide && !confirmed && <button type="button" disabled={!!busy} onClick={() => decide('confirm')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60"><Check aria-hidden className="size-4" />Confirm</button>}
-        {canDecide && <button type="button" disabled={!!busy} onClick={() => decide('reject')} className="min-h-10 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60">{confirmed ? 'Unlink' : 'Not a match'}</button>}
-      </div>
-    </section>
+    <>
+      <section aria-label="Scan and report pairing" data-testid="pair-box" className={clsx('grid gap-2 border border-l-[3px] border-rule bg-matte px-3 py-3', confirmed ? 'border-l-sage' : 'border-l-amber')}>
+        <p className="text-[15px]">
+          <span className="font-medium">{confirmed ? `${label} linked` : 'Possible match'}</span>
+          {': '}{other.title}, {fmtDay(other.date)}{other.institution ? `, ${other.institution}` : ''}
+        </p>
+        <p className="text-[13px] text-muted">{confirmed ? 'A person confirmed these belong together.' : `${pair.reason}. A person has to confirm it.`}</p>
+        {asking ? (
+          <div className="grid gap-2" role="alertdialog" aria-label="Confirm: not a match" data-testid="reject-confirm">
+            <p className="text-[14px]">{confirmed ? 'Unlink them?' : 'Mark this as not a match?'} Both papers stay on file. You can undo this afterwards.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'reject', confirmed ? 'Unlinked. You can undo this on the scan or the report' : 'Marked as not a match. You can undo this on the scan or the report')} className="min-h-10 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60">{confirmed ? 'Yes, unlink' : 'Yes, not a match'}</button>
+              <button type="button" disabled={!!busy} onClick={() => setAsking(false)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Keep it</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => onSelect(other.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Show the {label.toLowerCase()}</button>
+            {canDecide && !confirmed && <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60"><Check aria-hidden className="size-4" />Confirm</button>}
+            {canDecide && <button type="button" disabled={!!busy} onClick={() => setAsking(true)} className="min-h-10 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60">{confirmed ? 'Unlink' : 'Not a match'}</button>}
+          </div>
+        )}
+      </section>
+      {turnedDown}
+    </>
   )
 }

@@ -21,7 +21,13 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
   const open = openOn === pathname;
   const setOpen = (v: boolean) => setOpenOn(v ? pathname : null);
   const box = useRef<HTMLDivElement>(null);
-  const on = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  // One paper opened from All records (/documents/<id>) belongs to that tab, not to "Documents" under More.
+  const onePaper = /\/documents\/[0-9a-f-]{36}$/i.test(pathname);
+  const on = (href: string) => {
+    if (onePaper && href.endsWith("/documents")) return false;
+    if (onePaper && href.endsWith("/records")) return true;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
   const moreActive = more.some((m) => on(m.href));
 
   useEffect(() => {

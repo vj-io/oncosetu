@@ -116,6 +116,28 @@ describe('imaging intake', () => {
     expect(parts[0].id).toBe(first)
   }, 90_000)
 
+  it('stores a JPEG 2000 study deflated (real CDs carry large vendor headers) and gives back every slice byte for byte', async () => {
+    const c = await ctx()
+    const { J2K_GRADIENT_B64 } = await import('../../src/server/pipeline/j2k-fixture')
+    const { bundleSliceAt } = await import('../../src/server/pipeline/study')
+    const { readFile } = await import('../../src/server/files')
+    const { and } = await import('drizzle-orm')
+    const uid = '1.2.826.0.1.3680043.8.498.777'
+    const frame = new Uint8Array(Buffer.from(J2K_GRADIENT_B64, 'base64'))
+    const files: Record<string, Uint8Array> = {}
+    // a 40 KB header text stands in for a vendor's private header block; the picture itself is already JPEG 2000
+    for (let i = 1; i <= 3; i++) files[`MR/IM${i}`] = await c.syn.buildSyntheticDicom({ modality: 'MR', patientName: 'Deshmukh^Sunita', sex: 'F', age: '051Y', studyUid: uid, instance: i, size: 48, description: `SERIES ${'X'.repeat(40_000)}`, encapsulated: { transferSyntax: '1.2.840.10008.1.2.4.91', frames: [frame] } })
+    const raw = Object.values(files).reduce((n, f) => n + f.length, 0)
+    const r = await ingest(zipSync(files, { level: 0 }), 'j2k-cd.zip')
+    const study = r.documents[0].documentId
+    const bytes = await c.db.withOrg(ORG_NARMADA_ID, async (tx) => {
+      const [f] = await tx.select({ id: c.schema.documentFiles.id }).from(c.schema.documentFiles).where(and(eq(c.schema.documentFiles.documentId, study), eq(c.schema.documentFiles.kind, 'original')))
+      return (await readFile(tx, f.id))!.bytes
+    })
+    expect(bytes.length).toBeLessThan(raw / 4)
+    for (let i = 1; i <= 3; i++) expect(Buffer.from(bundleSliceAt(bytes, i - 1).data!).equals(Buffer.from(files[`MR/IM${i}`]))).toBe(true)
+  }, 90_000)
+
   it('stores a video, an ECG file and a NIfTI file without reading them; they wait for a person because the file names nobody', async () => {
     const mp4 = Buffer.alloc(64); mp4.writeUInt32BE(64, 0); mp4.write('ftyp', 4); mp4.write('isom', 8)
     const d1 = await load((await ingest(mp4, 'echo.mp4')).documents[0].documentId)

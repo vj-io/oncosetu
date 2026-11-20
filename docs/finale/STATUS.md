@@ -136,3 +136,32 @@ If a persona's report file is missing, that agent did not finish. Rerun it with 
 - Databases: Postgres on 54600 (`Documents/onco-localdb`) and on 54601 (`Documents/onco-localdb-wp6`), started with `nohup node start-db.mjs`.
 - If a database drops connections with "could not reserve shared memory region (error 487)": stop it with `pg_ctl stop -D <data> -m fast`, then start it again.
 - The six package worktrees in `Documents/onco-wt/wp1..wp6` are merged and can be removed.
+
+## Update: 2026-11-20 (audit finished for 5 of 7 roles; fixes in progress)
+
+**Audit reports are in `docs/finale/e2e-audit/`.** Patient, doctor, radiologist, admin and public-links are done and committed. Desk and records were still running when this was written; their reports land as `desk.md` and `records.md`. There are no P0 findings so far, but many P1s. The top items are in each report's summary table.
+
+**Fix agents (Sonnet), one branch and worktree each in `Documents/onco-wt/fix-<name>`, cut from feat/finale-polish at 39186f7:**
+
+| Branch | Fixes |
+|---|---|
+| fix/portal | patient.md, all except PAT-04, PAT-05 and PAT-09 |
+| fix/share | PAT-04, PAT-05; PUB-02, 03, 06, 07 and the share/verify findings |
+| fix/recview | radiologist.md (all), plus the doctor.md items in documents/** and records/** |
+| fix/doctor | doctor.md, all except the viewer items and DOC-04/05 |
+| fix/radar | DOC-04/05, PAT-09, the server side of PAT-02/03, and later records.md |
+| fix/admin | admin.md (all), PUB-01, PUB-04, and the public-page findings |
+
+A desk fix agent (fix/desk) still needs to start when desk.md is ready.
+
+**To save in a hurry:** `bash Documents/onco-wt/save-all.sh` commits any work in progress in each fix worktree and pushes every fix/* branch. A commit named "Work in progress … (not yet checked)" has NOT passed the tests.
+
+**Next steps:**
+1. Review each fix/* branch.
+2. Merge into feat/finale-polish: radar, doctor, recview, share, portal, admin.
+3. Run the unit and integration tests, the build, and the seed again.
+4. Check scans in share links after sealing a visit with scans.
+5. Push.
+6. Then the Next.js security upgrade (approved) and the remaining STATUS steps.
+
+**Usage rule from Garv:** stop work at 55% usage, save, push and update this file.

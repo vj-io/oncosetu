@@ -1,10 +1,10 @@
 // Read model for the clinician "First look" card and the oncology fact strip on the patient overview.
 // Reads existing facts only (ledger, completeness checklist, held documents). Run inside withPatientAccess.
-import { and, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { documents, events, missingRecords, snapshots } from '@/db/schema'
+import { documents, missingRecords, snapshots } from '@/db/schema'
 import { buildFirstLook, classifyHeld, type FirstLookRow, type HeldDoc } from '@/core/doctor/first-look'
-import { countNewSinceSeal, parseSealedCopy } from '@/core/doctor/new-since-seal'
+import { newestItemsFirst, newItemTotal } from '@/core/doctor/new-since-seal'
 import { dropDateOnlyImaging, oncologyView, type OncologyView } from '@/core/doctor/oncology'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { staffDocLabel } from '@/core/copy'
@@ -18,7 +18,7 @@ import type { StaffSession } from '../session'
 export type PatientGlance = { documents: number; notInFile: number; newSinceSeal: number; lastSealed: Date | null }
 
 /** The four numbers a clinician scans on the patient list. One grouped query each, not one per patient. */
-export async function patientGlances(tx: Tx, ids: string[]): Promise<Map<string, PatientGlance>> {
+export async function patientGlances(tx: Tx, ids: string[], orgId: string): Promise<Map<string, PatientGlance>> {
   const out = new Map<string, PatientGlance>(ids.map((id) => [id, { documents: 0, notInFile: 0, newSinceSeal: 0, lastSealed: null }]))
   if (!ids.length) return out
   const [docs, miss, seals] = await Promise.all([
@@ -29,33 +29,31 @@ export async function patientGlances(tx: Tx, ids: string[]): Promise<Map<string,
   for (const r of docs) out.get(r.id)!.documents = r.n
   for (const r of miss) out.get(r.id)!.notInFile = r.n
   for (const r of seals) out.get(r.id)!.lastSealed = new Date(r.at)
-  const fresh = await newSinceSealCounts(tx, ids)
+  const fresh = await newSinceSealCounts(tx, ids, orgId)
   for (const [id, n] of fresh) out.get(id)!.newSinceSeal = n
   return out
 }
 
-/** Items not in the last sealed copy, per patient (an item is new when its id is not in the seal; dates are not compared). */
-export async function newSinceSealCounts(tx: Tx, ids: string[]): Promise<Map<string, number>> {
+/**
+ * The "new" count per patient: the same number the What's new page lists (DOC-01), so the tab badge, the patients list and
+ * First look all agree. Built from the ledger view, not from raw event ids (which also count duplicates and held items).
+ */
+export async function newSinceSealCounts(tx: Tx, ids: string[], orgId: string): Promise<Map<string, number>> {
   const out = new Map<string, number>(ids.map((id) => [id, 0]))
   if (!ids.length) return out
-  const [evs, seals] = await Promise.all([
-    tx.select({ id: events.id, patientId: events.patientId }).from(events)
-      .where(and(inArray(events.patientId, ids), isNull(events.withdrawnAt), ne(events.eventType, 'patient_statement'))),
-    tx.selectDistinctOn([snapshots.patientId], { patientId: snapshots.patientId, json: snapshots.canonicalJson }).from(snapshots)
-      .where(inArray(snapshots.patientId, ids)).orderBy(snapshots.patientId, desc(snapshots.seq)),
-  ])
-  const sealed = new Map(seals.map((r) => [r.patientId, parseSealedCopy(r.json)]))
-  const byPatient = new Map<string, string[]>()
-  for (const e of evs) byPatient.set(e.patientId, [...(byPatient.get(e.patientId) ?? []), e.id])
-  for (const id of ids) out.set(id, countNewSinceSeal(byPatient.get(id) ?? [], sealed.get(id) ?? null))
+  const at = (await now(orgId)).toISOString()
+  await Promise.all(ids.map(async (id) => {
+    const [rows, prev] = await Promise.all([loadRecordRows(tx, id), latestSnapshot(tx, id)])
+    out.set(id, newItemTotal(buildLedgerView({ rows, prev: prev ? { snapshot: prev.snapshot, summary: prev.summary } : null, role: 'clinician', now: at })))
+  }))
   return out
 }
 
 /** How far the last sealed visit is behind the record: share links show the sealed copy only. */
-export async function sealFreshness(tx: Tx, patientId: string): Promise<{ sealedLabel: string | null; newer: number }> {
+export async function sealFreshness(tx: Tx, patientId: string, orgId: string): Promise<{ sealedLabel: string | null; newer: number }> {
   const prev = await latestSnapshot(tx, patientId)
   if (!prev) return { sealedLabel: null, newer: 0 }
-  return { sealedLabel: prev.summary.sealedLabel.split(',')[0], newer: (await newSinceSealCounts(tx, [patientId])).get(patientId) ?? 0 }
+  return { sealedLabel: prev.summary.sealedLabel.split(',')[0], newer: (await newSinceSealCounts(tx, [patientId], orgId)).get(patientId) ?? 0 }
 }
 
 export type DoctorOverview = { firstLook: FirstLookRow[]; oncology: OncologyView }
@@ -80,9 +78,9 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
   const quoteOf = (i: { sources: { quote: string }[] }) => i.sources.find((x) => x.quote)?.quote ?? null
   // One quote per line: when the headline already holds those words the quote is not printed again.
   const quoteFor = (i: { headline: string | null; sources: { quote: string }[] }) => { const q = quoteOf(i); return q && sameWords(i.headline, q) ? null : q }
-  const newItems = dropDateOnlyImaging(prev
-    ? [...diff.events.new_since_last_visit, ...diff.events.newly_received_older, ...diff.events.amended]
-    : full.events.initial_record)
+  const allNew = prev ? [...diff.events.new_since_last_visit, ...diff.events.newly_received_older, ...diff.events.amended] : full.events.initial_record
+  // Newest first, like the rest of the page (DOC-06); the oldest paper never leads the preview. Undated last.
+  const newItems = newestItemsFirst(dropDateOnlyImaging(allNew))
   const held: HeldDoc[] = heldRows.filter((d) => !d.duplicateOf).map((d) => ({
     id: d.id, docLabel: isDocType(d.docType) ? staffDocLabel(d.docType) : 'Document', date: d.documentDate,
     kind: classifyHeld({ identityResult: d.identityResult, handwritten: d.handwritten, lowConfidence: d.lowConfidence }),
@@ -93,7 +91,7 @@ export async function loadDoctorOverview(tx: Tx, patientId: string, s: StaffSess
   const firstLook = buildFirstLook({
     patientId,
     seal: prev ? { id: prev.summary.id, seq: prev.summary.seq, sealedLabel: prev.summary.sealedLabel, signerName: prev.summary.signerName } : null,
-    newTotal: newItems.length,
+    newTotal: newItemTotal(diff),
     newItems: newItems.slice(0, 12).map((i) => ({ id: i.id, typeLabel: i.typeLabel, headline: i.headline, when: i.when.event, quote: quoteFor(i) })),
     amended: diff.events.amended.length,
     patientSaid: diff.patientSaid.length,

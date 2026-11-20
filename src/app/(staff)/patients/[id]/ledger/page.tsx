@@ -7,6 +7,7 @@ import { ConflictCard } from '@/components/ledger/ConflictCard'
 import { LedgerItem, SourceWords } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
 import { mergeNoAnswers } from '@/core/doctor/ledger-view'
+import { newItemTotal } from '@/core/doctor/new-since-seal'
 import { writeAudit } from '@/server/audit'
 import { now } from '@/server/clock'
 import type { LedgerView } from '@/server/ledger/core'
@@ -102,6 +103,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
   const initial = v.mode === 'initial'
   const said = mergeNoAnswers(v.patientSaid)
   const newCount = initial ? v.events.initial_record.length : v.events.new_since_last_visit.length + v.events.newly_received_older.length
+  const newTotal = newItemTotal(v)
   let n = 0
   const num = () => String(++n).padStart(2, '0')
 
@@ -126,6 +128,12 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
           actions={canAct ? <LedgerToolbar patientId={id} eligibleIds={eligible} counts={v.counts} canSeal={session.role === 'clinician'} /> : undefined}
         />
         <Explainer>{EXPLAIN.ledger}</Explainer>
+        {!initial && (
+          <p className="text-[15px]" data-testid="new-total">
+            <span className="font-medium">{newTotal} new in all</span>
+            <span className="text-muted"> · {v.events.new_since_last_visit.length} new, {v.events.newly_received_older.length} older papers that arrived late, {v.events.amended.length} corrected reports. Patient answers are listed separately.</span>
+          </p>
+        )}
         <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(16rem,22rem)]">
           <SealPlaque v={v} patientId={id} />
           <ProgressMeter label="Checked against the page" value={v.counts.verified} max={Math.max(total, 1)} detail={`${v.counts.verified} of ${total}`} tone="verified" />

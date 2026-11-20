@@ -23,7 +23,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const { rows, glance } = await withOrg(s.orgId, async (tx) => {
     const found = await searchPatients(tx, q)
     if (q.trim()) await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'patient.search', details: { results: found.length, role: s.role } })
-    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id)) }
+    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id), s.orgId) }
   })
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-8">

@@ -22,6 +22,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
   if (!o) return null
   const p = o.patient
   const done = o.steps.filter((s) => s.done).length
+  const heldN = doctor ? doctor.firstLook.find((r) => r.key === 'held')?.count ?? 0 : null
   const canRecords = role === 'records' || role === 'clinician'
   // Decision 13: once this visit is sealed, a quiet link to the 1-minute study form (no popup). The form holds no patient details.
   const visitSealed = role === 'clinician' && !!o.encounter && !!o.snapshot && o.snapshot.sealedAt >= o.encounter.startedAt
@@ -42,8 +43,9 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         <span className="text-muted">Consent {o.consent ? `on file (${o.consent.language.toUpperCase()})` : 'none active'}</span>
         <span className="text-muted">
           {o.docTotal} {o.docTotal === 1 ? 'paper' : 'papers'} on file
-          {o.awaitingDecision ? `, ${o.awaitingDecision} held until a person decides whose` : ''}
-          {o.needsReview ? `, ${o.needsReview} hard to read` : ''}
+          {heldN !== null
+            ? (heldN ? `, ${heldN} held for a person to check` : '') // the same number as the First look card (DOC-01)
+            : <>{o.awaitingDecision ? `, ${o.awaitingDecision} held until a person decides whose` : ''}{o.needsReview ? `, ${o.needsReview} hard to read` : ''}</>}
         </span>
         <span className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-1">
           {canRecords && <Link className={linkCls} href={`/patients/${id}/records`}>Open all records</Link>}

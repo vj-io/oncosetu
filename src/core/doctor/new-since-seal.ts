@@ -19,3 +19,21 @@ export function parseSealedCopy(json: string | null | undefined): SealedCopy | n
     return null
   }
 }
+
+/**
+ * The one "new" number every screen shows (tab badge, patients list, First look, What's new): what the What's new page lists as
+ * new. Before any seal that is everything on file; after a seal it is the new items, the older papers that arrived late and the
+ * corrected reports. Patient answers are counted separately.
+ */
+export function newItemTotal(v: { mode: 'initial' | 'diff'; events: { initial_record: readonly unknown[]; new_since_last_visit: readonly unknown[]; newly_received_older: readonly unknown[]; amended: readonly unknown[] } }): number {
+  return v.mode === 'initial' ? v.events.initial_record.length : v.events.new_since_last_visit.length + v.events.newly_received_older.length + v.events.amended.length
+}
+
+/** Newest first by the date each item describes; undated last; equal dates keep their order. */
+export function newestItemsFirst<T extends { when: { eventIso: string | null } }>(items: readonly T[]): T[] {
+  return items.map((it, i) => ({ it, i })).sort((a, b) => {
+    const x = a.it.when.eventIso, y = b.it.when.eventIso
+    if (x === y) return a.i - b.i
+    return x === null ? 1 : y === null ? -1 : x > y ? -1 : 1
+  }).map((o) => o.it)
+}

@@ -25,6 +25,8 @@ export const CHUNK_BYTES = 3.5 * MB
 export const ONE_SHOT_BYTES = 4 * MB
 /** Database storage an upload may fill up to (files live in Postgres; Neon's free plan stops writes at 512 MB). */
 export const STORAGE_BUDGET_BYTES = Number(process.env.STORAGE_BUDGET_MB ?? 450) * MB
+/** Object storage an upload may fill up to when originals go to R2 (its free tier is 10 GB a month); read per call so tests can set it. */
+export const objectBudgetBytes = () => Number(process.env.OBJECT_BUDGET_MB ?? 9000) * MB
 /** Largest picture the DICOM preview will draw (4096 x 4096); bigger headers get the "file stored" note instead. */
 export const MAX_PREVIEW_PIXELS = 4096 * 4096
 /** A started chunked upload expires after this long. */

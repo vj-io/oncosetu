@@ -307,6 +307,8 @@ export const documentFiles = pgTable('document_files', {
   processor: text('processor'),
   processorVersion: text('processor_version'),
   supersededAt: tsz('superseded_at'),
+  // 0028: set when the encrypted original lives in object storage (bytes_enc is then empty); immutable like the bytes.
+  objectKey: text('object_key'),
   createdAt: createdAt(),
 }, (t) => [index('document_files_doc_idx').on(t.documentId)])
 

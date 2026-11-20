@@ -10,8 +10,8 @@ import { aiRuns, documentFiles, documentPages, documentReadCache, documents, eve
 import { sha256Hex } from '@/core/hash'
 import { decideIdentity, type PatientIdentity } from '@/core/identity'
 import { writeAudit } from '@/server/audit'
-import { decryptBytes, decryptField } from '@/server/crypto'
-import { storeFile } from '@/server/files'
+import { decryptField } from '@/server/crypto'
+import { storedBytes, storeFile } from '@/server/files'
 import { log } from '@/server/log'
 import { activeConsent } from '@/server/patients'
 import { llmExtractor, type AiRunRecord } from '@/server/ai/extract'
@@ -196,7 +196,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   const loaded = await withOrg(orgId, async (tx) => {
     const [doc] = await tx.select().from(documents).where(eq(documents.id, documentId))
     const [file] = await tx.select().from(documentFiles).where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'original')))
-    return doc && file ? { doc, bytes: decryptBytes(Buffer.from(file.bytesEnc), file.dekWrapped) } : null
+    return doc && file ? { doc, bytes: await storedBytes(file) } : null
   })
   if (!loaded) throw new Abort('original_missing')
   const { doc, bytes } = loaded

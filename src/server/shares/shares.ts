@@ -94,7 +94,7 @@ export async function sharePayloadFor(tx: Tx, patientId: string, scope: ShareSco
     }
   }
   try {
-    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans })
+    const payload = buildSharePayload({ snapshot, snapshotId: snap.id, sha256: snap.sha256, disclosure: p.disclosure, scope, verifiers, quotes, absentNeutral, scans, createdBy: session.kind })
     return signSharePayload({ ...payload, snapshotId: snap.id, issuedAt: (await now(session.orgId)).toISOString() })
   } catch (e) {
     if (e instanceof QuotesNotAllowed) throw new HttpError(403, 'quotes_not_allowed', 'Source quotes can be shared only when disclosure is cleared')

@@ -32,7 +32,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
           <Wordmark brand="Setu Records" />
           <h1 className="text-3xl leading-tight tracking-[-0.025em] sm:text-4xl">This seal id is not known.</h1>
           <p className="text-muted">Check the link or the code you were given. If it was copied by hand, a letter may be missing. Ask the hospital that gave it to you for a fresh link.</p>
-          <p><Link href="/" className="inline-flex min-h-11 items-center text-setu-ink underline decoration-brass underline-offset-4">Go to the OncoSetu home page</Link></p>
+          <p><Link href="/" className="inline-flex min-h-11 items-center text-setu-ink underline decoration-brass underline-offset-4">Go to the home page</Link></p>
         </main>
       </div>
     )

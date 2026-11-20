@@ -177,15 +177,15 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
 
       {initial ? (
         <Section id="new" n={num()} title="On file" count={v.events.initial_record.length} description="Listed by kind of document, with pathology and molecular reports first, then by date. Open a line to see the exact words." empty="Nothing received yet. Documents appear here once processed.">
-          <div className="grid gap-2">{v.events.initial_record.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+          <div className="grid gap-2">{v.events.initial_record.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
         </Section>
       ) : (
         <>
           <Section id="new" n={num()} title="New since the last visit" count={v.events.new_since_last_visit.length} description={`Dated after the visit sealed on ${sealedDay}. Open a line to see the exact words.`}>
-            <div className="grid gap-2">{v.events.new_since_last_visit.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+            <div className="grid gap-2">{v.events.new_since_last_visit.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
           </Section>
           <Section id="older" n={num()} title="Older papers that arrived late" count={v.events.newly_received_older.length} description="Dated on or before the last sealed visit but not part of it: older papers that arrived since. The date they describe comes first.">
-            <div className="grid gap-2">{v.events.newly_received_older.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed />)}</div>
+            <div className="grid gap-2">{v.events.newly_received_older.map((i, k) => <LedgerItem key={i.id} item={i} index={k} collapsed desk={session.role === 'desk'} />)}</div>
           </Section>
         </>
       )}

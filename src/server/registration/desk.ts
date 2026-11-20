@@ -81,7 +81,7 @@ export async function deskVerifyWitnessed(ctx: StaffCtx<{ patientId: string; att
   return { ok: true, encounterId: enc.id, encounterType: enc.type, consentActive: !!current, patientUrl: `/patients/${body.patientId}/overview` }
 }
 
-export type TodayEncounter = { id: string; patientId: string; initials: string; accession: string; type: string; startedAt: Date; startedBy: string; open: boolean }
+export type TodayEncounter = { id: string; patientId: string; initials: string; accession: string; type: string; startedAt: Date; startedBy: string; open: boolean; reopenable: boolean }
 
 /** Encounters started today (IST, on the org's business clock). Initials only. */
 export async function todaysEncounters(tx: Tx, orgId: string): Promise<TodayEncounter[]> {
@@ -94,5 +94,6 @@ export async function todaysEncounters(tx: Tx, orgId: string): Promise<TodayEnco
   return rows.map(({ e, nameEnc }) => ({
     id: e.id, patientId: e.patientId, initials: initials(decryptField(nameEnc)), accession: accession(e.patientId), type: e.type,
     startedAt: e.startedAt, startedBy: (e.startedBy && nameOf.get(e.startedBy)) || '—', open: !e.closedAt,
+    reopenable: !e.closedAt && !e.offlineCreated, // verified today (this list is today's); the server re-checks on open
   }))
 }

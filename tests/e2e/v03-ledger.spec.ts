@@ -61,9 +61,9 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   for (const e of await eventsOf(p.id)) await records.post(`/api/events/${e.id}/viewed`)
   const rec = await ui('records')
   await rec.goto(`/patients/${p.id}/ledger`)
-  await expect(rec.getByRole('heading', { name: 'Everything on file so far' })).toBeVisible()
+  await expect(rec.getByRole('heading', { name: 'Everything on file (first visit)' })).toBeVisible()
   const bulkButton = rec.getByRole('button', { name: /I.ve checked the \d+ items? I opened/ })
-  const eligible = Number((await bulkButton.innerText()).match(/\((\d+)\)/)![1])
+  const eligible = Number((await bulkButton.innerText()).match(/checked the (\d+) item/i)![1]) // 3a5338e: the count is in the sentence now, not in brackets
   expect(eligible).toBeGreaterThan(0)
   await bulkButton.click()
   await rec.getByRole('dialog').getByRole('button', { name: `Mark ${eligible} as checked` }).click()
@@ -96,8 +96,8 @@ test('V03-E2E-01 HERO first visit: caregiver-primary, disclosure unknown, backlo
   await viewer.getByLabel('Passcode').fill('482915')
   await viewer.getByRole('button', { name: 'Open', exact: true }).click()
   await expect(viewer.getByRole('heading', { level: 1, name: 'Document index, not a clinical summary' })).toBeVisible()
-  await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
-  await expect(viewer.getByRole('heading', { name: 'Recorded items' })).toBeVisible()
+  await expect(viewer.getByRole('heading', { name: 'Papers not in this file' })).toBeVisible()
+  await expect(viewer.getByRole('heading', { name: 'Papers shared' })).toBeVisible()
   const page = await viewer.locator('body').innerText()
   expect(diagnosisHits(page)).toEqual([])
   expect(page).not.toMatch(/onco/i)
@@ -234,8 +234,8 @@ test('V03-E2E-05 an amended report appears under "Amended and corrected"', async
 
   const page = await ui('clinician')
   await page.goto(`/patients/${p.id}/ledger`)
-  expect(await count(page, 'Corrected reports')).toBeGreaterThanOrEqual(1)
-  await expect(sectionOf(page, 'Corrected reports')).toContainText(/pathology|histopathology/i)
+  expect(await count(page, 'Corrected reports and addenda')).toBeGreaterThanOrEqual(1)
+  await expect(sectionOf(page, 'Corrected reports and addenda')).toContainText(/pathology|histopathology/i)
   expect(await count(page, 'New since the last visit')).toBe(0)
 })
 

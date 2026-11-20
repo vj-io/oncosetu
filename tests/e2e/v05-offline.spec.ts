@@ -99,9 +99,10 @@ async function unlock(page: Page) {
   await expect(page.getByRole('heading', { name: 'Who are these pages for?' })).toBeVisible()
 }
 
-const pick = async (page: Page, name: string, group = 'Patient for this capture') => {
-  await page.getByLabel('Search patients').fill(name)
-  await page.getByRole('radiogroup', { name: group }).getByText(name).click()
+/** `who` is what the list shows: the desk list (every test here but V05-E2E-04) shows initials and the record code only (9059422), so pick by `p.accession`. */
+const pick = async (page: Page, who: string, group = 'Patient for this capture') => {
+  await page.getByLabel('Search patients').fill(who)
+  await page.getByRole('radiogroup', { name: group }).getByText(who).click()
 }
 
 let shot = 0
@@ -176,7 +177,7 @@ test('V05-E2E-01/03 offline: 5 photos + audio note queued encrypted, browser clo
 
     await ctx.setOffline(true)
     await expect(page.getByText('Offline · saving on this device')).toBeVisible()
-    await pick(page, p.name)
+    await pick(page, p.accession)
     await addPhotos(page, await photos(5))
     await page.getByRole('button', { name: 'Record audio note' }).click()
     await expect(page.getByRole('button', { name: /Stop recording · 0:0[2-9]/ })).toBeVisible({ timeout: 15_000 })
@@ -198,7 +199,7 @@ test('V05-E2E-01/03 offline: 5 photos + audio note queued encrypted, browser clo
     await expect(page.getByText('Locked · unlock to view')).toBeVisible()
 
     // V05-E2E-03: without the PIN, IndexedDB holds ciphertext only.
-    const idb = await inspectIdb(page, [p.name, p.id, visit.id, 'JFIF', 'Exif', 'OpusHead'])
+    const idb = await inspectIdb(page, [p.name, p.accession, p.id, visit.id, 'JFIF', 'Exif', 'OpusHead'])
     expect(idb).toMatchObject({ captures: 1, pages: 6, plaintextHit: [], jpegHeader: false, webmHeader: false })
     expect(idb.bigBinaries).toBeGreaterThanOrEqual(5)
     expect(idb.minEntropy).toBeGreaterThan(7.9)
@@ -208,7 +209,7 @@ test('V05-E2E-01/03 offline: 5 photos + audio note queued encrypted, browser clo
     await page.getByRole('button', { name: 'Unlock' }).click()
     await expect(page.getByText('Wrong PIN.')).toBeVisible()
     await unlock(page)
-    await expect(queued(page).getByText(new RegExp(p.name))).toBeVisible() // decrypted only now
+    await expect(queued(page).getByText(new RegExp(p.accession))).toBeVisible() // decrypted only now
 
     await ctx.setOffline(false)
     await expect(page.getByText('Nothing waiting')).toBeVisible({ timeout: 400_000 })
@@ -273,7 +274,7 @@ test('V05-E2E-02 upload cut at 90 %: the reopened browser sends only the missing
     let sent = await track(ctx, p.id) // runs before the two routes above, then falls back to them
     await page.goto('/capture')
     await setPin(page, `E2E tablet ${tag()}`)
-    await pick(page, p.name)
+    await pick(page, p.accession)
     await addPhotos(page, [big])
     await save(page, /Save 1 page to queue/)
     await expect(queued(page, 'failed')).toHaveCount(1, { timeout: 240_000 })
@@ -307,7 +308,7 @@ test('V05-E2E-02 upload cut at 90 %: the reopened browser sends only the missing
       return route.abort('connectionreset')
     })
     await addPhotos(page, await photos(1))
-    await pick(page, p.name)
+    await pick(page, p.accession)
     await save(page, /Save 1 page to queue/)
     await expect(queued(page, 'failed')).toHaveCount(1, { timeout: 120_000 })
     await expect(page.getByText('Nothing waiting')).toBeVisible({ timeout: 120_000 }) // the backoff retry, at the next 15 s tick
@@ -397,7 +398,7 @@ test('V05-E2E-05 admin revokes the device on the devices page: uploads get 410 a
   await page.goto('/capture')
   const deviceId = await setPin(page, label)
   await page.context().setOffline(true)
-  await pick(page, p.name)
+  await pick(page, p.accession)
   await addPhotos(page, await photos(1))
   await save(page, /Save 1 page to queue/)
   await expect(queued(page, 'pending')).toHaveCount(1)
@@ -437,7 +438,7 @@ test('V05-E2E-05 admin revokes the device on the devices page: uploads get 410 a
   // A 410 device_revoked answer to an upload wipes the device too.
   await setPin(page, `E2E tablet ${tag()}`)
   await page.context().setOffline(true)
-  await pick(page, p.name)
+  await pick(page, p.accession)
   await addPhotos(page, await photos(1))
   await save(page, /Save 1 page to queue/)
   await page.route('**/api/patients/*/uploads', (route) => route.fulfill({ status: 410, json: { error: { code: 'device_revoked', message: 'revoked' } } }))
@@ -447,7 +448,7 @@ test('V05-E2E-05 admin revokes the device on the devices page: uploads get 410 a
 })
 
 // ── FR-OFF-05 ────────────────────────────────────────────────────────────────
-test('FR-OFF-05 not installed and no persistent storage: both warnings show; installed with storage kept: neither', async ({ staff, browser }) => {
+test('FR-OFF-05 not installed and no persistent storage: the keep-open warning shows; installed with storage kept: it does not', async ({ staff, browser }) => {
   const desk = await staff('desk')
   const open = async (installed: boolean) => {
     const ctx = await desk.browserContext(browser)
@@ -463,13 +464,12 @@ test('FR-OFF-05 not installed and no persistent storage: both warnings show; ins
     return { ctx, page }
   }
   const bare = await open(false)
-  await expect(bare.page.getByText('Install this app to protect unsynced captures')).toBeVisible()
-  await expect(bare.page.getByText('This browser has not promised to keep this storage')).toBeVisible()
+  // 9059422 merged the two warnings into one notice, shown when the app is not installed or storage is not kept
+  await expect(bare.page.getByText('Keep this page open until the queue shows 0')).toBeVisible()
   await bare.ctx.close()
   const installed = await open(true)
   await expect(installed.page.getByRole('heading', { name: 'Photograph the pages' })).toBeVisible()
-  await expect(installed.page.getByText('Install this app to protect unsynced captures')).toHaveCount(0)
-  await expect(installed.page.getByText('This browser has not promised to keep this storage')).toHaveCount(0)
+  await expect(installed.page.getByText('Keep this page open until the queue shows 0')).toHaveCount(0)
   // 375 px: no horizontal scroll
   await installed.page.setViewportSize({ width: 375, height: 812 })
   expect(await installed.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -488,7 +488,7 @@ test('FR-ING-01 pages are cut to their edges (full photo kept), reordered, and r
     const page = await firstPage(ctx)
     await page.goto('/capture')
     await setPin(page, `E2E tablet ${tag()}`)
-    await pick(page, p.name)
+    await pick(page, p.accession)
     // page 1 lies on a dark desk; page 2 is paper edge to edge
     const onDesk = join(FILES, `desk-${tag()}.jpg`), paper = join(FILES, `paper-${tag()}.jpg`)
     await sharp(DOC).extend({ top: 300, bottom: 300, left: 1200, right: 800, background: '#2f2a25' }).jpeg().toFile(onDesk) // landscape photo, portrait page

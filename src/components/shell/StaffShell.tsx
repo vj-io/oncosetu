@@ -91,8 +91,8 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <details className="group relative">
-              <summary aria-label="Account menu" className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
-                <span className="sr-only">Your menu</span>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+                <span className="sr-only">Account menu</span>
                 <Avatar name={user.name} size="sm" />
                 <span className="hidden text-left leading-tight whitespace-nowrap md:grid xl:max-2xl:hidden">
                   <span className="text-sm text-ink">{user.name}</span>

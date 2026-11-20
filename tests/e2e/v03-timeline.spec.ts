@@ -47,7 +47,7 @@ test('FR-TML-02/03 + FR-LED-04 timeline badges, source chips, "Sources disagree"
   const led = await ui('clinician')
   await led.goto(`/patients/${p.id}/ledger`)
   const item = led.locator(`#item-${target.id}`)
-  await item.locator('summary').click()
+  await item.locator(':scope > summary').click()
   await expect(item).toContainText(new RegExp(`Checked against the page by ${clinicianName} \\(clinician\\) · \\d{1,2} \\w{3} \\d{4}`))
   await expect(item).toContainText(/Received \d{1,2} \w{3} \d{4}/)
   if (target.eventDate && target.documentDate && !target.flags?.date_from_document) await expect(item).toContainText(`Document dated ${formatDateIN(target.documentDate)}`)

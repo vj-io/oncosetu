@@ -5,7 +5,7 @@ import { Api, demoDoc, portalLogin, registerPatient, until, uploadAndWait, uploa
 import { documentsOf, missingOf, smsAbout } from './helpers/db'
 import { createShare, parseCsv, seal } from './helpers/flows'
 import { test, expect } from './helpers/fixtures'
-import { diagnosisHits, legalHits, radarHits } from './helpers/text'
+import { diagnosisHits, legalHits, radarHits, textWithoutButtons } from './helpers/text'
 
 const HPE = 'RAD-SURG-HPE-01'
 const itemOf = async (patientId: string, ruleId: string) => (await missingOf(patientId)).find((m) => m.ruleId === ruleId)
@@ -35,10 +35,12 @@ test('V04-E2E-01 a discharge summary with an excision lists the histopathology r
   await page.goto(`/patients/${p.id}/completeness`)
   const card = page.locator(`article#m-${item.id}`)
   await expect(card).toContainText('Histopathology report not in file for the procedure documented on 12 Mar 2026')
+  await card.getByText('Where this came from, and what has happened').click() // finale: the source quote sits under this fold
   await expect(card.locator('q')).toContainText('Wide local excision done on 12/03/2026') // the source quote
   await expect(card.getByRole('link', { name: /Show the exact words/ })).toHaveAttribute('href', new RegExp(`/documents/${up.documentId}\\?event=`))
   const shown = await card.locator('h3, [class*="Empty"]').first().innerText().catch(() => '')
-  expect(radarHits(shown + ' ' + (await card.innerText()))).toEqual([])
+  const words = await textWithoutButtons(card) // minus staff buttons (3a5338e: "Not needed" is a control label)
+  expect(radarHits(shown + ' ' + words)).toEqual([])
 })
 
 test('V04-E2E-02 request letter EN + HI, mark sent, reminder at +7 days (one SMS), open at +21 days with the escalation sheet @clock', async ({ staff, ui }) => {
@@ -186,10 +188,11 @@ test('V04-E2E-05 caregiver shares the document index (7 days, passcode): the vie
   const fresh = await browser.newContext() // the receiving doctor: no account, no cookies
   const viewer = await fresh.newPage()
   const text = await openShare(viewer, share, '739204')
-  await expect(viewer.getByRole('heading', { name: 'Recorded items' })).toBeVisible()
-  await expect(viewer.getByRole('heading', { name: 'Documents not in this file' })).toBeVisible()
+  await expect(viewer.getByRole('heading', { name: 'Papers shared' })).toBeVisible()
+  await expect(viewer.getByRole('heading', { name: 'Papers not in this file' })).toBeVisible()
   // FR-PAS-03: the PRD's statement (brand neutral until disclosure is cleared) and the as-of date of the seal.
-  expect(text).toContain('This summary contains only records provided to Setu Records.')
+  // NEEDS A DECISION: 580a2bd ("plain up the public pages") stopped drawing this PRD FR-PAS-03 / ADR-002 sentence in the viewer (the payload still carries it). Soft, so the rest of the test still runs; the failure stays visible until the sentence is restored or the requirement is withdrawn.
+  expect.soft(text).toContain('This summary contains only records provided to Setu Records.')
   expect(text).toContain(`As of ${formatDateIN(istDate(share.payload.asOf))} (sealed record)`)
   // Provenance on every recorded line: where it is written, and whether a person verified it.
   const lines = viewer.locator('ol > li')

@@ -165,3 +165,34 @@ A desk fix agent (fix/desk) still needs to start when desk.md is ready.
 6. Then the Next.js security upgrade (approved) and the remaining STATUS steps.
 
 **Usage rule from Garv:** stop work at 55% usage, save, push and update this file.
+
+## Stop point: 2026-11-20 (stopped near the usage limit; everything saved and pushed)
+
+**Garv's rule:** stop at 55% usage. Work was stopped at 48% of the 5-hour limit (49% of the weekly limit), because seven agents were using it fast.
+
+**Audit:**
+- Done: 6 of 7 reports (patient, doctor, radiologist, admin, public-links, desk). desk.md: 0 P0, 9 P1, 15 P2.
+- **Records-staff audit stopped before writing records.md.** Rerun it with the records persona brief: test /records "To do" counts, Missing papers, letters EN/HI, Change Ledger, verification, pre-auth, duplicates, and the hero__11 IHC upload on a made-up patient.
+
+**Fix branches: all pushed. All work-in-progress commits are UNCHECKED** (they have not run tsc, lint or tests):
+
+| Branch | State |
+|---|---|
+| fix/portal | 1 real commit ("Remember the language…", PAT-01 fixed) plus maybe small work in progress. The rest of patient.md is still to do. |
+| fix/share | work in progress only (i18n started). All share findings still to do. |
+| fix/recview | **nothing done yet.** All radiologist.md findings plus the doctor.md viewer items. RAD-06 (wrong-patient X-ray shown under Sunita) is the most important. |
+| fix/doctor | small work in progress. Nearly all doctor.md items still to do. |
+| fix/radar | work in progress (radar change plus a test started, PAT-09 not yet done). |
+| fix/admin | work in progress (break-glass review started). |
+| fix/desk | **not created yet.** All desk.md findings. |
+
+desk.md notes for routing:
+- **DESK-02 needs Garv's decision:** may the desk open a patient's full record from "Today's encounters" without a code or witness?
+- **DESK-09** (held scans show steps as done) belongs to fix/recview (DocumentsBoard.tsx).
+- **DESK-08** ("All records" tab refused for the desk) is in src/lib/patient-tabs.ts (PATIENT_TAB_ROLES): give it to fix/desk.
+
+**To continue:**
+1. In each `Documents/onco-wt/fix-<name>`, check out its branch and read the agent brief from the routing table in the update above.
+2. Run `npx tsc --noEmit && npx eslint src tests && npx vitest run --project unit` before going further. Each worktree already has a linked node_modules and a local .env.local.
+3. Finish the fixes, then merge into feat/finale-polish: radar, doctor, recview, share, portal, admin, desk.
+4. Run the full tests, build and reseed. Then follow the earlier STATUS steps (Playwright §4.6 tests, Next.js security upgrade, real-scan test, visual style pick, PR to main).

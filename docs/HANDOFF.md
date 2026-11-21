@@ -47,7 +47,7 @@ Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulate
 | `HMAC_KEY` | Blind indexes (phone, token, ABHA) |
 | `SIGNING_KEY_ED25519`, `SIGNING_KEY_ID`, `SIGNING_KEYS_RETIRED` | Seal and share-payload signatures; retired public keys stay verifiable (rotation: RUNBOOK §3) |
 | `BACKUP_KEY` | Encrypts backups; needed together with `APP_MASTER_KEY` to read one |
-| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (backups) |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob (backups); unset → backups go to the `S3_*` object store |
 | `CRON_SECRET` | Bearer for `/api/cron/*` (Vercel adds it to scheduled calls) |
 | `DEMO_MODE` | `true` exposes demo accounts + live TOTP codes and the simulated phone. **Never on a real deployment** |
 | `PUBLIC_BASE_URL` | Absolute origin (Twilio signature checks, links). Local: `http://localhost:3000` |

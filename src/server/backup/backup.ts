@@ -1,4 +1,6 @@
 // Weekly logical backup (Sundays), stored OFF the database (Vercel Blob, private store) — PRD §10.2 "backups encrypted".
+// Without a Blob store (the free pilot) it goes to the object store (S3_*, e.g. Backblaze B2) instead: one slot per week,
+// BACKUP_SLOTS slots, each overwritten after BACKUP_SLOTS weeks, plus a small pointer to the newest (no listing needed).
 // Weekly, not daily: every run reads every row, including every stored file (document_files, most of the database),
 // and Neon's free plan allows 5 GB of network transfer per project per month. Daily runs would take about 4 GB of that.
 // Neon's free plan keeps 6 h of point-in-time history; these files keep BACKUP_RETENTION_DAYS (default 35).
@@ -20,6 +22,7 @@ import { PassThrough } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { createGunzip, createGzip } from 'node:zlib'
 import { del, list, put } from '@vercel/blob'
+import { objectStore } from '@/server/objects'
 import postgres, { type Sql } from 'postgres'
 import { decrypt, encrypt, backupKeysFromEnv, type BackupKey } from './envelope'
 import { exportRows, listTables, type Column } from './jsonl'
@@ -161,6 +164,11 @@ export function expiredBackups<T extends { pathname: string; uploadedAt: Date }>
     .filter((b) => b.uploadedAt.getTime() < cutoff)
 }
 
+export const BACKUP_SLOTS = 3
+export const BACKUP_LATEST_KEY = 'backups/latest.json'
+/** Object-store key for a backup taken at `now`: weeks since 1970 modulo BACKUP_SLOTS, so each slot is reused every 3 weeks. */
+export const backupSlotKey = (now: Date) => `backups/slot-${Math.floor(now.getTime() / (7 * 86_400_000)) % BACKUP_SLOTS}.ob`
+
 export function retentionDays(): number {
   const raw = process.env.BACKUP_RETENTION_DAYS
   const d = raw ? Number(raw) : 35
@@ -188,7 +196,8 @@ export type BackupResult = {
 export async function runBackup(now = new Date()): Promise<BackupResult> {
   const url = process.env.DATABASE_URL_UNPOOLED
   if (!url) throw new Error('DATABASE_URL_UNPOOLED is not set')
-  if (!process.env.BLOB_READ_WRITE_TOKEN) throw new Error('BLOB_READ_WRITE_TOKEN is not set')
+  const store = process.env.BLOB_READ_WRITE_TOKEN ? null : objectStore()
+  if (!process.env.BLOB_READ_WRITE_TOKEN && !store) throw new Error('no backup store: set BLOB_READ_WRITE_TOKEN or S3_*')
   const days = retentionDays()
   const [key] = backupKeysFromEnv()
   const t0 = performance.now()
@@ -197,6 +206,23 @@ export async function runBackup(now = new Date()): Promise<BackupResult> {
   let bytes = 0
   try {
     async function* count(src: AsyncIterable<Buffer>) { for await (const b of src) { bytes += b.length; yield b } }
+    if (store) {
+      // ponytail: the whole encrypted backup is held in memory (about the database's size); switch to a multipart upload
+      // if the database grows past ~600 MB.
+      const parts: Buffer[] = []
+      await pipeline(backupPlaintext(sql, new URL(url).hostname, out), createGzip({ level: 6 }), (src: AsyncIterable<Buffer>) => encrypt(src, key), count,
+        async (src: AsyncIterable<Buffer>) => { for await (const b of src) parts.push(b) })
+      const manifest = out.manifest
+      if (!manifest) throw new Error('backup stream ended without a manifest')
+      const id = backupSlotKey(now)
+      await store.put(id, Buffer.concat(parts))
+      await store.put(BACKUP_LATEST_KEY, Buffer.from(JSON.stringify({ key: id, createdAt: manifest.createdAt, bytes })))
+      return {
+        id, bytes, plainBytes: manifest.plainBytes, tables: manifest.tables.length,
+        rows: manifest.tables.reduce((a, t) => a + t.rows, 0), createdAt: manifest.createdAt,
+        ms: { export: manifest.exportMs, total: Math.round(performance.now() - t0) }, deleted: [], kept: BACKUP_SLOTS,
+      }
+    }
     const body = new PassThrough()
     const [blob] = await Promise.all([
       put(backupPathname(now), body, { access: 'private', contentType: 'application/octet-stream', multipart: true, addRandomSuffix: false })

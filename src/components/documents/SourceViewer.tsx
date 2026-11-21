@@ -166,7 +166,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] [&>*]:min-w-0">
       {/* The original page, first */}
-      <section id="source-panel" aria-labelledby="page-h" className="grid content-start gap-3 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+      <section id="source-panel" aria-labelledby="page-h" className="grid content-start gap-3 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 id="page-h" className="ds-kicker">{mode === 'page' ? 'The paper as it was received' : 'Words on the page'}</h2>
           {textPages.length > 0 && (

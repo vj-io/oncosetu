@@ -190,7 +190,7 @@ export function CaptureApp() {
 
   return (
     <div className="grid gap-8">
-      <SectionHeader
+      <SectionHeader feature
         as="h1"
         kicker="Desk · capture"
         title="Capture pages"

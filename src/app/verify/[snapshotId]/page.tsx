@@ -58,7 +58,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
           <p className="max-w-lg text-muted">{intact ? t('intactBody') : t('brokenBody')}</p>
         </div>
 
-        <Frame className="px-5 py-5 sm:px-6">
+        <Frame tone="feature" className="px-5 py-5 sm:px-6">
           <KeyValue items={[
             ...(v.counts ? [{ label: t('contents'), value: <span className="text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
             { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },

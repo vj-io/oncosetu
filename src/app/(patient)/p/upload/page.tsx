@@ -37,7 +37,7 @@ export default async function UploadPage({ searchParams }: { searchParams: Porta
             <ul className="mt-4 grid gap-2">
               {fwd.whatsapp && (
                 <li>
-                  <Frame className="flex items-start gap-3 px-4 py-3">
+                  <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
                     <MessageCircle aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                     <span className="text-[17px]">{tp(lang, 'forwardWhatsApp', { number: fwd.whatsapp })}</span>
                   </Frame>
@@ -45,7 +45,7 @@ export default async function UploadPage({ searchParams }: { searchParams: Porta
               )}
               {fwd.email && (
                 <li>
-                  <Frame className="flex items-start gap-3 px-4 py-3">
+                  <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
                     <Mail aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                     <span className="min-w-0 text-[17px] break-words">{tp(lang, 'forwardEmail', { address: fwd.email })}</span>
                   </Frame>

@@ -117,7 +117,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
       </nav>
 
-      <SectionHeader
+      <SectionHeader feature
         as="h2"
         kicker="Document"
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
@@ -138,7 +138,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
       )}
 
       {(live || doc.attachState === 'pending_decision' || d.status === 'failed') && (
-        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages, progress: d.progress }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
+        <Frame matte tone="tint"><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages, progress: d.progress }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
       )}
 
       {/* Notices: what the pipeline did with this file */}

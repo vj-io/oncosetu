@@ -120,7 +120,7 @@ export async function AbdmDocument({ patientId, documentId, focusEventId }: { pa
           })}
         </section>
 
-        <section aria-labelledby="res-h" className="grid content-start gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
+        <section aria-labelledby="res-h" className="grid content-start gap-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
           <h2 id="res-h" className="ds-kicker">Source resources · FHIR R4 JSON as received</h2>
           {facts.map(({ e, resources }) => resources.map((r) => (
             <article key={`${e.id}:${r.ref}`} id={`r-${e.id}`} className={clsx('scroll-mt-24 border bg-matte shadow-frame rounded-lg', focus === e.id ? 'border-brass outline-2 outline-brass' : 'border-rule')}>

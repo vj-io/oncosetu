@@ -110,7 +110,7 @@ export default async function PreauthPage({ params, searchParams }: { params: Pr
   const meta = PREAUTH_LINES.find((l) => l.key === line)!
   return (
     <div className="grid gap-6 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="For the insurance desk · PM-JAY oncology packages"
         title="Pre-authorisation file"
         description="The documents a PM-JAY cancer package asks for before pre-authorisation and for the claim, and which of them are in this patient's file. It checks that a document of that kind is here, not what it says, and it does not choose a package."

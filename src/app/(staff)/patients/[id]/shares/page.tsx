@@ -31,7 +31,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
   const { rows, fresh } = got
   return (
     <div className="grid gap-10 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="Share with another doctor"
         title="Share links"
         description="A link, protected by a passcode, that stops working on the date you choose. It opens the list of documents as sealed at the last visit, headed “not a clinical summary”, with the papers that are not in file. The contents are locked in this browser; the key travels only inside the link."

@@ -10,7 +10,7 @@ export default async function ChangePasswordPage() {
   await requireStaff()
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Your account" title="Change password"
+      <SectionHeader feature as="h1" kicker="Your account" title="Change password"
         description="Replace the temporary password from your administrator with one only you know. Your authenticator app and its 6-digit codes stay the same. Every other place you are signed in is signed out." />
       <ChangePassword min={MIN_PASSWORD} />
     </div>

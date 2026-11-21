@@ -29,7 +29,7 @@ export default async function MetricsPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · How well it works" title="How well it works, and the safety targets"
+      <SectionHeader feature as="h1" kicker="Admin · How well it works" title="How well it works, and the safety targets"
         description="Worked out fresh each time the page opens. Each percentage shows the counts behind it; a dash means there is nothing to count yet, not zero." />
 
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Headline metrics">

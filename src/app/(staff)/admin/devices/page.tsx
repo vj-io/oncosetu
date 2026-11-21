@@ -19,7 +19,7 @@ export default async function DevicesPage() {
   const rows = await withOrg(s.orgId, (tx) => listDevices(tx, s.orgId))
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Offline capture" title="Capture devices"
+      <SectionHeader feature as="h1" kicker="Admin · Offline capture" title="Capture devices"
         description="Registered desk devices. Revoking one refuses its next upload; on its next contact it wipes its encrypted offline queue." />
       {rows.length === 0 ? <EmptyState title="No devices registered" description="A capture device registers itself the first time staff set it up." /> : (
         <Table caption="Registered devices">

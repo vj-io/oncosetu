@@ -14,7 +14,7 @@ export default function VerifyIndexPage() {
           <h1 className="text-3xl leading-tight tracking-[-0.02em] sm:text-4xl">Check a sealed record</h1>
           <p className="text-muted">When a doctor seals a visit, the record is locked. Paste the seal link or code you were given and we will tell you whether anything has changed since. No personal details are shown.</p>
         </div>
-        <Frame className="px-5 py-5 sm:px-6"><SealLookup /></Frame>
+        <Frame tone="feature" className="px-5 py-5 sm:px-6"><SealLookup /></Frame>
       </div>
     </PublicShell>
   )

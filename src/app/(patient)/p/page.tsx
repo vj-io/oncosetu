@@ -22,7 +22,7 @@ function Dates({ rows }: { rows: HomeSummary['coming'] }) {
     <ul className="grid gap-2">
       {rows.map((d) => (
         <li key={d.id}>
-          <Frame className="flex items-start gap-3 px-4 py-3">
+          <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
             <CalendarDays aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
             <div className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-[17px] font-medium">{d.date}</span>
@@ -42,7 +42,7 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
     <ul className="grid gap-2">
       {rows.map((d) => (
         <li key={d.id}>
-          <Frame className="flex items-start gap-3 px-4 py-3">
+          <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
             <FileText aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
             <div className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-[17px]">{d.label}</span>
@@ -90,7 +90,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
       {/* The one main action, then two counts: what the clinic has and what it still needs */}
       <section className="mt-6 grid gap-3" aria-label={tp(lang, 'cardUploadTitle')}>
         <ActionCard primary href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
-        <ul className="grid grid-cols-2 gap-3">
+        <ul className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3">
           <li className="rounded-lg border border-rule bg-surface p-4 shadow-card">
             <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
             <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statHas')}</span>

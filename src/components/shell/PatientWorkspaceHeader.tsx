@@ -53,8 +53,8 @@ export function PatientWorkspaceHeader({ patient: p, counts, role, inertTabs }: 
   const facts = [p.ageYears != null ? `${p.ageYears} y` : null, p.sex || null, p.mrn ? `MRN ${p.mrn}` : null].filter(Boolean).join(" · ");
   const action = role ? ACTION[role] : undefined;
   return (
-    <header className="rounded-lg border border-rule bg-surface shadow-card">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 pt-5 pb-4 sm:px-6">
+    <header className="rounded-lg border border-rule bg-surface shadow-card lg:rounded-none lg:border-x-0 lg:border-t-0 lg:bg-transparent lg:shadow-none">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-3 px-4 pt-5 pb-4 sm:px-6 lg:px-0 lg:pt-1 lg:pb-5">
         <Avatar name={p.name} initials={p.initials} size="lg" />
         <div className="grid min-w-0 flex-1 gap-1">
           <h1 className="text-[1.625rem] leading-tight tracking-[-0.02em] break-words sm:text-[1.875rem]">{p.name}</h1>
@@ -71,7 +71,8 @@ export function PatientWorkspaceHeader({ patient: p, counts, role, inertTabs }: 
           <ButtonLink href={`/patients/${p.id}/${action.tab}`} icon={action.icon} className="max-sm:w-full">{action.label}</ButtonLink>
         )}
       </div>
-      <div className="px-3 pb-3 sm:px-5">
+      {/* Desktop: the record's sections are in the sidebar. Tablets and phones keep the tabs for quick switching. */}
+      <div className="px-3 pb-3 sm:px-5 lg:hidden">
         <PatientTabsNav
           inert={inertTabs}
           main={main.map((t) => ({ href: `/patients/${p.id}/${t.key}`, label: t.label, count: counts?.[t.key] ?? (t.key === "records" ? counts?.documents : undefined), countLabel: COUNT_WORDS[t.key] }))}

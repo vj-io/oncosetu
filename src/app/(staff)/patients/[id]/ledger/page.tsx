@@ -2,7 +2,7 @@ import { RoleRestricted } from '@/components/shell/RoleRestricted'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowUpRight, Copy } from 'lucide-react'
-import { BrassSeal, Chip, EmptyFrame, EXPLAIN, Explainer, Frame, InfoTip, ProgressMeter, SectionHeader } from '@/components/ui'
+import { BrassSeal, Chip, EmptyFrame, EXPLAIN, Explainer, Frame, InfoTip, Legend, Ring, SectionHeader } from '@/components/ui'
 import { ConflictCard } from '@/components/ledger/ConflictCard'
 import { LedgerItem, SourceWords } from '@/components/ledger/LedgerItem'
 import { LedgerToolbar } from '@/components/ledger/LedgerToolbar'
@@ -67,7 +67,7 @@ function SealPlaque({ v, patientId }: { v: LedgerView; patientId: string }) {
 
 function JumpBar({ items }: { items: { href: string; label: string; n: number }[] }) {
   return (
-    <nav aria-label="Jump to a section" className="sticky top-16 z-20 -mx-4 overflow-x-auto border-y border-rule bg-gallery/95 px-4 backdrop-blur-sm sm:-mx-8 sm:px-8">
+    <nav aria-label="Jump to a section" className="sticky top-14 z-20 lg:top-16 -mx-4 overflow-x-auto border-y border-rule bg-gallery/95 px-4 backdrop-blur-sm sm:-mx-8 sm:px-8">
       <ul className="flex min-w-max gap-1">
         {items.map((i) => (
           <li key={i.href}>
@@ -134,9 +134,21 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
             <span className="text-muted"> · {v.events.new_since_last_visit.length} new, {v.events.newly_received_older.length} older papers that arrived late, {v.events.amended.length} corrected or added to. Patient answers are listed separately.</span>
           </p>
         )}
-        <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(16rem,22rem)]">
+        <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(20rem,26rem)]">
           <SealPlaque v={v} patientId={id} />
-          <ProgressMeter label="Checked against the page" value={v.counts.verified} max={Math.max(total, 1)} detail={`${v.counts.verified} of ${total}`} tone="verified" />
+          <div className="ds-feature flex items-center gap-4 rounded-xl border border-rule p-4 shadow-card">
+            <Ring
+              size={112}
+              label={`${v.counts.verified} of ${total} items checked against the page`}
+              parts={[{ label: 'Checked', value: v.counts.verified, tone: 'verified' }, { label: 'Not yet checked', value: v.counts.unverified, tone: 'unverified' }, { label: 'Disputed', value: v.counts.disputed, tone: 'conflict' }]}
+              center={total ? `${Math.round((v.counts.verified / total) * 100)}%` : '—'}
+            />
+            <Legend items={[
+              { label: 'Checked against the page', value: v.counts.verified, tone: 'verified' },
+              { label: 'Not yet checked', value: v.counts.unverified, tone: 'unverified' },
+              { label: 'Disputed', value: v.counts.disputed, tone: 'conflict' },
+            ]} />
+          </div>
         </div>
         {!canAct && <Chip kicker="Desk" tone="shadow">Headline list only. Quotes and checking are for records staff and clinicians.</Chip>}
       </div>

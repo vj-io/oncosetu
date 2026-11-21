@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowUpRight, EyeOff } from 'lucide-react'
 import { MissingActions } from '@/components/completeness/MissingActions'
-import { Badge, Chip, EmptyFrame, EmptyState, EXPLAIN, Explainer, InfoTip, KeyValue, LanguageToggle, SectionHeader, StatusBadge } from '@/components/ui'
+import { Badge, Chip, EmptyFrame, EmptyState, EXPLAIN, Explainer, InfoTip, KeyValue, LanguageToggle, SectionHeader, StatusBadge, Pipeline } from '@/components/ui'
 import { formatDateIN, istDate, patientDocLabel, staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { now } from '@/server/clock'
@@ -28,15 +28,6 @@ const ACTION_WORD: Record<string, string> = {
 }
 const STATE_WORD: Record<string, string> = { expected: 'not in file', requested: 'requested', received: 'arrived, to confirm', closed: 'closed', unobtainable: 'not obtainable', dismissed: 'dismissed' }
 
-function Metric({ label, value, note }: { label: string; value: string | number; note?: string }) {
-  return (
-    <div className="grid content-start gap-1 sm:border-l sm:border-rule sm:pl-4 sm:first:border-l-0 sm:first:pl-0">
-      <dt className="ds-kicker">{label}</dt>
-      <dd className="font-display text-3xl leading-none tracking-[-0.03em] tabular-nums">{value}</dd>
-      {note && <dd className="text-[13px] text-faint">{note}</dd>}
-    </div>
-  )
-}
 
 function History({ created, entries }: { created: string; entries: HistoryEntry[] }) {
   return (
@@ -161,14 +152,18 @@ export default async function CompletenessPage({ params, searchParams }: { param
           actions={<LanguageToggle value={lang} langs={['en', 'hi']} />}
         />
         <Explainer>{EXPLAIN.completeness} {EXPLAIN.letter}</Explainer>
-        <dl className="grid grid-cols-2 gap-6 border border-rule bg-surface px-5 py-5 sm:grid-cols-5 rounded-lg">
-          <Metric label="Noticed" value={m.detected} />
-          <Metric label="Asked for" value={m.requested} />
-          <Metric label="Arrived" value={m.received} />
-          <Metric label="Closed" value={m.closed} />
-          <Metric label="Closed before the next visit" value={m.closure.den ? `${m.closure.num} of ${m.closure.den}` : '—'}
-            note={m.closure.den ? 'Counted among items noticed before a sealed visit' : 'No visit sealed since they were noticed'} />
-        </dl>
+        <div className="ds-feature grid gap-4 rounded-xl border border-rule p-5 shadow-card">
+          <Pipeline label="Missing papers, from noticed to closed" stages={[
+            { label: 'Noticed', value: m.detected, tone: 'unverified', detail: 'Mentioned in another paper' },
+            { label: 'Asked for', value: m.requested, tone: 'setu', detail: 'A request letter was made' },
+            { label: 'Arrived', value: m.received, tone: 'patient', detail: 'A paper came in; a person confirms' },
+            { label: 'Closed', value: m.closed, tone: 'verified', detail: 'Confirmed by a person' },
+          ]} />
+          <p className="text-[14px] text-muted">
+            <span className="font-semibold text-ink">Closed before the next visit: {m.closure.den ? `${m.closure.num} of ${m.closure.den}` : '—'}</span>
+            {' · '}{m.closure.den ? 'Counted among items noticed before a sealed visit' : 'No visit sealed since they were noticed'}
+          </p>
+        </div>
       </div>
 
       <section aria-labelledby="open-h" className="grid gap-8">

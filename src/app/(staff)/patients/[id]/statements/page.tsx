@@ -53,7 +53,7 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
 
   return (
     <div className="mt-8 grid gap-8">
-      <SectionHeader
+      <SectionHeader feature
         title="The patient’s own answers"
         description="What the patient or a family member told us before the visit, in their own words. It always stays marked “patient said”: it is never treated as backed by a document."
       />

@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { and, eq, ne } from 'drizzle-orm'
 import { DeskLookup, type DeskHit } from '@/components/registration/DeskLookup'
-import { UserPlus } from 'lucide-react'
-import { Avatar, Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
+import { CalendarCheck, DoorOpen, Repeat, UserPlus } from 'lucide-react'
+import { Avatar, Badge, ButtonLink, EmptyState, SectionHeader, StatTile, Table } from '@/components/ui'
 import { withOrg } from '@/db'
 import { patients } from '@/db/schema'
 import { decryptField } from '@/server/crypto'
@@ -38,6 +38,12 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
       <DeskLookup preselected={preselected} />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
         <h2 className="text-lg">Today&apos;s encounters</h2>
+        <ul aria-label="Today at a glance" className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <li><StatTile icon={<CalendarCheck />} value={today.length} label="Visits today" sub="Started at this clinic since midnight" /></li>
+          <li><StatTile tone="verified" icon={<DoorOpen />} value={today.filter((e) => e.open).length} label="Open now" sub="Not closed yet" /></li>
+          <li><StatTile tone="patient" icon={<UserPlus />} value={today.filter((e) => e.type === 'onboarding').length} label="First visits" sub="New to this clinic" /></li>
+          <li><StatTile tone="shadow" icon={<Repeat />} value={today.filter((e) => e.type === 'returning').length} label="Returning" sub="Seen here before" /></li>
+        </ul>
         {today.length === 0 ? (
           <EmptyState title="No visits yet today" description="A visit starts when a patient is identified or newly registered." />
         ) : (

@@ -21,7 +21,7 @@ export default async function PreauthWorklistPage({ searchParams }: { searchPara
   const pages = Math.ceil(patients / QUEUE_PAGE)
   return (
     <div className="grid grid-cols-1 gap-10">
-      <SectionHeader
+      <SectionHeader feature
         as="h1"
         kicker="Insurance desk · PM-JAY oncology packages"
         title="Pre-authorisation files"

@@ -18,7 +18,7 @@ export default async function NotFound() {
   return (
     <PublicShell brand={staff ? "OncoSetu" : "Setu Records"} actions={false}>
       <div className="mx-auto grid max-w-reading px-4 py-12 sm:px-8 sm:py-20">
-        <Frame>
+        <Frame tone="feature">
           <div className="grid gap-4 px-6 py-8 sm:px-8 sm:py-10">
             <span aria-hidden className="grid size-12 place-items-center rounded-md bg-alcove text-faint"><SearchX className="size-6" /></span>
             <p className="ds-kicker">Error 404</p>

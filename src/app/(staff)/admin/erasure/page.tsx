@@ -24,7 +24,7 @@ export default async function ErasurePage() {
   const due = rows.filter((r) => r.due).length
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Retention" title="Erasure requests"
+      <SectionHeader feature as="h1" kicker="Admin · Retention" title="Erasure requests"
         description="Requests recorded after a patient withdrew consent. Access stopped when consent was withdrawn. A request becomes eligible once the keep-for period in Settings has run from the request and 3 years have passed since the last encounter; a daily job then erases it, or you can erase it here. Patients are shown by record code only." />
       {rows.length > 0 && <div><RunDueErasures count={due} /></div>}
       {rows.length === 0 ? <EmptyState title="No erasure requests" description="A request appears here when a patient, a caregiver, or records staff on the patient's request records one after consent is withdrawn." /> : (

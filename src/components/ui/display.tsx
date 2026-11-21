@@ -299,6 +299,7 @@ export function SectionHeader({
   description,
   actions,
   as: H = "h2",
+  feature,
   className,
 }: {
   kicker?: ReactNode;
@@ -306,12 +307,15 @@ export function SectionHeader({
   description?: ReactNode;
   actions?: ReactNode;
   as?: "h1" | "h2" | "h3";
+  /** The page's lead card when it has no summary block of its own: the teal wash and logo-ring overlay behind the title. */
+  feature?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={clsx(
-        "flex flex-wrap items-end justify-between gap-x-6 gap-y-4 pb-2",
+        "flex flex-wrap items-end justify-between gap-x-6 gap-y-4",
+        feature ? "ds-feature rounded-2xl border border-rule px-5 py-5 shadow-card sm:px-6 sm:py-6" : "pb-2",
         className,
       )}
     >
@@ -397,14 +401,14 @@ export function EmptyState({
   return (
     <div
       className={clsx(
-        "flex flex-col items-center gap-2.5 rounded-lg border border-rule bg-surface px-6 py-12 text-center",
+        "flex flex-col items-center gap-2.5 rounded-lg border border-wash-rule bg-wash px-6 py-12 text-center",
         className,
       )}
     >
       {icon && (
         <span
           aria-hidden
-          className="mb-1 grid size-12 place-items-center rounded-full bg-alcove text-faint [&_svg]:size-6 [&_svg]:stroke-[1.5]"
+          className="mb-1 grid size-12 place-items-center rounded-full bg-surface text-faint shadow-card [&_svg]:size-6 [&_svg]:stroke-[1.5]"
         >
           {icon}
         </span>

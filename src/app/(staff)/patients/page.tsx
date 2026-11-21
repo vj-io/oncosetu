@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { Avatar, Badge, Button, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
-import { CircleHelp, EyeOff, Search, ShieldCheck, UserPlus } from 'lucide-react'
+import { Avatar, Badge, Button, ButtonLink, EmptyState, SectionHeader, StatTile, Table } from '@/components/ui'
+import { CircleHelp, EyeOff, FileX, Search, ShieldCheck, Sparkles, Stamp, UserPlus, Users } from 'lucide-react'
 import { withOrg } from '@/db'
 import { writeAudit } from '@/server/audit'
 import { patientGlances } from '@/server/registration/doctor-overview'
@@ -32,6 +32,17 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
         description={desk ? 'The desk sees initials only. Open a record through Desk lookup, which checks who the person is first.' : 'Search by name, phone number, hospital number or record code. Each row shows what needs a look before the visit.'}
         actions={<ButtonLink href="/patients/new" icon={<UserPlus aria-hidden />}>Register a patient</ButtonLink>}
       />
+      {!desk && rows.length > 0 && (() => {
+        const gs = rows.map((r) => glance.get(r.id)).filter(Boolean) as NonNullable<ReturnType<typeof glance.get>>[]
+        return (
+          <ul aria-label="This list at a glance" className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <li><StatTile icon={<Users />} value={rows.length} label={q ? 'Matches' : 'Patients listed'} sub={q ? `For “${q}”` : 'Most recently registered first'} /></li>
+            <li><StatTile tone="patient" icon={<Sparkles />} value={gs.filter((g) => g.lastSealed && g.newSinceSeal > 0).length} label="New papers since a visit" sub="Sealed before, new items since" /></li>
+            <li><StatTile tone="unverified" icon={<FileX />} value={gs.filter((g) => g.notInFile > 0).length} label="Papers missing" sub="At least one paper not in file" /></li>
+            <li><StatTile tone="shadow" icon={<Stamp />} value={gs.filter((g) => !g.lastSealed).length} label="No visit sealed yet" sub="First visit still open" /></li>
+          </ul>
+        )
+      })()}
       <form role="search" className="flex flex-wrap items-center gap-2" action="/patients">
         <label className="sr-only" htmlFor="q">Search patients</label>
         <span className="relative w-full max-w-lg flex-1">

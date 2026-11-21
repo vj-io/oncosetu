@@ -29,3 +29,6 @@ export type { TabItem, Lang } from "./interactive";
 
 export { InfoTip, Explainer } from "./InfoTip";
 export { EXPLAIN } from "./explain";
+
+export { Panel, Ring, Legend, ActionList, Checklist, MilestoneLine, StatTile, BarList, Pipeline, SegmentBar } from "./dashboard";
+export type { RingPart, ActionItem, CheckState, Milestone } from "./dashboard";

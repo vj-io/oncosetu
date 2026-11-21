@@ -24,7 +24,7 @@ export default async function MeasurementPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Consultation study" title="Consultation study"
+      <SectionHeader feature as="h1" kicker="Admin · Consultation study" title="Consultation study"
         description="Consultation forms from clinicians, plus the measures the system collects itself. The export has no names, phones, dates of birth, encounter ids, clinician ids or exact dates."
         actions={canExport ? <ButtonLink href="/api/measure/export.csv" prefetch={false} variant="secondary" icon={<Download aria-hidden />}>Export anonymised CSV</ButtonLink> : undefined} />
 

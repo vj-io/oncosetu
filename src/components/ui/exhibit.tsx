@@ -13,6 +13,7 @@ export function Frame({
   caption,
   animate = false,
   delay,
+  tone,
   className,
   children,
   style,
@@ -22,9 +23,11 @@ export function Frame({
   caption?: ReactNode;
   animate?: boolean;
   delay?: number;
+  /** "feature": the card a page leads with (teal wash and logo-ring overlay); "tint": a side card (very light teal). */
+  tone?: "feature" | "tint";
 }) {
   const body = (
-    <div className={clsx("relative rounded-lg border border-rule bg-surface shadow-card", matte && "p-1 sm:p-2", animate && "ds-frame-in", className)} style={{ ...delayStyle(delay), ...style }} {...rest}>
+    <div className={clsx("relative rounded-lg border shadow-card", tone === "feature" ? "ds-feature border-rule" : tone === "tint" ? "border-wash-rule bg-wash" : "border-rule bg-surface", matte && "p-1 sm:p-2", animate && "ds-frame-in", className)} style={{ ...delayStyle(delay), ...style }} {...rest}>
       {children}
     </div>
   );

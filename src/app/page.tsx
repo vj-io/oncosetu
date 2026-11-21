@@ -95,7 +95,7 @@ export default function Home() {
         </ol>
       </section>
 
-      <section id="about" aria-labelledby="about-h" className="scroll-mt-6 border-y border-rule bg-surface">
+      <section id="about" aria-labelledby="about-h" className="ds-feature scroll-mt-6 border-y border-rule">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:px-8 sm:py-20">
           <h2 id="about-h" className="text-[1.75rem] leading-tight sm:text-[2.125rem]">About OncoSetu</h2>
           <p className="mt-3 max-w-[44rem] text-[17px] text-muted">

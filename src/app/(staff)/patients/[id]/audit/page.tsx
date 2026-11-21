@@ -15,7 +15,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
   const chain = await verifyAuditChain(data.orgId)
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-6 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="Activity log" title="Everything that happened to this record"
         description="Who did what, and when. The log never stores patient names, phone numbers or document text."
         actions={chain.ok

@@ -31,7 +31,7 @@ export default async function RecordsPage({ params, searchParams }: { params: Pr
   const modality = mod && mod in MODALITY_LABEL ? (mod as ModalityKey) : 'any'
   return (
     <div className="grid gap-5 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="All records"
         title="All records"
         description="Every report, scan, lab result and prescription on this record, in date order. Scans are stored and shown, not read. This is a list of papers, not a clinical summary."

@@ -31,8 +31,11 @@
   --color-black: #000000;
 
   /* Surfaces */
-  --color-gallery: #f2f4f7; /* page canvas */
+  --color-gallery: #f6f8f9; /* page canvas */
   --color-surface: #ffffff; /* tiles, panels */
+  /* Side cards (next actions, since the last visit): a very light teal. muted 5.77, faint 5.10, setu-ink 6.51 on wash */
+  --color-wash: #edf4f5;
+  --color-wash-rule: #dbe8ea;
   --color-matte: #ffffff; /* inputs, inner frames */
   --color-alcove: #eef1f4; /* recessed rows, table heads, segmented tracks */
   --color-floor: #e4e8ee;
@@ -45,6 +48,12 @@
   --color-pine-line: #e4e7ec;
   --color-nav-text: #344054;
   --color-nav-muted: #667085;
+  /* Staff sidebar (deep teal): white 12.38, side-text 9.87, side-muted 6.34 on side; white on side-on 9.82 */
+  --color-side: #0b3a41;
+  --color-side-hover: #123f46;
+  --color-side-on: #174a52;
+  --color-side-text: #d7e9eb;
+  --color-side-muted: #9cc0c5;
   --color-muted: #526070;
   --color-faint: #5b6878;
   --color-placeholder: #667085;
@@ -236,7 +245,7 @@
     color: var(--color-muted);
     text-align: left;
     padding: 0.625rem 0.875rem;
-    background: var(--color-alcove);
+    background: var(--color-wash);
     border-bottom: 1px solid var(--color-rule);
     white-space: nowrap;
   }
@@ -423,5 +432,47 @@
 @keyframes ds-drawer-left {
   from {
     transform: translateX(-100%);
+  }
+}
+
+/* Depth touches: the staff sidebar's gradient with the logo's bridge arches as faint rings, and the same overlay, in teal, on
+   the one feature card of a dashboard. Both overlays are decorative images behind the content (no text sits on a
+   colour lighter than the measured stops: side-muted on #0f4a52 is 5.07:1, muted on #e3f0f1 is 5.51:1). */
+@layer components {
+  .ds-side {
+    isolation: isolate;
+    background: linear-gradient(180deg, #0f4a52 0%, #0b3a41 48%, #072a30 100%);
+  }
+  .ds-side::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    z-index: -1;
+    width: min(100%, 420px);
+    aspect-ratio: 256 / 360;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 360' fill='none' stroke='%23fff'%3E%3Cpath d='M10 360V330A34 34 0 0 1 78 330V360' stroke-width='14' stroke-opacity='0.07'/%3E%3Cpath d='M10 360V330A34 34 0 0 1 78 330V360' stroke-width='1.5' stroke-opacity='0.16'/%3E%3Cpath d='M-24 360V330A68 68 0 0 1 112 330V360' stroke-width='1.5' stroke-opacity='0.13'/%3E%3Cpath d='M-58 360V330A102 102 0 0 1 146 330V360' stroke-width='1.5' stroke-opacity='0.11'/%3E%3Cpath d='M-92 360V330A136 136 0 0 1 180 330V360' stroke-width='1.5' stroke-opacity='0.09'/%3E%3Cpath d='M-126 360V330A170 170 0 0 1 214 330V360' stroke-width='1.5' stroke-opacity='0.07'/%3E%3Cpath d='M-160 360V330A204 204 0 0 1 248 330V360' stroke-width='1.5' stroke-opacity='0.055'/%3E%3Cpath d='M-194 360V330A238 238 0 0 1 282 330V360' stroke-width='1.5' stroke-opacity='0.045'/%3E%3C/svg%3E") no-repeat left bottom / 100% 100%;
+  }
+  .ds-feature {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: linear-gradient(135deg, #e3f0f1 0%, #f1f7f8 42%, #ffffff 100%);
+  }
+  .ds-feature::after {
+    content: "";
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    z-index: -1;
+    width: min(360px, 70%);
+    aspect-ratio: 360 / 260;
+    pointer-events: none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 260' fill='none' stroke='%230e7f8c'%3E%3Cpath d='M276 260V236A42 42 0 0 1 360 236V260' stroke-width='16' stroke-opacity='0.07'/%3E%3Cpath d='M276 260V236A42 42 0 0 1 360 236V260' stroke-width='1.5' stroke-opacity='0.2'/%3E%3Cpath d='M236 260V236A82 82 0 0 1 400 236V260' stroke-width='1.5' stroke-opacity='0.16'/%3E%3Cpath d='M196 260V236A122 122 0 0 1 440 236V260' stroke-width='1.5' stroke-opacity='0.13'/%3E%3Cpath d='M156 260V236A162 162 0 0 1 480 236V260' stroke-width='1.5' stroke-opacity='0.1'/%3E%3Cpath d='M116 260V236A202 202 0 0 1 520 236V260' stroke-width='1.5' stroke-opacity='0.08'/%3E%3Cpath d='M76 260V236A242 242 0 0 1 560 236V260' stroke-width='1.5' stroke-opacity='0.06'/%3E%3Cpath d='M36 260V236A282 282 0 0 1 600 236V260' stroke-width='1.5' stroke-opacity='0.045'/%3E%3C/svg%3E") no-repeat right bottom / 100% 100%;
+  }
+  /* A faint teal light at the top of the staff canvas, so the page is not one flat grey. */
+  .ds-canvas {
+    background: radial-gradient(900px 360px at 90% -120px, rgb(14 127 140 / 0.09), transparent 70%);
   }
 }

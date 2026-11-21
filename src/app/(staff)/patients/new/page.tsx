@@ -6,7 +6,7 @@ export default async function NewPatientPage() {
   const s = await requireStaff(['desk', 'records', 'clinician'])
   return (
     <section className="grid gap-8">
-      <SectionHeader
+      <SectionHeader feature
         as="h1" kicker="Registration" title="Register a patient"
         description="Identity, contacts and disclosure, then the consent notice. The patient's choices are recorded separately for each purpose."
       />

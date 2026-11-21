@@ -16,7 +16,7 @@ export default async function RulesPage() {
   const prod = rules.filter((r) => r.mode === 'production').length
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Missing papers" title="The checks that notice missing papers"
+      <SectionHeader feature as="h1" kicker="Admin · Missing papers" title="The checks that notice missing papers"
         description={`${rules.length} missing-papers checks. ${prod} in use, ${rules.length - prod} still under review: those run quietly, but nothing they find is shown to staff until a clinician has reviewed them.`} />
       <p className="flex max-w-3xl items-start gap-3 border border-l-[3px] border-rule border-l-setu bg-setu-tint px-4 py-3 text-[15px] rounded-lg">
         <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-setu-ink" />

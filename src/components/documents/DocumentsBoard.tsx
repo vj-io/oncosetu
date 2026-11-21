@@ -6,7 +6,7 @@ import clsx from 'clsx'
 import {
   Activity, ArrowRight, Camera, CopyCheck, FileImage, FileText, Fingerprint, Hand, KeyRound, Languages, Library, LoaderCircle, PauseCircle, PenLine, ScanLine, ScanText, ShieldAlert, Upload, Video,
 } from 'lucide-react'
-import { Badge, Button, EmptyState, EXPLAIN, InfoTip, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
+import { Badge, Button, EmptyState, EXPLAIN, InfoTip, ProgressMeter, StageTracker, StatusBadge, TONE, type Tone } from '@/components/ui'
 import { inBacklogOrder } from '@/core/backlog'
 import { MAX_FILE_BYTES, MAX_ZIP_BYTES, MB } from '@/core/limits'
 import { capFor, needsChunks, uploadChunked } from '@/lib/chunked-upload'
@@ -169,7 +169,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
     <div className="grid gap-10">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         {/* Summary */}
-        <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6 rounded-lg">
+        <section aria-labelledby="progress-h" className="ds-feature grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-4 self-start rounded-xl border border-rule p-5 shadow-card sm:p-6">
           <p className="ds-kicker">In this file</p>
           <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length - removed.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}{removed.length ? ` · ${removed.length} rejected` : ''}</h2>
           <p className="text-sm text-muted">
@@ -177,6 +177,12 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             {p.awaitingDecision > 0 ? <span className="text-madder-ink">{p.awaitingDecision} held for checking · </span> : null}
             {p.pagesProcessed} of {p.pagesReceived} pages read · {p.pagesVerified} confirmed by a person.
           </p>
+          {p.pagesReceived > 0 && (
+            <div className="grid gap-3 border-t border-rule pt-4">
+              <ProgressMeter label="Pages read" value={p.pagesProcessed} max={p.pagesReceived} detail={`${p.pagesProcessed} / ${p.pagesReceived}`} />
+              <ProgressMeter label="Pages confirmed by a person" value={p.pagesVerified} max={Math.max(1, p.pagesProcessed)} detail={`${p.pagesVerified} / ${p.pagesProcessed}`} tone="verified" />
+            </div>
+          )}
         </section>
 
         {/* Upload (FR-ING-02) */}
@@ -186,7 +192,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
             onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) void fromFiles(e.dataTransfer.files) }}
-            className={clsx('grid place-items-center gap-3 border-2 border-dashed px-6 py-8 text-center transition-colors rounded-xl', drag ? 'border-setu/40 bg-setu-tint' : 'border-control bg-matte')}
+            className={clsx('grid place-items-center gap-3 border-2 border-dashed px-6 py-8 text-center transition-colors rounded-xl', drag ? 'border-setu/40 bg-setu-tint' : 'border-control bg-wash')}
           >
             <Upload aria-hidden className="size-7 text-muted" strokeWidth={1.5} />
             <div className="grid gap-1">

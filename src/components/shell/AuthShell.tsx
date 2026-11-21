@@ -13,7 +13,7 @@ export function AuthShell({ headline, points, children, footer }: { headline: st
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-pine focus:px-4 focus:py-3 focus:text-white">
         Skip to content
       </a>
-      <aside className="hidden flex-col bg-pine px-12 py-10 text-white lg:flex">
+      <aside className="ds-side relative hidden flex-col px-12 py-10 text-white lg:flex">
         <Link href="/" aria-label="OncoSetu home" className="flex min-h-11 w-fit items-center rounded-md focus-visible:outline-white">
           <Wordmark onDark />
         </Link>

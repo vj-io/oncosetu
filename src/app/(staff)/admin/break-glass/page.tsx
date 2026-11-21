@@ -16,7 +16,7 @@ export default async function BreakGlassPage() {
   const waiting = rows.filter((r) => !r.reviewedAt).length
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
+      <SectionHeader feature as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
         description="Staff opening a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Someone other than the person who used it reviews every grant: another administrator, or the auditor when the hospital has only one administrator. Until then it is shown as an alert on the admin pages. Patients are shown by record code only." />
       {rows.length === 0 ? <EmptyState title="No break-glass grants" description="Nobody has used break-glass access in this organisation." /> : (
         <>

@@ -130,7 +130,10 @@ export default function StaffLoginPage() {
               </Button>
             </form>
           </Frame>
-          <p className="mt-6 text-[15px] text-muted">
+          <p className="mt-4 text-[15px]">
+            <Link href="/login/reset" className="inline-flex min-h-11 items-center text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Forgot your password?</Link>
+          </p>
+          <p className="mt-2 text-[15px] text-muted">
             Patient or family?{" "}
             <Link href="/p/login" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">
               Sign in here

@@ -1,4 +1,5 @@
 // FR-ADM-01: staff management. The staff table has no RLS, so every query filters by org explicitly.
+import { randomBytes } from 'node:crypto'
 import { and, asc, eq, isNull } from 'drizzle-orm'
 import QRCode from 'qrcode'
 import type { Tx } from '@/db'
@@ -15,10 +16,17 @@ export type StaffRow = {
   lastLoginAt: Date | null; createdAt: Date; isDemo: boolean; locked: boolean
 }
 
+// A deleted account keeps its row, because records and the audit trail name it, but loses its e-mail, password and
+// authenticator. Its e-mail becomes `deleted-<id>@deleted.invalid` (`.invalid` is reserved, RFC 2606, so no real address
+// can match), which frees the real one for a new account.
+// ponytail: deleted is read from the e-mail; a deleted_at column if deleted accounts ever need listing or more state
+const DELETED_DOMAIN = '@deleted.invalid'
+export const isDeletedEmail = (email: string) => email.endsWith(DELETED_DOMAIN)
+
 export async function listStaff(tx: Tx, orgId: string): Promise<StaffRow[]> {
   const rows = await tx.select().from(staff).where(eq(staff.orgId, orgId)).orderBy(asc(staff.role), asc(staff.name))
   const t = Date.now()
-  return rows.map((s) => ({
+  return rows.filter((s) => !isDeletedEmail(s.email)).map((s) => ({
     id: s.id, name: s.name, email: s.email, role: s.role, active: s.active, totpEnabled: s.totpEnabled,
     lastLoginAt: s.lastLoginAt, createdAt: s.createdAt, isDemo: s.isDemo, locked: !!s.lockedUntil && s.lockedUntil.getTime() > t,
   }))
@@ -35,7 +43,7 @@ async function enrol(email: string): Promise<{ enrollment: TotpEnrollment; secre
 
 async function target(ctx: AdminCtx, id: string) {
   const [s] = await ctx.db.select().from(staff).where(and(eq(staff.id, id), eq(staff.orgId, ctx.session.orgId)))
-  if (!s) throw new HttpError(404, 'not_found', 'Not found')
+  if (!s || isDeletedEmail(s.email)) throw new HttpError(404, 'not_found', 'Not found')
   return s
 }
 
@@ -46,6 +54,7 @@ async function assertNotLastAdmin(ctx: AdminCtx, id: string, change: { role?: st
 
 export async function createStaff(ctx: AdminCtx, input: { name: string; email: string; role: StaffRole; password: string }) {
   const email = input.email.trim().toLowerCase()
+  if (isDeletedEmail(email)) throw new HttpError(400, 'invalid_email', 'Use the person\'s real work email')
   const [taken] = await ctx.db.select({ id: staff.id }).from(staff).where(eq(staff.email, email))
   if (taken) throw new HttpError(409, 'email_taken', 'That email address is already registered')
   const { enrollment, secretEnc } = await enrol(email)
@@ -83,4 +92,18 @@ export async function resetStaffTotp(ctx: AdminCtx, id: string) {
   await ctx.db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.staffId, id), isNull(sessions.revokedAt)))
   await ctx.audit('staff.totp_reset', 'staff', id)
   return { id, enrollment }
+}
+
+/** Deletes an account for good: it cannot sign in or be reactivated, and its e-mail can be used for a new account. */
+export async function deleteStaff(ctx: AdminCtx, id: string) {
+  const s = await target(ctx, id)
+  if (s.id === ctx.session.staffId) throw new HttpError(409, 'self_delete', 'You cannot delete your own account')
+  if (s.isDemo) throw new HttpError(409, 'demo_account', 'Demo accounts cannot be deleted')
+  await assertNotLastAdmin(ctx, id, { active: false })
+  await ctx.db.update(staff).set({
+    email: `deleted-${id}${DELETED_DOMAIN}`, passwordHash: await hashPassword(randomBytes(32).toString('base64url')),
+    totpSecretEnc: null, totpEnabled: false, totpLastStep: null, active: false, failedLogins: 0, lockedUntil: null,
+  }).where(eq(staff.id, id))
+  await ctx.db.update(sessions).set({ revokedAt: new Date() }).where(and(eq(sessions.staffId, id), isNull(sessions.revokedAt)))
+  await ctx.audit('staff.delete', 'staff', id, { role: s.role })
 }

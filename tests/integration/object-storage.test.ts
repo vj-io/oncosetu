@@ -104,6 +104,28 @@ describe('originals in object storage', () => {
     }
   }, 60_000)
 
+  it('with an object store, an upload needs database room for its chunks only, not for the file as well', async () => {
+    const c = await ctx()
+    const { startUpload } = await import('../../src/server/uploads/chunks')
+    const size = 40 * 1048576
+    const start = () => c.db.withOrg(ORG_NARMADA_ID, (tx) => startUpload(tx, {
+      orgId: ORG_NARMADA_ID, patientId: pid, uploader: base.uploadedBy, fileName: 'cd.zip', totalSize: size, totalChunks: Math.ceil(size / (3.5 * 1048576)),
+      sha256: 'a'.repeat(64), intakeRoute: 'bulk',
+    } as Parameters<typeof startUpload>[1]))
+    const [{ used }] = await owner`select pg_database_size(current_database())::bigint as used`
+    const before = process.env.STORAGE_BUDGET_MB
+    try {
+      process.env.STORAGE_BUDGET_MB = String(Math.ceil((Number(used) + 1.5 * size) / 1048576)) // room for 1.5 x the file
+      c.objects.setObjectStoreForTests(memStore)
+      await expect(start()).resolves.toMatchObject({ id: expect.any(String) })
+      c.objects.setObjectStoreForTests(null)
+      await expect(start()).rejects.toMatchObject({ status: 507, code: 'storage_full' })
+    } finally {
+      if (before === undefined) delete process.env.STORAGE_BUDGET_MB; else process.env.STORAGE_BUDGET_MB = before
+      await owner`delete from upload_sessions where patient_id = ${pid}`
+    }
+  }, 60_000)
+
   it('with no store configured, files stay in Postgres as before', async () => {
     const c0 = await ctx()
     c0.objects.setObjectStoreForTests(null)

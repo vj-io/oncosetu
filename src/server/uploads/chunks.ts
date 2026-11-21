@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { uploadChunks, uploadSessions } from '@/db/schema'
-import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, objectBudgetBytes, STORAGE_BUDGET_BYTES, UPLOAD_SESSION_HOURS } from '@/core/limits'
+import { CHUNK_BYTES, MAX_FILE_BYTES, MAX_ZIP_BYTES, objectBudgetBytes, storageBudgetBytes, UPLOAD_SESSION_HOURS } from '@/core/limits'
 import { objectStore } from '@/server/objects'
 import { decryptBytes, encryptBytes, encryptField } from '../crypto'
 import { HttpError } from '../http'
@@ -31,9 +31,10 @@ export function checkStart(i: Pick<StartInput, 'fileName' | 'totalSize' | 'total
 export async function startUpload(tx: Tx, i: StartInput): Promise<{ id: string; chunkBytes: number }> {
   const c = checkStart(i)
   if (!c.ok) throw new HttpError(c.code === 'file_too_large' ? 413 : 400, c.code, c.message)
-  // Files are stored in the database twice while uploading (chunks, then the file), so refuse before the quota is reached.
+  // The upload's chunks sit in the database until it is assembled; the file then goes to the database too, unless an object
+  // store takes originals. Refuse before the quota is reached.
   const [{ used }] = await tx.execute<{ used: string }>(sql`select pg_database_size(current_database())::text as used`)
-  if (Number(used) + 2 * i.totalSize > STORAGE_BUDGET_BYTES) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
+  if (Number(used) + (objectStore() ? 1 : 2) * i.totalSize > storageBudgetBytes()) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
   if (objectStore()) {
     // ponytail: the sum is per organisation (RLS); one org per deployment today, a global sum needs the owner role
     const [{ stored }] = await tx.execute<{ stored: string }>(sql`select coalesce(sum(size), 0)::text as stored from document_files where object_key is not null`)

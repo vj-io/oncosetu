@@ -4,7 +4,8 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Tx } from '@/db'
 import { caregivers, contactEmails, inboundAliases, patients, staff } from '@/db/schema'
-import { decryptField, encryptField, hmac, randomToken } from '../crypto'
+import { encryptField, hmac, randomToken } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { HttpError } from '../http'
 import { assertPatientAccess } from '../patients'
 import type { StaffCtx } from '../registration/http'
@@ -33,7 +34,7 @@ export async function inboundEmailView(tx: Tx, patientId: string) {
     domain,
     address: alias && domain ? dropAddress(alias.aliasToken, domain) : null,
     contacts: rows.map((r): ContactEmailView => ({
-      id: r.id, emailMasked: maskEmail(decryptField(r.emailEnc)), caregiverId: r.caregiverId,
+      id: r.id, emailMasked: ((m) => (m ? maskEmail(m) : '—'))(readOrNull(r.emailEnc, 'contact email', r.id)), caregiverId: r.caregiverId,
       verifiedBy: names.get(r.verifiedBy) ?? 'Staff', verifiedAt: r.verifiedAt, revoked: !!r.revokedAt,
     })),
   }

@@ -7,6 +7,7 @@ import { decryptField, maskPhone, normalizePhone, phoneHmac } from '../crypto'
 import { ageYears, initials } from '../patients'
 import { accession } from './http'
 import { log } from '../log'
+import { UNREADABLE_NAME } from '../unreadable'
 
 export type PatientRow = {
   id: string; accession: string; name: string; initials: string; ageYears: number | null
@@ -16,7 +17,7 @@ export type PatientRow = {
   unreadable?: boolean
 }
 
-export const UNREADABLE_NAME = 'Record unreadable — contact admin'
+export { UNREADABLE_NAME }
 
 /** What the desk may see before the person is verified (FR-ID-02): initials and a non-identifying code. */
 export const initialsView = (r: Pick<PatientRow, 'id' | 'initials' | 'accession'>) => ({ id: r.id, initials: r.initials, accession: r.accession })

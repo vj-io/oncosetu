@@ -5,7 +5,7 @@ import { CalendarCheck, DoorOpen, Repeat, UserPlus } from 'lucide-react'
 import { Avatar, Badge, ButtonLink, EmptyState, SectionHeader, StatTile, Table } from '@/components/ui'
 import { withOrg } from '@/db'
 import { patients } from '@/db/schema'
-import { decryptField } from '@/server/crypto'
+import { readOrNull } from '@/server/unreadable'
 import { initials } from '@/server/patients'
 import { todaysEncounters } from '@/server/registration/desk'
 import { accession } from '@/server/registration/http'
@@ -22,7 +22,7 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
     let hit: DeskHit | null = null
     if (wanted && UUID.test(wanted)) {
       const [p] = await tx.select({ nameEnc: patients.nameEnc }).from(patients).where(and(eq(patients.id, wanted), ne(patients.status, 'erased')))
-      if (p) hit = { id: wanted, initials: initials(decryptField(p.nameEnc)), accession: accession(wanted) }
+      if (p) hit = { id: wanted, initials: ((n) => (n ? initials(n) : '?'))(readOrNull(p.nameEnc, 'patient name', wanted)), accession: accession(wanted) }
     }
     return { today: await todaysEncounters(tx, s.orgId), preselected: hit }
   })

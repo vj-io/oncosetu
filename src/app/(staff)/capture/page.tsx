@@ -7,7 +7,7 @@ import { requireStaff } from '@/server/session'
 export const metadata: Metadata = {
   title: 'Capture · OncoSetu',
   manifest: '/manifest.webmanifest',
-  icons: { apple: '/icons/icon-192.png' },
+  icons: { icon: '/icon.svg', apple: '/icons/icon-192.png' }, // a page-level icons object replaces the app icon, so name both
   appleWebApp: { capable: true, title: 'OncoSetu', statusBarStyle: 'default' },
 }
 

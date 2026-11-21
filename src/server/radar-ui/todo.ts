@@ -7,7 +7,7 @@ import type { DocType } from '@/core/types'
 import type { Tx } from '@/db'
 import { documents, missingRecords, recordRequests } from '@/db/schema'
 import { now } from '../clock'
-import { decryptField } from '../crypto'
+import { nameOrFlag } from '../unreadable'
 import { peopleWithConsent } from '../ledger/queue'
 import { reminderPlan } from '../requests/reminders'
 import { requestMissingIds } from './completeness'
@@ -60,6 +60,6 @@ export async function loadChaseQueue(tx: Tx, orgId: string): Promise<ChaseQueue>
     const days = Math.floor((+at - +r.sentAt!) / 86_400_000)
     return { patientId: r.patientId, name: '', text: `Letter to ${r.institution || 'the hospital'}: ${requestMissingIds(r).length || 1} paper${requestMissingIds(r).length > 1 ? 's' : ''} asked for`, detail: `Given to the hospital ${days} days ago, no paper yet`, days, href: `/patients/${r.patientId}/requests#r-${r.id}` }
   })
-  for (const row of [...toAsk, ...arrived, ...reminders]) row.name = decryptField(nameEnc.get(row.patientId)!)
+  for (const row of [...toAsk, ...arrived, ...reminders]) row.name = nameOrFlag(nameEnc.get(row.patientId), 'patient name', row.patientId)
   return { toAsk, reminders, arrived, counts: { toAsk: askItems.length, reminders: remItems.length, arrived: arrItems.length }, withoutConsent }
 }

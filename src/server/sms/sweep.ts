@@ -7,7 +7,7 @@
 import { and, eq, lt } from 'drizzle-orm'
 import { withOrg } from '@/db'
 import { caregivers, outbox, patients } from '@/db/schema'
-import { decryptField } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { log } from '../log'
 import { deliver } from '../outbox'
 import { smsProvider, type SmsChannel, type SmsProvider } from './provider'
@@ -26,13 +26,14 @@ export async function sweepOutbox(orgIds: string[], providerFor: (c: SmsChannel)
         const [p] = await tx.select({ enc: patients.phoneEnc }).from(patients).where(eq(patients.phoneHmac, r.toHmac)).limit(1)
         const enc = p?.enc ?? (await tx.select({ enc: caregivers.phoneEnc }).from(caregivers).where(eq(caregivers.phoneHmac, r.toHmac)).limit(1))[0]?.enc
         const provider = providerFor(r.channel)
-        if (!enc || !provider) {
-          await tx.update(outbox).set({ delivery: 'failed', deliveryError: enc ? 'no_provider' : 'stale_no_recipient', deliveryUpdatedAt: new Date() })
+        const to = enc ? readOrNull(enc, 'outbox recipient phone', r.id) : null // one unreadable number fails its own message, not the sweep
+        if (!to || !provider) {
+          await tx.update(outbox).set({ delivery: 'failed', deliveryError: !enc ? 'stale_no_recipient' : !to ? 'unreadable_recipient' : 'no_provider', deliveryUpdatedAt: new Date() })
             .where(eq(outbox.id, r.id))
           failed++
           continue
         }
-        out.push({ id: r.id, orgId, channel: r.channel, to: decryptField(enc), body: r.body, provider })
+        out.push({ id: r.id, orgId, channel: r.channel, to, body: r.body, provider })
       }
       return out
     })

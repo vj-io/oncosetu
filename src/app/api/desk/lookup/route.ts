@@ -3,7 +3,7 @@ import { route } from '@/server/http'
 import { initialsView, searchPatients } from '@/server/registration/search'
 import { resolveToken } from '@/server/registration/token'
 import { initials } from '@/server/patients'
-import { decryptField } from '@/server/crypto'
+import { readOrNull } from '@/server/unreadable'
 import { patients } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { accession } from '@/server/registration/http'
@@ -19,7 +19,7 @@ export const POST = route({
     await ctx.audit('desk.lookup', r.status === 'ok' ? 'patient' : null, r.status === 'ok' ? r.patientId : null, { mode, outcome: r.status })
     if (r.status !== 'ok') return { status: r.status, results: [] }
     const [p] = await ctx.db.select({ nameEnc: patients.nameEnc }).from(patients).where(eq(patients.id, r.patientId))
-    return { status: 'ok', results: p ? [{ id: r.patientId, initials: initials(decryptField(p.nameEnc)), accession: accession(r.patientId) }] : [] }
+    return { status: 'ok', results: p ? [{ id: r.patientId, initials: ((n) => (n ? initials(n) : '?'))(readOrNull(p.nameEnc, 'patient name', r.patientId)), accession: accession(r.patientId) }] : [] }
   }
   const rows = await searchPatients(ctx.db, value, 10, mode)
   await ctx.audit('desk.lookup', null, null, { mode, outcome: rows.length ? 'found' : 'not_found', results: rows.length })

@@ -2,7 +2,8 @@
 import { and, desc, eq, gt, gte, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { breakGlass, caregivers, consents, encounters, patients, type ConsentPurposes } from '@/db/schema'
-import { decryptField, maskPhone } from './crypto'
+import { maskPhone } from './crypto'
+import { nameOrFlag, readOrNull, UNREADABLE_NAME } from './unreadable'
 import { startOfIstDay } from './desk-window'
 import { HttpError } from './http'
 import type { Session } from './session'
@@ -33,15 +34,16 @@ export async function loadPatient(tx: Tx, id: string): Promise<PatientView | nul
   const [p] = await tx.select().from(patients).where(eq(patients.id, id))
   if (!p) return null
   const cgs = await tx.select().from(caregivers).where(eq(caregivers.patientId, id)).orderBy(caregivers.createdAt)
-  const name = decryptField(p.nameEnc)
-  const dob = p.dobEnc ? decryptField(p.dobEnc) : null
+  const name = readOrNull(p.nameEnc, 'patient name', p.id)
+  const dob = readOrNull(p.dobEnc, 'patient date of birth', p.id)
+  const phone = readOrNull(p.phoneEnc, 'patient phone', p.id)
   return {
-    id: p.id, orgId: p.orgId, name, initials: initials(name), dob, ageYears: dob ? ageYears(dob) : null, sex: p.sex,
-    phoneMasked: p.phoneEnc ? maskPhone(decryptField(p.phoneEnc)) : null, mrn: p.mrn, disclosure: p.disclosureStatus,
+    id: p.id, orgId: p.orgId, name: name ?? UNREADABLE_NAME, initials: name ? initials(name) : '?', dob, ageYears: dob ? ageYears(dob) : null, sex: p.sex,
+    phoneMasked: phone ? maskPhone(phone) : null, mrn: p.mrn, disclosure: p.disclosureStatus,
     primaryContact: p.primaryContact, minor: p.minor, deceased: p.deceased, preferredLanguage: p.preferredLanguage,
     tokenRevoked: !!p.tokenRevokedAt, status: p.status,
     caregivers: cgs.map((c) => ({
-      id: c.id, name: decryptField(c.nameEnc), relation: c.relation, phoneMasked: maskPhone(decryptField(c.phoneEnc)),
+      id: c.id, name: nameOrFlag(c.nameEnc, 'caregiver name', p.id), relation: c.relation, phoneMasked: maskPhone(readOrNull(c.phoneEnc, 'caregiver phone', p.id) ?? ''),
       isGuardian: c.isGuardian, active: c.active && !c.revokedAt,
     })),
   }

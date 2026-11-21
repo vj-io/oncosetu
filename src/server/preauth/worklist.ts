@@ -6,7 +6,7 @@ import { PREAUTH_LINES, preauthSummary, type FileDoc, type PreauthLineSummary } 
 import type { DocType } from '@/core/types'
 import type { Tx } from '@/db'
 import { documents, events } from '@/db/schema'
-import { decryptField } from '../crypto'
+import { nameOrFlag } from '../unreadable'
 import { accession } from '../admin/format'
 import { peopleWithConsent, QUEUE_PAGE } from '../ledger/queue'
 
@@ -44,6 +44,6 @@ export async function loadPreauthWorklist(tx: Tx, offset = 0, limit = QUEUE_PAGE
   }
   // Most papers still to find first: that file needs the desk soonest.
   rows.sort((a, b) => b.missing - a.missing || a.accession.localeCompare(b.accession))
-  const shown = rows.slice(offset, offset + limit).map(({ nameEnc, ...r }) => ({ ...r, name: decryptField(nameEnc) }))
+  const shown = rows.slice(offset, offset + limit).map(({ nameEnc, ...r }) => ({ ...r, name: nameOrFlag(nameEnc, 'patient name', r.patientId) }))
   return { rows: shown, patients: rows.length, withoutConsent }
 }

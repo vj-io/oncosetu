@@ -2,7 +2,7 @@
 import { and, asc, desc, eq, isNull } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { caregivers, patients } from '@/db/schema'
-import { decryptField } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { sendMessage } from '../outbox'
 import { inLang } from '@/core/copy'
 import type { Lang } from '@/core/types'
@@ -15,8 +15,14 @@ async function activeCaregivers(tx: Tx, patientId: string) {
     .orderBy(desc(caregivers.isGuardian), asc(caregivers.createdAt))
 }
 
-const viaCaregiver = (c: typeof caregivers.$inferSelect, lang: Lang): ContactTarget =>
-  ({ phone: decryptField(c.phoneEnc), lang, caregiverId: c.id })
+// A phone that cannot be decrypted counts as no phone: the caller then falls back exactly as for a missing one
+// (a caregiver's phone, or confirmation in person with a witness). Only the row id and an error code are logged.
+const phoneOf = (enc: string | null, rowId: string) => readOrNull(enc, 'contact phone', rowId)
+
+const viaCaregiver = (c: typeof caregivers.$inferSelect, lang: Lang): ContactTarget | null => {
+  const phone = phoneOf(c.phoneEnc, c.patientId)
+  return phone ? { phone, lang, caregiverId: c.id } : null
+}
 
 /**
  * The primary contact: the caregiver (guardian first) when the caregiver is primary or the patient is a minor,
@@ -27,7 +33,8 @@ export async function primaryContactTarget(tx: Tx, patientId: string): Promise<C
   if (!p) return null
   const cgs = await activeCaregivers(tx, patientId)
   if (p.minor || p.primaryContact === 'caregiver') return cgs[0] ? viaCaregiver(cgs[0], p.preferredLanguage) : null
-  if (p.phoneEnc) return { phone: decryptField(p.phoneEnc), lang: p.preferredLanguage, caregiverId: null }
+  const own = phoneOf(p.phoneEnc, p.id)
+  if (own) return { phone: own, lang: p.preferredLanguage, caregiverId: null }
   return cgs[0] ? viaCaregiver(cgs[0], p.preferredLanguage) : null
 }
 
@@ -42,13 +49,15 @@ export async function patientOwnTarget(tx: Tx, patientId: string): Promise<Conta
     const g = (await activeCaregivers(tx, patientId)).find((c) => c.isGuardian)
     return g ? viaCaregiver(g, p.preferredLanguage) : null
   }
-  return p.phoneEnc ? { phone: decryptField(p.phoneEnc), lang: p.preferredLanguage, caregiverId: null } : null
+  const own = phoneOf(p.phoneEnc, p.id)
+  return own ? { phone: own, lang: p.preferredLanguage, caregiverId: null } : null
 }
 
 /** The patient's own phone whatever their age: the adult patient confirming that control passes to them (E-ID-10). */
 export async function patientPhoneTarget(tx: Tx, patientId: string): Promise<ContactTarget | null> {
   const [p] = await tx.select().from(patients).where(eq(patients.id, patientId))
-  return p?.phoneEnc ? { phone: decryptField(p.phoneEnc), lang: p.preferredLanguage, caregiverId: null } : null
+  const own = p ? phoneOf(p.phoneEnc, p.id) : null
+  return own ? { phone: own, lang: p!.preferredLanguage, caregiverId: null } : null
 }
 
 /**
@@ -58,7 +67,8 @@ export async function patientPhoneTarget(tx: Tx, patientId: string): Promise<Con
 export async function tellPatient(tx: Tx, p: { orgId: string; patientId: string; templateKey: string; body: { en: string; hi: string; hinglish?: string } }): Promise<boolean> {
   const [r] = await tx.select({ phoneEnc: patients.phoneEnc, deceased: patients.deceased, lang: patients.preferredLanguage })
     .from(patients).where(eq(patients.id, p.patientId))
-  if (!r?.phoneEnc || r.deceased) return false
-  await sendMessage(tx, { orgId: p.orgId, patientId: p.patientId, toPhone: decryptField(r.phoneEnc), channel: 'sms', templateKey: p.templateKey, body: inLang(p.body, r.lang), lang: r.lang })
+  const to = r ? phoneOf(r.phoneEnc, p.patientId) : null
+  if (!to || r!.deceased) return false
+  await sendMessage(tx, { orgId: p.orgId, patientId: p.patientId, toPhone: to, channel: 'sms', templateKey: p.templateKey, body: inLang(p.body, r.lang), lang: r.lang })
   return true
 }

@@ -4,7 +4,7 @@ import type { Lang } from '@/core/types'
 import type { Tx } from '@/db'
 import { caregivers, consents, sessions, type ConsentPurposes } from '@/db/schema'
 import { now } from '../clock'
-import { decryptField } from '../crypto'
+import { nameOrFlag } from '../unreadable'
 import { cancelOpenErasure } from '../erasure/erasure'
 import { activeConsent } from '../patients'
 import { revokeAllShares } from './shares'
@@ -29,7 +29,7 @@ export async function loadConsentView(tx: Tx, patientId: string): Promise<Consen
     purposes: active?.purposes ?? NO_PURPOSES,
     recordedAt: last?.at.toISOString() ?? null,
     withdrawn: last?.action === 'withdraw',
-    caregivers: cgs.map((c) => ({ id: c.id, name: decryptField(c.nameEnc), relation: c.relation, active: c.active && !c.revokedAt })),
+    caregivers: cgs.map((c) => ({ id: c.id, name: nameOrFlag(c.nameEnc, 'caregiver name', c.patientId ?? c.id), relation: c.relation, active: c.active && !c.revokedAt })),
   }
 }
 

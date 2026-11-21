@@ -17,7 +17,7 @@ export function PaperPreview({ id, mime, pages, pageImages, className }: { id: s
   }
   if (mime.startsWith('video/')) return <video controls preload="metadata" className={`max-h-[28rem] w-full border border-rule bg-obsidian ${className ?? ''}`} src={`/api/documents/${id}/file?kind=original`} />
   return (
-    <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">
+    <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">
       This kind of file cannot be drawn here. <a className="underline underline-offset-4" href={`/api/documents/${id}/file?kind=original`}>Open the original</a>.
     </p>
   )

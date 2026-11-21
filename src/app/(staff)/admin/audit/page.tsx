@@ -32,13 +32,13 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Activity log" title="Activity log"
+      <SectionHeader feature as="h1" kicker="Admin · Activity log" title="Activity log"
         description="A tamper-proof log: entries are only ever added, and each is linked to the one before it, so any edit would show. Entries carry ids and categories only, never names, quotes or file contents. Times are India time."
         actions={<ButtonLink href={`/api/admin/audit.csv${qs({}) ? `?${qs({})}` : ''}`} variant="secondary" icon={<Download aria-hidden />} prefetch={false}>Export CSV</ButtonLink>} />
 
       <VerifyChain />
 
-      <form method="get" className="grid gap-4 border border-rule bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5" aria-label="Audit filters">
+      <form method="get" className="grid gap-4 border border-rule bg-surface p-4 sm:grid-cols-2 lg:grid-cols-5 rounded-lg" aria-label="Audit filters">
         <Field label="Who"><Select name="actor" defaultValue={f.actorId ?? ''}><option value="">Anyone</option>{facets.people.map((p) => <option key={p.id} value={p.id}>{p.name} · {roleLabel(p.role)}</option>)}</Select></Field>
         <Field label="What happened"><Select name="action" defaultValue={f.action ?? ''}><option value="">Any action</option>{facets.actions.map((a) => <option key={a} value={a}>{describeAction(a)}</option>)}</Select></Field>
         <Field label="About"><Select name="type" defaultValue={f.targetType ?? ''}><option value="">Any target</option>{facets.targetTypes.map((a) => <option key={a} value={a}>{describeTarget(a)}</option>)}</Select></Field>
@@ -52,15 +52,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
       {result.rows.length === 0 ? <EmptyState title="No audit entries match" description={reversed ? "“From” is after “To”. Put the earlier date in “From”." : 'Widen the date range or clear a filter.'} /> : (
         <>
-          <p className="font-mono text-sm text-muted" role="status">{result.total.toLocaleString('en-IN')} {plural(result.total, 'entry', 'entries')} · page {Math.min(page, result.pages)} of {result.pages}</p>
+          <p className="text-sm text-muted" role="status">{result.total.toLocaleString('en-IN')} {plural(result.total, 'entry', 'entries')} · page {Math.min(page, result.pages)} of {result.pages}</p>
           <Table caption="Audit entries, newest first">
             <thead><tr><th>No.</th><th>When</th><th>Who</th><th>What happened</th><th>About</th><th>Details</th><th>Fingerprint</th></tr></thead>
             <tbody>
               {result.rows.map((r) => (
                 <tr key={r.id}>
-                  <td className="font-mono text-[13px] tabular-nums">{r.seq}</td>
-                  <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
-                  <td><span className="block">{r.actorId ? (names.get(r.actorId) ?? <span className="font-mono text-[13px]">{shortId(r.actorId)}</span>) : 'System'}</span><span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{roleLabel(r.actorRole)}</span></td>
+                  <td className="text-[13px] tabular-nums">{r.seq}</td>
+                  <td className="text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
+                  <td><span className="block">{r.actorId ? (names.get(r.actorId) ?? <span className="text-[13px]">{shortId(r.actorId)}</span>) : 'System'}</span><span className="text-[13px] text-faint font-medium">{roleLabel(r.actorRole)}</span></td>
                   <td className="text-[14px]">{describeAction(r.action)}</td>
                   <td className="text-[14px]">{describeTarget(r.targetType)}{r.targetId && (
                     <span className="block text-faint" title={r.targetId}>
@@ -69,7 +69,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                     </span>
                   )}</td>
                   <td className="max-w-64 text-[13px] break-words text-muted">{Object.keys(r.details).length ? <dl className="grid gap-0.5">{describeDetails(r.details, accession).map((d) => <div key={d.key}><dt className="inline">{d.key}: </dt><dd className="inline">{d.value}</dd></div>)}</dl> : '—'}</td>
-                  <td className="font-mono text-[12px] text-faint" title={r.hash}>{r.hash.slice(0, 8)}</td>
+                  <td className="text-[12px] text-faint" title={r.hash}>{r.hash.slice(0, 8)}</td>
                 </tr>
               ))}
             </tbody>

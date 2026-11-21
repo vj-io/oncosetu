@@ -100,7 +100,7 @@ export function ConsentPanel({
     <div className="mt-8 grid gap-10">
       <div role="status" aria-live="polite">
         {note && (
-          <p className={clsx("flex items-start gap-2 border px-4 py-3 text-[17px]", note.kind === "withdrawn" ? "border-ink bg-alcove" : "border-sage bg-sage-tint text-sage-ink")}>
+          <p className={clsx("flex items-start gap-2 border px-4 py-3 text-[17px] rounded-lg", note.kind === "withdrawn" ? "border-ink bg-alcove" : "border-sage/40 bg-sage-tint text-sage-ink")}>
             <CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />
             {note.text}
           </p>
@@ -109,7 +109,7 @@ export function ConsentPanel({
       {error && <ErrorNote>{error}</ErrorNote>}
 
       <section className="grid gap-1">
-        <ul className="divide-y divide-rule border border-rule bg-surface">
+        <ul className="divide-y divide-rule border border-rule bg-surface rounded-lg">
           {PURPOSES.map((key) => (
             <li key={key}>
               <label className="flex min-h-16 cursor-pointer items-center gap-4 px-4 py-4">
@@ -124,10 +124,10 @@ export function ConsentPanel({
                     onChange={(e) => toggle(key, e.target.checked)}
                   />
                   <span aria-hidden className={clsx(
-                    "relative h-7 w-12 rounded-sm border border-ink transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:opacity-45",
-                    purposes[key] ? "border-setu bg-setu" : "bg-matte",
+                    "relative h-7 w-12 rounded-full border transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-setu-ink peer-disabled:opacity-45",
+                    purposes[key] ? "border-pine bg-pine" : "border-control bg-alcove",
                   )}>
-                    <span className={clsx("absolute top-0.5 left-0.5 size-5 rounded-xs transition-transform duration-200", purposes[key] ? "translate-x-5 bg-matte" : "bg-ink")} />
+                    <span className={clsx("absolute top-0.5 left-0.5 size-5 rounded-full shadow-card transition-transform duration-200", purposes[key] ? "translate-x-5 bg-matte" : "bg-surface ring-1 ring-control/50")} />
                   </span>
                 </span>
               </label>
@@ -137,7 +137,7 @@ export function ConsentPanel({
         <p className="pt-2 text-[16px] text-muted">{updated ? tp(lang, "consentLastUpdated", { date: updated }) : tp(lang, "consentNoneOnRecord")}</p>
       </section>
 
-      <section aria-labelledby="wd" className="grid gap-3 border border-rule bg-surface px-5 py-5">
+      <section aria-labelledby="wd" className="grid gap-3 border border-rule bg-surface px-5 py-5 rounded-lg">
         <h2 id="wd" className="text-xl">{tp(lang, "withdrawTitle")}</h2>
         <p className="text-[17px] text-muted">{tp(lang, "withdrawText")}</p>
         <PButton variant="danger" big loading={busy === "withdraw"} disabled={none || busy !== null} onClick={withdraw} className="w-full sm:w-auto">
@@ -146,7 +146,7 @@ export function ConsentPanel({
       </section>
 
       {none && (
-        <section aria-labelledby="er" className="grid gap-3 border border-rule bg-surface px-5 py-5">
+        <section aria-labelledby="er" className="grid gap-3 border border-rule bg-surface px-5 py-5 rounded-lg">
           <h2 id="er" className="text-xl">{tp(lang, "erasureTitle")}</h2>
           {erasure ? (
             <>
@@ -172,7 +172,7 @@ export function ConsentPanel({
         {cgs.length === 0 ? (
           <p className="text-muted">{tp(lang, "cgNone")}</p>
         ) : (
-          <ul className="divide-y divide-rule border border-rule bg-surface">
+          <ul className="divide-y divide-rule border border-rule bg-surface rounded-lg">
             {cgs.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                 <span className="grid min-w-0 flex-1">

@@ -31,7 +31,7 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
   const { rows, fresh } = got
   return (
     <div className="grid gap-10 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="Share with another doctor"
         title="Share links"
         description="A link, protected by a passcode, that stops working on the date you choose. It opens the list of documents as sealed at the last visit, headed “not a clinical summary”, with the papers that are not in file. The contents are locked in this browser; the key travels only inside the link."
@@ -56,16 +56,16 @@ export default async function SharesPage({ params }: { params: Promise<{ id: str
                     <td>
                       {r.label && <span className="block font-medium">{r.label}</span>}
                       <span className="block">{formatDateTimeIN(r.createdAt, 'en')}</span>
-                      <span className="font-mono text-[11px] text-faint">{r.createdBy} · {r.scope === 'summary' ? 'list only' : 'list and quotes'} · {r.passcode ? 'passcode' : 'no passcode'}</span>
+                      <span className="text-xs text-faint">{r.createdBy} · {r.scope === 'summary' ? 'list only' : 'list and quotes'} · {r.passcode ? 'passcode' : 'no passcode'}</span>
                     </td>
                     <td><Badge tone={STATUS[r.status]}>{STATUS_WORD[r.status] ?? r.status}</Badge></td>
-                    <td className="font-mono text-xs">{formatDateIN(istDate(r.expiresAt))}</td>
+                    <td className="text-xs">{formatDateIN(istDate(r.expiresAt))}</td>
                     <td>
-                      <span className="font-mono text-xs">{r.opened}</span>
+                      <span className="text-xs">{r.opened}</span>
                       {r.views.length > 0 && (
                         <details className="mt-1">
                           <summary className="cursor-pointer text-[13px] text-muted">Who opened it</summary>
-                          <ol className="mt-1 grid gap-0.5 font-mono text-[11px] text-muted">
+                          <ol className="mt-1 grid gap-0.5 text-xs text-muted">
                             {r.views.map((v, i) => <li key={i}>{formatDateTimeIN(v.at, 'en')} · {OUTCOME[v.outcome] ?? v.outcome} · {v.device}</li>)}
                           </ol>
                         </details>

@@ -33,7 +33,7 @@ function EnrollmentDialog({ who, enrollment, onClose }: { who: string; enrollmen
       {enrollment && (
         <div className="grid gap-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={enrollment.qrDataUrl} alt={`QR code for the authenticator secret of ${who}`} width={224} height={224} className="mx-auto border border-rule bg-matte p-2" />
+          <img src={enrollment.qrDataUrl} alt={`QR code for the authenticator secret of ${who}`} width={224} height={224} className="mx-auto border border-rule bg-matte p-2 rounded-md" />
           <div className="grid gap-1.5">
             <p className="ds-kicker">Or enter the secret by hand</p>
             <p className="font-mono text-base tracking-[0.12em] break-all select-all" data-testid="totp-secret">{enrollment.secret.match(/.{1,4}/g)?.join(' ')}</p>
@@ -86,8 +86,8 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
             return (
               <tr key={r.id} className={r.active ? undefined : 'text-faint'}>
                 <td>
-                  <span className="block">{r.name}{r.id === meId && <span className="ml-2 font-mono text-[11px] tracking-[0.12em] text-faint uppercase">You</span>}</span>
-                  <span className="font-mono text-[13px] text-muted">{r.email}</span>
+                  <span className="block">{r.name}{r.id === meId && <span className="ml-2 text-[13px] text-faint font-medium">You</span>}</span>
+                  <span className="text-[13px] text-muted">{r.email}</span>
                   {r.isDemo && <Badge tone="shadow" className="ml-2">Demo</Badge>}
                 </td>
                 <td>
@@ -104,7 +104,7 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
                     {!r.totpEnabled && <Badge tone="conflict">No authenticator</Badge>}
                   </div>
                 </td>
-                <td className="font-mono text-[13px] whitespace-nowrap">{r.lastLogin ?? 'Never'}</td>
+                <td className="text-[13px] whitespace-nowrap">{r.lastLogin ?? 'Never'}</td>
                 <td>
                   <div className="flex flex-wrap justify-end gap-1.5">
                     {r.active ? (
@@ -134,7 +134,7 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
           <Field label="Role"><Select value={form.role} onChange={set('role')}>{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
           <Field label="Temporary password" hint="At least 12 characters. Use Generate and give it to them in person, never by e-mail or chat; they replace it under their name (top right) → Change password.">
             <div className="flex gap-2">
-              <Input value={form.password} onChange={set('password')} autoComplete="off" spellCheck={false} className="font-mono" />
+              <Input value={form.password} onChange={set('password')} autoComplete="off" spellCheck={false} className="" />
               <Button variant="secondary" onClick={() => setForm((f) => ({ ...f, password: randomPassword() }))}>Generate</Button>
             </div>
           </Field>

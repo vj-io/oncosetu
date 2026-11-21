@@ -26,7 +26,7 @@ export type TabItem = { href: string; label: ReactNode; count?: number };
 export function Tabs({ items, label, className }: { items: TabItem[]; label: string; className?: string }) {
   const pathname = usePathname();
   return (
-    <nav aria-label={label} className={clsx("overflow-x-auto", className)}>
+    <nav aria-label={label} className={clsx("w-fit max-w-full overflow-x-auto rounded-md bg-alcove p-1", className)}>
       <ul className="flex min-w-max gap-1">
         {items.map((it) => {
           const active = pathname === it.href || pathname.startsWith(`${it.href}/`);
@@ -36,13 +36,13 @@ export function Tabs({ items, label, className }: { items: TabItem[]; label: str
                 href={it.href}
                 aria-current={active ? "page" : undefined}
                 className={clsx(
-                  "inline-flex h-11 items-center gap-2 border-b-2 px-2 text-sm whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px]",
-                  active ? "border-ink text-ink" : "border-transparent text-muted hover:border-rule hover:text-ink",
+                  "inline-flex h-10 items-center gap-2 rounded-sm px-3 text-[15px] whitespace-nowrap transition-colors",
+                  active ? "bg-surface font-semibold text-ink shadow-card" : "text-muted hover:bg-surface/60 hover:text-ink",
                 )}
               >
                 {it.label}
                 {it.count != null && (
-                  <span className="min-w-5 border border-rule bg-matte px-1 text-center font-mono text-[11px] text-faint tabular-nums">{it.count}</span>
+                  <span className={clsx("min-w-6 rounded-full px-1.5 text-center text-xs leading-5 font-semibold tabular-nums", active ? "bg-setu-tint text-setu-ink" : "bg-floor text-muted")}>{it.count}</span>
                 )}
               </Link>
             </li>
@@ -95,7 +95,7 @@ export function Dialog({
         <div className={clsx("flex flex-col", placement === "center" ? "max-h-[calc(100dvh-2rem)]" : "h-full")}>
           <header className="flex items-start justify-between gap-4 border-b border-rule px-5 py-4">
             <div className="min-w-0">
-              <h2 id={titleId} className="text-xl leading-snug">
+              <h2 id={titleId} className="text-lg leading-snug">
                 {title}
               </h2>
               {description && (
@@ -104,7 +104,7 @@ export function Dialog({
                 </p>
               )}
             </div>
-            <button type="button" onClick={onClose} aria-label="Close" className="-mt-1.5 -mr-2.5 grid size-11 shrink-0 place-items-center hover:bg-spotlight">
+            <button type="button" onClick={onClose} aria-label="Close" className="-mt-1.5 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-md text-muted hover:bg-spotlight hover:text-ink">
               <X aria-hidden className="size-5" />
             </button>
           </header>
@@ -137,12 +137,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-4 z-50 flex flex-col items-stretch gap-2 sm:right-6 sm:bottom-6 sm:left-auto sm:w-96">
         {items.map((t) => (
-          <div key={t.id} className={clsx("ds-toast pointer-events-auto flex items-start gap-3 border border-l-[3px] border-rule bg-surface py-3 pr-2 pl-4 shadow-placard", TONE[t.tone ?? "neutral"].bar)}>
+          <div key={t.id} className={clsx("ds-toast pointer-events-auto flex items-start gap-3 rounded-lg border border-l-4 border-rule bg-surface py-3 pr-2 pl-4 shadow-pop", TONE[t.tone ?? "neutral"].bar)}>
             <div className="min-w-0 flex-1 py-1">
               <p className="text-[15px] leading-snug font-medium">{t.title}</p>
               {t.description && <p className="mt-0.5 text-sm text-muted">{t.description}</p>}
             </div>
-            <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss notification" className="grid size-9 shrink-0 place-items-center hover:bg-spotlight">
+            <button type="button" onClick={() => dismiss(t.id)} aria-label="Dismiss notification" className="grid size-9 shrink-0 place-items-center rounded-md hover:bg-spotlight">
               <X aria-hidden className="size-4" />
             </button>
           </div>
@@ -175,7 +175,7 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
         role="tooltip"
         id={id}
         className={clsx(
-          "pointer-events-none absolute left-0 z-40 w-max max-w-[min(16rem,80vw)] bg-obsidian sm:left-1/2 sm:-translate-x-1/2 px-2.5 py-1.5 text-[13px] leading-snug text-gallery transition-opacity",
+          "pointer-events-none absolute left-0 z-40 w-max max-w-[min(16rem,80vw)] rounded-md bg-pine-deep px-2.5 py-1.5 text-[13px] leading-snug text-white shadow-pop transition-opacity sm:left-1/2 sm:-translate-x-1/2",
           side === "top" ? "bottom-full mb-2" : "top-full mt-2",
           open ? "visible opacity-100" : "invisible opacity-0",
         )}
@@ -202,7 +202,7 @@ export function LanguageToggle<L extends ToggleLang = Lang>({ value, onChange, c
     router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   };
   return (
-    <div role="group" aria-label="Language · भाषा" className={clsx("inline-flex border border-ink bg-matte", className)}>
+    <div role="group" aria-label="Language · भाषा" className={clsx("inline-flex overflow-hidden rounded-md border border-control/60 bg-matte", className)}>
       {langs.map((lang) => (
         <button
           key={lang}
@@ -211,9 +211,9 @@ export function LanguageToggle<L extends ToggleLang = Lang>({ value, onChange, c
           aria-pressed={value === lang}
           onClick={() => choose(lang)}
           className={clsx(
-            "h-11 min-w-12 px-3 transition-colors",
-            value === lang ? "bg-obsidian text-gallery" : "text-ink hover:bg-spotlight",
-            lang === "hi" || lang === "mr" ? "font-deva text-[15px]" : "font-mono text-xs tracking-[0.14em]",
+            "h-11 min-w-12 px-3 font-medium transition-colors",
+            value === lang ? "bg-pine text-white" : "text-ink hover:bg-spotlight",
+            lang === "hi" || lang === "mr" ? "font-deva text-[15px]" : "text-sm",
           )}
         >
           <span aria-hidden>{LANG_LABEL[lang][0]}</span>

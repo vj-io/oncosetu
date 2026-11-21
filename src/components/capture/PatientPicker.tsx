@@ -49,17 +49,17 @@ export function PatientPicker({
           <label
             key={p.key}
             className={clsx(
-              "flex min-h-14 cursor-pointer items-center gap-3 border bg-matte px-4 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink",
-              on ? "border-ink bg-spotlight" : "border-rule hover:border-control",
+              "flex min-h-14 cursor-pointer items-center gap-3 border bg-matte px-4 py-2.5 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink rounded-lg",
+              on ? "border-pine bg-sage-tint/50" : "border-rule hover:border-control",
             )}
           >
             <input type="radio" name="patient" className="sr-only" checked={on} onChange={() => onChange(p.key)} />
-            <span aria-hidden className={clsx("grid size-5 shrink-0 place-items-center border", on ? "border-ink bg-ink text-matte" : "border-control")}>
+            <span aria-hidden className={clsx("grid size-5 shrink-0 place-items-center border", on ? "border-pine bg-pine text-white" : "border-control")}>
               {on && <Check className="size-3.5" strokeWidth={3} />}
             </span>
             <span className="grid min-w-0 flex-1 gap-0.5">
               <span className="truncate text-[15px] font-medium">{p.name}</span>
-              <span className="font-mono text-xs tracking-[0.06em] text-faint">{p.meta}</span>
+              <span className="text-xs text-faint">{p.meta}</span>
             </span>
           </label>
         );

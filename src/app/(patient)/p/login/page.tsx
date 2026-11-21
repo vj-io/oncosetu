@@ -31,11 +31,11 @@ export default async function PatientLoginPage({ searchParams }: { searchParams:
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em]">{tp(lang, station ? 'stationTitle' : 'loginTitle')}</h1>
       <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : 'loginIntro')}</p>
       {smsAvailable() ? <LoginForm lang={lang} demo={isDemo()} after={after} station={station} />
-        : <p role="status" className="mt-6 border border-rule bg-matte p-4 text-[16px]">{tp(lang, 'loginUnavailable')}</p>}
+        : <p role="status" className="mt-6 border border-rule bg-matte p-4 text-[16px] rounded-lg">{tp(lang, 'loginUnavailable')}</p>}
       <p className="mt-8 text-[16px] text-muted">{tp(lang, 'loginHelp')}</p>
       <p className="mt-3 text-[16px] text-muted">
         {tp(lang, 'staffLinkText')}{' '}
-        <Link href="/login" data-testid="staff-login-link" className="inline-flex min-h-11 items-center text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">{tp(lang, 'staffLinkCta')}</Link>
+        <Link href="/login" data-testid="staff-login-link" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">{tp(lang, 'staffLinkCta')}</Link>
       </p>
     </PatientShell>
   )

@@ -3,7 +3,8 @@
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, events, patientAliases, patientMerges, patients, staff } from '@/db/schema'
-import { decryptField, normalise } from '../crypto'
+import { normalise } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { HttpError } from '../http'
 import { initials } from '../patients'
 import { identityKey } from '../registration/logic'
@@ -35,17 +36,19 @@ export async function listDuplicates(tx: Tx, orgId: string, merges: MergeView[])
   const rows = await tx.select().from(patients).where(and(eq(patients.orgId, orgId), eq(patients.status, 'active')))
   const aliasBy = new Map<string, string[]>()
   for (const a of await tx.select({ patientId: patientAliases.patientId, nameEnc: patientAliases.nameEnc }).from(patientAliases).where(eq(patientAliases.orgId, orgId))) {
-    aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), decryptField(a.nameEnc)])
+    const alias = readOrNull(a.nameEnc, 'alias name', a.patientId)
+    if (alias !== null) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), alias])
   }
   const names = new Map<string, string>()
-  const dp: DupPatient[] = rows.map((r) => {
-    const name = decryptField(r.nameEnc)
-    const dob = r.dobEnc ? decryptField(r.dobEnc) : null
+  const dp: DupPatient[] = rows.flatMap((r) => {
+    const name = readOrNull(r.nameEnc, 'patient name', r.id)
+    if (name === null) return [] // an unreadable row cannot be compared; the patients list flags it
+    const dob = readOrNull(r.dobEnc, 'patient date of birth', r.id)
     names.set(r.id, name)
-    return {
+    return [{
       id: r.id, status: r.status, name, aliases: aliasBy.get(r.id) ?? [], dob, phoneHmac: r.phoneHmac, abhaHmac: r.abhaHmac,
       identityHmac: r.identityHmac ?? identityKey(name, dob), mrn: r.mrn,
-    }
+    }]
   })
   const pairs = findDuplicatePairs(dp, new Set(merges.filter((m) => m.state !== 'rejected').map((m) => pairKey(m.survivorId, m.duplicateId))))
   const ids = [...new Set(pairs.flatMap((p) => [p.a, p.b]))]
@@ -121,7 +124,8 @@ export async function approveMerge(ctx: AdminCtx, mergeId: string) {
     moved[t] = r.count
   }
   // The duplicate's name stays findable as an alias, and identifiers the survivor lacks carry over.
-  if (normalise(decryptField(dup.nameEnc)) !== normalise(decryptField(survivor.nameEnc))) {
+  const dupName = readOrNull(dup.nameEnc, 'patient name', dup.id), survivorName = readOrNull(survivor.nameEnc, 'patient name', survivor.id)
+  if (dupName !== null && survivorName !== null && normalise(dupName) !== normalise(survivorName)) {
     await ctx.db.insert(patientAliases).values({ orgId, patientId: m.survivorId, nameEnc: dup.nameEnc, nameHmac: null, kind: 'other', createdBy: ctx.session.staffId })
   }
   await ctx.db.update(patients).set({

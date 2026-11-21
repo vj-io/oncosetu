@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { EmptyState } from "@/components/ui";
+import { Lock } from "lucide-react";
+import { ButtonLink, EmptyState } from "@/components/ui";
 import { roleHome } from "@/lib/staff-nav";
 import { getSession } from "@/server/session";
 
@@ -13,9 +13,10 @@ export default async function Forbidden() {
   return (
     <main className="mx-auto grid min-h-dvh max-w-2xl content-center px-4 py-16">
       <EmptyState
+        icon={<Lock />}
         title="This page is not available for your role"
         description="Your account does not include this page, or the record needs consent or verification first. Nothing has changed."
-        action={<Link className="underline" href={home}>{s ? "Go to your home page" : "Sign in"}</Link>}
+        action={<ButtonLink href={home}>{s ? "Go to your home page" : "Sign in"}</ButtonLink>}
       />
     </main>
   );

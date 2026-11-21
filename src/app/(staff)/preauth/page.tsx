@@ -11,7 +11,7 @@ import { requireStaff } from '@/server/session'
 
 export const metadata = { title: 'Pre-auth files · OncoSetu' }
 
-const link = 'font-mono text-[12px] tabular-nums text-setu-ink underline decoration-brass underline-offset-4 whitespace-nowrap'
+const link = 'text-[12px] tabular-nums text-setu-ink underline decoration-link underline-offset-4 whitespace-nowrap'
 
 export default async function PreauthWorklistPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const session = await requireStaff(['records'])
@@ -21,7 +21,7 @@ export default async function PreauthWorklistPage({ searchParams }: { searchPara
   const pages = Math.ceil(patients / QUEUE_PAGE)
   return (
     <div className="grid grid-cols-1 gap-10">
-      <SectionHeader
+      <SectionHeader feature
         as="h1"
         kicker="Insurance desk · PM-JAY oncology packages"
         title="Pre-authorisation files"
@@ -41,7 +41,7 @@ export default async function PreauthWorklistPage({ searchParams }: { searchPara
               <tr key={r.patientId} data-testid="preauth-row">
                 <td className="min-w-48">
                   <span className="block text-[15px] text-ink">{r.name}</span>
-                  <span className="font-mono text-[12px] whitespace-nowrap text-faint">Record code {r.accession}</span>
+                  <span className="text-[12px] whitespace-nowrap text-faint">Record code {r.accession}</span>
                   {r.mrn && <span className="block font-mono text-[12px] break-all text-faint">MRN {r.mrn}</span>}
                 </td>
                 {r.lines.map((l) => (

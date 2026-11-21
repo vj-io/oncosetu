@@ -41,8 +41,17 @@ describe('privacy acknowledgements and ID checks (0014)', () => {
       const [b] = await tx`select count(*)::int as n from id_verifications where patient_id = ${pid}`
       return [a.n, b.n]
     })
-    expect(await seen(ORG_NARMADA_ID)).toEqual([1, 1])
-    expect(await seen(ORG_GANGA_ID)).toEqual([0, 0])
+    try {
+      expect(await seen(ORG_NARMADA_ID)).toEqual([1, 1])
+      expect(await seen(ORG_GANGA_ID)).toEqual([0, 0])
+    } finally {
+      // Committed rows leave with the test: a stub name ('v1.x') left behind breaks every list that decrypts names.
+      await owner.begin(async (tx) => {
+        await tx`delete from id_verifications where patient_id = ${pid}`
+        await tx`delete from privacy_acknowledgements where patient_id = ${pid}`
+        await tx`delete from patients where id = ${pid}`
+      })
+    }
   })
 
   it('the database itself refuses anything but 4 characters for the stored ID part', async () => {

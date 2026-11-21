@@ -42,7 +42,8 @@ beforeAll(async () => {
     await tx`select set_config('app.org_id', ${ORG}, true)`
     await tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc, dob_enc, sex, disclosure_status) values (${pid}, ${ORG}, ${'t-' + pid}, ${c.crypto.encryptField('Mixed Held Test')}, ${c.crypto.encryptField('1970-01-01')}, 'female', 'cleared')`
     // REC-02: ciphertext written with another key (valid shape, wrong key): decryption fails.
-    await tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc, sex) values (${badPid}, ${ORG}, ${'t-' + badPid}, ${c.crypto.encryptField('Corrupt Row Test').slice(0, -6) + 'AAAAAA'}, 'female')`
+    const corrupt = (v: string) => c.crypto.encryptField(v).slice(0, -6) + 'AAAAAA'
+    await tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc, phone_enc, sex) values (${badPid}, ${ORG}, ${'t-' + badPid}, ${corrupt('Corrupt Row Test')}, ${corrupt('+91 90000 00000')}, 'female')`
     await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${pid}, 'grant', ${tx.json({ store: true, ai: false, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
     for (const m of MIX) {
       const [r] = await tx`insert into documents (org_id, patient_id, sha256, mime, size_bytes, intake_route, uploaded_by_kind, attach_state, status, doc_type, attach_decided_at, attach_reason)
@@ -153,3 +154,31 @@ describe('REC-02 in the records To do: one unreadable name does not fail the que
   })
 })
 
+
+describe('REC-02 on every list and header that decrypts names', () => {
+  it('the duplicate checks skip the unreadable row, the record header flags it, and only the id is logged', async () => {
+    const c = await imp()
+    const dupAdmin = await import('../../src/server/admin/duplicates')
+    const dupDesk = await import('../../src/server/registration/duplicates')
+    const patientsMod = await import('../../src/server/patients')
+    const logged: string[] = []
+    const spy = (await import('vitest')).vi.spyOn(console, 'error').mockImplementation((l: unknown) => { logged.push(String(l)) })
+    try {
+      // Before the fix each of these threw on the first unreadable row, and the admin Duplicates page returned 500.
+      const pairs = await c.db.withOrg(ORG, async (tx) => dupAdmin.listDuplicates(tx, ORG, await dupAdmin.listMerges(tx, ORG)))
+      expect(pairs.some((p) => [p.a.id, p.b.id].includes(badPid))).toBe(false)
+      const hits = await c.db.withOrg(ORG, (tx) => dupDesk.findDuplicates(tx, { name: 'Corrupt Row Test', aliases: [], dob: null, phoneHmac: null, abhaHmac: null, identityHmac: null, mrn: null }))
+      expect(hits.map((h) => h.id)).not.toContain(badPid)
+      const header = await c.db.withOrg(ORG, (tx) => patientsMod.loadPatient(tx, badPid))
+      expect(header).toMatchObject({ id: badPid, name: c.search.UNREADABLE_NAME, initials: '?', phoneMasked: null })
+      // An unreadable phone counts as no phone: nobody is reachable by text, so confirmation falls back to in person.
+      const contact = await import('../../src/server/registration/contact')
+      expect(await c.db.withOrg(ORG, (tx) => contact.primaryContactTarget(tx, badPid))).toBeNull()
+      expect(await c.db.withOrg(ORG, (tx) => contact.patientOwnTarget(tx, badPid))).toBeNull()
+      expect(await c.db.withOrg(ORG, (tx) => c.overview.loadOverview(tx, badPid))).toBeTruthy() // the patient Overview page
+    } finally { spy.mockRestore() }
+    const lines = logged.filter((l) => l.includes(badPid))
+    expect(lines.length).toBeGreaterThan(0)
+    for (const l of lines) expect(l).not.toContain('Corrupt Row Test')
+  })
+})

@@ -3,24 +3,24 @@
 import type { StaffRole } from './staff-nav'
 
 /**
- * Every tab of the patient workspace, in order. `main` tabs sit in the tab bar; the rest sit under "More".
- * `records` is the All-records view (route /patients/[id]/records, built in the doctor-views package); `documents` stays
- * under More until that view replaces it.
+ * Every tab of the patient workspace, in order. Each role sees at most four tabs in the bar (MAIN_FOR, its daily
+ * work); every other tab it may open sits under "More". `records` is the All-records view; `documents` is where papers
+ * are added and checked.
  */
 export const PATIENT_TAB_LIST = [
-  { key: 'overview', label: 'Overview', main: true },
-  { key: 'records', label: 'All records', main: true },
-  { key: 'ledger', label: 'What’s new', main: true },
-  { key: 'completeness', label: 'Missing papers', main: true },
-  { key: 'requests', label: 'Requests', main: true },
-  { key: 'shares', label: 'Share links', main: true },
-  { key: 'documents', label: 'Documents', main: false },
-  { key: 'timeline', label: 'Timeline', main: false },
-  { key: 'preauth', label: 'Pre-auth file', main: false },
-  { key: 'statements', label: 'Patient said', main: false },
-  { key: 'consent', label: 'Consent & access', main: false },
-  { key: 'audit', label: 'Who opened this record', main: false },
-  { key: 'card', label: 'Records card', main: false },
+  { key: 'overview', label: 'Overview' },
+  { key: 'records', label: 'All records' },
+  { key: 'ledger', label: 'What’s new' },
+  { key: 'completeness', label: 'Missing papers' },
+  { key: 'documents', label: 'Documents' },
+  { key: 'requests', label: 'Requests' },
+  { key: 'shares', label: 'Share links' },
+  { key: 'timeline', label: 'Timeline' },
+  { key: 'preauth', label: 'Pre-auth file' },
+  { key: 'statements', label: 'Patient said' },
+  { key: 'consent', label: 'Consent & access' },
+  { key: 'audit', label: 'Who opened this record' },
+  { key: 'card', label: 'Records card' },
 ] as const
 
 export type PatientTabKey = (typeof PATIENT_TAB_LIST)[number]['key']
@@ -49,8 +49,19 @@ export function rolesSentence(roles: readonly StaffRole[]): string {
   return names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
 }
 
-/** The tabs a role sees, split into the tab bar and the "More" menu. */
+/** The tab bar for each role: its daily work, at most four tabs. The desk adds papers; records staff and clinicians review them. */
+const MAIN_FOR: Record<StaffRole, readonly PatientTabKey[]> = {
+  desk: ['overview', 'documents', 'completeness', 'requests'],
+  records: ['overview', 'records', 'ledger', 'completeness'],
+  clinician: ['overview', 'records', 'ledger', 'completeness'],
+  org_admin: ['overview', 'completeness'],
+  auditor: ['overview', 'audit'],
+}
+
+/** The tabs a role sees, split into the tab bar and the "More" menu (without a role: the clinician's bar). */
 export function tabsFor(role: StaffRole | undefined) {
   const visible = PATIENT_TAB_LIST.filter((t) => !role || tabAllowed(t.key, role))
-  return { main: visible.filter((t) => t.main), more: visible.filter((t) => !t.main) }
+  const bar = MAIN_FOR[role ?? 'clinician']
+  const main = bar.flatMap((k) => visible.filter((t) => t.key === k))
+  return { main, more: visible.filter((t) => !bar.includes(t.key)) }
 }

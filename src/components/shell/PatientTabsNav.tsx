@@ -41,19 +41,19 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
 
   const tab = (active: boolean) =>
     clsx(
-      "inline-flex h-11 items-center gap-2 border-b-2 px-2 text-sm whitespace-nowrap transition-colors focus-visible:outline-offset-[-2px]",
-      active ? "border-ink text-ink" : "border-transparent text-muted hover:border-rule hover:text-ink",
+      "inline-flex h-10 items-center gap-2 rounded-sm px-3 text-[15px] whitespace-nowrap transition-colors",
+      active ? "bg-surface font-semibold text-ink shadow-card" : "text-muted hover:bg-surface/60 hover:text-ink",
     );
 
   return (
-    <div className="flex items-stretch">
-      <nav aria-label="Patient workspace" className="relative min-w-0 overflow-x-auto">
-        <ul className="flex min-w-max gap-1">
+    <div className="grid gap-1 rounded-md bg-alcove p-1 sm:flex sm:items-center">
+      <nav aria-label="Patient workspace" className="relative min-w-0 sm:overflow-x-auto">
+        <ul className="grid grid-cols-2 gap-1 sm:flex sm:min-w-max">
           {main.map((it) => (
             <li key={it.href}>
-              <Item it={it} inert={inert} active={on(it.href)} className={tab(on(it.href))}>
+              <Item it={it} inert={inert} active={on(it.href)} className={clsx(tab(on(it.href)), "w-full justify-center sm:w-auto")}>
                 {it.label}
-                {it.count != null && <span title={it.countLabel ? `${it.count} ${it.countLabel}` : undefined} className="min-w-5 border border-rule bg-matte px-1 text-center font-mono text-[11px] text-faint tabular-nums">{it.count}{it.countLabel && <span className="sr-only"> {it.countLabel}</span>}</span>}
+                {it.count != null && <span title={it.countLabel ? `${it.count} ${it.countLabel}` : undefined} className={clsx("min-w-6 rounded-full px-1.5 text-center text-xs leading-5 font-medium tabular-nums", on(it.href) ? "bg-setu-tint text-setu-ink" : "bg-floor text-muted")}>{it.count}{it.countLabel && <span className="sr-only"> {it.countLabel}</span>}</span>}
               </Item>
             </li>
           ))}
@@ -61,15 +61,15 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
       </nav>
       {more.length > 0 && (
         <div ref={box} className="relative shrink-0">
-          <button type="button" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)} className={clsx(tab(moreActive), "cursor-pointer")}>
+          <button type="button" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen(!open)} className={clsx(tab(moreActive), "w-full cursor-pointer justify-center sm:w-auto")}>
             More
             <ChevronDown aria-hidden className={clsx("size-4", open && "rotate-180")} />
           </button>
           {open && (
-            <ul className="absolute right-0 z-40 mt-px grid w-64 border border-rule bg-matte py-1 shadow-frame">
+            <ul className="absolute right-0 z-40 mt-2 grid w-64 overflow-hidden rounded-lg border border-rule bg-surface py-1 shadow-pop">
               {more.map((it) => (
                 <li key={it.href}>
-                  <Item it={it} inert={inert} active={on(it.href)} className={clsx("flex min-h-11 items-center px-4 text-[15px] hover:bg-spotlight", on(it.href) ? "text-ink underline decoration-brass underline-offset-4" : "text-muted")}>
+                  <Item it={it} inert={inert} active={on(it.href)} className={clsx("flex min-h-11 items-center px-4 text-[15px] hover:bg-spotlight", on(it.href) ? "bg-setu-tint font-semibold text-setu-ink" : "text-nav-text hover:text-ink")}>
                     {it.label}
                   </Item>
                 </li>

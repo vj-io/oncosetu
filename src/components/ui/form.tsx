@@ -9,15 +9,15 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const VARIANT: Record<ButtonVariant, string> = {
-  primary: "bg-obsidian text-gallery hover:bg-label active:bg-ink",
-  secondary: "border border-obsidian text-ink bg-transparent hover:bg-spotlight",
+  primary: "bg-pine text-white shadow-card hover:bg-pine-hover active:bg-pine-deep",
+  secondary: "border border-control/55 bg-surface text-ink shadow-card hover:border-control hover:bg-spotlight",
   ghost: "text-ink hover:bg-spotlight",
-  danger: "bg-madder-ink text-white hover:bg-madder",
+  danger: "bg-madder-ink text-white shadow-card hover:bg-[#82302a]",
 };
 const SIZE: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 gap-1.5 text-[11px]", // dense staff tables only; 44px elsewhere
-  md: "h-11 px-5 gap-2 text-xs",
-  lg: "h-12 px-7 gap-2.5 text-[13px]",
+  sm: "h-9 px-3 gap-1.5 text-sm", // dense staff tables only; 44px elsewhere
+  md: "h-11 px-4 gap-2 text-[15px]",
+  lg: "h-12 px-6 gap-2.5 text-base",
 };
 
 /** Classes for anything that should look like a button (e.g. a <Link>). */
@@ -27,7 +27,7 @@ export function buttonClasses({
   className,
 }: { variant?: ButtonVariant; size?: ButtonSize; className?: string } = {}) {
   return clsx(
-    "inline-flex shrink-0 items-center justify-center rounded-xs font-mono font-medium uppercase tracking-[0.14em] whitespace-nowrap transition-colors duration-150",
+    "inline-flex shrink-0 items-center justify-center rounded-md font-medium leading-none whitespace-nowrap transition-colors duration-150",
     "disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45",
     "[&_svg]:size-4 [&_svg]:shrink-0",
     VARIANT[variant],
@@ -70,9 +70,9 @@ export function ButtonLink({ variant, size, icon, children, className, ...rest }
 }
 
 const CONTROL =
-  "w-full rounded-xs border border-rule border-b-control bg-matte text-[15px] text-ink placeholder:text-placeholder transition-colors " +
-  "hover:border-b-ink focus:border-ink focus-visible:outline-2 focus-visible:outline-offset-1 " +
-  "aria-invalid:border-madder aria-invalid:border-b-madder disabled:cursor-not-allowed disabled:bg-alcove disabled:text-muted";
+  "w-full rounded-md border border-control bg-matte text-[15px] text-ink placeholder:text-placeholder transition-colors " +
+  "hover:border-faint focus:border-setu-ink focus-visible:outline-2 focus-visible:outline-offset-1 " +
+  "aria-invalid:border-madder-ink disabled:cursor-not-allowed disabled:bg-alcove disabled:text-muted";
 
 export function Input({ className, ...rest }: ComponentProps<"input">) {
   return <input className={clsx(CONTROL, "h-11 px-3", className)} {...rest} />;
@@ -95,14 +95,14 @@ export function Select({ className, children, ...rest }: ComponentProps<"select"
 
 type ControlProps = Omit<ComponentProps<"input">, "type"> & { label: ReactNode; description?: ReactNode };
 
-/** Square archival checkbox; the whole row is the 44px target. */
+/** Checkbox; the whole row is the 44px target. */
 export function Checkbox({ label, description, className, ...rest }: ControlProps) {
   return (
     <label className={clsx("group flex min-h-11 cursor-pointer items-start gap-3 py-2.5 has-disabled:cursor-not-allowed has-disabled:opacity-50", className)}>
       <span className="relative mt-0.5 grid size-5 shrink-0 place-items-center">
         <input
           type="checkbox"
-          className="peer size-5 cursor-pointer appearance-none rounded-xs border border-ink bg-matte transition-colors checked:bg-ink disabled:cursor-not-allowed disabled:opacity-45"
+          className="peer size-5 cursor-pointer appearance-none rounded-xs border border-control bg-matte transition-colors checked:border-pine checked:bg-pine disabled:cursor-not-allowed disabled:opacity-45"
           {...rest}
         />
         <Check aria-hidden strokeWidth={3} className="pointer-events-none absolute size-3.5 text-matte opacity-0 peer-checked:opacity-100" />
@@ -124,16 +124,16 @@ export function Switch({ label, description, className, ...rest }: ControlProps)
         {description && <span className="text-sm text-muted">{description}</span>}
       </span>
       <span className="flex items-center gap-2.5">
-        <span aria-hidden className="w-7 font-mono text-[11px] tracking-[0.12em] text-faint uppercase">
+        <span aria-hidden className="w-7 text-[13px] font-medium text-faint">
           <span className="group-has-checked:hidden">Off</span>
           <span className="hidden text-setu-ink group-has-checked:inline">On</span>
         </span>
         <input type="checkbox" role="switch" className="peer sr-only" {...rest} />
         <span
           aria-hidden
-          className="relative h-6 w-11 rounded-sm border border-ink bg-matte transition-colors group-has-checked:border-setu group-has-checked:bg-setu peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ink peer-disabled:opacity-45"
+          className="relative h-6 w-11 rounded-full border border-control bg-alcove transition-colors group-has-checked:border-pine group-has-checked:bg-pine peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-setu-ink peer-disabled:opacity-45"
         >
-          <span className="absolute top-0.5 left-0.5 size-[18px] rounded-xs bg-ink transition-transform duration-200 group-has-checked:translate-x-5 group-has-checked:bg-matte" />
+          <span className="absolute top-0.5 left-0.5 size-[18px] rounded-full bg-surface shadow-card ring-1 ring-control/40 transition-transform duration-200 group-has-checked:translate-x-5 group-has-checked:ring-0" />
         </span>
       </span>
     </label>
@@ -165,9 +165,9 @@ export function Field({
   const describedBy = [children.props["aria-describedby"], hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
     <div className={clsx("grid gap-1.5", className)}>
-      <label htmlFor={id} className="ds-kicker text-muted">
+      <label htmlFor={id} className="text-sm font-medium text-label">
         {label}
-        {optional && <span className="normal-case tracking-normal"> (optional)</span>}
+        {optional && <span className="font-normal text-faint"> (optional)</span>}
       </label>
       {cloneElement(children, { id, "aria-describedby": describedBy, "aria-invalid": error ? true : children.props["aria-invalid"] })}
       {hint && (

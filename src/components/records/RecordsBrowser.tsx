@@ -134,10 +134,10 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
   return (
     <div className="grid gap-4">
       {held > 0 && (
-        <p className="border border-l-[3px] border-rule border-l-amber bg-surface px-4 py-2 text-[15px]" data-testid="held-note">
+        <p className="border border-l-[3px] border-rule border-l-amber bg-surface px-4 py-2 text-[15px] rounded-lg" data-testid="held-note">
           {held} {held === 1 ? 'paper is' : 'papers are'} held until records staff confirm whose {held === 1 ? 'it is' : 'they are'}
           {heldScans > 0 ? ` (${heldScans} ${heldScans === 1 ? 'scan' : 'scans'}${held - heldScans > 0 ? `, ${held - heldScans} ${held - heldScans === 1 ? 'paper' : 'papers'}` : ''})` : ''}. {held === 1 ? 'It is' : 'They are'} not listed here.{' '}
-          <Link href={`/patients/${patientId}/documents`} className="underline decoration-brass underline-offset-4 hover:text-setu-ink">Review held papers</Link>
+          <Link href={`/patients/${patientId}/documents`} className="underline decoration-link underline-offset-4 hover:text-setu-ink">Review held papers</Link>
         </p>
       )}
 
@@ -145,7 +145,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
         <div className="flex flex-wrap items-center gap-2">
           {(['all', ...KIND_ORDER] as const).map((k) => (
             <button key={k} type="button" aria-pressed={kind === k} onClick={() => setFilter({ kind: k, modality: k === 'scan' || k === 'all' || k === 'report' ? modality : 'any' })}
-              className={clsx('inline-flex min-h-10 items-center gap-1.5 border px-3 text-[15px]', kind === k ? 'border-obsidian bg-obsidian text-gallery' : 'border-rule bg-matte hover:bg-spotlight')}>
+              className={clsx('inline-flex min-h-10 items-center gap-1.5 border px-3 text-[15px] rounded-md', kind === k ? 'border-obsidian bg-obsidian text-gallery' : 'border-rule bg-matte hover:bg-spotlight')}>
               {k === 'all' ? 'All' : KIND_LABEL[k]} <span className="tabular-nums opacity-70">{counts[k]}</span>
             </button>
           ))}
@@ -153,13 +153,13 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
             <label className="ml-auto inline-flex items-center gap-2 text-sm">
               <span className="text-muted">Kind of scan</span>
               <select value={modality} onChange={(e) => setFilter({ modality: e.target.value as ModalityKey | 'any', kind: e.target.value === 'any' || kind === 'all' || kind === 'scan' || kind === 'report' ? kind : 'all' })}
-                className="min-h-10 border border-rule bg-surface px-2 text-[15px]">
+                className="min-h-10 border border-rule bg-surface px-2 text-[15px] rounded-md">
                 <option value="any">Any</option>
                 {modalities.map((m) => <option key={m} value={m}>{MODALITY_LABEL[m]}</option>)}
               </select>
             </label>
           )}
-          <button type="button" onClick={() => setFilter({ order: order === 'new' ? 'old' : 'new' })} className={clsx('inline-flex min-h-10 items-center gap-1.5 border border-rule bg-matte px-3 text-sm hover:bg-spotlight', modalities.length === 0 && 'ml-auto')}>
+          <button type="button" onClick={() => setFilter({ order: order === 'new' ? 'old' : 'new' })} className={clsx('inline-flex min-h-10 items-center gap-1.5 border border-rule bg-matte px-3 text-sm hover:bg-spotlight rounded-md', modalities.length === 0 && 'ml-auto')}>
             <ArrowDownUp aria-hidden className="size-4" /> {order === 'new' ? 'Newest first' : 'Oldest first'}
           </button>
         </div>
@@ -171,7 +171,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] [&>*]:min-w-0">
-        <ul ref={listRef} className="grid content-start border border-rule bg-surface" aria-label="Records">
+        <ul ref={listRef} className="grid content-start border border-rule bg-surface rounded-lg" aria-label="Records">
           {filtered.length === 0 && <li className="p-6 text-[15px] text-muted">No papers match this filter.</li>}
           {filtered.map((r, i) => {
             const Icon = ICON[r.kind]
@@ -180,9 +180,9 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
             const newYear = i === 0 || yearOf(filtered[i - 1]) !== yearOf(r)
             return (
               <li key={r.id} className="contents">
-                {newYear && <div className="border-b border-rule bg-matte px-3 py-1.5 font-mono text-xs tracking-[0.14em] text-muted">{yearOf(r)}</div>}
+                {newYear && <div className="border-b border-rule bg-matte px-3 py-1.5 text-xs text-muted">{yearOf(r)}</div>}
                 <button type="button" id={`rec-${r.id}`} aria-current={sel === r.id ? 'true' : undefined} onClick={() => select(r.id)}
-                  className={clsx('grid w-full gap-1 border-b border-rule px-3 py-3 text-left last:border-b-0 hover:bg-spotlight/60', sel === r.id && 'bg-spotlight outline-2 -outline-offset-2 outline-brass')}>
+                  className={clsx('grid w-full gap-1 border-b border-rule px-3 py-3 text-left last:border-b-0 hover:bg-spotlight/60', sel === r.id && 'bg-sage-tint/60 outline-2 -outline-offset-2 outline-pine')}>
                   <span className="flex items-start gap-2">
                     <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />
                     <span className="grid min-w-0 flex-1 gap-0.5">
@@ -210,7 +210,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
         </ul>
 
         <div
-          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:sticky lg:top-20 lg:z-auto lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-rule lg:bg-surface lg:p-4')}
+          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:sticky lg:top-20 lg:z-auto lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-rule lg:bg-surface lg:p-4 lg:rounded-lg')}
           role="region" aria-label="Preview" data-testid="preview-panel"
         >
           {selected ? (
@@ -246,7 +246,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
   const studyButton = (e: RecordRow) => (
     <li key={e.id}>
       <button type="button" onClick={() => setCompare(compare === e.id ? null : e.id)} aria-pressed={compare === e.id}
-        className={clsx('grid min-h-12 gap-0.5 border px-3 py-2 text-left text-[14px] hover:bg-spotlight', compare === e.id ? 'border-obsidian bg-spotlight' : 'border-rule bg-matte')}>
+        className={clsx('grid min-h-12 gap-0.5 border px-3 py-2 text-left text-[14px] hover:bg-spotlight rounded-lg', compare === e.id ? 'border-obsidian bg-spotlight' : 'border-rule bg-matte')}>
         <span className="font-medium">{e.title} · {fmtDay(e.date)}</span>
         <span className="text-[12px] text-muted">{e.institution ?? 'Hospital not stated'} · {compare === e.id ? 'shown side by side' : 'show side by side'}</span>
       </button>
@@ -262,16 +262,16 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
       </div>
       <header className="grid gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" onClick={onClose} className="inline-flex min-h-10 items-center gap-1 border border-rule px-2 text-sm hover:bg-spotlight lg:hidden"><X aria-hidden className="size-4" />Close</button>
+          <button type="button" onClick={onClose} className="inline-flex min-h-10 items-center gap-1 border border-rule px-2 text-sm hover:bg-spotlight lg:hidden rounded-md"><X aria-hidden className="size-4" />Close</button>
           <div className="ml-auto flex items-center gap-1.5">
             <span className="text-[13px] text-muted tabular-nums">{position > 0 ? `${position} of ${total}` : ''}</span>
-            <button type="button" disabled={!prev} onClick={() => onGo(prev)} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight disabled:opacity-40" aria-label="Previous paper in the list"><ArrowLeft aria-hidden className="size-4" />Previous</button>
-            <button type="button" disabled={!next} onClick={() => onGo(next)} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight disabled:opacity-40" aria-label="Next paper in the list">Next<ArrowRight aria-hidden className="size-4" /></button>
+            <button type="button" disabled={!prev} onClick={() => onGo(prev)} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight disabled:opacity-40 rounded-md" aria-label="Previous paper in the list"><ArrowLeft aria-hidden className="size-4" />Previous</button>
+            <button type="button" disabled={!next} onClick={() => onGo(next)} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight disabled:opacity-40 rounded-md" aria-label="Next paper in the list">Next<ArrowRight aria-hidden className="size-4" /></button>
           </div>
         </div>
         <h2 className="text-xl tracking-[-0.015em] break-words">{row.title}</h2>
         <p className="text-[14px] break-words text-muted">{dateLine(row)}{row.institution ? ` · ${row.institution}` : ''}{row.pages ? ` · ${row.pages} page${row.pages > 1 ? 's' : ''}` : ''}</p>
-        <Link href={fullHref} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-brass underline-offset-4">
+        <Link href={fullHref} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-link underline-offset-4">
           {row.kind === 'scan' ? 'Open larger, with the file header' : 'Open the full page with its facts'} <ExternalLink aria-hidden className="size-3.5" />
         </Link>
       </header>
@@ -284,7 +284,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
             <div className="grid gap-3" data-testid="compare">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[13px] text-muted">Side by side, for your own reading. OncoSetu does not read images.</p>
-                <button type="button" onClick={() => setCompare(null)} className="min-h-9 border border-rule px-3 text-sm hover:bg-spotlight">Close</button>
+                <button type="button" onClick={() => setCompare(null)} className="min-h-9 border border-rule px-3 text-sm hover:bg-spotlight rounded-md">Close</button>
               </div>
               <div className="grid grid-cols-2 gap-3 [&>*]:min-w-0">
                 <div className="grid content-start gap-1.5">
@@ -352,12 +352,12 @@ function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSel
     const o = byId.get(row.kind === 'scan' ? p.reportId : p.scanId)
     if (!o) return null
     return (
-      <section key={`${p.scanId}|${p.reportId}`} aria-label="A pair marked not a match" data-testid="rejected-box" className="grid gap-2 border border-l-[3px] border-rule border-l-slate bg-matte px-3 py-3">
+      <section key={`${p.scanId}|${p.reportId}`} aria-label="A pair marked not a match" data-testid="rejected-box" className="grid gap-2 border border-l-[3px] border-rule border-l-slate bg-matte px-3 py-3 rounded-lg">
         <p className="text-[15px]"><span className="font-medium">Marked not a match</span>: a person said {o.title} of {fmtDay(o.date)}{o.institution ? `, ${o.institution}` : ''} is not {row.kind === 'scan' ? "this scan's report" : "this report's scan"}. It is still on file.</p>
         <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => onSelect(o.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Show the {row.kind === 'scan' ? 'report' : 'scan'}</button>
-          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'reset', 'Undone. It can be offered as a possible match again')} className="inline-flex min-h-10 items-center gap-1 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60"><Undo2 aria-hidden className="size-4" />Undo</button>}
-          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60"><Link2 aria-hidden className="size-4" />Link them anyway</button>}
+          <button type="button" onClick={() => onSelect(o.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight rounded-md">Show the {row.kind === 'scan' ? 'report' : 'scan'}</button>
+          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'reset', 'Undone. It can be offered as a possible match again')} className="inline-flex min-h-10 items-center gap-1 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60 rounded-md"><Undo2 aria-hidden className="size-4" />Undo</button>}
+          {canDecide && <button type="button" disabled={!!busy} onClick={() => send(p.scanId, p.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-pine-hover disabled:opacity-60 rounded-md"><Link2 aria-hidden className="size-4" />Link them anyway</button>}
         </div>
       </section>
     )
@@ -377,7 +377,7 @@ function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSel
   const confirmed = pair.state === 'confirmed'
   return (
     <>
-      <section aria-label="Scan and report pairing" data-testid="pair-box" className={clsx('grid gap-2 border border-l-[3px] border-rule bg-matte px-3 py-3', confirmed ? 'border-l-sage' : 'border-l-amber')}>
+      <section aria-label="Scan and report pairing" data-testid="pair-box" className={clsx('grid gap-2 border border-l-[3px] border-rule bg-matte px-3 py-3 rounded-lg', confirmed ? 'border-l-sage' : 'border-l-amber')}>
         <p className="text-[15px]">
           <span className="font-medium">{confirmed ? `${label} linked` : 'Possible match'}</span>
           {': '}{other.title}, {fmtDay(other.date)}{other.institution ? `, ${other.institution}` : ''}
@@ -387,15 +387,15 @@ function PairBox({ patientId, row, other, pair, rejected, byId, canDecide, onSel
           <div className="grid gap-2" role="alertdialog" aria-label="Confirm: not a match" data-testid="reject-confirm">
             <p className="text-[14px]">{confirmed ? 'Unlink them?' : 'Mark this as not a match?'} Both papers stay on file. You can undo this afterwards.</p>
             <div className="flex flex-wrap gap-2">
-              <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'reject', confirmed ? 'Unlinked. You can undo this on the scan or the report' : 'Marked as not a match. You can undo this on the scan or the report')} className="min-h-10 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60">{confirmed ? 'Yes, unlink' : 'Yes, not a match'}</button>
-              <button type="button" disabled={!!busy} onClick={() => setAsking(false)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Keep it</button>
+              <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'reject', confirmed ? 'Unlinked. You can undo this on the scan or the report' : 'Marked as not a match. You can undo this on the scan or the report')} className="min-h-10 bg-obsidian px-3 text-sm text-gallery hover:bg-pine-hover disabled:opacity-60 rounded-md">{confirmed ? 'Yes, unlink' : 'Yes, not a match'}</button>
+              <button type="button" disabled={!!busy} onClick={() => setAsking(false)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight rounded-md">Keep it</button>
             </div>
           </div>
         ) : (
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => onSelect(other.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight">Show the {label.toLowerCase()}</button>
-            {canDecide && !confirmed && <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-label disabled:opacity-60"><Check aria-hidden className="size-4" />Confirm</button>}
-            {canDecide && <button type="button" disabled={!!busy} onClick={() => setAsking(true)} className="min-h-10 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60">{confirmed ? 'Unlink' : 'Not a match'}</button>}
+            <button type="button" onClick={() => onSelect(other.id)} className="min-h-10 border border-rule px-3 text-sm hover:bg-spotlight rounded-md">Show the {label.toLowerCase()}</button>
+            {canDecide && !confirmed && <button type="button" disabled={!!busy} onClick={() => send(pair.scanId, pair.reportId, 'confirm', 'Linked')} className="inline-flex min-h-10 items-center gap-1 bg-obsidian px-3 text-sm text-gallery hover:bg-pine-hover disabled:opacity-60 rounded-md"><Check aria-hidden className="size-4" />Confirm</button>}
+            {canDecide && <button type="button" disabled={!!busy} onClick={() => setAsking(true)} className="min-h-10 border border-obsidian px-3 text-sm hover:bg-spotlight disabled:opacity-60 rounded-md">{confirmed ? 'Unlink' : 'Not a match'}</button>}
           </div>
         )}
       </section>

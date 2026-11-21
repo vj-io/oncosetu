@@ -61,7 +61,7 @@ export function InfoTip({ children, label = "What this shows", className }: { ch
 /** The same explanation as one visible line under a heading: for the features a first-time doctor must not miss. */
 export function Explainer({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className={clsx("flex max-w-3xl items-start gap-2 text-[14px] leading-snug text-muted", className)}>
+    <p className={clsx("flex max-w-3xl items-start gap-2 rounded-lg border border-wash-rule bg-wash px-4 py-3 text-[14px] leading-snug text-muted", className)}>
       <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-setu-ink" />
       <span>
         <span className="font-medium text-setu-ink">What this shows. </span>

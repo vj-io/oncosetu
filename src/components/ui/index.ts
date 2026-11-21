@@ -21,7 +21,7 @@ export {
 } from "./display";
 export type { Tone, Status, StageState } from "./display";
 
-export { Frame, Card, Placard, EmptyFrame, Stamp, BrassSeal, QuoteHighlight, Spotlight } from "./exhibit";
+export { Frame, Card, Placard, EmptyFrame, Stamp, BrassSeal, QuoteHighlight } from "./exhibit";
 export type { PlacardProps } from "./exhibit";
 
 export { Tabs, Dialog, ToastProvider, useToast, Tooltip, LanguageToggle } from "./interactive";
@@ -29,3 +29,6 @@ export type { TabItem, Lang } from "./interactive";
 
 export { InfoTip, Explainer } from "./InfoTip";
 export { EXPLAIN } from "./explain";
+
+export { Panel, Ring, Legend, ActionList, Checklist, MilestoneLine, StatTile, BarList, Pipeline, SegmentBar } from "./dashboard";
+export type { RingPart, ActionItem, CheckState, Milestone } from "./dashboard";

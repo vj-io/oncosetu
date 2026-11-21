@@ -26,7 +26,6 @@ import {
   SectionHeader,
   Select,
   Skeleton,
-  Spotlight,
   StageTracker,
   Stamp,
   STATUS_META,
@@ -58,27 +57,29 @@ const ratio = (a: string, b: string) => {
 };
 
 const ROOM = [
-  ["gallery", "#f5f4f0", "Page wall"],
-  ["surface", "#faf9f5", "Placards, panels"],
-  ["matte", "#ffffff", "Frames, inputs"],
-  ["alcove", "#efeeea", "Sunken wells"],
-  ["ink", "#1b1c1a", "Label ink"],
-  ["muted", "#5c5a55", "Secondary text"],
-  ["faint", "#6a6862", "Mono labels"],
-  ["rule", "#d9d6ce", "Hairlines (decorative)"],
-  ["control", "#8a877f", "Control borders (3:1)"],
-  ["spotlight", "#fff4d6", "Cone, hover"],
-  ["highlight", "#ffecb3", "Lit quote"],
+  ["gallery", "#f4f5f2", "Page canvas"],
+  ["surface", "#ffffff", "Record sheets, panels"],
+  ["matte", "#ffffff", "Inputs, inner frames"],
+  ["alcove", "#eef1ee", "Recessed rows, table heads"],
+  ["pine", "#1f3d36", "Primary actions"],
+  ["pine-deep", "#17302a", "Staff navigation"],
+  ["ink", "#1d2925", "Text"],
+  ["muted", "#55615c", "Secondary text"],
+  ["faint", "#5f6a65", "Labels"],
+  ["rule", "#dde3de", "Hairlines (decorative)"],
+  ["control", "#7d8782", "Control borders (3:1)"],
+  ["spotlight", "#edf1ee", "Hover wash"],
+  ["highlight", "#fbefc6", "Lit quote"],
 ] as const;
 
 const PAIRS: { name: string; meaning: string; tone: Tone; base: string; ink: string; tint: string }[] = [
-  { name: "setu", meaning: "Brand · info", tone: "setu", base: "#0f6e6a", ink: "#0b5c58", tint: "#e2efed" },
-  { name: "sage", meaning: "Verified", tone: "verified", base: "#6f9476", ink: "#3e6447", tint: "#e6eee4" },
-  { name: "amber", meaning: "Unverified · proposed · low confidence", tone: "unverified", base: "#b27512", ink: "#875500", tint: "#f9eed6" },
-  { name: "madder", meaning: "Conflict · identity warning", tone: "conflict", base: "#b4432f", ink: "#9b2f1e", tint: "#f7e3de" },
-  { name: "violet", meaning: "Patient said", tone: "patient", base: "#6e5cb8", ink: "#553f9e", tint: "#ebe7f5" },
-  { name: "slate", meaning: "Shadow mode", tone: "shadow", base: "#8a877f", ink: "#55534e", tint: "#eae8e2" },
-  { name: "brass", meaning: "Sealed snapshot only", tone: "brass", base: "#c9a84c", ink: "#6b5212", tint: "#f3e7c2" },
+  { name: "setu", meaning: "Brand · info", tone: "setu", base: "#3b7482", ink: "#255966", tint: "#e4eff1" },
+  { name: "sage", meaning: "Verified", tone: "verified", base: "#5a8868", ink: "#386247", tint: "#e6f0e8" },
+  { name: "amber", meaning: "Unverified · proposed · low confidence", tone: "unverified", base: "#b07b2c", ink: "#80540f", tint: "#f7eddc" },
+  { name: "madder", meaning: "Conflict · identity warning", tone: "conflict", base: "#b8524a", ink: "#9a3a32", tint: "#f8e6e3" },
+  { name: "violet", meaning: "Patient said", tone: "patient", base: "#7462b4", ink: "#55449a", tint: "#ece9f6" },
+  { name: "slate", meaning: "Shadow mode", tone: "shadow", base: "#7d8782", ink: "#505a56", tint: "#eceeec" },
+  { name: "brass", meaning: "Sealed snapshot only", tone: "brass", base: "#b8954a", ink: "#6e5313", tint: "#f4ecd4" },
 ];
 
 const STATUS_GROUPS: [string, Status[]][] = [
@@ -117,14 +118,13 @@ export default function StyleguidePage() {
 
   return (
     <div className="relative">
-      <Spotlight />
       <header className="relative border-b border-rule">
         <div className="mx-auto flex h-16 max-w-gallery items-center gap-4 px-4 sm:px-8">
           <Link href="/" aria-label="OncoSetu home">
             <Wordmark />
           </Link>
-          <span className="hidden font-mono text-[11px] tracking-[0.16em] text-faint uppercase sm:inline">Style guide · Museum Placard</span>
-          <Link href="/" className="ml-auto inline-flex h-11 items-center gap-2 font-mono text-[12px] tracking-[0.12em] text-muted uppercase hover:text-ink">
+          <span className="hidden text-[13px] text-faint sm:inline font-medium">Style guide · Museum Placard</span>
+          <Link href="/" className="ml-auto inline-flex h-11 items-center gap-2 text-[13px] text-muted hover:text-ink font-medium">
             <ArrowLeft aria-hidden className="size-4" /> Gallery
           </Link>
         </div>
@@ -147,11 +147,11 @@ export default function StyleguidePage() {
           <Label>Room</Label>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {ROOM.map(([name, hex, use]) => (
-              <li key={name} className="border border-rule bg-matte">
+              <li key={name} className="border border-rule bg-matte rounded-lg">
                 <div className="h-14 border-b border-rule" style={{ background: hex }} />
                 <div className="px-3 py-2">
-                  <p className="font-mono text-xs">{name}</p>
-                  <p className="font-mono text-[11px] text-faint">{hex}</p>
+                  <p className="text-xs">{name}</p>
+                  <p className="text-xs text-faint">{hex}</p>
                   <p className="mt-1 text-xs text-muted">{use}</p>
                 </div>
               </li>
@@ -162,17 +162,17 @@ export default function StyleguidePage() {
           </Label>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {PAIRS.map((p) => (
-              <li key={p.name} className="grid grid-cols-[3.5rem_1fr] border border-rule bg-matte">
+              <li key={p.name} className="grid grid-cols-[3.5rem_1fr] border border-rule bg-matte rounded-lg">
                 <div style={{ background: p.base }} aria-hidden />
                 <div className="px-3 py-3" style={{ background: p.tint }}>
-                  <p className="font-mono text-xs" style={{ color: p.ink }}>
+                  <p className="text-xs" style={{ color: p.ink }}>
                     {p.name} · {p.meaning}
                   </p>
-                  <p className="mt-1 font-mono text-[11px] text-ink">
+                  <p className="mt-1 text-xs text-ink">
                     {p.base} / {p.ink} / {p.tint}
                   </p>
-                  <p className="mt-1 font-mono text-[11px] text-ink">
-                    {ratio(p.ink, p.tint)}:1 · {ratio(p.ink, "#f5f4f0")}:1 · base {ratio(p.base, "#f5f4f0")}:1
+                  <p className="mt-1 text-xs text-ink">
+                    {ratio(p.ink, p.tint)}:1 · {ratio(p.ink, "#f4f5f2")}:1 · base {ratio(p.base, "#f4f5f2")}:1
                   </p>
                 </div>
               </li>
@@ -180,12 +180,13 @@ export default function StyleguidePage() {
           </ul>
         </Block>
 
-        <Block id="type" kicker="Typography" title="Instrument Sans, Inter Tight, JetBrains Mono, Noto Sans Devanagari">
+        <Block id="type" kicker="Typography" title="Plus Jakarta Sans, IBM Plex Sans, IBM Plex Mono, IBM Plex Sans Devanagari">
           <div className="grid gap-6">
-            <p className="text-display">Every fact, exhibited.</p>
-            <p className="text-4xl tracking-[-0.03em]">Heading · Instrument Sans 400</p>
-            <p className="max-w-2xl text-lg">Body · Inter Tight. Records provided to OncoSetu, organised as a document index with a verbatim quote for every fact.</p>
-            <p className="ds-kicker">Kicker · JetBrains Mono · Wing · Desk · ACC. 7F3A·21C9</p>
+            <p className="font-display text-display font-semibold">Every fact, with its source.</p>
+            <p className="font-display text-3xl font-semibold tracking-[-0.02em]">Heading · Plus Jakarta Sans 600</p>
+            <p className="max-w-2xl text-lg">Body · IBM Plex Sans, tabular figures. Records provided to OncoSetu, organised as a document index with a verbatim quote for every fact.</p>
+            <p className="ds-kicker">Label · IBM Plex Sans 500 · Desk · Records</p>
+            <p className="font-mono text-sm">Code · IBM Plex Mono · OS-7F3A21 · sha256 0b81142c</p>
             <p lang="hi" className="font-deva text-[19px]">
               हिन्दी · यहाँ केवल वही रिकॉर्ड दिखते हैं जो हमें दिए गए हैं।
             </p>
@@ -196,7 +197,7 @@ export default function StyleguidePage() {
           <div className="grid gap-6">
             {(["primary", "secondary", "ghost", "danger"] as const).map((v) => (
               <div key={v} className="flex flex-wrap items-center gap-3">
-                <span className="w-24 font-mono text-xs text-faint">{v}</span>
+                <span className="w-24 text-xs text-faint">{v}</span>
                 <Button variant={v} size="sm">
                   Small
                 </Button>
@@ -213,7 +214,7 @@ export default function StyleguidePage() {
               </div>
             ))}
             <div className="flex flex-wrap items-center gap-3">
-              <span className="w-24 font-mono text-xs text-faint">link</span>
+              <span className="w-24 text-xs text-faint">link</span>
               <ButtonLink href="/login">Button link</ButtonLink>
               <Button icon={<StampIcon aria-hidden />}>With icon</Button>
             </div>
@@ -251,7 +252,7 @@ export default function StyleguidePage() {
               <Switch label="Voice read-back" description="Only when disclosure is cleared" />
               <div className="mt-3 flex items-center gap-3">
                 <LanguageToggle value={lang} onChange={setLang} />
-                <span className="font-mono text-xs text-faint">lang = {lang}</span>
+                <span className="text-xs text-faint">lang = {lang}</span>
               </div>
             </div>
           </div>
@@ -261,7 +262,7 @@ export default function StyleguidePage() {
           <div key={`ex-${replay}`} className="grid gap-10 lg:grid-cols-2">
             <div className="grid content-start gap-6">
               <Frame matte animate caption="Frame · matte · caption">
-                <p className="px-5 py-8 font-mono text-[13px] leading-relaxed">
+                <p className="px-5 py-8 text-[13px] leading-relaxed">
                   <QuoteHighlight text={QUOTE_TEXT} start={11} end={63} delay={400} />
                 </p>
               </Frame>
@@ -275,7 +276,7 @@ export default function StyleguidePage() {
                 where={
                   <>
                     Discharge summary · p.2
-                    <span className="mt-1 block font-mono text-[13px] text-muted">“Wide local excision, left breast, done on 12/03/2026”</span>
+                    <span className="mt-1 block text-[13px] text-muted">“Wide local excision, left breast, done on 12/03/2026”</span>
                   </>
                 }
                 who="R. Iyer, records officer · 28 Oct 2026"
@@ -313,7 +314,7 @@ export default function StyleguidePage() {
                 </div>
               </div>
             ))}
-            <p className="font-mono text-[11px] text-faint">{Object.keys(STATUS_META).length} statuses in STATUS_META</p>
+            <p className="text-xs text-faint">{Object.keys(STATUS_META).length} statuses in STATUS_META</p>
             <div>
               <Label>Provenance chips</Label>
               <div className="flex flex-wrap gap-2">
@@ -369,7 +370,7 @@ export default function StyleguidePage() {
         </Block>
 
         <Block id="quotes" kicker="Evidence" title="Quote highlight">
-          <div key={`q-${replay}`} className="grid max-w-3xl gap-6 font-mono text-[14px] leading-relaxed">
+          <div key={`q-${replay}`} className="grid max-w-3xl gap-6 text-[14px] leading-relaxed">
             <p>
               <QuoteHighlight text={QUOTE_TEXT} start={11} end={63} />
             </p>
@@ -463,9 +464,9 @@ export default function StyleguidePage() {
                   ["0D9E·51B2", "Imaging report", 2, "match", "processing"],
                 ].map(([acc, doc, pages, id, st]) => (
                   <tr key={acc as string}>
-                    <td className="font-mono text-[13px]">{acc}</td>
+                    <td className="text-[13px]">{acc}</td>
                     <td>{doc}</td>
-                    <td className="font-mono tabular-nums">{pages}</td>
+                    <td className="tabular-nums">{pages}</td>
                     <td>
                       <StatusBadge status={id as Status} />
                     </td>
@@ -497,7 +498,7 @@ export default function StyleguidePage() {
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <EmptyState icon={<Inbox />} title="No documents yet" description="Capture paper at the desk or send the patient an upload link." action={<Button variant="secondary">Send upload link</Button>} />
-              <div className="grid content-start gap-3 border border-rule bg-surface p-6" aria-busy="true" aria-label="Loading">
+              <div className="grid content-start gap-3 border border-rule bg-surface p-6 rounded-lg" aria-busy="true" aria-label="Loading">
                 <Skeleton className="h-6 w-1/2" />
                 <Skeleton />
                 <Skeleton className="w-5/6" />

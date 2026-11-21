@@ -89,7 +89,7 @@ export function ImagingViewer({ documentId, details, canView, compact = false, s
         {canView && (slices > 1 || ct) && (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
             {slices > 1 && (
-              <button type="button" onClick={play} aria-pressed={running} className="inline-flex min-h-9 items-center gap-1.5 border border-rule px-3" data-testid="cine-toggle">
+              <button type="button" onClick={play} aria-pressed={running} className="inline-flex min-h-9 items-center gap-1.5 border border-rule px-3 rounded-md" data-testid="cine-toggle">
                 {running ? <Pause aria-hidden className="size-4" /> : <Play aria-hidden className="size-4" />}{running ? "Pause" : "Play through the images"}
               </button>
             )}
@@ -98,26 +98,26 @@ export function ImagingViewer({ documentId, details, canView, compact = false, s
                 <span className="text-muted">Window:</span>
                 {CT_WINDOWS.map(([key, label]) => (
                   <button key={key} type="button" aria-pressed={win === key} onClick={() => { setFailed(null); setWin(key); }}
-                    className={`min-h-9 border px-2.5 ${win === key ? "border-setu-ink bg-surface font-medium" : "border-rule"}`}>{label}</button>
+                    className={`min-h-9 border px-2.5 ${win === key ? "border-setu-ink bg-surface font-medium" : "border-rule"} rounded-md`}>{label}</button>
                 ))}
               </div>
             )}
           </div>
         )}
         {enlargeHref && canView && (
-          <Link href={enlargeHref} className="inline-flex min-h-9 w-fit items-center gap-1.5 text-sm text-setu-ink underline decoration-brass underline-offset-4">
+          <Link href={enlargeHref} className="inline-flex min-h-9 w-fit items-center gap-1.5 text-sm text-setu-ink underline decoration-link underline-offset-4">
             <Maximize2 aria-hidden className="size-3.5" />Larger view
           </Link>
         )}
         {showNote && <p className="text-sm text-muted">This is a picture of the file. OncoSetu does not interpret images and shows no findings.</p>}
       </div>
       {compact ? (
-        <details className="border border-rule bg-surface p-3 text-[14px]">
+        <details className="border border-rule bg-surface p-3 text-[14px] rounded-lg">
           <summary className="cursor-pointer text-sm underline underline-offset-4">Header of the file, as written</summary>
           <Header rows={rows} synthetic={details.synthetic} />
         </details>
       ) : (
-        <div className="border border-rule bg-surface p-4 text-[15px]"><p className="ds-kicker mb-2">Header of the file, as written</p><Header rows={rows} synthetic={details.synthetic} /></div>
+        <div className="border border-rule bg-surface p-4 text-[15px] rounded-lg"><p className="ds-kicker mb-2">Header of the file, as written</p><Header rows={rows} synthetic={details.synthetic} /></div>
       )}
     </div>
   );
@@ -129,7 +129,7 @@ function Header({ rows, synthetic }: { rows: [string, string | null][]; syntheti
       {rows.filter(([, v]) => v).map(([k, v]) => (
         <div key={k} className="grid gap-0.5"><dt className="ds-kicker">{k}</dt><dd className="break-words">{v}</dd></div>
       ))}
-      {synthetic && <p className="mt-1 border border-dashed border-rule px-2 py-1 font-mono text-[11px] tracking-[0.1em] uppercase">Synthetic sample, not a real scan</p>}
+      {synthetic && <p className="mt-1 border border-dashed border-rule px-2 py-1 text-[13px] font-medium rounded-md">Synthetic sample, not a real scan</p>}
     </dl>
   );
 }

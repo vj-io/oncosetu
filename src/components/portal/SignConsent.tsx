@@ -50,26 +50,26 @@ export function SignConsent({ lang, purposes, relation, defaultName, signed }: {
 
   const ready = name.trim().length >= 2 && (mode === "typed" || !!png);
   return (
-    <section aria-labelledby="sign-h" className="grid gap-4 border border-rule bg-surface px-5 py-5" data-testid="sign-consent">
+    <section aria-labelledby="sign-h" className="grid gap-4 border border-rule bg-surface px-5 py-5 rounded-lg" data-testid="sign-consent">
       <h2 id="sign-h" className="text-xl">{tv(lang, "signTitle")}</h2>
       <p className="text-[17px] text-muted">{tv(lang, "signIntro")}</p>
-      {withdrawMode && <p role="status" data-testid="withdraw-banner" className="border border-madder bg-madder-tint px-4 py-3 text-[17px] text-madder-ink">{tv(lang, "signWithdrawBanner")}</p>}
+      {withdrawMode && <p role="status" data-testid="withdraw-banner" className="border border-madder/40 bg-madder-tint px-4 py-3 text-[17px] text-madder-ink rounded-lg">{tv(lang, "signWithdrawBanner")}</p>}
       <p className="text-[16px]">{tv(lang, "signAs", { who: tv(lang, `who_${relation}` as "who_self") })}</p>
       <PField label={tv(lang, "signName")}>
         <PInput big value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" data-testid="sign-name" />
       </PField>
       <div role="group" aria-label={tv(lang, "signTitle")} className="flex flex-wrap gap-2">
         {(["drawn", "typed"] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`min-h-11 border px-4 text-[16px] ${mode === m ? "border-ink bg-ink text-gallery" : "border-control"}`}>
+          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`min-h-11 border px-4 text-[16px] ${mode === m ? "border-pine bg-pine text-white" : "border-control"} rounded-md`}>
             {tv(lang, m === "drawn" ? "signDraw" : "signType")}
           </button>
         ))}
       </div>
       {mode === "drawn"
         ? <SignaturePad onChange={setPng} clearLabel={tv(lang, "signClear")} hint={tv(lang, "signHint")} />
-        : <p className="border border-dashed border-control px-4 py-6 font-serif text-2xl italic">{name || " "}<span className="mt-2 block font-sans text-[16px] text-muted not-italic">{tv(lang, "signTyped")}</span></p>}
+        : <p className="border border-dashed border-control px-4 py-6 font-serif text-2xl italic rounded-lg">{name || " "}<span className="mt-2 block font-sans text-[16px] text-muted not-italic">{tv(lang, "signTyped")}</span></p>}
       {error && <ErrorNote>{error}</ErrorNote>}
-      {done && <p role="status" className="flex items-start gap-2 border border-sage bg-sage-tint px-4 py-3 text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "signDone")}</p>}
+      {done && <p role="status" className="flex items-start gap-2 border border-sage/40 bg-sage-tint px-4 py-3 text-sage-ink rounded-lg"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "signDone")}</p>}
       <div className="flex flex-wrap gap-3">
         {!withdrawMode && <PButton big loading={busy === "sign"} disabled={!ready || busy !== null || none} onClick={() => sign(false)} data-testid="sign-save">{tv(lang, "signButton")}</PButton>}
         <PButton big variant={withdrawMode ? "danger" : "secondary"} loading={busy === "withdraw"} disabled={!ready || busy !== null} onClick={() => sign(true)} data-testid="sign-withdraw">{tv(lang, "signWithdrawButton")}</PButton>

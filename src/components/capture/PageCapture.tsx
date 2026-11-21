@@ -124,7 +124,7 @@ export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPag
             </div>
           )}
           {retakeId && camera === "on" && (
-            <p className="absolute top-3 left-3 bg-obsidian px-2.5 py-1.5 font-mono text-[11px] tracking-[0.12em] text-gallery uppercase">
+            <p className="absolute top-3 left-3 bg-obsidian px-2.5 py-1.5 text-[13px] text-gallery font-medium">
               Retaking page {pages.findIndex((p) => p.id === retakeId) + 1}
             </p>
           )}
@@ -146,7 +146,7 @@ export function PageCapture({ pages, setPages }: { pages: CapturedPage[]; setPag
             Open camera
           </Button>
         )}
-        <label className={clsx("relative inline-flex h-12 cursor-pointer items-center justify-center gap-2.5 rounded-xs border border-obsidian px-7 font-mono text-[13px] font-medium tracking-[0.14em] whitespace-nowrap uppercase hover:bg-spotlight has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink", busy && "pointer-events-none opacity-45")}>
+        <label className={clsx("relative inline-flex h-12 cursor-pointer items-center justify-center gap-2.5 rounded-xs border border-obsidian px-7 text-[13px] font-medium whitespace-nowrap hover:bg-spotlight has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink", busy && "pointer-events-none opacity-45")}>
           <ImagePlus aria-hidden className="size-4" />
           Add photos
           <input type="file" accept="image/*" multiple data-testid="page-file-input" className="absolute inset-0 cursor-pointer opacity-0" onChange={(e) => { void onFiles(e.target.files); e.target.value = ""; }} />

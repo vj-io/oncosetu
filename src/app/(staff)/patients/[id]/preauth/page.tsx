@@ -40,13 +40,13 @@ function Row({ r, patientId, chase }: { r: PreauthRow; patientId: string; chase:
             {r.status === 'partial' && (
               <p className="text-[14px]" data-testid="preauth-missing-panels">
                 No lab report here names {r.missingPanels!.join(' or ')}. Ask the family, or{' '}
-                <Link href={`/patients/${patientId}/requests`} className="underline decoration-brass underline-offset-4 print:no-underline">request it</Link>.
+                <Link href={`/patients/${patientId}/requests`} className="underline decoration-link underline-offset-4 print:no-underline">request it</Link>.
               </p>
             )}
             <ul className="grid gap-1 text-[14px]">
               {r.docs.slice(0, 3).map((d) => (
                 <li key={d.id}>
-                  <Link href={`/patients/${patientId}/documents/${d.id}`} className="inline-flex items-center gap-0.5 underline decoration-brass underline-offset-4">
+                  <Link href={`/patients/${patientId}/documents/${d.id}`} className="inline-flex items-center gap-0.5 underline decoration-link underline-offset-4">
                     {d.title}<ArrowUpRight aria-hidden className="size-3.5" />
                   </Link>
                   <span className="text-muted">{d.institution ? ` · ${d.institution}` : ''}{d.documentDate ? ` · ${formatDateIN(d.documentDate)}` : ''}</span>
@@ -61,12 +61,12 @@ function Row({ r, patientId, chase }: { r: PreauthRow; patientId: string; chase:
             <Badge tone="conflict" icon={<FileQuestion />}>Not in the file</Badge>
             {chase ? (
               <p className="text-[14px]">
-                On the <Link href={`/patients/${patientId}/completeness`} className="underline decoration-brass underline-offset-4">missing-papers list</Link>
+                On the <Link href={`/patients/${patientId}/completeness`} className="underline decoration-link underline-offset-4">missing-papers list</Link>
                 {chase.state === 'requested' ? ', already requested' : ''}{chase.institution ? <>: ask at <strong className="font-medium">{chase.institution}</strong></> : ''}.
               </p>
             ) : (
               <p className="text-[14px] text-muted print:hidden">
-                Ask the family, or <Link href={`/patients/${patientId}/requests`} className="underline decoration-brass underline-offset-4">request it from the hospital that holds it</Link>.
+                Ask the family, or <Link href={`/patients/${patientId}/requests`} className="underline decoration-link underline-offset-4">request it from the hospital that holds it</Link>.
               </p>
             )}
           </>
@@ -110,7 +110,7 @@ export default async function PreauthPage({ params, searchParams }: { params: Pr
   const meta = PREAUTH_LINES.find((l) => l.key === line)!
   return (
     <div className="grid gap-6 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="For the insurance desk · PM-JAY oncology packages"
         title="Pre-authorisation file"
         description="The documents a PM-JAY cancer package asks for before pre-authorisation and for the claim, and which of them are in this patient's file. It checks that a document of that kind is here, not what it says, and it does not choose a package."
@@ -119,12 +119,12 @@ export default async function PreauthPage({ params, searchParams }: { params: Pr
       <nav aria-label="Treatment" className="flex flex-wrap gap-2 print:hidden">
         {PREAUTH_LINES.map((l) => (
           <Link key={l.key} href={`/patients/${id}/preauth?line=${l.key}`} aria-current={l.key === line ? 'page' : undefined}
-            className={`border px-3 py-1.5 text-[14px] ${l.key === line ? 'border-ink bg-ink text-matte' : 'border-rule bg-surface hover:border-ink'}`}>
+            className={`border px-3 py-1.5 text-[14px] ${l.key === line ? 'border-pine bg-pine text-white' : 'border-rule bg-surface hover:border-control'}`}>
             {l.label}
           </Link>
         ))}
       </nav>
-      <p className="font-mono text-sm tabular-nums" data-testid="preauth-count">
+      <p className="text-sm tabular-nums" data-testid="preauth-count">
         {meta.label}: {f.inFile} of {f.checkable} documents in the file
       </p>
       {(['preauth', 'claim'] as const).map((stage) => (

@@ -45,7 +45,7 @@ export type Tone =
 
 export const TONE: Record<
   Tone,
-  { text: string; bg: string; border: string; bar: string; solid: string }
+  { text: string; bg: string; border: string; bar: string; solid: string; edge: string }
 > = {
   neutral: {
     text: "text-ink",
@@ -53,6 +53,7 @@ export const TONE: Record<
     border: "border-control",
     bar: "border-l-control",
     solid: "bg-ink",
+    edge: "border-control/35",
   },
   setu: {
     text: "text-setu-ink",
@@ -60,6 +61,7 @@ export const TONE: Record<
     border: "border-setu",
     bar: "border-l-setu",
     solid: "bg-setu",
+    edge: "border-setu/30",
   },
   verified: {
     text: "text-sage-ink",
@@ -67,6 +69,7 @@ export const TONE: Record<
     border: "border-sage",
     bar: "border-l-sage",
     solid: "bg-sage",
+    edge: "border-sage/35",
   },
   unverified: {
     text: "text-amber-ink",
@@ -74,6 +77,7 @@ export const TONE: Record<
     border: "border-amber",
     bar: "border-l-amber",
     solid: "bg-amber",
+    edge: "border-amber/35",
   },
   conflict: {
     text: "text-madder-ink",
@@ -81,6 +85,7 @@ export const TONE: Record<
     border: "border-madder",
     bar: "border-l-madder",
     solid: "bg-madder",
+    edge: "border-madder/30",
   },
   patient: {
     text: "text-violet-ink",
@@ -88,6 +93,7 @@ export const TONE: Record<
     border: "border-violet",
     bar: "border-l-violet",
     solid: "bg-violet",
+    edge: "border-violet/30",
   },
   shadow: {
     text: "text-slate-ink",
@@ -95,6 +101,7 @@ export const TONE: Record<
     border: "border-slate",
     bar: "border-l-slate",
     solid: "bg-slate",
+    edge: "border-slate/35",
   },
   brass: {
     text: "text-brass-ink",
@@ -102,6 +109,7 @@ export const TONE: Record<
     border: "border-brass",
     bar: "border-l-brass",
     solid: "bg-brass",
+    edge: "border-brass/40",
   },
 };
 
@@ -120,10 +128,9 @@ export function Badge({
   return (
     <span
       className={clsx(
-        "inline-flex min-h-6 items-center gap-1.5 border px-2 py-1 font-mono text-[11px] leading-none tracking-[0.12em] whitespace-nowrap uppercase",
+        "inline-flex min-h-6 items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[13px] leading-tight font-semibold whitespace-nowrap",
         t.text,
         t.bg,
-        t.border,
         className,
       )}
     >
@@ -263,15 +270,14 @@ export function Chip({
   return (
     <span
       className={clsx(
-        "inline-flex max-w-full items-stretch border border-l-[3px] border-rule bg-matte text-[13px] leading-tight",
-        t.bar,
+        "inline-flex max-w-full items-stretch overflow-hidden rounded-md border border-rule bg-matte text-[13px] leading-tight",
         className,
       )}
     >
       {kicker && (
         <span
           className={clsx(
-            "flex shrink-0 items-center gap-1.5 px-2 py-1 font-mono text-[11px] tracking-[0.12em] uppercase [&_svg]:size-3.5",
+            "flex shrink-0 items-center gap-1.5 px-2 py-1 font-medium [&_svg]:size-3.5",
             t.text,
             t.bg,
           )}
@@ -293,6 +299,7 @@ export function SectionHeader({
   description,
   actions,
   as: H = "h2",
+  feature,
   className,
 }: {
   kicker?: ReactNode;
@@ -300,21 +307,24 @@ export function SectionHeader({
   description?: ReactNode;
   actions?: ReactNode;
   as?: "h1" | "h2" | "h3";
+  /** The page's lead card when it has no summary block of its own: the teal wash and logo-ring overlay behind the title. */
+  feature?: boolean;
   className?: string;
 }) {
   return (
     <div
       className={clsx(
-        "flex flex-wrap items-end justify-between gap-x-6 gap-y-4 border-b border-rule pb-4",
+        "flex flex-wrap items-end justify-between gap-x-6 gap-y-4",
+        feature ? "ds-feature rounded-2xl border border-rule px-5 py-5 shadow-card sm:px-6 sm:py-6" : "pb-2",
         className,
       )}
     >
-      <div className="grid min-w-0 gap-2">
-        {kicker && <p className="ds-kicker">{kicker}</p>}
+      <div className="grid min-w-0 gap-1.5">
+        {kicker && kicker !== title && <p className="ds-kicker">{kicker}</p>}
         <H
           className={clsx(
-            "leading-tight tracking-[-0.025em]",
-            H === "h1" ? "text-3xl sm:text-4xl" : "text-2xl sm:text-[1.75rem]",
+            "leading-tight",
+            H === "h1" ? "text-[1.75rem] tracking-[-0.02em] sm:text-[2rem]" : "text-xl sm:text-[1.375rem]",
           )}
         >
           {title}
@@ -364,10 +374,10 @@ export function Table({
       role="region"
       aria-label={typeof caption === "string" ? caption : "Table"}
       tabIndex={0}
-      className="relative overflow-x-auto"
+      className="relative overflow-x-auto rounded-lg border border-rule bg-surface shadow-card"
     >
       <table className={clsx("ds-table", className)} {...rest}>
-        {caption && <caption className="ds-kicker">{caption}</caption>}
+        {caption && <caption className="ds-kicker px-3.5 pt-3">{caption}</caption>}
         {children}
       </table>
     </div>
@@ -391,19 +401,19 @@ export function EmptyState({
   return (
     <div
       className={clsx(
-        "flex flex-col items-center gap-3 border border-rule bg-surface px-6 py-12 text-center",
+        "flex flex-col items-center gap-2.5 rounded-lg border border-wash-rule bg-wash px-6 py-12 text-center",
         className,
       )}
     >
       {icon && (
         <span
           aria-hidden
-          className="mb-1 text-faint [&_svg]:size-7 [&_svg]:stroke-[1.25]"
+          className="mb-1 grid size-12 place-items-center rounded-full bg-surface text-faint shadow-card [&_svg]:size-6 [&_svg]:stroke-[1.5]"
         >
           {icon}
         </span>
       )}
-      <p className="font-display text-xl tracking-[-0.02em]">{title}</p>
+      <p className="font-display text-lg font-semibold tracking-[-0.01em]">{title}</p>
       {description && (
         <p className="max-w-md text-[15px] text-muted">{description}</p>
       )}
@@ -416,14 +426,14 @@ export function Skeleton({ className }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={clsx("ds-skeleton h-4 rounded-xs", className)}
+      className={clsx("ds-skeleton h-4 rounded-sm", className)}
     />
   );
 }
 
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="inline-block min-w-6 border border-b-2 border-rule border-b-control bg-matte px-1.5 py-0.5 text-center font-mono text-xs text-ink">
+    <kbd className="inline-block min-w-6 rounded-xs border border-b-2 border-rule border-b-control bg-matte px-1.5 py-0.5 text-center text-xs text-ink">
       {children}
     </kbd>
   );
@@ -459,7 +469,7 @@ export function Avatar({
     <span
       aria-hidden
       className={clsx(
-        "grid shrink-0 place-items-center border border-rule bg-matte font-display tracking-[0.02em] text-ink shadow-placard",
+        "grid shrink-0 place-items-center rounded-full bg-setu-tint font-display font-bold tracking-[0.01em] text-setu-ink",
         AVATAR[size],
         className,
       )}
@@ -489,7 +499,7 @@ export function ProgressMeter({
     <div className={clsx("grid gap-2", className)}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="ds-kicker">{label}</span>
-        <span className="font-mono text-sm text-ink tabular-nums">
+        <span className="text-sm font-medium text-ink tabular-nums">
           {detail ?? `${value} / ${max}`}
         </span>
       </div>
@@ -499,11 +509,11 @@ export function ProgressMeter({
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={value}
-        className="h-2 border border-rule bg-alcove"
+        className="h-2 overflow-hidden rounded-full bg-floor"
       >
         <div
           className={clsx(
-            "h-full transition-[width] duration-500",
+            "h-full rounded-full transition-[width] duration-500",
             TONE[tone].solid,
           )}
           style={{ width: `${pct}%` }}
@@ -611,7 +621,7 @@ export function StageTracker({
                   <span
                     aria-hidden
                     className={clsx(
-                      "font-mono text-[11px] tracking-[0.12em] uppercase",
+                      "text-xs font-medium",
                       state === "failed" ? "text-madder-ink" : "text-setu-ink",
                     )}
                   >
@@ -627,45 +637,37 @@ export function StageTracker({
   );
 }
 
-/** Brand mark (a bridge arch: "setu") + wordmark. The word "Setu" is set in the brand teal. Brand text comes from props only. */
+/** Brand mark (a bridge arch, "setu", on a pine tile) + wordmark. `onDark` for the pine navigation. Brand text comes from props only. */
 export function Wordmark({
   brand = "OncoSetu",
+  onDark = false,
   className,
 }: {
   brand?: string;
+  onDark?: boolean;
   className?: string;
 }) {
   return (
     <span
       className={clsx(
-        "inline-flex items-center gap-2 font-display text-[1.3rem] leading-none tracking-[-0.03em] text-ink",
+        "inline-flex items-center gap-2.5 font-display text-[1.2rem] leading-none font-bold tracking-[-0.02em]",
+        onDark ? "text-white" : "text-ink",
         className,
       )}
     >
       <svg
         aria-hidden
-        viewBox="0 0 24 24"
-        className="size-[1.15em] shrink-0 text-setu"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="square"
+        viewBox="0 0 32 32"
+        className="size-[1.6em] shrink-0"
       >
-        <path d="M2.5 20.5h19" />
-        <path d="M4 20.5V12a8 8 0 0 1 16 0v8.5" />
-        <path d="M8.5 20.5V14a3.5 3.5 0 0 1 7 0v6.5" />
+        <rect width="32" height="32" rx="9" fill={onDark ? "#ffffff" : "#0b6b78"} />
+        <g fill="none" stroke={onDark ? "#0b6b78" : "#ffffff"} strokeWidth="2" strokeLinecap="round">
+          <path d="M7 22.5h18" />
+          <path d="M9 22.5v-5a7 7 0 0 1 14 0v5" />
+          <path d="M13 22.5v-3.5a3 3 0 0 1 6 0v3.5" strokeOpacity="0.6" />
+        </g>
       </svg>
-      <span>
-        {brand.split(/(Setu)/).map((part, i) =>
-          part === "Setu" ? (
-            <span key={i} className="text-setu-ink">
-              {part}
-            </span>
-          ) : (
-            part
-          ),
-        )}
-      </span>
+      <span>{brand}</span>
     </span>
   );
 }

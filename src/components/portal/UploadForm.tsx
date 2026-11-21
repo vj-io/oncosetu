@@ -147,7 +147,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
   return (
     <div className="mt-8 grid gap-6">
       {paused && (
-        <div role="note" className="grid gap-3 border border-amber bg-amber-tint px-4 py-4 text-[16px] text-amber-ink">
+        <div role="note" className="grid gap-3 border border-amber/40 bg-amber-tint px-4 py-4 text-[16px] text-amber-ink rounded-lg">
           <p>{tp(lang, "uploadPaused")}</p>
           <PLink href={`/p/consent?lang=${lang}`} variant="secondary" big className="w-full sm:w-auto">
             {tp(lang, "goToConsent")}
@@ -172,7 +172,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
       {items.length > 0 && (
         <ul className="grid gap-2" aria-label={tp(lang, "navUpload")}>
           {items.map((i) => (
-            <li key={i.id} className="grid gap-2 border border-rule bg-surface px-4 py-3">
+            <li key={i.id} className="grid gap-2 border border-rule bg-surface px-4 py-3 rounded-lg">
               <div className="flex items-start gap-3">
                 <FileText aria-hidden className="mt-0.5 size-5 shrink-0 text-faint" />
                 <span className="min-w-0 flex-1 break-words text-[16px]">{i.file.name}</span>
@@ -199,7 +199,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
                 {i.state === "badType" && <span className="text-madder-ink">{tp(lang, "fileBadType")}</span>}
               </div>
               {i.state === "uploading" && (
-                <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={i.pct} aria-label={i.file.name} className="h-2 border border-rule bg-alcove">
+                <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={i.pct} aria-label={i.file.name} className="h-2 overflow-hidden rounded-full bg-floor">
                   <div className="h-full bg-setu transition-[width] duration-200" style={{ width: `${i.pct}%` }} />
                 </div>
               )}
@@ -210,7 +210,7 @@ export function UploadForm({ lang, canStore }: { lang: Lang; canStore: boolean }
 
       {busy && <p role="status" className="text-[16px] text-muted">{tp(lang, "uploadSending")}</p>}
       {!busy && received && (
-        <div role="status" className="grid gap-3 border border-sage bg-sage-tint px-4 py-4">
+        <div role="status" className="grid gap-3 border border-sage/40 bg-sage-tint px-4 py-4 rounded-lg">
           <p className="flex items-start gap-2 text-[17px] text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tp(lang, "uploadReceived")}</p>
           <div className="flex flex-wrap gap-3">
             <PButton variant="secondary" onClick={() => cam.current?.click()}>{tp(lang, "uploadAddMore")}</PButton>

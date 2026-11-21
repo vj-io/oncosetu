@@ -3,10 +3,30 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import { adminDb } from '../../../src/db'
 import { auditLog, breakGlass, caregivers, consents, documentPages, documents, encounters, events, evidence, missingRecords, orgSettings, outbox, patientStatements, patients, sessions, snapshots, staff, verifications } from '../../../src/db/schema'
-import { phoneHmac } from '../../../src/server/crypto'
+import { decryptField, encryptField, phoneHmac } from '../../../src/server/crypto'
+import { demoTotpSecret } from '../../../src/server/totp'
 import { ORG } from './env'
 
 export const staffId = async (email: string) => (await adminDb.select({ id: staff.id }).from(staff).where(eq(staff.email, email)))[0]?.id as string
+
+/**
+ * The suite signs in with each seeded account's public demo secret. Someone checking the app by hand can press "Reset
+ * authenticator" on the staff page, which gives the account a new secret (the demo sign-in picker still works, the suite
+ * does not). Put the demo secret back for exactly these accounts, and say which were restored.
+ */
+export async function restoreDemoSecrets(emails: string[]): Promise<string[]> {
+  const restored: string[] = []
+  for (const email of emails) {
+    const [s] = await adminDb.select({ id: staff.id, enc: staff.totpSecretEnc }).from(staff).where(eq(staff.email, email))
+    if (!s) continue
+    let same = false
+    try { same = !!s.enc && decryptField(s.enc) === demoTotpSecret(email) } catch { /* unreadable: restore it */ }
+    if (same) continue
+    await adminDb.update(staff).set({ totpSecretEnc: encryptField(demoTotpSecret(email)), totpEnabled: true, totpLastStep: null }).where(eq(staff.id, s.id))
+    restored.push(email)
+  }
+  return restored
+}
 
 export const eventsOf = (patientId: string) =>
   adminDb.select().from(events).where(eq(events.patientId, patientId)).orderBy(events.createdAt)

@@ -53,14 +53,14 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
 
   return (
     <div className="mt-8 grid gap-8">
-      <SectionHeader
+      <SectionHeader feature
         title="The patient’s own answers"
         description="What the patient or a family member told us before the visit, in their own words. It always stays marked “patient said”: it is never treated as backed by a document."
       />
       {canSend && <SendVisitLink patientId={id} recipient={recipient} />}
       {canSend && (
         <p className="text-sm text-muted">
-          Or at the desk: open the <a href="/p/login?station=1" target="_blank" rel="noopener" className="text-ink underline decoration-brass underline-offset-4">desk station</a> on the clinic tablet (not on this computer: signing a patient in signs staff out of that browser). The patient signs in with the code sent to their phone, answers, and the tablet signs out by itself.
+          Or at the desk: open the <a href="/p/login?station=1" target="_blank" rel="noopener" className="text-ink underline decoration-link underline-offset-4">desk station</a> on the clinic tablet (not on this computer: signing a patient in signs staff out of that browser). The patient signs in with the code sent to their phone, answers, and the tablet signs out by itself.
         </p>
       )}
 
@@ -74,7 +74,7 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
                 <header className="flex flex-wrap items-center gap-x-4 gap-y-1">
                   <p className="font-display text-xl tracking-[-0.02em]">{formatDateTimeIN(g.at, 'en')}</p>
                   <Badge tone="patient" icon={<MessageCircle />}>{BY[g.by]}</Badge>
-                  <span className="font-mono text-xs text-muted">{g.encounterId ? 'Linked to an encounter' : 'Not linked to an encounter yet'}</span>
+                  <span className="text-xs text-muted">{g.encounterId ? 'Linked to an encounter' : 'Not linked to an encounter yet'}</span>
                 </header>
                 <ul className="grid gap-5">
                   {g.items.map((it) => {
@@ -93,7 +93,7 @@ export default async function StatementsTab({ params }: { params: Promise<{ id: 
                               </div>
                             )}
                             {it.shadow.length > 0 && (
-                              <div className="grid gap-2 border border-dashed border-control bg-alcove px-3 py-3" data-testid="voice-shadow">
+                              <div className="grid gap-2 border border-dashed border-control bg-alcove px-3 py-3 rounded-lg" data-testid="voice-shadow">
                                 <p className="text-sm"><span className="ds-kicker mr-2">Voice trial</span>Recorded in shadow mode: what the speech service heard, kept to compare with the typed answer above. It is not part of the answer.</p>
                                 {it.shadow.map((c) => (
                                   <div key={c.clipId} className="grid gap-1.5">

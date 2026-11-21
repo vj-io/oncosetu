@@ -190,7 +190,7 @@ export function CaptureApp() {
 
   return (
     <div className="grid gap-8">
-      <SectionHeader
+      <SectionHeader feature
         as="h1"
         kicker="Desk · capture"
         title="Capture pages"
@@ -215,7 +215,7 @@ export function CaptureApp() {
           </Notice>
         )}
         {authRequired && (
-          <Notice tone="unverified" title="Sign in again to sync" action={<a className="font-mono text-xs tracking-[0.12em] uppercase underline underline-offset-4" href="/login">Sign in</a>}>
+          <Notice tone="unverified" title="Sign in again to sync" action={<a className="text-xs underline underline-offset-4 font-medium" href="/login">Sign in</a>}>
             Your session ended. Captures stay encrypted on this device until you sign in.
           </Notice>
         )}
@@ -251,7 +251,7 @@ export function CaptureApp() {
             <section aria-labelledby="who" className="grid gap-4">
               <header className="grid gap-1">
                 <p className="ds-kicker">Step 1</p>
-                <h2 id="who" className="text-2xl">Who are these pages for?</h2>
+                <h2 id="who" className="text-xl">Who are these pages for?</h2>
               </header>
               {list ? (
                 <PatientPicker items={list.items} recent={list.recent} value={selected} onChange={setSelected} source={list.source} savedAt={list.savedAt} />
@@ -265,7 +265,7 @@ export function CaptureApp() {
             <section aria-labelledby="pages" className="grid gap-4">
               <header className="grid gap-1">
                 <p className="ds-kicker">Step 2</p>
-                <h2 id="pages" className="text-2xl">Photograph the pages</h2>
+                <h2 id="pages" className="text-xl">Photograph the pages</h2>
               </header>
               <PageCapture pages={pages} setPages={setPages} />
             </section>
@@ -273,7 +273,7 @@ export function CaptureApp() {
             <section aria-labelledby="note" className="grid gap-4">
               <header className="grid gap-1">
                 <p className="ds-kicker">Step 3 · optional</p>
-                <h2 id="note" className="text-2xl">Add an audio note</h2>
+                <h2 id="note" className="text-xl">Add an audio note</h2>
                 <p className="text-[15px] text-muted">Say anything the papers do not show. It is encrypted with the pages and only Records and Clinicians can play it once it syncs.</p>
               </header>
               <AudioNote note={note} setNote={setNote} />

@@ -99,7 +99,7 @@ export function CaregiverPanel({ patientId, caregivers, minor, patientCanReceive
             <li key={c.id} className="flex flex-wrap items-center gap-3 py-3">
               <div className="grid min-w-0 flex-1 gap-0.5">
                 <span className="text-[15px]">{c.name} <span className="text-muted">· {c.relation}</span></span>
-                <span className="font-mono text-xs text-faint">{c.phoneMasked}</span>
+                <span className="text-xs text-faint">{c.phoneMasked}</span>
               </div>
               {c.isGuardian && <Badge tone="setu">Guardian</Badge>}
               {c.active ? (
@@ -115,7 +115,7 @@ export function CaregiverPanel({ patientId, caregivers, minor, patientCanReceive
       {!adding ? (
         <div><Button variant="secondary" onClick={() => setAdding(true)} icon={<UserPlus aria-hidden />}>Add a caregiver</Button></div>
       ) : (
-        <div className="grid gap-4 border border-rule bg-surface p-4">
+        <div className="grid gap-4 border border-rule bg-surface p-4 rounded-lg">
           <p className="ds-kicker">New caregiver</p>
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label="Name"><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="off" /></Field>
@@ -217,7 +217,7 @@ export function StatusPanel({ patientId, deceased, canSetDeceased, canTransfer, 
         {!open ? (
           <div><Button variant="secondary" className={WRAP} onClick={() => setOpen(true)}>Hand control to the patient</Button></div>
         ) : (
-          <div className="grid gap-4 border border-rule bg-surface p-4">
+          <div className="grid gap-4 border border-rule bg-surface p-4 rounded-lg">
             <ConfirmStep
               value={confirm} onChange={setConfirm} canSendCode={patientCanReceiveCode} contactHint="A code goes to the PATIENT's own phone."
               witnessText="The patient is here, asked to take control of the record in person, and I witnessed it."

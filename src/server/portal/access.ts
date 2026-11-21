@@ -5,7 +5,7 @@ import type { Lang } from '@/core/types'
 import type { Tx } from '@/db'
 import { auditLog, caregivers, documents, events, shareViews } from '@/db/schema'
 import { tp, type PatientKey } from '@/i18n/patient'
-import { decryptField } from '../crypto'
+import { nameOrFlag } from '../unreadable'
 import { formatDateTimeIN } from './summary'
 
 export type AccessEntry = { id: string; at: string; text: string }
@@ -70,7 +70,7 @@ export async function loadAccessLog(tx: Tx, patientId: string, lang: Lang, viewe
   if (viewerIsPatient) {
     const cgs = await tx.select({ id: caregivers.id, nameEnc: caregivers.nameEnc }).from(caregivers).where(eq(caregivers.patientId, patientId))
     if (cgs.length) {
-      const names = new Map(cgs.map((c) => [c.id, decryptField(c.nameEnc)]))
+      const names = new Map(cgs.map((c) => [c.id, nameOrFlag(c.nameEnc, 'caregiver name', patientId)]))
       const logins = await tx.select({ id: auditLog.id, at: auditLog.at, actorId: auditLog.actorId }).from(auditLog)
         .where(and(eq(auditLog.action, 'auth.patient_login'), eq(auditLog.actorRole, 'caregiver'), inArray(auditLog.actorId, [...names.keys()])))
         .orderBy(desc(auditLog.seq)).limit(50)

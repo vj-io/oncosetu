@@ -29,7 +29,7 @@ export function BarRows({ rows, label, className }: { rows: BarDatum[]; label: s
               <rect width="100" height="10" className="fill-alcove" />
               {pct > 0 && <rect width={pct} height="10" className={FILL[r.tone ?? 'setu']} />}
             </svg>
-            <span className="min-w-20 text-right font-mono text-sm tabular-nums">{r.value_text ?? `${r.value} / ${r.of}`}</span>
+            <span className="min-w-20 text-right text-sm tabular-nums">{r.value_text ?? `${r.value} / ${r.of}`}</span>
           </li>
         )
       })}
@@ -59,8 +59,8 @@ export function StackedBar({ segments, label, className }: { segments: Segment[]
           {segments.map((s) => (
             <li key={s.label} className="flex items-center gap-2">
               <span aria-hidden className={clsx('size-2.5', SWATCH[s.tone])} />
-              {s.label} <span className="font-mono tabular-nums">{s.value}</span>
-              <span className="font-mono text-xs text-faint tabular-nums">{total ? `${Math.round((s.value / total) * 100)}%` : '—'}</span>
+              {s.label} <span className="tabular-nums">{s.value}</span>
+              <span className="text-xs text-faint tabular-nums">{total ? `${Math.round((s.value / total) * 100)}%` : '—'}</span>
             </li>
           ))}
         </ul>
@@ -72,7 +72,7 @@ export function StackedBar({ segments, label, className }: { segments: Segment[]
 /** A headline number with its definition's numerator and denominator spelled out. */
 export function Stat({ label, value, detail, tone = 'neutral', className }: { label: string; value: ReactNode; detail?: ReactNode; tone?: Tone; className?: string }) {
   return (
-    <div className={clsx('grid content-start gap-1.5 border border-l-[3px] border-rule bg-surface px-4 py-4 shadow-placard', tone === 'conflict' ? 'border-l-madder' : tone === 'verified' ? 'border-l-sage' : 'border-l-control', className)}>
+    <div className={clsx('grid content-start gap-1.5 border border-l-[3px] border-rule bg-surface px-4 py-4 shadow-placard rounded-lg', tone === 'conflict' ? 'border-l-madder' : tone === 'verified' ? 'border-l-sage' : 'border-l-control', className)}>
       <p className="ds-kicker">{label}</p>
       <p className="font-display text-3xl tracking-[-0.03em] tabular-nums">{value}</p>
       {detail && <p className="text-sm text-muted">{detail}</p>}

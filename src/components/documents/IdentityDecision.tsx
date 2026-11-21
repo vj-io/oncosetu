@@ -37,7 +37,7 @@ export function IdentityDecision({ documentId, result, reasons, onDone, compact 
   }
 
   return (
-    <div className="grid gap-3 border border-l-[3px] border-rule border-l-madder bg-madder-tint/40 p-4">
+    <div className="grid gap-3 border border-l-[3px] border-rule border-l-madder bg-madder-tint/40 p-4 rounded-lg">
       <div className="grid gap-1">
         <p className="ds-kicker text-madder-ink">Held out of the record · identity {result}</p>
         {!compact && <p className="text-[15px]">Nothing from this file reaches the timeline until a person decides. Check the header against the registered patient.</p>}
@@ -45,7 +45,7 @@ export function IdentityDecision({ documentId, result, reasons, onDone, compact 
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Quick reasons">
         {QUICK.map((q) => (
-          <button key={q} type="button" onClick={() => setReason(q)} aria-pressed={reason === q} className="min-h-9 border border-rule bg-surface px-3 text-sm hover:bg-spotlight aria-pressed:border-obsidian">{q}</button>
+          <button key={q} type="button" onClick={() => setReason(q)} aria-pressed={reason === q} className="min-h-9 border border-rule bg-surface px-3 text-sm hover:bg-spotlight aria-pressed:border-obsidian rounded-md">{q}</button>
         ))}
       </div>
       <Field label="Reason for your decision" error={error ?? undefined}>

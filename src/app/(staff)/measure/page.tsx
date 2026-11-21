@@ -19,7 +19,7 @@ export default async function MeasurePage({ searchParams }: { searchParams: Prom
   const { encs, mine } = await withOrg(s.orgId, async (tx) => ({ encs: await recentEncounters(tx), mine: await myRecentForms(tx, s.staffId) }))
   return (
     <div className="mx-auto grid max-w-3xl grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Study form · takes about a minute" title="Record this consultation"
+      <SectionHeader feature as="h1" kicker="Study form · takes about a minute" title="Record this consultation"
         description="Answer after the consultation. The form carries no patient details: it is linked to the visit by a code only. These answers feed the measurement study of how missing papers affect consultations."
         />
       <MeasureForm today={istToday()} initialEncounterId={typeof visit === 'string' ? visit : undefined} encounters={encs.map((e) => ({ id: e.id, type: e.type, label: `${accession(e.patientId)} · ${TYPE[e.type] ?? e.type} · ${istDateTime(e.startedAt)}` }))} />
@@ -31,7 +31,7 @@ export default async function MeasurePage({ searchParams }: { searchParams: Prom
             <tbody>
               {mine.map((f) => (
                 <tr key={f.id}>
-                  <td className="font-mono text-[13px]">{formatDateIN(f.consultationDate, 'en')}</td><td className="capitalize">{f.phase}</td>
+                  <td className="text-[13px]">{formatDateIN(f.consultationDate, 'en')}</td><td className="capitalize">{f.phase}</td>
                   <td>{f.missingRecordPresent ? `${f.missingRecordCount}: ${f.missingTypes.map((t) => staffDocLabel(t as DocType)).join(', ') || 'types not given'}` : 'None'}</td>
                   <td>{IMPACT[f.impact]}</td><td>{f.repeatTestOrdered ? f.repeatTestReason?.replace('_', ' ') : 'No'}</td>
                 </tr>

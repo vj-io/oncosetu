@@ -94,7 +94,7 @@ export function Tour() {
     };
   }, [step, pathname]);
 
-  if (starting) return <p role="status" className="fixed right-4 bottom-4 z-50 border border-rule bg-matte px-4 py-3 text-sm shadow-frame">Starting the tour…</p>;
+  if (starting) return <p role="status" className="fixed right-4 bottom-4 z-50 border border-rule bg-matte px-4 py-3 text-sm shadow-frame rounded-lg">Starting the tour…</p>;
   if (!state || !step) return null;
 
   const go = (to: number) => {
@@ -106,7 +106,7 @@ export function Tour() {
   const last = state.step >= steps.length - 1;
 
   return (
-    <aside role="dialog" aria-label="Guided tour" aria-live="polite" className="fixed right-3 bottom-3 left-3 z-50 grid gap-3 border border-ink bg-matte p-4 shadow-frame sm:left-auto sm:w-[24rem]">
+    <aside role="dialog" aria-label="Guided tour" aria-live="polite" className="fixed right-3 bottom-3 left-3 z-50 grid gap-3 rounded-xl border border-rule bg-surface p-4 shadow-pop sm:left-auto sm:w-[24rem]">
       <div className="flex items-start justify-between gap-3">
         <p className="ds-kicker">Tour · step {state.step + 1} of {steps.length}</p>
         <button type="button" onClick={() => save(null)} aria-label="Close the tour" className="-m-2 grid size-10 place-items-center hover:bg-spotlight">

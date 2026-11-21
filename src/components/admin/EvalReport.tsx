@@ -41,7 +41,7 @@ function Cell({ r, row }: { r: SetReport | undefined; row: (typeof ROWS)[number]
   if (!r) return <td className="text-muted">Not run</td>
   const ok = row.ok(r)
   return (
-    <td className="font-mono text-[15px] tabular-nums whitespace-nowrap">
+    <td className="text-[15px] tabular-nums whitespace-nowrap">
       {row.value(r)} {ok !== null && <Badge tone={ok ? 'verified' : 'unverified'}>{ok ? 'Meets' : 'Misses'}</Badge>}
     </td>
   )
@@ -57,12 +57,12 @@ export function EvalReport() {
         <thead><tr><th>Metric</th><th>Target</th>{cols.map((c) => <th key={c.label}>{c.label}</th>)}</tr></thead>
         <tbody>
           {ROWS.map((row) => (
-            <tr key={row.label}><td>{row.label}</td><td className="font-mono text-[13px] whitespace-nowrap">{row.target}</td>{cols.map((c) => <Cell key={c.label} r={c.r} row={row} />)}</tr>
+            <tr key={row.label}><td>{row.label}</td><td className="text-[13px] whitespace-nowrap">{row.target}</td>{cols.map((c) => <Cell key={c.label} r={c.r} row={row} />)}</tr>
           ))}
           {ocr && (
             <tr>
-              <td>Photo-reading error rate: share of characters misread, printed photographed pages ({ocr.pagesScored})</td><td className="font-mono text-[13px]">≤ 5%</td>
-              <td colSpan={3} className="font-mono text-[15px] tabular-nums">
+              <td>Photo-reading error rate: share of characters misread, printed photographed pages ({ocr.pagesScored})</td><td className="text-[13px]">≤ 5%</td>
+              <td colSpan={3} className="text-[15px] tabular-nums">
                 {(ocr.cer * 100).toFixed(1)}% mean · {(ocr.maxCer * 100).toFixed(1)}% worst <Badge tone={ocr.cer <= 0.05 ? 'verified' : 'unverified'}>{ocr.cer <= 0.05 ? 'Meets' : 'Misses'}</Badge>
               </td>
             </tr>
@@ -76,7 +76,7 @@ export function EvalReport() {
             const h = H.heldout?.recallByClass?.[t]
             return (
               <tr key={t}>
-                <td>{staffDocLabel(t as DocType)}</td><td className="font-mono tabular-nums">{v.gold}</td>
+                <td>{staffDocLabel(t as DocType)}</td><td className="tabular-nums">{v.gold}</td>
                 <td className={`font-mono tabular-nums ${v.recall != null && v.recall < 0.85 ? 'text-amber-ink' : ''}`}>{num(v.recall)}</td>
                 <td className={`font-mono tabular-nums ${h?.recall != null && h.recall < 0.85 ? 'text-amber-ink' : ''}`}>{num(h?.recall)}</td>
               </tr>
@@ -106,11 +106,11 @@ export function AsrReport() {
         <tbody>
           {sets.map(([label, s]) => (
             <tr key={label}>
-              <td>{label}</td><td className="font-mono tabular-nums">{s.clips}</td>
-              <td className="font-mono tabular-nums">{pct(s.plain.drugNameErrorRate)}</td>
-              <td className="font-mono tabular-nums">{pct(s.withKeyterms.drugNameErrorRate)}</td>
-              <td className="font-mono tabular-nums">{pct(s.plain.wer)}</td>
-              <td className="font-mono tabular-nums">{pct(s.withKeyterms.wer)}</td>
+              <td>{label}</td><td className="tabular-nums">{s.clips}</td>
+              <td className="tabular-nums">{pct(s.plain.drugNameErrorRate)}</td>
+              <td className="tabular-nums">{pct(s.withKeyterms.drugNameErrorRate)}</td>
+              <td className="tabular-nums">{pct(s.plain.wer)}</td>
+              <td className="tabular-nums">{pct(s.withKeyterms.wer)}</td>
             </tr>
           ))}
         </tbody>

@@ -2,7 +2,8 @@
 import { notInArray } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { patientAliases, patients } from '@/db/schema'
-import { decryptField, hmac, maskPhone } from '../crypto'
+import { hmac, maskPhone } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { ageYears, initials } from '../patients'
 import { accession } from './http'
 import { dupReasons, identityKey, isStrong, type DupProfile, type DupReason } from './logic'
@@ -27,13 +28,17 @@ export async function findDuplicates(tx: Tx, input: DupProfile): Promise<Duplica
   const rows = await tx.select().from(patients).where(notInArray(patients.status, ['merged', 'erased'])) // an erased tombstone has no name left
   const aliasRows = await tx.select({ patientId: patientAliases.patientId, nameEnc: patientAliases.nameEnc }).from(patientAliases)
   const aliasBy = new Map<string, string[]>()
-  for (const a of aliasRows) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), decryptField(a.nameEnc)])
+  for (const a of aliasRows) {
+    const alias = readOrNull(a.nameEnc, 'alias name', a.patientId)
+    if (alias !== null) aliasBy.set(a.patientId, [...(aliasBy.get(a.patientId) ?? []), alias])
+  }
 
   // Caregiver phones are deliberately not matched: a family phone is not evidence of a duplicate patient.
   const out: DuplicateCandidate[] = []
   for (const p of rows) {
-    const name = decryptField(p.nameEnc)
-    const dob = p.dobEnc ? decryptField(p.dobEnc) : null
+    const name = readOrNull(p.nameEnc, 'patient name', p.id)
+    if (name === null) continue // an unreadable row cannot be compared
+    const dob = readOrNull(p.dobEnc, 'patient date of birth', p.id)
     const cand: DupProfile = {
       name, aliases: aliasBy.get(p.id) ?? [], dob, phoneHmac: p.phoneHmac, abhaHmac: p.abhaHmac,
       identityHmac: p.identityHmac ?? identityKey(name, dob), mrn: p.mrn,
@@ -42,7 +47,7 @@ export async function findDuplicates(tx: Tx, input: DupProfile): Promise<Duplica
     if (!reasons.length) continue
     out.push({
       id: p.id, accession: accession(p.id), initials: initials(name), ageYears: dob ? ageYears(dob) : null, mrn: p.mrn,
-      phoneMasked: p.phoneEnc ? maskPhone(decryptField(p.phoneEnc)) : null, reasons, strong: isStrong(reasons),
+      phoneMasked: p.phoneEnc ? maskPhone(readOrNull(p.phoneEnc, 'patient phone', p.id) ?? '') : null, reasons, strong: isStrong(reasons),
       blocking: !!input.mrn && p.mrn === input.mrn,
     })
   }

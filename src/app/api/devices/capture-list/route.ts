@@ -1,7 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, sql } from 'drizzle-orm'
 import { consents, encounters, patients, type ConsentPurposes } from '@/db/schema'
 import { now } from '@/server/clock'
-import { decryptField } from '@/server/crypto'
+import { nameOrFlag, readOrNull } from '@/server/unreadable'
 import { route } from '@/server/http'
 import { ageYears, initials } from '@/server/patients'
 import { accession } from '@/server/registration/http'
@@ -39,8 +39,8 @@ export const GET = route({ auth: 'staff', roles: ['desk', 'records', 'clinician'
   const stores = new Set(latest.filter((c) => c.action !== 'withdraw' && (c.purposes as ConsentPurposes).store).map((c) => c.patientId))
   // The desk sees initials and the record code only, as on Today's encounters (DESK-03); records and clinicians see the name.
   const who = (r: (typeof rows)[number]) => desk
-    ? { patientId: r.patientId, name: `${initials(decryptField(r.nameEnc))} · ${accession(r.patientId)}`, mrn: r.mrn, ageYears: null }
-    : { patientId: r.patientId, name: decryptField(r.nameEnc), mrn: r.mrn, ageYears: r.dobEnc ? ageYears(decryptField(r.dobEnc)) : null }
+    ? { patientId: r.patientId, name: `${((n) => (n ? initials(n) : '?'))(readOrNull(r.nameEnc, 'patient name', r.patientId))} · ${accession(r.patientId)}`, mrn: r.mrn, ageYears: null }
+    : { patientId: r.patientId, name: nameOrFlag(r.nameEnc, 'patient name', r.patientId), mrn: r.mrn, ageYears: ((d) => (d ? ageYears(d) : null))(readOrNull(r.dobEnc, 'patient date of birth', r.patientId)) }
   const items = rows.filter((r) => stores.has(r.patientId)).map((r) => ({ encounterId: r.encounterId, type: r.type, startedAt: r.startedAt.toISOString(), ...who(r) }))
   const seen = new Set(items.map((i) => i.patientId))
   const recent = []

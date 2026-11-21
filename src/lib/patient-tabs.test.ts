@@ -19,23 +19,22 @@ describe('patient workspace tabs by role', () => {
   })
   it('desk staff never see the All records tab, which carries what each paper says (DESK-08)', () => {
     expect(tabAllowed('records', 'desk')).toBe(false)
-    expect(tabsFor('desk').main.map((t) => t.key)).toEqual(['overview', 'ledger', 'completeness', 'requests', 'shares'])
+    expect(tabsFor('desk').main.map((t) => t.key)).toEqual(['overview', 'documents', 'completeness', 'requests'])
     expect(tabsFor('desk').more.map((t) => t.key)).not.toContain('records')
     for (const r of ['records', 'clinician'] as const) expect(tabAllowed('records', r)).toBe(true)
   })
   it('administrators only get the checklist and the pre-auth file among the role-limited tabs', () => {
     expect(PATIENT_TABS.map(([k]) => k).filter((k) => !tabAllowed(k, 'org_admin') ).sort()).toEqual(['ledger', 'records', 'requests', 'shares', 'timeline'])
   })
-  it('every role gets exactly the six main tabs it may open, in order, and the rest under More', () => {
-    const six = ['overview', 'records', 'ledger', 'completeness', 'requests', 'shares']
-    expect(PATIENT_TAB_LIST.filter((t) => t.main).map((t) => t.key)).toEqual(six)
+  it('every role gets at most four tabs in the bar, all ones it may open, and the rest under More', () => {
     for (const r of STAFF_ROLES) {
       const { main, more } = tabsFor(r)
-      expect(main.map((t) => t.key)).toEqual(six.filter((k) => tabAllowed(k, r)))
-      expect(more.every((t) => !t.main && tabAllowed(t.key, r))).toBe(true)
+      expect(main.length).toBeLessThanOrEqual(4)
+      expect(main[0].key).toBe('overview')
+      expect([...main, ...more].every((t) => tabAllowed(t.key, r))).toBe(true)
       expect([...main, ...more].length).toBe(PATIENT_TAB_LIST.filter((t) => tabAllowed(t.key, r)).length)
     }
-    expect(tabsFor('clinician').main).toHaveLength(6)
+    expect(tabsFor('clinician').main.map((t) => t.key)).toEqual(['overview', 'records', 'ledger', 'completeness'])
     expect(tabsFor('org_admin').main.map((t) => t.key)).toEqual(['overview', 'completeness'])
   })
   it('"records" is labelled All records and nothing is listed twice', () => {

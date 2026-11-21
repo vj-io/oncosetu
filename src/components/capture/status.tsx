@@ -35,7 +35,7 @@ export function NetworkPill({ online, waiting }: { online: boolean; waiting: num
 /** A callout in the placard style: a tone bar, an icon and words (never colour alone). */
 export function Notice({ tone = "unverified", title, children, action }: { tone?: Tone; title: ReactNode; children?: ReactNode; action?: ReactNode }) {
   return (
-    <div role="alert" className={clsx("flex flex-wrap items-start gap-x-3 gap-y-3 border border-l-[3px] border-rule bg-surface py-3 pr-3 pl-4", TONE[tone].bar)}>
+    <div role="alert" className={clsx("flex flex-wrap items-start gap-x-3 gap-y-3 border border-l-[3px] border-rule bg-surface py-3 pr-3 pl-4 rounded-lg", TONE[tone].bar)}>
       <CircleAlert aria-hidden className={clsx("mt-0.5 size-5 shrink-0", TONE[tone].text)} />
       <div className="min-w-48 flex-1 basis-56">
         <p className="text-[15px] leading-snug font-medium">{title}</p>

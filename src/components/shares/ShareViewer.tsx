@@ -3,7 +3,7 @@
 // the server returns only ciphertext after expiry/revocation/consent/passcode checks; decryption happens here.
 import { useEffect, useState } from 'react'
 import { ArrowUpRight, Lock, Printer, ShieldAlert, ShieldCheck } from 'lucide-react'
-import { BrassSeal, Button, Chip, EmptyFrame, Field, Frame, Input, LanguageToggle, SectionHeader, Spotlight, Wordmark, type Tone } from '@/components/ui'
+import { BrassSeal, Button, Chip, EmptyFrame, Field, Frame, Input, LanguageToggle, SectionHeader, Wordmark, type Tone } from '@/components/ui'
 import { formatDateIN, htmlLang, inLang, istDate } from '@/core/copy'
 import type { Lang } from '@/core/types'
 import { tn, ts, type ShareKey } from '@/i18n/shares'
@@ -127,7 +127,7 @@ export function ShareViewer({ id }: { id: string }) {
             <li key={i} data-testid="share-item" className="grid gap-1.5 border-l-[3px] border-l-rule pl-3">
               <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                 <span className="text-[16px]">{inLang(it.label, lang)}</span>
-                <span className="font-mono text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
+                <span className="text-[13px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
               </div>
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-muted">
                 {[where, it.institution].filter(Boolean).join(' · ')}
@@ -149,15 +149,15 @@ export function ShareViewer({ id }: { id: string }) {
     return (
       <Frame className="grid gap-2 px-4 py-3 sm:px-5">
         <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <span className="font-mono text-[14px]">{d.date ? formatDateIN(d.date, lang) : L.noDate[lang]}</span>
-          <span className="font-mono text-[12px] text-muted">{t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })}</span>
+          <span className="text-[14px]">{d.date ? formatDateIN(d.date, lang) : L.noDate[lang]}</span>
+          <span className="text-[12px] text-muted">{t('received', { date: formatDateIN(istDate(d.receivedAt), lang) })}</span>
         </div>
         {d.institution && <p className="text-[16px]">{d.institution}</p>}
         {line && <p className="text-[15px] leading-snug text-muted">{line}</p>}
         {its.length > 0 && (
           <details className="border-t border-rule pt-2">
             <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-[15px] text-setu-ink">
-              <span>{L.details[lang]}</span><span className="font-mono text-[12px] text-muted">{tn(lang, 'itemsN', 'itemsOne', its.length)}</span>
+              <span>{L.details[lang]}</span><span className="text-[12px] text-muted">{tn(lang, 'itemsN', 'itemsOne', its.length)}</span>
             </summary>
             <div className="pt-2">{renderItems(its)}</div>
           </details>
@@ -177,7 +177,6 @@ export function ShareViewer({ id }: { id: string }) {
         </div>
       </header>
       <div className="relative flex-1">
-        <Spotlight className="opacity-80 print:hidden" />
         <main id="main" className="relative mx-auto w-full max-w-reading px-4 py-8 sm:px-6 sm:py-12">
           {phase.k === 'loading' && <p className="text-muted" aria-live="polite">…</p>}
 
@@ -191,7 +190,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <div className="flex items-center gap-2"><Lock aria-hidden className="size-5 text-muted" /><h1 className="text-2xl">{t('passcodeTitle')}</h1></div>
                 <p className="text-muted">{t('passcodeIntro')}</p>
                 <Field label={t('passcodeLabel')} error={phase.left != null ? t('wrongPasscode', { n: phase.left }) : undefined}>
-                  <Input type={showCode ? 'text' : 'password'} value={passcode} onChange={(e) => setPasscode(e.target.value)} autoComplete="off" autoFocus maxLength={64} className="font-mono" />
+                  <Input type={showCode ? 'text' : 'password'} value={passcode} onChange={(e) => setPasscode(e.target.value)} autoComplete="off" autoFocus maxLength={64} className="" />
                 </Field>
                 <div><Button type="button" size="sm" variant="ghost" aria-pressed={showCode} onClick={() => setShowCode((v) => !v)}>{showCode ? t('hidePasscode') : t('showPasscode')}</Button></div>
                 <div><Button type="submit" loading={busy}>{busy ? t('opening') : t('open')}</Button></div>
@@ -206,7 +205,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <h1 className="text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{inLang(p.heading, lang)}</h1>
                 <p className="text-[17px]">{t(p.createdBy === 'staff' ? 'byClinic' : p.createdBy === 'patient' ? 'byPatient' : p.createdBy === 'caregiver' ? 'byFamily' : 'byUnknown')}</p>
                 <p className="text-[17px]">{inLang(p.notice, lang)}</p>{/* FR-PAS-03 / ADR-002: only records provided to the clinic */}
-                <p className="font-mono text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
+                <p className="text-[13px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
                 {signed ? (
                   <p role="status" className="flex items-start gap-2 border-l-[3px] border-l-sage bg-sage-tint px-3 py-2 text-[15px] text-sage-ink">
                     <ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />{t('sigVerified', { brand: p.brand, date: formatDateIN(istDate(p.issuedAt), lang), sealDate: formatDateIN(istDate(p.asOf), lang) })}
@@ -224,7 +223,7 @@ export function ShareViewer({ id }: { id: string }) {
                   <div key={g.label} className="grid gap-3">
                     <h3 className="flex flex-wrap items-baseline justify-between gap-x-3 border-b border-rule pb-1 text-lg">
                       <span>{g.label}</span>
-                      <span className="font-mono text-[13px] text-muted">{tn(lang, 'papersN', 'papersOne', g.docs.length)}</span>
+                      <span className="text-[13px] text-muted">{tn(lang, 'papersN', 'papersOne', g.docs.length)}</span>
                     </h3>
                     <ul className="grid gap-3">
                       {g.docs.map((d) => <li key={d.id}>{renderPaper(d)}</li>)}
@@ -244,7 +243,7 @@ export function ShareViewer({ id }: { id: string }) {
                   <SectionHeader title={<span id="scans-h">{L.scansHead[lang]}</span>} description={L.scansIntro[lang]} />
                   <ul className="grid gap-2">
                     {p.scans.map((sc, i) => (
-                      <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-rule bg-surface px-4 py-3">
+                      <li key={i} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border border-rule bg-surface px-4 py-3 rounded-lg">
                         <span className="text-[15px]">
                           <span className="font-medium">{inLang(sc.label, lang)}</span>
                           <span className="text-muted"> · {sc.date ? formatDateIN(sc.date, lang) : L.noDate[lang]}{sc.institution ? ` · ${sc.institution}` : ''}</span>
@@ -290,7 +289,7 @@ export function ShareViewer({ id }: { id: string }) {
                 <div className="grid min-w-0 gap-1">
                   <h2 id="seal-h" className="ds-kicker">{t('sealTitle')}</h2>
                   <p className="font-mono text-[12px] break-all text-muted">{t('sealText', { id: p.seal.snapshotId.slice(0, 8), hash: p.seal.sha256.slice(0, 16) + '…' })}</p>
-                  {verifyHref && <a href={verifyHref} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4 print:hidden">{t('verifySeal')}<ArrowUpRight aria-hidden className="size-3.5" /></a>}
+                  {verifyHref && <a href={verifyHref} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-link underline-offset-4 print:hidden">{t('verifySeal')}<ArrowUpRight aria-hidden className="size-3.5" /></a>}
                 </div>
               </section>
             </article>

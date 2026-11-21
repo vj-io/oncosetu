@@ -20,7 +20,7 @@ export function HeldReveal({ nameOnFile, children }: { nameOnFile: string | null
         {children}
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" onClick={() => setShown((s) => !s)} aria-pressed={shown} className="inline-flex min-h-10 items-center gap-2 border border-obsidian px-3 text-sm hover:bg-spotlight">
+        <button type="button" onClick={() => setShown((s) => !s)} aria-pressed={shown} className="inline-flex min-h-10 items-center gap-2 border border-obsidian px-3 text-sm hover:bg-spotlight rounded-md">
           {shown ? <EyeOff aria-hidden className="size-4" /> : <Eye aria-hidden className="size-4" />}
           {shown ? 'Hide the file again' : 'Show the file anyway'}
         </button>

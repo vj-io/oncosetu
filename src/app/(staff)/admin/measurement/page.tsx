@@ -24,7 +24,7 @@ export default async function MeasurementPage() {
 
   return (
     <div className="grid grid-cols-1 gap-8">
-      <SectionHeader as="h1" kicker="Admin · Consultation study" title="Consultation study"
+      <SectionHeader feature as="h1" kicker="Admin · Consultation study" title="Consultation study"
         description="Consultation forms from clinicians, plus the measures the system collects itself. The export has no names, phones, dates of birth, encounter ids, clinician ids or exact dates."
         actions={canExport ? <ButtonLink href="/api/measure/export.csv" prefetch={false} variant="secondary" icon={<Download aria-hidden />}>Export anonymised CSV</ButtonLink> : undefined} />
 
@@ -36,11 +36,11 @@ export default async function MeasurementPage() {
               {sum.phases.map((p) => (
                 <tr key={p.phase}>
                   <td>{PHASE[p.phase]}</td>
-                  <td className="font-mono tabular-nums">{p.n}</td>
-                  <td className="font-mono tabular-nums">{pctText(p.missingRate)} <span className="text-faint">({p.missingRate.num}/{p.missingRate.den})</span></td>
-                  <td className="font-mono tabular-nums">{pctText(p.repeatRate)} <span className="text-faint">({p.repeatRate.num}/{p.repeatRate.den})</span></td>
-                  <td className="font-mono tabular-nums">{p.impact.none} / {p.impact.delayed_decision} / {p.impact.repeat_test_ordered} / {p.impact.visit_rescheduled}</td>
-                  <td className="font-mono tabular-nums">{p.prepMedian ?? '—'} <span className="text-faint">(n={p.prepN})</span></td>
+                  <td className="tabular-nums">{p.n}</td>
+                  <td className="tabular-nums">{pctText(p.missingRate)} <span className="text-faint">({p.missingRate.num}/{p.missingRate.den})</span></td>
+                  <td className="tabular-nums">{pctText(p.repeatRate)} <span className="text-faint">({p.repeatRate.num}/{p.repeatRate.den})</span></td>
+                  <td className="tabular-nums">{p.impact.none} / {p.impact.delayed_decision} / {p.impact.repeat_test_ordered} / {p.impact.visit_rescheduled}</td>
+                  <td className="tabular-nums">{p.prepMedian ?? '—'} <span className="text-faint">(n={p.prepN})</span></td>
                 </tr>
               ))}
             </tbody>
@@ -60,7 +60,7 @@ export default async function MeasurementPage() {
       </div>
 
       <Block kicker="System measures" title="Collected by the system" note="Counted the same way as on the How well it works page.">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 font-mono text-sm">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-8 gap-y-2 text-sm">
           <dt className="text-muted">Request fulfilment rate</dt><dd className="tabular-nums">{pctText(sys.fulfilment.overall.rate)} ({sys.fulfilment.overall.fulfilled} of {sys.fulfilment.overall.sent} sent)</dd>
           <dt className="text-muted">Median days to fulfilment</dt><dd className="tabular-nums">{daysText(sys.fulfilment.overall.medianDays)}</dd>
           <dt className="text-muted">Diagnosis not cleared for discussion at sign-up</dt><dd className="tabular-nums">{pctText(sys.disclosure.nonCleared)} ({sys.disclosure.nonCleared.num} of {sys.disclosure.total})</dd>

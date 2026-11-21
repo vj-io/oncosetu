@@ -55,10 +55,10 @@ export function ConsentSignPanel({ patientId, language, minor, hasConsent, withd
       </div>
       <div role="group" aria-label="Signature method" className="flex gap-2">
         {(["drawn", "typed"] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`min-h-11 border px-4 text-sm ${mode === m ? "border-ink bg-ink text-gallery" : "border-control"}`}>{m === "drawn" ? "Draw signature" : "Type name"}</button>
+          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={`min-h-11 border px-4 text-sm ${mode === m ? "border-pine bg-pine text-white" : "border-control"} rounded-md`}>{m === "drawn" ? "Draw signature" : "Type name"}</button>
         ))}
       </div>
-      {mode === "drawn" ? <SignaturePad onChange={setPng} clearLabel="Clear" hint="Sign inside the box with a finger, pen or mouse." /> : <p className="border border-dashed border-control px-4 py-5 font-serif text-2xl italic">{name || " "}</p>}
+      {mode === "drawn" ? <SignaturePad onChange={setPng} clearLabel="Clear" hint="Sign inside the box with a finger, pen or mouse." /> : <p className="border border-dashed border-control px-4 py-5 font-serif text-2xl italic rounded-lg">{name || " "}</p>}
       {error && <Notice tone="conflict" title={error} />}
       {done && <Notice tone="verified" title="Signed and saved with the patient’s documents" />}
       <div><Button onClick={sign} loading={busy} disabled={!ready || busy}>{withdraw ? "Sign the withdrawal" : "Sign the consent form"}</Button></div>

@@ -13,7 +13,7 @@ export default async function StaffPage() {
   const rows = await withOrg(s.orgId, (tx) => listStaff(tx, s.orgId))
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Staff" title="Staff and roles" description="Create accounts, change roles, deactivate leavers and reset authenticators. The organisation always keeps at least one active administrator." />
+      <SectionHeader feature as="h1" kicker="Admin · Staff" title="Staff and roles" description="Create accounts, change roles, deactivate leavers and reset authenticators. The organisation always keeps at least one active administrator." />
       <StaffManager meId={s.staffId} rows={rows.map((r) => ({ id: r.id, name: r.name, email: r.email, role: r.role, active: r.active, totpEnabled: r.totpEnabled, locked: r.locked, isDemo: r.isDemo, lastLogin: r.lastLoginAt ? istDateTime(r.lastLoginAt) : null }))} />
     </div>
   )

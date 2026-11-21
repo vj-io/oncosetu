@@ -22,7 +22,7 @@ export default async function RequestsPage({ params }: { params: Promise<{ id: s
   if (!ok) return null // the workspace layout explains the denial
   return (
     <div className="grid gap-8 py-8">
-      <SectionHeader
+      <SectionHeader feature
         kicker="Asking other hospitals for papers"
         title="Requests to other hospitals"
         description="A letter in English or Hindi for the hospital's Medical Records Department, tracked from the day it is given: a reminder to the patient at 7 days, still open at 21 days with an information sheet. The 72-hour period is the regulation's reference, never a promise."

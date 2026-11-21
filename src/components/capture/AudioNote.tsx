@@ -66,7 +66,7 @@ export function AudioNote({ note, setNote }: { note: RecordedNote | null; setNot
       {note ? (
         <div className="flex flex-wrap items-center gap-3">
           <audio controls src={note.url} className="h-9" aria-label="Your audio note, not saved yet" />
-          <span className="font-mono text-xs text-muted">{mmss(note.seconds)}</span>
+          <span className="text-xs text-muted">{mmss(note.seconds)}</span>
           <Button variant="ghost" size="sm" onClick={discard} icon={<Trash2 aria-hidden />}>Delete note</Button>
         </div>
       ) : state === "recording" ? (

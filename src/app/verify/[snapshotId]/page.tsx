@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { CircleCheck, CircleX } from 'lucide-react'
-import { BrassSeal, Frame, KeyValue, LanguageToggle, Spotlight, Wordmark } from '@/components/ui'
+import { BrassSeal, Frame, KeyValue, LanguageToggle, Wordmark } from '@/components/ui'
 import { formatDateIN, htmlLang } from '@/core/copy'
 import { verifyCopy as T } from '@/i18n/ledger'
 import { verifySnapshotPublic } from '@/server/ledger/seal'
@@ -27,12 +27,11 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
   if (!v) {
     return (
       <div className="relative min-h-dvh overflow-hidden">
-        <Spotlight />
         <main lang={htmlLang(lang)} className="relative mx-auto grid max-w-2xl gap-6 px-4 py-10 sm:py-16">
           <Wordmark brand="Setu Records" />
           <h1 className="text-3xl leading-tight tracking-[-0.025em] sm:text-4xl">This seal id is not known.</h1>
           <p className="text-muted">Check the link or the code you were given. If it was copied by hand, a letter may be missing. Ask the hospital that gave it to you for a fresh link.</p>
-          <p><Link href="/" className="inline-flex min-h-11 items-center text-setu-ink underline decoration-brass underline-offset-4">Go to the home page</Link></p>
+          <p><Link href="/" className="inline-flex min-h-11 items-center text-setu-ink underline decoration-link underline-offset-4">Go to the home page</Link></p>
         </main>
       </div>
     )
@@ -43,7 +42,6 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
 
   return (
     <div className="relative min-h-dvh overflow-hidden">
-      <Spotlight />
       <main lang={htmlLang(lang)} className="relative mx-auto grid max-w-2xl gap-8 px-4 py-10 sm:py-16">
         <div className="flex items-center justify-between gap-4">
           <Wordmark brand="Setu Records" />
@@ -53,16 +51,16 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
           {intact ? (
             <BrassSeal animate code={v.sha256Stored} label="Intact" ringText={t('ring')} size={168} />
           ) : (
-            <span aria-hidden className="grid size-[168px] place-items-center rounded-full border-2 border-dashed border-madder bg-madder-tint font-mono text-xs tracking-[0.16em] text-madder-ink uppercase">{t('brokenBadge')}</span>
+            <span aria-hidden className="grid size-[168px] place-items-center rounded-full border-2 border-dashed border-madder/40 bg-madder-tint text-xs text-madder-ink font-medium">{t('brokenBadge')}</span>
           )}
           <p className="ds-kicker">{fill(t('sealedLine'), { seq: v.seq, date: formatDateIN(v.sealedAt, lang), time })}</p>
           <h1 className="text-3xl leading-tight tracking-[-0.025em] sm:text-4xl">{intact ? t('intactTitle') : t('brokenTitle')}</h1>
           <p className="max-w-lg text-muted">{intact ? t('intactBody') : t('brokenBody')}</p>
         </div>
 
-        <Frame className="px-5 py-5 sm:px-6">
+        <Frame tone="feature" className="px-5 py-5 sm:px-6">
           <KeyValue items={[
-            ...(v.counts ? [{ label: t('contents'), value: <span className="font-mono text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
+            ...(v.counts ? [{ label: t('contents'), value: <span className="text-[13px]">{fill(t('counts'), v.counts)}</span> }] : []),
             { label: t('signature'), value: <Check ok={v.signatureValid} yes={t('sigOk')} no={t('sigBad')} /> },
           ]} />
           <details className="mt-4 border-t border-rule pt-3">
@@ -71,7 +69,7 @@ export default async function VerifySnapshotPage({ params, searchParams }: { par
               { label: t('hash'), value: <Check ok={v.hashMatches} yes={t('hashOk')} no={t('hashBad')} /> },
               { label: t('sealed'), value: <span className="font-mono text-[13px] break-all">{v.sha256Stored}</span> },
               { label: t('now'), value: <span className="font-mono text-[13px] break-all">{v.sha256Recomputed}</span> },
-              { label: t('key'), value: <span className="font-mono text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-brass underline-offset-4">{t('publicKeys')}</a></span> },
+              { label: t('key'), value: <span className="text-[13px]">{v.keyId ?? '—'} · <a href="/api/keys" className="text-setu-ink underline decoration-link underline-offset-4">{t('publicKeys')}</a></span> },
             ]} /></div>
           </details>
         </Frame>

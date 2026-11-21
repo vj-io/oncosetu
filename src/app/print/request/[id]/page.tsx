@@ -66,9 +66,9 @@ export default async function RequestLetterPage({ params, searchParams }: { para
     <PrintSheet lang={lang} langHref={(x) => `/print/request/${id}?lang=${x}`}>
       <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-4">
         <p className="font-display text-xl tracking-[-0.02em]">{l.brand}</p>
-        <p className="font-mono text-[12px] text-muted">{l.date}</p>
+        <p className="text-[12px] text-muted">{l.date}</p>
       </header>
-      <h1 className="mt-6 text-[1.6rem] leading-tight tracking-[-0.02em]">{l.title}</h1>
+      <h1 className="mt-6 text-[1.6rem] leading-tight tracking-[-0.02em] print:mt-4">{l.title}</h1>
 
       <section className="mt-6 grid gap-0.5">
         <p>{tr(lang, 'letterTo')}</p>
@@ -89,22 +89,22 @@ export default async function RequestLetterPage({ params, searchParams }: { para
       <p className="mt-3">{l.period}</p>
       <p className="mt-4 text-[14px] text-muted">{l.reference}</p>
 
-      <div className="mt-6 flex items-start gap-5 break-inside-avoid">
+      <div className="mt-6 flex items-start gap-5 break-inside-avoid print:mt-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={qr} alt="" width={120} height={120} className="shrink-0 border border-rule" />
         <div className="grid gap-1.5">
           <p>{l.returnText}</p>
-          <p className="font-mono text-[12px] text-muted">{l.qrCaption}</p>
+          <p className="text-[12px] text-muted">{l.qrCaption}</p>
         </div>
       </div>
 
       <p className="mt-6">{l.thanks}</p>
-      <section className="mt-10 grid gap-6 break-inside-avoid sm:grid-cols-2 print:grid-cols-2">
+      <section className="mt-10 grid gap-6 break-inside-avoid sm:grid-cols-2 print:mt-6 print:grid-cols-2">
         {l.sign.map((x) => (
           <div key={x} className="grid gap-1"><span className="h-8 border-b border-ink" /><span className="text-[13px] text-muted">{x}</span></div>
         ))}
       </section>
-      <footer className="mt-10 border-t border-rule pt-3 font-mono text-[11px] text-faint">{l.footer}</footer>
+      <footer className="mt-10 border-t border-rule pt-3 text-xs text-faint print:mt-5">{l.footer}</footer>
     </PrintSheet>
   )
 }

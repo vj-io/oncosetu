@@ -35,15 +35,15 @@ export function Sources({ sources, compact = false }: { sources: SourceView[]; c
         <div key={i} className="grid gap-1.5">
           <span className="flex flex-wrap items-baseline gap-x-2 text-[15px]">
             {s.docLabel}
-            {s.pageNo != null && <span className="font-mono text-[13px] text-muted">p.{s.pageNo}</span>}
+            {s.pageNo != null && <span className="text-[13px] text-muted">p.{s.pageNo}</span>}
             {s.href && (
-              <Link href={s.href} className="inline-flex items-center gap-0.5 text-[13px] text-setu-ink underline decoration-brass underline-offset-4 hover:text-ink">
+              <Link href={s.href} className="inline-flex items-center gap-0.5 text-[13px] text-setu-ink underline decoration-link underline-offset-4 hover:text-ink">
                 Show the exact words<ArrowUpRight aria-hidden className="size-3.5" />
               </Link>
             )}
           </span>
           {s.quote && (
-            <blockquote className={clsx('border-l-2 border-brass pl-3 font-mono leading-relaxed text-ink', compact ? 'text-[13px]' : 'text-[13.5px]')}>
+            <blockquote className={clsx('border-l-2 border-brass/70 pl-3 leading-relaxed text-ink', compact ? 'text-[13px]' : 'text-[13.5px]')}>
               “<QuoteHighlight text={s.quote} start={0} end={s.quote.length} delay={200 + i * 120} />”
             </blockquote>
           )}
@@ -70,7 +70,7 @@ export function FlagBadges({ flags }: { flags: EventFlag[] }) {
 
 /** Quote-only lines (stage, impression, margins, markers, addendum, regimen, diagnosis, history) are the source's own words: shown only as a quote (PRD §6.6). */
 export const quoteOnly = (t: EventType) => STAFF_ONLY_EVENT_TYPES.has(t)
-export const SourceWords = ({ quoted, children }: { quoted: boolean; children: string }) => (quoted ? <q className="font-mono text-[0.92em]">{children}</q> : <>{children}</>)
+export const SourceWords = ({ quoted, children }: { quoted: boolean; children: string }) => (quoted ? <q className="text-[0.92em]">{children}</q> : <>{children}</>)
 
 const KICKER: Record<ItemView['category'], string> = {
   initial_record: 'On file', new_since_last_visit: 'New since the last visit', newly_received_older: 'Older paper that arrived late', amended: 'Corrected report',
@@ -88,14 +88,16 @@ export function LedgerItem({ item, index = 0, collapsed = false, hideAmends = fa
 function CollapsedItem({ item, index, desk }: { item: ItemView; index: number; desk: boolean }) {
   const flags = item.flags.filter((f) => FLAG[f] && f !== 'late_received')
   return (
-    <details id={`item-${item.id}`} className="group border border-rule bg-surface open:bg-transparent open:shadow-placard">
-      <summary className="flex min-h-12 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 [&::-webkit-details-marker]:hidden">
-        <span className="w-24 shrink-0 font-mono text-[13px] text-muted">{item.when.event}</span>
-        <span className="min-w-0 flex-1 text-[15px]"><span className="font-medium">{item.typeLabel}</span>{item.headline && <span className="text-muted">: <SourceWords quoted={quoteOnly(item.eventType)}>{item.headline}</SourceWords></span>}</span>
-        <StatusBadge status={item.status} label={STATUS_WORDS[item.status]} />
-        {flags.slice(0, 2).map((f) => <Badge key={f} tone={FLAG[f]!.tone}>{FLAG[f]!.label}</Badge>)}
-        <span className="text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:hidden">{desk ? 'Details' : 'Show quote'}</span>
-        <span className="hidden text-sm text-setu-ink underline decoration-brass underline-offset-4 group-open:inline">Hide</span>
+    <details id={`item-${item.id}`} className="group bg-surface open:bg-alcove/50">
+      <summary className="grid min-h-12 cursor-pointer list-none grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-2.5 hover:bg-spotlight sm:flex sm:flex-wrap [&::-webkit-details-marker]:hidden">
+        <span className="text-[13px] text-muted sm:w-24 sm:shrink-0">{item.when.event}</span>
+        <span className="col-span-2 min-w-0 text-[15px] sm:flex-1"><span className="font-medium">{item.typeLabel}</span>{item.headline && <span className="text-muted">: <SourceWords quoted={quoteOnly(item.eventType)}>{item.headline}</SourceWords></span>}</span>
+        <span className="col-span-2 flex flex-wrap items-center gap-1.5 sm:contents">
+          <StatusBadge status={item.status} label={STATUS_WORDS[item.status]} />
+          {flags.slice(0, 2).map((f) => <Badge key={f} tone={FLAG[f]!.tone}>{FLAG[f]!.label}</Badge>)}
+        </span>
+        <span className="col-start-2 row-start-1 text-sm font-medium text-setu-ink underline decoration-link underline-offset-4 group-open:hidden">{desk ? 'Details' : 'Show quote'}</span>
+        <span className="col-start-2 row-start-1 hidden text-sm font-medium text-setu-ink underline decoration-link underline-offset-4 group-open:inline">Hide</span>
       </summary>
       <div className="border-t border-rule p-3 sm:p-4"><LedgerCard item={item} index={index} /></div>
     </details>
@@ -110,7 +112,7 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
       <span>
         {STATUS_WORDS[item.status] ?? item.statusLabel}
         {item.who.actorName && <> by {item.who.actorName}{item.who.role && <span className="text-muted"> ({ROLE[item.who.role] ?? item.who.role})</span>}</>}
-        {item.who.at && <span className="font-mono text-[13px] text-muted"> · {item.who.at}</span>}
+        {item.who.at && <span className="text-[13px] text-muted"> · {item.who.at}</span>}
       </span>
     )
   const when = (
@@ -119,8 +121,8 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
         {item.when.event}
         {item.when.dateFrom === 'document' && <span className="text-muted"> (the paper’s own date)</span>}
       </span>
-      {item.when.document && item.when.dateFrom !== 'document' && <span className="font-mono text-[13px] text-muted">Document dated {item.when.document}</span>}
-      <span className="font-mono text-[13px] text-muted">
+      {item.when.document && item.when.dateFrom !== 'document' && <span className="text-[13px] text-muted">Document dated {item.when.document}</span>}
+      <span className="text-[13px] text-muted">
         Received {item.when.received}
       </span>
     </span>
@@ -153,10 +155,10 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
       who={
         <span className="grid gap-1">
           {who}
-          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] tracking-[0.1em] text-faint uppercase">
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-faint font-medium">
             <span>{SOURCE_TYPE[item.provenance.sourceType] ?? item.provenance.sourceType}</span>
             <details className="normal-case tracking-normal">
-              <summary className="cursor-pointer text-setu-ink underline decoration-brass underline-offset-4">Details</summary>
+              <summary className="cursor-pointer text-setu-ink underline decoration-link underline-offset-4">Details</summary>
               <span className="text-muted">How it was read: {METHOD[item.provenance.method] ?? item.provenance.method}</span>
             </details>
             {item.viewedSource && <span className="inline-flex items-center gap-1 text-sage-ink"><Eye aria-hidden className="size-3.5" />Source opened by you</span>}
@@ -175,7 +177,7 @@ function LedgerCard({ item, index = 0, hideAmends = false }: { item: ItemView; i
         <p className="text-[15px]">
           <span className="ds-kicker mr-1.5">{item.amends.kind === 'addendum' ? 'Adds to' : 'Replaces'}</span>
           {item.amends.label}{item.amends.date && <span className="text-muted"> · {item.amends.date}</span>}
-          {item.amends.href && <> · <Link href={item.amends.href} className="text-setu-ink underline decoration-brass underline-offset-4">Open the original to compare</Link></>}
+          {item.amends.href && <> · <Link href={item.amends.href} className="text-setu-ink underline decoration-link underline-offset-4">Open the original to compare</Link></>}
         </p>
       )}
       <FlagBadges flags={item.flags} />

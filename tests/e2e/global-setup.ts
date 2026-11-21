@@ -2,14 +2,16 @@
 import { RADAR_RULES } from '../../src/core/radar/rules'
 import { Api } from './helpers/api'
 import { closeDb } from '../../src/db'
-import { setClockDays, staffId } from './helpers/db'
-import { EMAIL } from './helpers/env'
+import { restoreDemoSecrets, setClockDays, staffId } from './helpers/db'
+import { EMAIL, NARMADA_RECORDS } from './helpers/env'
 
 /** Left unreviewed on purpose: V04-E2E-08 proves its items never reach clinicians. It fires on the hero discharge summary ("IHC to follow"). */
 export const SHADOW_RULE = 'RAD-HPE-IHC-01'
 
 export default async function globalSetup() {
   await setClockDays(0)
+  const restored = await restoreDemoSecrets([...Object.values(EMAIL), NARMADA_RECORDS])
+  if (restored.length) console.log(`global setup: restored the demo authenticator of ${restored.join(', ')} (it had been reset by hand)`)
   const admin = await Api.login('admin')
   const reviewerId = await staffId(EMAIL.clinician)
   for (const rule of RADAR_RULES) {

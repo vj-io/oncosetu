@@ -43,14 +43,14 @@ export function AbdmConsentCards({ lang, requests }: { lang: Lang; requests: Pat
   return (
     <div className="mt-8 grid gap-4">
       {saved && (
-        <p role="status" className="flex items-start gap-2 border border-sage bg-sage-tint px-4 py-3 text-[15px] text-sage-ink">
+        <p role="status" className="flex items-start gap-2 border border-sage/40 bg-sage-tint px-4 py-3 text-[15px] text-sage-ink rounded-lg">
           <CircleCheck aria-hidden className="mt-1 size-4 shrink-0" />{saved}
         </p>
       )}
       {error && <ErrorNote>{error}</ErrorNote>}
-      {!requests.length && <p className="border border-dashed border-control bg-gallery p-5 text-muted">{ta(lang, "none")}</p>}
+      {!requests.length && <p className="border border-dashed border-control bg-gallery p-5 text-muted rounded-lg">{ta(lang, "none")}</p>}
       {requests.map((r) => (
-        <article key={r.id} data-testid="abdm-consent" className={clsx("grid gap-3 border bg-surface p-5", r.state === "REQUESTED" ? "border-ink shadow-placard" : "border-rule")}>
+        <article key={r.id} data-testid="abdm-consent" className={clsx("grid gap-3 border bg-surface p-5 rounded-lg", r.state === "REQUESTED" ? "border-pine/40 shadow-card" : "border-rule")}>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-xl leading-snug">{r.state === "REQUESTED" ? ta(lang, "askTitle") : ta(lang, STATE[r.state])}</h2>
             <span className="text-sm text-faint">{ta(lang, "askedOn", { date: d(r.createdAt) })}</span>
@@ -70,7 +70,7 @@ export function AbdmConsentCards({ lang, requests }: { lang: Lang; requests: Pat
             <>
               <p className="text-muted">{ta(lang, "approvedOn", { date: d(r.decidedAt ?? r.createdAt), count: r.documents, until: d(r.eraseAt) })}</p>
               {confirm === r.id ? (
-                <div className="grid gap-3 border border-madder bg-madder-tint p-4">
+                <div className="grid gap-3 border border-madder/40 bg-madder-tint p-4 rounded-lg">
                   <p className="text-madder-ink">{ta(lang, "revokeConfirm")}</p>
                   <div className="flex flex-wrap gap-3">
                     <PButton variant="danger" loading={busy === `${r.id}:revoke`} onClick={() => answer(r.id, "revoke")}>{ta(lang, "yesRemove")}</PButton>

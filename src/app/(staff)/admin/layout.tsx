@@ -23,7 +23,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   const needsMe = mine.length
   return (
     <div className="grid grid-cols-1 gap-8">
-      <AdminNav groups={groupsFor(s.role)} showOverview={(SECTIONS.overview.roles as readonly string[]).includes(s.role)} />
+      {/* Desktop: the console's pages are in the sidebar. Tablets and phones keep these tabs. */}
+      <div className="lg:hidden"><AdminNav groups={groupsFor(s.role)} showOverview={(SECTIONS.overview.roles as readonly string[]).includes(s.role)} /></div>
       {alerts > 0 && (
         <Notice tone="conflict" title={`Emergency access used: ${alerts} ${alerts === 1 ? 'grant' : 'grants'} not yet reviewed`}>
           A staff member ({who}) opened a record outside the patient&apos;s consent.{' '}

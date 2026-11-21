@@ -14,7 +14,7 @@ export function DeskNotes({ patientId, notes }: { patientId: string; notes: Desk
         {notes.map((n) => (
           <li key={n.id}>
             <Frame className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-              <span className="font-mono text-[13px]">{formatDateTimeIN(n.createdAt, 'en')}</span>
+              <span className="text-[13px]">{formatDateTimeIN(n.createdAt, 'en')}</span>
               <audio controls preload="none" src={`/api/patients/${patientId}/audio-notes/${n.id}`} className="h-9" aria-label={`Desk audio note, ${n.seconds} seconds`} />
               <span className="text-sm text-muted">{n.seconds} s · recorded with the pages of this visit</span>
             </Frame>

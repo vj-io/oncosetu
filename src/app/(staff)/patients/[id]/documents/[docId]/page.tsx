@@ -96,7 +96,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   return (
     <div className="grid gap-8 py-6 [&>*]:min-w-0">
       {heldOut && (
-        <div role="alert" data-testid="held-banner" className="grid gap-1.5 border-2 border-madder bg-madder-tint px-4 py-4 text-madder-ink">
+        <div role="alert" data-testid="held-banner" className="grid gap-1.5 border-2 border-madder/40 bg-madder-tint px-4 py-4 text-madder-ink rounded-lg">
           <p className="flex items-center gap-2 text-lg font-medium [&_svg]:size-5"><ShieldAlert aria-hidden />Held: this may belong to another patient (name on the file: {nameOnFile ?? 'not readable'})</p>
           <p className="text-[15px]">
             {doc.identityResult === 'mismatch' ? 'The name and details on the file do not match this patient. ' : 'It is not yet confirmed whose file this is. '}
@@ -111,13 +111,13 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         {nb.index >= 0 && (
           <div className="flex items-center gap-1.5">
             <span className="text-[13px] text-muted tabular-nums">{nb.index + 1} of {list.length}, {order === 'old' && inWalk ? 'oldest' : 'newest'} first{inWalk && q ? ', in the list you came from' : ''}</span>
-            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
-            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40">Next<ArrowRight aria-hidden className="size-4" /></span>}
+            {nb.prev ? <Link href={`/patients/${id}/documents/${nb.prev.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight rounded-md" aria-label={`Previous paper (newer): ${nb.prev.title}`}><ArrowLeft aria-hidden className="size-4" />Previous</Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40 rounded-md"><ArrowLeft aria-hidden className="size-4" />Previous</span>}
+            {nb.next ? <Link href={`/patients/${id}/documents/${nb.next.id}${q}`} className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm hover:bg-spotlight rounded-md" aria-label={`Next paper (older): ${nb.next.title}`}>Next<ArrowRight aria-hidden className="size-4" /></Link> : <span className="inline-flex min-h-10 items-center gap-1 border border-rule px-3 text-sm opacity-40 rounded-md">Next<ArrowRight aria-hidden className="size-4" /></span>}
           </div>
         )}
       </nav>
 
-      <SectionHeader
+      <SectionHeader feature
         as="h2"
         kicker="Document"
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
@@ -138,7 +138,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
       )}
 
       {(live || doc.attachState === 'pending_decision' || d.status === 'failed') && (
-        <Frame matte><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages, progress: d.progress }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
+        <Frame matte tone="tint"><div className="p-2"><LiveStage documentId={doc.id} initial={{ status: d.status, stages: d.stages, progress: d.progress }} identityFailed={doc.identityResult === 'mismatch'} storedOnly={storedOnly} /></div></Frame>
       )}
 
       {/* Notices: what the pipeline did with this file */}
@@ -155,7 +155,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             {hidden.length > 0 && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-sm underline underline-offset-4">Show the removed text</summary>
-                {hidden.map((h) => <pre key={h.pageNo} className="mt-2 border border-dashed border-madder bg-madder-tint/40 p-3 font-mono text-[13px] whitespace-pre-wrap text-madder-ink">p.{h.pageNo}: {h.text}</pre>)}
+                {hidden.map((h) => <pre key={h.pageNo} className="mt-2 border border-dashed border-madder bg-madder-tint/40 p-3 font-mono text-[13px] whitespace-pre-wrap text-madder-ink rounded-lg">p.{h.pageNo}: {h.text}</pre>)}
               </details>
             )}
           </Notice>
@@ -250,7 +250,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
             }))}
           />
           {(gate?.rejections?.length || (gate && d.coverage)) ? (
-            <details className="border border-rule bg-surface p-4" data-testid="rejection-log">
+            <details className="border border-rule bg-surface p-4 rounded-lg" data-testid="rejection-log">
               <summary className="cursor-pointer text-sm font-medium">Details{gate && gate.rejected > 0 ? ` · ${gate.rejected} line${gate.rejected > 1 ? 's' : ''} not turned into facts` : ''}</summary>
               {gate && d.coverage && (
                 <p data-testid="coverage-note" className="mt-2 text-sm text-muted">
@@ -267,7 +267,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
                         <tr key={i}>
                           <td>{r.eventType ? (EVENT_LABEL[r.eventType] ?? r.eventType) : 'Unknown kind'}</td>
                           <td>{r.reason === 'invalid_field_value' && r.banned ? `Advice or urgency wording (“${r.banned}”) in a value` : REJECT_REASON[r.reason] ?? r.reason}</td>
-                          <td className="font-mono text-[13px]">{r.field ? (FIELD_LABEL[r.field] ?? r.field) : '—'}</td>
+                          <td className="text-[13px]">{r.field ? (FIELD_LABEL[r.field] ?? r.field) : '—'}</td>
                           <td>{r.origin === 'llm' ? 'AI reading' : r.origin === 'rules' ? 'Pattern rules' : '—'}</td>
                           <td className="tabular-nums">{r.pageNo ?? '—'}</td>
                         </tr>
@@ -305,7 +305,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         {/* Identity: header vs registered (FR-ID-03..05) */}
         <section aria-labelledby="id-h" className="grid content-start gap-4 [&>*]:min-w-0">
           <h2 id="id-h" className="ds-kicker">Is this the right patient? <span className="normal-case">header vs registered patient</span>{doc.attachState === 'pending_decision' && <InfoTip>{EXPLAIN.wrongPatient}</InfoTip>}</h2>
-          <div className="border border-rule bg-surface p-5 shadow-placard">
+          <div className="border border-rule bg-surface p-5 shadow-placard rounded-lg">
             <div className="flex flex-wrap items-center gap-2">
               {resolved ? <Badge tone="verified">{resolved}</Badge> : doc.identityResult !== 'pending' ? <StatusBadge status={doc.identityResult} /> : <Badge tone="shadow">Not checked yet</Badge>}
               {resolved && <Badge tone="neutral">{`Checked at first: ${doc.identityResult === 'mismatch' ? 'name did not match' : 'not enough to confirm'}`}</Badge>}
@@ -333,7 +333,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           </div>
           {doc.attachState === 'pending_decision' && !live && doc.status !== 'quarantined' && <IdentityDecision documentId={doc.id} result={doc.identityResult} reasons={idDetails.reasons ?? []} />}
           {attached && !live && (
-            <details className="border border-rule bg-surface p-4">
+            <details className="border border-rule bg-surface p-4 rounded-lg">
               <summary className="cursor-pointer text-sm font-medium">Wrong patient? Detach this document</summary>
               <div className="mt-3"><DetachForm documentId={doc.id} /></div>
             </details>

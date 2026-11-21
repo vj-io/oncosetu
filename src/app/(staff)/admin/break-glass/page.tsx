@@ -16,26 +16,26 @@ export default async function BreakGlassPage() {
   const waiting = rows.filter((r) => !r.reviewedAt).length
   return (
     <div className="grid grid-cols-1 gap-6">
-      <SectionHeader as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
+      <SectionHeader feature as="h1" kicker="Admin · Access review" title="Emergency access (break-glass)"
         description="Staff opening a record outside the patient's consent. Each grant needs a reason, lasts 4 hours and is audited. Someone other than the person who used it reviews every grant: another administrator, or the auditor when the hospital has only one administrator. Until then it is shown as an alert on the admin pages. Patients are shown by record code only." />
       {rows.length === 0 ? <EmptyState title="No break-glass grants" description="Nobody has used break-glass access in this organisation." /> : (
         <>
-          <p className="font-mono text-sm text-muted" role="status">{active.length} active now · {waiting} not yet reviewed · {rows.length} shown</p>
+          <p className="text-sm text-muted" role="status">{active.length} active now · {waiting} not yet reviewed · {rows.length} shown</p>
           <Table caption="Break-glass grants, newest first">
             <thead><tr><th>Status</th><th>Staff</th><th>Patient</th><th>Reason given</th><th>Granted</th><th>Expires</th><th>Review</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td><Badge tone={r.active ? 'conflict' : 'shadow'}>{r.active ? 'Active' : 'Expired'}</Badge></td>
-                  <td>{r.staff}<span className="block font-mono text-[11px] tracking-[0.1em] text-faint uppercase">{roleLabel(r.role)}</span></td>
-                  <td className="font-mono text-[13px]">{r.patient}</td>
+                  <td>{r.staff}<span className="block text-[13px] text-faint font-medium">{roleLabel(r.role)}</span></td>
+                  <td className="text-[13px]">{r.patient}</td>
                   <td className="max-w-sm text-[15px]">{r.reason}</td>
-                  <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.createdAt)}</td>
-                  <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.expiresAt)}</td>
+                  <td className="text-[13px] whitespace-nowrap">{istDateTime(r.createdAt)}</td>
+                  <td className="text-[13px] whitespace-nowrap">{istDateTime(r.expiresAt)}</td>
                   <td>
                     {(() => {
                       const st = reviewState({ reviewedAt: r.reviewedAt, grantStaffId: r.staffId, viewerId: s.staffId, viewerRole: s.role, activeAdminIds: admins })
-                      if (st.kind === 'done') return <span className="text-sm text-muted">Reviewed by {r.reviewedBy ?? '—'}<span className="block font-mono text-[13px]">{istDateTime(r.reviewedAt)}</span></span>
+                      if (st.kind === 'done') return <span className="text-sm text-muted">Reviewed by {r.reviewedBy ?? '—'}<span className="block text-[13px]">{istDateTime(r.reviewedAt)}</span></span>
                       if (st.kind === 'can_review') return <ReviewBreakGlass id={r.id} patient={r.patient} />
                       return <span className="grid gap-1 text-sm text-muted"><Badge tone="unverified">Not yet reviewed</Badge>{st.text}</span>
                     })()}

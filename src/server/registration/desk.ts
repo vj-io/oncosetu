@@ -6,13 +6,15 @@ import { encounters, patients, staff } from '@/db/schema'
 import { istDate } from '@/core/copy'
 import { now } from '../clock'
 import { activeConsent, initials } from '../patients'
-import { decryptField } from '../crypto'
+import { readOrNull } from '../unreadable'
 import { checkOtp, deskPurpose, otpFailure, sendOtpTo } from './confirm'
 import { primaryContactTarget } from './contact'
 import { insertConsent } from './consent'
 import { accession, fail, type AuditFn, type StaffCtx } from './http'
 
 const REUSE_WINDOW_MS = 12 * 3_600_000
+
+const initialsOrMark = (name: string | null) => (name ? initials(name) : '?')
 
 /** Starts the visit's encounter: onboarding for a first visit, returning otherwise. An open one from today is reused. */
 export async function openEncounter(tx: Tx, audit: AuditFn, p: { orgId: string; patientId: string; staffId: string }): Promise<{ id: string; type: 'onboarding' | 'returning' | 'between'; reused: boolean }> {
@@ -92,7 +94,7 @@ export async function todaysEncounters(tx: Tx, orgId: string): Promise<TodayEnco
   const names = starters.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, starters)) : []
   const nameOf = new Map(names.map((n) => [n.id, n.name]))
   return rows.map(({ e, nameEnc }) => ({
-    id: e.id, patientId: e.patientId, initials: initials(decryptField(nameEnc)), accession: accession(e.patientId), type: e.type,
+    id: e.id, patientId: e.patientId, initials: initialsOrMark(readOrNull(nameEnc, 'patient name', e.patientId)), accession: accession(e.patientId), type: e.type,
     startedAt: e.startedAt, startedBy: (e.startedBy && nameOf.get(e.startedBy)) || '—', open: !e.closedAt,
     reopenable: !e.closedAt && !e.offlineCreated, // verified today (this list is today's); the server re-checks on open
   }))

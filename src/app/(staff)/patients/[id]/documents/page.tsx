@@ -3,6 +3,7 @@ import { DeskNotes } from '@/components/capture/DeskNotes'
 import { DocumentsBoard } from '@/components/documents/DocumentsBoard'
 import { SectionHeader } from '@/components/ui'
 import { isDemo } from '@/server/demo'
+import { abdmAvailable } from '@/server/abdm/transport'
 import { loadPatient } from '@/server/patients'
 import { listDocuments } from '@/server/pipeline/queries'
 import { withPatientAccess } from '@/server/registration/page'
@@ -31,7 +32,7 @@ export default async function DocumentsPage({ params, searchParams }: { params: 
         canDecide={data.role === 'records' || data.role === 'clinician'}
       />
       <DeskNotes patientId={id} notes={data.notes} />
-      {(data.role === 'records' || data.role === 'clinician') && <AbdmPanel patientId={id} />}
+      {(data.role === 'records' || data.role === 'clinician') && abdmAvailable() && <AbdmPanel patientId={id} />}
     </div>
   )
 }

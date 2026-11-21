@@ -3,6 +3,7 @@
  * branch, prove the restored data, delete the branch. Never writes to main.
  *
  *   npx tsx --env-file=.env.local scripts/restore-from-backup.ts --blob <pathname|latest> [--keep-branch] [--build-dir DIR]
+ *   npx tsx --env-file=.env.local scripts/restore-from-backup.ts --object <key|latest> …   (backups in the S3_* object store)
  *
  * 1. Download the backup from the private Blob store into a temp file (still encrypted).
  * 2. Verify the file: GCM tag (key by id: BACKUP_KEY or BACKUP_KEY_PREVIOUS), every table's row count and SHA-256 against
@@ -23,7 +24,7 @@
  *    write docs/releases/v1.0/BACKUP-RESTORE.md.
  *
  * Needs neonctl (authenticated), .env.local with DATABASE_URL_UNPOOLED, DATABASE_URL_APP, APP_MASTER_KEY, SIGNING_KEY_ED25519,
- * BACKUP_KEY, BLOB_READ_WRITE_TOKEN, and Chromium for Playwright.
+ * BACKUP_KEY, BLOB_READ_WRITE_TOKEN (or S3_* with --object), and Chromium for Playwright. NEON_PROJECT_ID picks the Neon project.
  */
 import { execFile, type ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -40,7 +41,8 @@ import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres, { type Sql } from 'postgres'
 import { auditLog } from '../src/db/schema'
 import { GENESIS_HASH, verifyChainRows, type AuditRow } from '../src/server/audit'
-import { listBackups, readBackup, verifyBackup, type Manifest } from '../src/server/backup/backup'
+import { BACKUP_LATEST_KEY, listBackups, readBackup, verifyBackup, type Manifest } from '../src/server/backup/backup'
+import { objectStore } from '../src/server/objects'
 import { backupKeysFromEnv } from '../src/server/backup/envelope'
 import { exportRows, listTables, rowLoader, type Table } from '../src/server/backup/jsonl'
 import { decryptField, sha256Hex, verifyEd25519 } from '../src/server/crypto'
@@ -250,9 +252,12 @@ ${notes.length ? `\n## Notes\n\n${notes.map((n) => `- ${n}`).join('\n')}\n` : ''
 // ── main ─────────────────────────────────────────────────────────────────────
 async function main() {
   const startedAt = new Date(), t0 = performance.now()
-  const arg = process.argv[process.argv.indexOf('--blob') + 1]
-  if (!process.argv.includes('--blob') || !arg) throw new Error('usage: restore-from-backup.ts --blob <pathname|latest>')
-  for (const k of ['DATABASE_URL_UNPOOLED', 'APP_MASTER_KEY', 'SIGNING_KEY_ED25519', 'BACKUP_KEY', 'BLOB_READ_WRITE_TOKEN']) if (!process.env[k]) throw new Error(`${k} is not set (run with --env-file=.env.local)`)
+  const fromObjects = process.argv.includes('--object')
+  const arg = process.argv[process.argv.indexOf(fromObjects ? '--object' : '--blob') + 1]
+  if (!(fromObjects || process.argv.includes('--blob')) || !arg) throw new Error('usage: restore-from-backup.ts --blob <pathname|latest> | --object <key|latest>')
+  const store = fromObjects ? objectStore() : null
+  if (fromObjects && !store) throw new Error('--object needs the S3_* settings')
+  for (const k of ['DATABASE_URL_UNPOOLED', 'APP_MASTER_KEY', 'SIGNING_KEY_ED25519', 'BACKUP_KEY', ...(fromObjects ? [] : ['BLOB_READ_WRITE_TOKEN'])]) if (!process.env[k]) throw new Error(`${k} is not set (run with --env-file=.env.local)`)
   await exec('neonctl', ['--version']).catch(() => { throw new Error('neonctl is not installed or not on PATH') })
   const keys = backupKeysFromEnv()
   const owner = new URL(process.env.DATABASE_URL_UNPOOLED!)
@@ -288,9 +293,15 @@ async function main() {
 
   try {
     // 1. download
-    const target = arg === 'latest' ? (await listBackups())[0] : { pathname: arg }
-    if (!target) throw new Error('no backups in the store')
-    await timed('download', async () => {
+    if (store) await timed('download', async () => {
+      const latest = arg === 'latest' ? JSON.parse(Buffer.from(await store.get(BACKUP_LATEST_KEY)).toString()) as { key: string; createdAt: string } : null
+      const key = latest?.key ?? arg
+      writeFileSync(file, await store.get(key), { mode: 0o600 })
+      info.blob = { pathname: key, size: statSync(file).size, uploadedAt: latest?.createdAt ?? 'unknown' }
+    })
+    const target = store ? null : arg === 'latest' ? (await listBackups())[0] : { pathname: arg }
+    if (!store && !target) throw new Error('no backups in the store')
+    if (target) await timed('download', async () => {
       const r = await get(target.pathname, { access: 'private', useCache: false })
       if (!r?.stream) throw new Error(`backup ${target.pathname} not found`)
       await pipeline(Readable.fromWeb(r.stream as WebReadableStream), createWriteStream(file, { mode: 0o600 }))

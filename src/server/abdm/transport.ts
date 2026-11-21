@@ -225,10 +225,20 @@ export class SandboxGateway implements AbdmTransport {
 }
 
 let inProcess: InProcessGateway | undefined
-/** SandboxGateway when ABDM_CLIENT_ID, ABDM_CLIENT_SECRET and ABDM_BASE_URL are all set; the in-process gateway when none is. */
+/** Whether this deployment can fetch ABDM records: a configured gateway, or the demo's synthetic one. */
+export const abdmAvailable = (env: Record<string, string | undefined> = process.env): boolean =>
+  env.DEMO_MODE === 'true' || !!(env.ABDM_CLIENT_ID && env.ABDM_CLIENT_SECRET && env.ABDM_BASE_URL)
+
+/**
+ * SandboxGateway when ABDM_CLIENT_ID, ABDM_CLIENT_SECRET and ABDM_BASE_URL are all set; with none set, the in-process gateway
+ * in demo mode only: its records are synthetic and must never land in a real patient's file.
+ */
 export function abdmTransport(env: Record<string, string | undefined> = process.env): AbdmTransport {
   const { ABDM_CLIENT_ID: id, ABDM_CLIENT_SECRET: secret, ABDM_BASE_URL: base } = env
-  if (!id && !secret && !base) return (inProcess ??= new InProcessGateway())
+  if (!id && !secret && !base) {
+    if (env.DEMO_MODE !== 'true') throw new AbdmTransportError('abdm_not_configured', 503)
+    return (inProcess ??= new InProcessGateway())
+  }
   if (!id || !secret || !base) throw new AbdmTransportError('abdm_env_incomplete', 503)
   return new SandboxGateway({ baseUrl: base, clientId: id, clientSecret: secret, hiuId: env.ABDM_HIU_ID ?? id, cmId: env.ABDM_CM_ID })
 }

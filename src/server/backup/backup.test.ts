@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto'
 import { Readable } from 'node:stream'
 import { gzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
-import { backupPathname, expiredBackups, verifyBackup, type Manifest } from './backup'
+import { BACKUP_SLOTS, backupPathname, backupSlotKey, expiredBackups, verifyBackup, type Manifest } from './backup'
 import { backupKey, decrypt, encrypt } from './envelope'
 
 const key = backupKey(randomBytes(32).toString('base64'))
@@ -104,5 +104,15 @@ describe('retention selection', () => {
     const stray = [{ pathname: 'backups/notes.txt', uploadedAt: new Date(0) }, { pathname: 'other/x.bak', uploadedAt: new Date(0) }]
     expect(expiredBackups([...daily(10), ...stray], now, 1)).toHaveLength(3)
     expect(expiredBackups([...daily(10), ...stray], now, 1).every((b) => b.pathname.startsWith('backups/20'))).toBe(true)
+  })
+})
+
+describe('object-store slots', () => {
+  it('uses a new slot each week and comes back to the same one after BACKUP_SLOTS weeks', () => {
+    const t = new Date('2026-11-22T03:00:00Z'), week = 7 * 86_400_000
+    const keys = Array.from({ length: BACKUP_SLOTS }, (_, i) => backupSlotKey(new Date(t.getTime() + i * week)))
+    expect(new Set(keys).size).toBe(BACKUP_SLOTS)
+    expect(backupSlotKey(new Date(t.getTime() + BACKUP_SLOTS * week))).toBe(keys[0])
+    expect(backupSlotKey(new Date(t.getTime() + 60_000))).toBe(keys[0]) // a manual run the same week overwrites that week's slot
   })
 })

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Camera, CameraOff, KeyRound, Search, Send, ShieldCheck } from "lucide-react";
 import { Badge, Button, Checkbox, Field, Frame, Input } from "@/components/ui";
+import { useSms } from "@/lib/sms-context";
 import { postJson } from "./api";
 import { ConsentRecorder } from "./ConsentRecorder";
 import { Notice } from "./Notice";
@@ -163,6 +164,7 @@ function Scanner({ onCode }: { onCode: (code: string) => void }) {
 
 function Verification({ hit }: { hit: DeskHit }) {
   const router = useRouter();
+  const { sms, demo } = useSms();
   const [sent, setSent] = useState(false);
   const [paused, setPaused] = useState(false); // the server refused more codes for this phone
   const [code, setCode] = useState("");
@@ -224,20 +226,23 @@ function Verification({ hit }: { hit: DeskHit }) {
           </div>
         </div>
         <p className="max-w-2xl text-muted">
-          Nothing more is shown until the person is verified. A code is sent to the registered contact (the caregiver when the caregiver is primary).
+          {sms ? "Nothing more is shown until the person is verified. A code is sent to the registered contact (the caregiver when the caregiver is primary)."
+            : "Nothing more is shown until the person is verified. Text messages are not set up at this clinic, so verify in person."}
         </p>
 
+        {sms && (
         <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto] sm:items-end">
           <Button variant="secondary" className={WRAP} onClick={send} loading={busy === "send"} disabled={paused} icon={<Send aria-hidden />}>{sent ? "Send a new code" : "Send code"}</Button>
-          <Field label="Code from the SMS" hint={sent ? "Sent to the registered contact. Demo: see the Demo phone drawer." : undefined}>
+          <Field label="Code from the SMS" hint={sent ? (demo ? "Sent to the registered contact. Demo: see the Demo phone drawer." : "Sent to the registered contact.") : undefined}>
             <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} placeholder="6 digits" />
           </Field>
           <Button className={WRAP} onClick={verify} loading={busy === "verify"} disabled={code.length < 6} icon={<ShieldCheck aria-hidden />}>Verify and open</Button>
         </div>
+        )}
         {error && <Notice tone="conflict" title={error.text} />}
 
-        <div className="grid gap-3 border-t border-rule pt-4">
-          <p className="ds-kicker">Or in person</p>
+        <div className={clsx("grid gap-3 pt-4", sms && "border-t border-rule")}>
+          <p className="ds-kicker">{sms ? "Or in person" : "In person"}</p>
           <Checkbox
             checked={attest} onChange={(e) => setAttest(e.target.checked)}
             label="The patient or caregiver is here, I have checked who they are, and they re-confirmed consent in person."

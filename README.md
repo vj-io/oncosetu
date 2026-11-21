@@ -286,7 +286,7 @@ Environment variables (names and purpose only; the repository ships no key gener
 | `CRON_SECRET` | Bearer secret Vercel Cron sends to `/api/cron/*` (erasure, inbound holds, outbox sweeper, backup) |
 | `BACKUP_KEY` | Base64, 32 bytes. Encrypts the backups (AES-256-GCM). Losing it makes every backup unreadable; see `docs/RUNBOOK.md` |
 | `BACKUP_KEY_PREVIOUS` | Optional. The key before a rotation, so older backups stay readable until they expire |
-| `BLOB_READ_WRITE_TOKEN` | Token of the private Vercel Blob store `oncosetu-backups` (set by `vercel blob create-store`); unset → `/api/cron/backup` answers 503 |
+| `BLOB_READ_WRITE_TOKEN` | Token of the private Vercel Blob store `oncosetu-backups` (set by `vercel blob create-store`); unset → backups go to the `S3_*` object store (three weekly slots); neither set → `/api/cron/backup` answers 503 |
 | `BACKUP_RETENTION_DAYS` | Optional, default 35. Older backups are deleted after each successful backup; the 7 newest always stay |
 | `ANTHROPIC_API_KEY` | Optional. LLM via Anthropic |
 | `AI_ENABLED`, `AI_GATEWAY_API_KEY` or `VERCEL_OIDC_TOKEN` | Optional. LLM via Vercel AI Gateway |

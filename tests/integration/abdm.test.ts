@@ -18,6 +18,7 @@ import { ORG_GANGA_ID as ORG, ORG_NARMADA_ID } from '../../src/server/demo'
 import { abhaHmac } from '../../src/server/registration/duplicates'
 
 if (!process.env.DATABASE_URL_APP && existsSync('.env.local')) process.loadEnvFile('.env.local')
+process.env.DEMO_MODE = 'true' // the in-process gateway holds synthetic records: it exists in demo mode only (transport.ts)
 
 const app = postgres(process.env.DATABASE_URL_APP!, { max: 1, prepare: false, onnotice: () => {} })
 const owner = postgres(process.env.DATABASE_URL_UNPOOLED!, { max: 1, onnotice: () => {} })

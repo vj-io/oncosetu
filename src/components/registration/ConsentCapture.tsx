@@ -6,6 +6,7 @@ import { Printer, Send } from "lucide-react";
 import { Badge, Button, Checkbox, Field, Input, LanguageToggle, Switch } from "@/components/ui";
 import { htmlLang } from "@/core/copy";
 import { CONSENT_LANGS, CONSENT_NOTICE_VERSION, consentCopy, type ConsentLang, type ConsentPurposeKey } from "@/i18n/consent";
+import { useSms } from "@/lib/sms-context";
 import { Notice, PRINT_CSS } from "./Notice";
 import { WRAP } from "./style";
 
@@ -115,6 +116,9 @@ export function ConsentCapture({
 export type ConfirmState = Pick<ConsentValue, "method" | "code" | "attest">;
 export const EMPTY_CONFIRM: ConfirmState = { method: "otp", code: "", attest: false };
 
+/** Ticking the witness attestation also makes this an in-person confirmation (without SMS it is the only kind shown). */
+export const witnessPatch = (checked: boolean): Partial<ConfirmState> => ({ attest: checked, method: "witnessed" });
+
 /** The `confirm` object the API expects, or null while incomplete. */
 export const confirmOf = (v: ConfirmState) => consentConfirm({ ...DEFAULT_CONSENT, ...v });
 
@@ -138,6 +142,7 @@ export function ConfirmStep<T extends ConfirmState>({
   printLabel?: string;
 }) {
   const id = useId();
+  const { sms, demo } = useSms();
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
@@ -155,6 +160,8 @@ export function ConfirmStep<T extends ConfirmState>({
   return (
     <fieldset className="grid gap-3">
       <legend className="ds-kicker mb-1">How is this confirmed?</legend>
+      {!sms && <p className="text-sm text-muted">Text messages are not set up at this clinic, so this is confirmed in person, with you as the witness.</p>}
+      {sms && (
       <div className="grid gap-2 sm:grid-cols-2">
         {(["otp", "witnessed"] as const).map((m) => (
           <label key={m} className={clsx("flex min-h-11 cursor-pointer items-start gap-3 border p-3 has-checked:border-ink has-checked:bg-matte", value.method === m ? "border-ink" : "border-rule")}>
@@ -166,20 +173,21 @@ export function ConfirmStep<T extends ConfirmState>({
           </label>
         ))}
       </div>
+      )}
 
-      {value.method === "otp" ? (
+      {sms && value.method === "otp" ? (
         <div className="grid gap-3 sm:grid-cols-[auto_1fr] sm:items-end">
           <Button variant="secondary" className={WRAP} onClick={send} loading={sending} disabled={!canSendCode} icon={<Send aria-hidden />}>
             {sent ? "Send a new code" : "Send code"}
           </Button>
-          <Field label="Code from the SMS" hint={sent ? "Sent. Demo: the simulated SMS is in the Demo phone drawer." : undefined} error={sendError}>
+          <Field label="Code from the SMS" hint={sent ? (demo ? "Sent. Demo: the simulated SMS is in the Demo phone drawer." : "Sent.") : undefined} error={sendError}>
             <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={value.code} onChange={(e) => change({ code: e.target.value.replace(/\D/g, "") })} placeholder="6 digits" />
           </Field>
           {!canSendCode && <p className="text-sm text-muted sm:col-span-2">No phone number is available yet. Enter one first, or use in-person witnessed confirmation.</p>}
         </div>
       ) : (
         <div className="grid gap-3">
-          <Checkbox checked={value.attest} onChange={(e) => change({ attest: e.target.checked })} label={witnessText} />
+          <Checkbox checked={value.attest} onChange={(e) => change(witnessPatch(e.target.checked))} label={witnessText} />
           {printable && (
             <div>
               <Button variant="secondary" className={WRAP} icon={<Printer aria-hidden />} onClick={() => window.print()}>

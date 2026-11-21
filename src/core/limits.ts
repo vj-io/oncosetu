@@ -23,8 +23,9 @@ export const MAX_ZIP_RATIO = 200
 export const CHUNK_BYTES = 3.5 * MB
 /** Largest single plain request body for the old one-shot upload. */
 export const ONE_SHOT_BYTES = 4 * MB
-/** Database storage an upload may fill up to (files live in Postgres; Neon's free plan stops writes at 512 MB). */
-export const STORAGE_BUDGET_BYTES = Number(process.env.STORAGE_BUDGET_MB ?? 450) * MB
+/** Database storage an upload may fill up to (Neon's free plan stops writes at its branch limit: 512 MB on older plans, 1 GB on
+ * free_v3). Read per call so tests can set it. */
+export const storageBudgetBytes = () => Number(process.env.STORAGE_BUDGET_MB ?? 450) * MB
 /** Object storage an upload may fill up to when originals go to object storage (B2 and R2 give 10 GB free); read per call so tests can set it. */
 export const objectBudgetBytes = () => Number(process.env.OBJECT_BUDGET_MB ?? 9000) * MB
 /** Largest picture the DICOM preview will draw (4096 x 4096); bigger headers get the "file stored" note instead. */

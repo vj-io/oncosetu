@@ -123,7 +123,7 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
         if (slot !== null) await quota!.settle(slot, outcome)
         runs.push({ ...base, outputHash: null, latencyMs: Date.now() - t0, tokensIn: null, tokensOut: null, outcome })
         if (schemaError) { if (attempt >= 2) return null; continue } // one retry, then the rule-based path
-        if ((status === 503 || status === 500) && mi + 1 < models.length) { mi++; continue } // overloaded → next model
+        if ((status === 503 || status === 500 || (status === 429 && p.provider === 'groq')) && mi + 1 < models.length) { mi++; continue } // overloaded, or Groq's allowance for this model used up → next model
         return null // 429, other 4xx, timeout, network → rule-based path, never data loss
       }
     }

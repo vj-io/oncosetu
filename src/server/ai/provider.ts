@@ -57,9 +57,13 @@ export function llmProvider(): LlmProvider | null {
     return { provider: 'google', modelId, model: google(modelId), fallbacks, augmentRules: true }
   }
   if (process.env.GROQ_API_KEY) {
+    const groq = createGroq({ apiKey: process.env.GROQ_API_KEY })
     const modelId = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+    // Each Groq model has its own daily allowance on the free plan; when one is used up the next one reads.
+    const fallbacks = (process.env.GROQ_FALLBACK_MODELS || 'openai/gpt-oss-20b').split(',').map((m) => m.trim())
+      .filter((m) => m && m !== modelId).map((m) => ({ modelId: m, model: groq(m) }))
     return {
-      provider: 'groq', modelId, model: createGroq({ apiKey: process.env.GROQ_API_KEY })(modelId), augmentRules: true,
+      provider: 'groq', modelId, model: groq(modelId), fallbacks, augmentRules: true,
       maxInputTokens: Number(process.env.GROQ_MAX_INPUT_TOKENS) || 3000, maxOutputTokens: Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 3000,
     }
   }

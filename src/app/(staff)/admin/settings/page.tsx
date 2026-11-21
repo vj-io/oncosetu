@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   return (
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Settings" title="Settings" description="Switches for this hospital, how long records are kept and the daily AI limit. In demo mode there is also a demo clock." />
-      <section aria-labelledby="llm-h" className="grid gap-3 border border-rule bg-matte p-5 shadow-frame">
+      <section aria-labelledby="llm-h" className="grid gap-3 border border-rule bg-matte p-5 shadow-frame rounded-lg">
         <h2 id="llm-h" className="font-display text-xl">AI-assisted reading</h2>
         <p className="text-muted">{llm.label}. Only for patients who consented. Every result still needs its exact quote and a person to check it.</p>
         <KeyValue items={[

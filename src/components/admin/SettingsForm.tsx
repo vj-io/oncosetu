@@ -49,7 +49,7 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
         <ol className="divide-y divide-rule">
           {questions.map((q, i) => (
             <li key={q.id} className="flex items-center gap-3">
-              <span className="w-5 font-mono text-sm text-faint">{i + 1}</span>
+              <span className="w-5 text-sm text-faint">{i + 1}</span>
               <Switch className="flex-1" label={q.label} description={q.id === 'anything_else' ? (q.on ? 'Asked, but the patient may skip it.' : 'Not asked.') : (q.on ? 'On: the patient must answer it.' : 'Off: not asked.')} checked={q.on} onChange={switchQ(i)} />
               <span className="flex gap-1">
                 <Button size="sm" variant="ghost" aria-label={`Move up: ${q.label}`} disabled={i === 0} onClick={() => move(i, -1)} icon={<ArrowUp aria-hidden />} />
@@ -67,10 +67,10 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
         <p className="max-w-prose text-sm text-muted">How long records are kept after the last encounter before an erasure request is carried out. Never shorter than 3 years ({minRetentionDays} days), the Indian Medical Council minimum for indoor records. The audit trail is kept as legally required.</p>
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Retention (days)" error={days && !daysValid ? `Enter a whole number from ${minRetentionDays} to 36500.` : undefined}>
-            <Input type="number" inputMode="numeric" min={minRetentionDays} max={36500} value={days} onChange={(e) => setDays(e.target.value)} className="w-40 font-mono" />
+            <Input type="number" inputMode="numeric" min={minRetentionDays} max={36500} value={days} onChange={(e) => setDays(e.target.value)} className="w-40" />
           </Field>
           <Button disabled={!daysValid || n === initialDays} loading={busy === 'ret'} onClick={() => run('ret', () => postJson('/api/admin/settings', { retentionDays: n }), 'Retention saved')}>Save retention</Button>
-          {daysValid && <p className="pb-3 font-mono text-sm text-muted">≈ {(n / 365).toFixed(1)} years</p>}
+          {daysValid && <p className="pb-3 text-sm text-muted">≈ {(n / 365).toFixed(1)} years</p>}
         </div>
       </section>
 
@@ -79,10 +79,10 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
         <p className="max-w-prose text-sm text-muted">Caps this organisation&apos;s use per India day, whatever reading service is connected. Once a limit is reached, documents are read by the fixed rules until midnight; nothing is lost.</p>
         <div className="flex flex-wrap items-end gap-3">
           <Field label="Calls per day" error={calls && !okNum(budget.calls, llmBudgetMax.calls) ? `Enter a whole number from 0 to ${llmBudgetMax.calls}.` : undefined}>
-            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.calls} value={calls} onChange={(e) => setCalls(e.target.value)} className="w-40 font-mono" />
+            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.calls} value={calls} onChange={(e) => setCalls(e.target.value)} className="w-40" />
           </Field>
           <Field label="Text allowance per day (tokens)" error={tokens && !okNum(budget.tokens, llmBudgetMax.tokens) ? `Enter a whole number from 0 to ${llmBudgetMax.tokens}.` : undefined}>
-            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.tokens} value={tokens} onChange={(e) => setTokens(e.target.value)} className="w-48 font-mono" />
+            <Input type="number" inputMode="numeric" min={0} max={llmBudgetMax.tokens} value={tokens} onChange={(e) => setTokens(e.target.value)} className="w-48" />
           </Field>
           <Button disabled={!budgetValid || (budget.calls === llmBudget.calls && budget.tokens === llmBudget.tokens)} loading={busy === 'budget'}
             onClick={() => run('budget', () => postJson('/api/admin/settings', { llmBudget: budget }), 'Daily limit saved')}>Save limit</Button>
@@ -90,13 +90,13 @@ export function SettingsForm({ flags: initial, questions: initialQuestions, rete
       </section>
 
       {demo && (
-        <section aria-labelledby="clock-h" className="grid gap-3 border border-l-[3px] border-rule border-l-brass bg-brass-tint p-5 sm:p-6">
+        <section aria-labelledby="clock-h" className="grid gap-3 border border-l-[3px] border-rule border-l-brass bg-brass-tint p-5 sm:p-6 rounded-lg">
           <div className="flex flex-wrap items-center gap-3">
             <h2 id="clock-h" className="text-xl tracking-[-0.02em]">Demo clock</h2>
             <Badge tone="brass">Demo only</Badge>
           </div>
           <p className="max-w-prose text-sm">Sets the organisation&apos;s clock to real time plus N days. Request reminders (day 7) and the open-at-day-21 state follow this clock. Sessions use real time and are not affected.</p>
-          <p className="font-mono text-sm" role="status">Clock is running {demoOffsetDays === 0 ? 'on real time' : `${demoOffsetDays} days ahead`}.</p>
+          <p className="text-sm" role="status">Clock is running {demoOffsetDays === 0 ? 'on real time' : `${demoOffsetDays} days ahead`}.</p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" icon={<FastForward aria-hidden />} loading={busy === 'plus7'} disabled={busy !== null} onClick={() => run('plus7', () => postJson('/api/admin/settings/demo-clock', { preset: 'plus7' }), 'Demo clock: +7 days')}>+7 days</Button>
             <Button variant="secondary" icon={<FastForward aria-hidden />} loading={busy === 'plus21'} disabled={busy !== null} onClick={() => run('plus21', () => postJson('/api/admin/settings/demo-clock', { preset: 'plus21' }), 'Demo clock: +21 days')}>+21 days</Button>

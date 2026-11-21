@@ -31,7 +31,7 @@ export function HeldStages({ at, identityFailed = false, storedOnly = false }: {
             </li>
           )
       ))}
-      <li className="inline-flex items-center gap-1.5 border border-madder bg-madder-tint px-2 py-1 font-mono text-[11px] tracking-[0.12em] text-madder-ink uppercase" data-testid="held-stage">
+      <li className="inline-flex items-center gap-1.5 border border-madder/40 bg-madder-tint px-2 py-1 text-[13px] text-madder-ink font-medium rounded-full" data-testid="held-stage">
         {identityFailed ? <X aria-hidden className="size-3.5" /> : <PauseCircle aria-hidden className="size-3.5" />}
         {identityFailed ? `${STAGE_LABELS[stopAt]}: failed, held for a person` : `${STAGE_LABELS[stopAt]} · held for a person`}
       </li>

@@ -16,7 +16,7 @@ export function PrintSheet({ lang, langHref, actions, children }: { lang: Lang; 
         <nav aria-label="Language · भाषा" className="flex gap-1">
           {(['en', 'hi'] as const).map((l) => (
             <Link key={l} href={langHref(l)} aria-current={l === lang ? 'page' : undefined}
-              className={`inline-flex h-11 items-center border border-ink px-3 ${l === lang ? 'bg-obsidian text-gallery' : 'bg-matte hover:bg-spotlight'} ${l === 'hi' ? 'font-deva' : 'font-mono text-xs tracking-[0.14em]'}`}>
+              className={`inline-flex h-11 items-center border border-control/60 px-3 ${l === lang ? 'bg-obsidian text-gallery' : 'bg-matte hover:bg-spotlight'} ${l === 'hi' ? 'font-deva' : 'text-sm font-medium'} rounded-md`}>
               {l === 'en' ? 'EN' : 'हिं'}
             </Link>
           ))}

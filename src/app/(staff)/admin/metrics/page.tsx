@@ -46,8 +46,8 @@ export default async function MetricsPage() {
             {safety.map((k) => (
               <tr key={k.key} className={k.status === 'breach' ? 'bg-madder-tint' : undefined}>
                 <td className={k.zeroTarget ? 'border-l-[3px] border-l-ink font-medium' : undefined}>{k.label}</td>
-                <td className="font-mono text-[13px] whitespace-nowrap">{k.target}{k.zeroTarget && <span className="ml-1 text-[11px] tracking-[0.12em] uppercase">· zero</span>}</td>
-                <td className="font-mono text-[15px] tabular-nums">{k.observed}</td>
+                <td className="text-[13px] whitespace-nowrap">{k.target}{k.zeroTarget && <span className="ml-1 text-[13px] font-medium">· zero</span>}</td>
+                <td className="text-[15px] tabular-nums">{k.observed}</td>
                 <td><Badge tone={k.status === 'on_target' ? 'verified' : k.status === 'breach' ? 'conflict' : 'shadow'}>{k.status === 'on_target' ? 'On target' : k.status === 'breach' ? 'Breach' : 'Not measured'}</Badge></td>
                 <td className="max-w-md text-sm text-muted">{k.basis}</td>
               </tr>
@@ -78,7 +78,7 @@ export default async function MetricsPage() {
               <BarRows label="Correction rate by document type" rows={corrections.byType.map((r) => ({
                 label: docLabel(r.docType), text: docLabel(r.docType), value: r.num, of: r.den, value_text: `${pctText(r)} · ${r.num}/${r.den}`, tone: 'setu' as const,
               }))} />
-              <p className="font-mono text-sm text-muted">All types: {pctText(corrections.total)} ({corrections.total.num} of {corrections.total.den})</p>
+              <p className="text-sm text-muted">All types: {pctText(corrections.total)} ({corrections.total.num} of {corrections.total.den})</p>
             </>
           )}
         </Block>
@@ -90,7 +90,7 @@ export default async function MetricsPage() {
             { label: 'Received', text: 'Received', value: radar.received, of: Math.max(radar.detected, 1), value_text: String(radar.received), tone: 'unverified' },
             { label: 'Closed', text: 'Closed', value: radar.closed, of: Math.max(radar.detected, 1), value_text: String(radar.closed), tone: 'verified' },
           ]} />
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
             <dt className="text-muted">Closed before the next sealed visit</dt><dd className="tabular-nums">{pctText(radar.closure)} ({radar.closure.num} of {radar.closure.den})</dd>
             <dt className="text-muted">Waiting for the visit to be sealed</dt><dd className="tabular-nums">{radar.awaitingSnapshot}</dd>
             <dt className="text-muted">Found by checks still under review (not shown)</dt><dd className="tabular-nums">{radar.shadow}</dd>
@@ -98,7 +98,7 @@ export default async function MetricsPage() {
         </Block>
 
         <Block kicker="Requests" title="How quickly requests are answered" note="Sent requests only. Days run from the sent date to the date the document arrived and was matched.">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
             <dt className="text-muted">Fulfilment rate</dt><dd className="tabular-nums">{pctText(f.rate)} ({f.fulfilled} of {f.sent} sent)</dd>
             <dt className="text-muted">Median days to fulfilment</dt><dd className="tabular-nums">{daysText(f.medianDays)}</dd>
           </dl>
@@ -106,7 +106,7 @@ export default async function MetricsPage() {
             <thead><tr><th>Institution type</th><th>Sent</th><th>Fulfilled</th><th>Rate</th><th>Median days</th></tr></thead>
             <tbody>
               {fulfilment.byType.map((t) => (
-                <tr key={t.institutionType}><td>{institutionLabel(t.institutionType)}</td><td className="font-mono tabular-nums">{t.sent}</td><td className="font-mono tabular-nums">{t.fulfilled}</td><td className="font-mono tabular-nums">{pctText(t.rate)}</td><td className="font-mono tabular-nums">{daysText(t.medianDays)}</td></tr>
+                <tr key={t.institutionType}><td>{institutionLabel(t.institutionType)}</td><td className="tabular-nums">{t.sent}</td><td className="tabular-nums">{t.fulfilled}</td><td className="tabular-nums">{pctText(t.rate)}</td><td className="tabular-nums">{daysText(t.medianDays)}</td></tr>
               ))}
             </tbody>
           </Table>
@@ -115,7 +115,7 @@ export default async function MetricsPage() {
         </Block>
 
         <Block kicker="Preparation time" title="From arrival to the clinician opening the record" note="Per visit: minutes from the desk opening the visit (the patient’s arrival) to a clinician first opening “What’s new” for that patient, within 12 hours and before the next visit. It includes any wait for the clinician, so it is an upper bound on preparation.">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
             <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(prep.returning.medianMinutes)} ({prep.returning.visits} {prep.returning.visits === 1 ? 'visit' : 'visits'})</dd>
             <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(prep.firstVisit.medianMinutes)} ({prep.firstVisit.visits} {prep.firstVisit.visits === 1 ? 'visit' : 'visits'})</dd>
           </dl>
@@ -123,7 +123,7 @@ export default async function MetricsPage() {
         </Block>
 
         <Block kicker="Clinician time" title="Time on the record before sealing" note="Per visit: minutes from a clinician first opening “What’s new” during the visit to sealing it, from the activity log. Target for returning visits: a median of 3 minutes or less.">
-          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 font-mono text-sm">
+          <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
             <dt className="text-muted">Returning visits, median</dt><dd className="tabular-nums">{minutesText(review.returning.medianMinutes)} ({review.returning.visits} {review.returning.visits === 1 ? 'visit' : 'visits'})</dd>
             <dt className="text-muted">First visits, median</dt><dd className="tabular-nums">{minutesText(review.firstVisit.medianMinutes)} ({review.firstVisit.visits} {review.firstVisit.visits === 1 ? 'visit' : 'visits'})</dd>
           </dl>
@@ -136,7 +136,7 @@ export default async function MetricsPage() {
             { label: 'Handwritten', value: census.handwritten, tone: 'patient' },
             { label: 'Image only', value: census.imageOnly, tone: 'shadow' },
           ]} />
-          <p className="font-mono text-sm text-muted">Low OCR confidence: {census.lowConfidence} of {census.total} pages ({pctText({ num: census.lowConfidence, den: census.total })})</p>
+          <p className="text-sm text-muted">Low OCR confidence: {census.lowConfidence} of {census.total} pages ({pctText({ num: census.lowConfidence, den: census.total })})</p>
         </Block>
 
         <Block kicker="Patients" title="Whether the diagnosis may be discussed" note="Active patients by this setting. “Do not discuss” and “not yet recorded” are both treated as “do not discuss”.">
@@ -150,7 +150,7 @@ export default async function MetricsPage() {
 
       <Block kicker="Second look" title="A second person re-checks a sample"
         note={`A fixed, repeatable 5% sample of the items records staff checked each week goes to a second reviewer who is not the person who checked them. ${qa.eligible} records-verified item${qa.eligible === 1 ? '' : 's'} so far.`}>
-        <p className="font-mono text-sm" role="status">
+        <p className="text-sm" role="status">
           Disagreement rate: {qa.rate == null ? '—' : `${(qa.rate * 100).toFixed(1).replace(/\.0$/, '')}% (${qa.disagree} of ${qa.reviewed} reviewed)`}
         </p>
         {qa.items.length === 0 ? <EmptyState title="Nothing sampled yet" description="Items appear here once records staff have verified some." className="py-8" /> : (
@@ -159,10 +159,10 @@ export default async function MetricsPage() {
             <tbody>
               {qa.items.map((it) => (
                 <tr key={it.verificationId}>
-                  <td className="font-mono text-[13px]">{it.week ?? '—'}</td>
+                  <td className="text-[13px]">{it.week ?? '—'}</td>
                   <td>{eventLabel(it.eventType)}<span className="block text-sm text-muted">{it.docType ? docLabel(it.docType) : 'No source document'}</span></td>
                   <td>{it.verifierName ?? '—'}</td>
-                  <td className="font-mono text-[13px] whitespace-nowrap">{istDate(it.verifiedAt)}</td>
+                  <td className="text-[13px] whitespace-nowrap">{istDate(it.verifiedAt)}</td>
                   <td>
                     {it.review ? <><Badge tone={it.review.outcome === 'agree' ? 'verified' : 'conflict'}>{it.review.outcome === 'agree' ? 'Agree' : 'Disagree'}</Badge><span className="mt-1 block text-sm text-muted">{it.review.reviewerName} · {istDate(it.review.at)}</span></>
                       : s.role === 'clinician' && it.verifierId !== s.staffId ? (

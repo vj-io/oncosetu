@@ -1,7 +1,8 @@
 import Link from 'next/link'
 import { and, eq, ne } from 'drizzle-orm'
 import { DeskLookup, type DeskHit } from '@/components/registration/DeskLookup'
-import { Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
+import { UserPlus } from 'lucide-react'
+import { Avatar, Badge, ButtonLink, EmptyState, SectionHeader, Table } from '@/components/ui'
 import { withOrg } from '@/db'
 import { patients } from '@/db/schema'
 import { decryptField } from '@/server/crypto'
@@ -26,17 +27,17 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
     return { today: await todaysEncounters(tx, s.orgId), preselected: hit }
   })
   return (
-    <section className="grid grid-cols-[minmax(0,1fr)] gap-10">
+    <section className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <SectionHeader
         as="h1" kicker="Desk · today" title="Front desk"
         description={smsAvailable()
           ? 'Identify the person with the card, phone, MRN or name. A record opens only after a code is sent to the registered contact, or after consent given in person with a witness.'
           : 'Identify the person with the card, phone, MRN or name. A record opens only after consent is given in person with a witness (text messages are not set up at this clinic).'}
-        actions={<ButtonLink href="/patients/new" variant="secondary">Register a new patient</ButtonLink>}
+        actions={<ButtonLink href="/patients/new" variant="secondary" icon={<UserPlus aria-hidden />}>Register a new patient</ButtonLink>}
       />
       <DeskLookup preselected={preselected} />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-        <h2 className="text-2xl tracking-[-0.025em]">Today&apos;s encounters</h2>
+        <h2 className="text-lg">Today&apos;s encounters</h2>
         {today.length === 0 ? (
           <EmptyState title="No visits yet today" description="A visit starts when a patient is identified or newly registered." />
         ) : (
@@ -45,15 +46,15 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
             <tbody>
               {today.map((e) => (
                 <tr key={e.id}>
-                  <td className="font-mono text-xs">{TIME.format(e.startedAt)}</td>
-                  <td><span className="font-display text-lg">{e.initials}</span> <span className="font-mono text-xs text-faint">{e.accession}</span></td>
+                  <td className="text-[15px] tabular-nums">{TIME.format(e.startedAt)}</td>
+                  <td><span className="flex items-center gap-3"><Avatar name={e.initials} initials={e.initials} size="sm" /><span className="text-[13px] text-faint">{e.accession}</span></span></td>
                   <td>{e.type === 'onboarding' ? 'First visit' : e.type === 'returning' ? 'Returning' : 'Between visits'}</td>
                   <td>{e.startedBy}</td>
                   <td><Badge tone={e.open ? 'setu' : 'shadow'}>{e.open ? 'Open' : 'Closed'}</Badge></td>
                   <td>
                     {e.reopenable
-                      ? <a className="inline-flex min-h-11 min-w-11 items-center underline" href={`/desk/open/${e.patientId}`}>Open</a>
-                      : <Link className="inline-flex min-h-11 min-w-11 items-center underline" href={`/desk?patient=${e.patientId}`}>Verify</Link>}
+                      ? <a className="inline-flex min-h-11 min-w-11 items-center font-medium text-setu-ink underline decoration-link underline-offset-4" href={`/desk/open/${e.patientId}`}>Open</a>
+                      : <Link className="inline-flex min-h-11 min-w-11 items-center font-medium text-setu-ink underline decoration-link underline-offset-4" href={`/desk?patient=${e.patientId}`}>Verify</Link>}
                   </td>
                 </tr>
               ))}

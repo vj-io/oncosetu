@@ -27,10 +27,10 @@ export default async function DevicesPage() {
           <tbody>
             {rows.map((d) => (
               <tr key={d.id}>
-                <td>{d.label}<span className="block font-mono text-[12px] text-faint">{d.id.slice(0, 8)}</span></td>
+                <td>{d.label}<span className="block text-[12px] text-faint">{d.id.slice(0, 8)}</span></td>
                 <td className="text-sm">{istDateTime(d.registeredAt)}<span className="block text-muted">{d.registeredBy ? `by ${d.registeredBy}` : ''}</span></td>
-                <td className="font-mono text-[13px] whitespace-nowrap">{d.lastSeenAt ? istDateTime(d.lastSeenAt) : 'Never'}</td>
-                <td><Badge tone={STATE[d.state].tone}>{STATE[d.state].label}</Badge>{d.revokedAt && <span className="mt-1 block font-mono text-[12px] text-muted">{istDateTime(d.revokedAt)}</span>}</td>
+                <td className="text-[13px] whitespace-nowrap">{d.lastSeenAt ? istDateTime(d.lastSeenAt) : 'Never'}</td>
+                <td><Badge tone={STATE[d.state].tone}>{STATE[d.state].label}</Badge>{d.revokedAt && <span className="mt-1 block text-[12px] text-muted">{istDateTime(d.revokedAt)}</span>}</td>
                 <td className="text-right">{d.state === 'active' && <RevokeDevice id={d.id} label={d.label} />}</td>
               </tr>
             ))}

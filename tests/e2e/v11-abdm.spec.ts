@@ -25,7 +25,7 @@ async function registerWithAbha(api: Api, abdm: boolean) {
   return { id: r.body.id as string, phone }
 }
 const sectionOf = (page: Page, title: string) => page.locator('section', { has: page.getByRole('heading', { name: title, exact: true }) })
-const count = async (page: Page, title: string) => Number((await sectionOf(page, title).locator('header span').nth(1).innerText()).trim())
+const count = async (page: Page, title: string) => Number((await sectionOf(page, title).locator('header [data-count]').innerText()).trim())
 const abdmEvents = async (patientId: string) => (await eventsOf(patientId)).filter((e) => e.sourceType === 'external_structured')
 
 test('V11 J6 ABDM: request → patient approves → structured events in ledger and Radar → patient revokes → erased', async ({ staff, ui, browser }) => {

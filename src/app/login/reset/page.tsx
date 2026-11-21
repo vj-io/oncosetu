@@ -4,7 +4,8 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { confirmProblem } from "@/components/account/ChangePassword";
-import { Button, Field, Frame, Input, Spotlight, Wordmark } from "@/components/ui";
+import { Button, Field, Frame, Input } from "@/components/ui";
+import { AuthShell } from "@/components/shell/AuthShell";
 
 const MIN = 12; // MIN_PASSWORD, src/server/own-password.ts
 
@@ -46,22 +47,10 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
-      <Spotlight />
-      <header className="relative border-b border-rule">
-        <div className="mx-auto flex h-16 max-w-gallery items-center gap-4 px-4 sm:px-8">
-          <Link href="/" aria-label="OncoSetu home">
-            <Wordmark />
-          </Link>
-        </div>
-      </header>
-
-      <main id="main" className="relative mx-auto w-full max-w-gallery flex-1 px-4 py-12 sm:px-8 lg:py-20">
-        <div className="max-w-md">
-          <h1 className="text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Forgot your password?</h1>
-          <p className="mt-4 text-muted">Set a new one with your email and the 6-digit code from your authenticator app.</p>
-
-          <Frame animate className="mt-8 px-5 py-6 sm:px-8 sm:py-8">
+    <AuthShell headline="Set a new password with your authenticator app." points={["No email link to wait for: the 6-digit code proves it is you", "You are signed out everywhere once it is changed", "Lost the app too? Your administrator resets it first"]}>
+          <Frame animate className="px-6 py-7 sm:px-8 sm:py-8">
+          <h1 className="text-[1.75rem] leading-tight tracking-[-0.02em]">Forgot your password?</h1>
+          <p className="mt-2 mb-6 text-[15px] text-muted">Set a new one with your email and the 6-digit code from your authenticator app.</p>
             {done ? (
               <div role="status" className="grid gap-4">
                 <p className="flex items-start gap-2 text-[15px]">
@@ -69,7 +58,7 @@ export default function ResetPasswordPage() {
                   Your password is changed, and you are signed out everywhere.
                 </p>
                 <p className="text-[15px] text-muted">Wait until your app shows a new code, then sign in with the new password.</p>
-                <Link href="/login" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Go to sign-in</Link>
+                <Link href="/login" className="text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Go to sign-in</Link>
               </div>
             ) : (
               <form method="post" onSubmit={onSubmit} className="grid gap-5">
@@ -96,7 +85,7 @@ export default function ResetPasswordPage() {
                   <Input type="password" name="new-password-again" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
                 </Field>
                 {error && (
-                  <p role="alert" className="flex items-start gap-2 border border-madder bg-madder-tint px-4 py-3 text-[15px] text-madder-ink">
+                  <p role="alert" className="flex items-start gap-2 border border-madder/40 bg-madder-tint px-4 py-3 text-[15px] text-madder-ink rounded-lg">
                     <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
                     {error}
                   </p>
@@ -111,10 +100,8 @@ export default function ResetPasswordPage() {
             Lost your phone or authenticator app too? Ask your administrator: they reset the authenticator first.
           </p>
           <p className="mt-2 text-[15px]">
-            <Link href="/login" className="inline-flex min-h-11 items-center text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Back to sign-in</Link>
+            <Link href="/login" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Back to sign-in</Link>
           </p>
-        </div>
-      </main>
-    </div>
+    </AuthShell>
   );
 }

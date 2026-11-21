@@ -65,14 +65,14 @@ export function QrCard({ patientId, brand, accession }: { patientId: string; bra
       <style>{PRINT_CSS}</style>
       <Notice title="Print this card now">For safety the card is shown only once. After you leave this page it cannot be shown again; it can only be replaced.</Notice>
       <div className="print-area">
-        <article aria-label="Records card" className="grid w-full max-w-[24rem] gap-3 border border-ink bg-matte p-5 text-ink print:max-w-[90mm] print:break-inside-avoid">
+        <article aria-label="Records card" className="grid w-full max-w-[24rem] gap-3 border border-ink bg-matte p-5 text-ink print:max-w-[90mm] print:break-inside-avoid rounded-lg">
           <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
             <Wordmark brand={brand} className="text-[1.15rem] whitespace-nowrap" />
             <span className="ds-kicker text-[10px]">{registrationCopy.card.heading.en} · {registrationCopy.card.heading.hi}</span>
           </header>
-          <div className="mx-auto w-44 border border-rule bg-white p-1 [&_svg]:h-auto [&_svg]:w-full" role="img" aria-label="QR code of the card code" dangerouslySetInnerHTML={{ __html: svg }} />
+          <div className="mx-auto w-44 border border-rule bg-white p-1 [&_svg]:h-auto [&_svg]:w-full rounded-md" role="img" aria-label="QR code of the card code" dangerouslySetInnerHTML={{ __html: svg }} />
           <p className="text-center font-mono text-[13px] tracking-[0.08em]" aria-label={`${registrationCopy.card.code.en}: ${token}`}>{group(token)}</p>
-          <p className="text-center font-mono text-[10px] tracking-[0.12em] text-faint">Record code {accession}</p>
+          <p className="text-center font-mono text-[11px] tracking-[0.08em] text-faint">Record code {accession}</p>
           <p className="text-[13px] leading-snug">{registrationCopy.card.identifies.en}</p>
           <p lang="hi" className="font-deva text-[13px] leading-snug">{registrationCopy.card.identifies.hi}</p>
           <p className="border-t border-rule pt-2 text-[12px] leading-snug text-muted">{registrationCopy.card.lost.en}</p>

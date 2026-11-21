@@ -18,7 +18,7 @@ export default async function RulesPage() {
     <div className="grid grid-cols-1 gap-6">
       <SectionHeader as="h1" kicker="Admin · Missing papers" title="The checks that notice missing papers"
         description={`${rules.length} missing-papers checks. ${prod} in use, ${rules.length - prod} still under review: those run quietly, but nothing they find is shown to staff until a clinician has reviewed them.`} />
-      <p className="flex max-w-3xl items-start gap-3 border border-l-[3px] border-rule border-l-setu bg-setu-tint px-4 py-3 text-[15px]">
+      <p className="flex max-w-3xl items-start gap-3 border border-l-[3px] border-rule border-l-setu bg-setu-tint px-4 py-3 text-[15px] rounded-lg">
         <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0 text-setu-ink" />
         <span><strong className="font-medium">Wording rule.</strong> The wording is document completeness only: whether a document is in the file, never what care a patient needs. Putting a check into use records the reviewing clinician and the time.</span>
       </p>
@@ -26,11 +26,11 @@ export default async function RulesPage() {
         {rules.map((r) => {
           const t = r.rule.trigger, e = r.rule.expects
           return (
-            <li key={r.rule.id} className="grid gap-4 border border-rule bg-surface px-5 py-5 shadow-placard sm:px-6">
+            <li key={r.rule.id} className="grid gap-4 border border-rule bg-surface px-5 py-5 shadow-placard sm:px-6 rounded-lg">
               <header className="flex flex-wrap items-start justify-between gap-3">
                 <div className="grid gap-1">
                   <h2 className="text-lg font-medium tracking-[-0.01em]">{ruleTitle(r.rule)}</h2>
-                  <p className="font-mono text-[12px] tracking-[0.06em] text-faint">{r.rule.id} · v{r.rule.version}</p>
+                  <p className="text-[12px] text-faint">{r.rule.id} · v{r.rule.version}</p>
                   <div className="flex flex-wrap gap-2 pt-1">
                     {r.mode === 'production' ? <Badge tone="verified" icon={<ShieldCheck />}>In use</Badge> : <StatusBadge status="shadow_mode" label="Under review" />}
                     {r.wordingHits === 0 ? <Badge tone="neutral">Wording checked</Badge> : <Badge tone="conflict" icon={<CircleAlert />}>{r.wordingHits} banned term{r.wordingHits === 1 ? '' : 's'} in wording</Badge>}
@@ -46,7 +46,7 @@ export default async function RulesPage() {
                 { label: 'Hindi wording', value: <span lang="hi" className="font-deva">{sampleWording(r.rule.wording.hi)}</span> },
                 { label: 'Review', value: r.mode === 'production' && r.reviewedBy ? `Reviewed by ${r.reviewedBy} on ${istDateTime(r.reviewedAt)}` : r.reviewedBy ? `Last reviewed by ${r.reviewedBy} on ${istDateTime(r.reviewedAt)}; now back in shadow` : 'Not clinician-reviewed' },
               ]} />
-              <footer className="flex flex-wrap gap-x-8 gap-y-1 border-t border-rule pt-3 font-mono text-sm tabular-nums">
+              <footer className="flex flex-wrap gap-x-8 gap-y-1 border-t border-rule pt-3 text-sm tabular-nums">
                 <span>Found while under review <strong className="font-medium">{r.shadowHits}</strong></span>
                 <span>Shown to staff <strong className="font-medium">{r.productionItems}</strong></span>
               </footer>

@@ -66,7 +66,7 @@ function ImageCrop({ src, boxes }: { src: string; boxes: number[][] }) {
     }
     img.src = src
   }, [src, boxes])
-  return <canvas ref={ref} role="img" aria-label="Page image around the quote" className="h-auto max-h-40 w-full border border-amber bg-matte object-contain" />
+  return <canvas ref={ref} role="img" aria-label="Page image around the quote" className="h-auto max-h-40 w-full border border-amber bg-matte object-contain rounded-lg" />
 }
 
 /** Page text with every accepted quote lit; the active one gets the spotlight. */
@@ -181,15 +181,15 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
           isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
           : imageDoc ? (
             <div className="grid gap-2">{(pageImages.length ? pageImages : [1]).map((n) => <PageImage key={n} n={n} src={`/api/documents/${documentId}/file?kind=page&page=${n}`} boxes={boxesOn(n)} />)}</div>
-          ) : <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
+          ) : <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
         ) : (
           <div className="grid gap-3">
             <p className="text-[13px] text-muted">Highlighted words are the ones the record uses.</p>
-            {!textPages.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">No words were read from this paper (picture only).</p>}
+            {!textPages.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">No words were read from this paper (picture only).</p>}
             {textPages.map((p) => (
-              <article key={p.pageNo} className="border border-rule bg-matte shadow-frame">
+              <article key={p.pageNo} className="border border-rule bg-matte shadow-frame rounded-lg">
                 <header className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-surface px-4 py-2">
-                  <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Page {p.pageNo}{p.ocrConfidence != null ? ` · read from a photo, confidence ${p.ocrConfidence.toFixed(2)}` : ''}</span>
+                  <span className="text-[13px] text-faint font-medium">Page {p.pageNo}{p.ocrConfidence != null ? ` · read from a photo, confidence ${p.ocrConfidence.toFixed(2)}` : ''}</span>
                   {p.lowConfidence && <StatusBadge status="low_confidence" />}
                 </header>
                 <div className="px-4 py-4 sm:px-5"><PageText page={p} events={live} active={active} onPick={(id) => pick(id, false)} /></div>
@@ -202,8 +202,8 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
       {/* Facts, one line each */}
       <section aria-labelledby="facts-h" className="grid content-start gap-3">
         <h2 id="facts-h" className="ds-kicker">What the paper says · {live.length} {live.length === 1 ? 'line' : 'lines'}</h2>
-        {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted">Nothing was picked out of this paper automatically. Read the page.</p>}
-        <ul className="grid border border-rule bg-surface">
+        {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">Nothing was picked out of this paper automatically. Read the page.</p>}
+        <ul className="grid border border-rule bg-surface rounded-lg">
           {events.map((e) => {
             const ev = e.evidence[0]
             const page = pages.find((p) => p.pageNo === ev?.pageNo)
@@ -289,7 +289,7 @@ export function PdfPages({ src, pages }: { src: string; pages: number }) {
         // eslint-disable-next-line @next/next/no-img-element
         <img key={i} src={u} alt={`Original page ${i + 1}`} className="h-auto w-full border border-rule bg-white" />
       ))}
-      {imgs.length < pages && <p className="p-3 font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Drawing page {imgs.length + 1} of {pages}…</p>}
+      {imgs.length < pages && <p className="p-3 text-[13px] text-faint font-medium">Drawing page {imgs.length + 1} of {pages}…</p>}
     </div>
   )
 }

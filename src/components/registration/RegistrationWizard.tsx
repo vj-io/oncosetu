@@ -152,8 +152,8 @@ export function RegistrationWizard({ role }: { role: Role }) {
     <form method="post" onSubmit={submit} className="grid grid-cols-[minmax(0,1fr)] gap-8" noValidate>
       <ol aria-label="Registration steps" className="flex flex-wrap gap-x-6 gap-y-2">
         {STEPS.map((s, i) => (
-          <li key={s} aria-current={i === step ? "step" : undefined} className={clsx("flex items-center gap-2 border-b-2 pb-1.5", i === step ? "border-ink text-ink" : "border-transparent text-faint")}>
-            <span className="grid size-6 place-items-center border border-current font-mono text-[11px]">{i + 1}</span>
+          <li key={s} aria-current={i === step ? "step" : undefined} className={clsx("flex items-center gap-2 border-b-2 pb-1.5", i === step ? "border-pine font-medium text-ink" : "border-transparent text-faint")}>
+            <span className="grid size-6 place-items-center border border-current text-xs">{i + 1}</span>
             <span className="text-sm">{s}</span>
           </li>
         ))}
@@ -197,7 +197,7 @@ export function RegistrationWizard({ role }: { role: Role }) {
               <div className="grid gap-3 sm:col-span-2">
                 <div role="radiogroup" aria-label="Date of birth or age" className="flex flex-wrap gap-2">
                   {(["dob", "age"] as const).map((m) => (
-                    <label key={m} className={clsx("flex h-11 cursor-pointer items-center gap-2 border px-3 text-sm has-checked:border-ink has-checked:bg-matte", f.dobMode === m ? "border-ink" : "border-rule")}>
+                    <label key={m} className={clsx("flex h-11 cursor-pointer items-center gap-2 border px-3 text-sm has-checked:border-pine has-checked:bg-matte rounded-md", f.dobMode === m ? "border-ink" : "border-rule")}>
                       <input type="radio" className="accent-obsidian" name="dobMode" checked={f.dobMode === m} onChange={() => set("dobMode", m)} />
                       {m === "dob" ? "I know the date of birth" : "Age only (estimate)"}
                     </label>
@@ -346,20 +346,20 @@ function DuplicateWarning({ candidates, role, acknowledged, onContinue }: { cand
   const blocked = candidates.some((c) => c.blocking);
   const t = TONE.unverified;
   return (
-    <section aria-labelledby="dup-h" className={clsx("grid gap-4 border border-l-[3px] border-rule bg-surface p-5", t.bar)}>
+    <section aria-labelledby="dup-h" className={clsx("grid gap-4 border border-l-[3px] border-rule bg-surface p-5 rounded-lg", t.bar)}>
       <div className="grid gap-1">
         <h2 id="dup-h" className="text-xl">This person may already be registered</h2>
         <p className="text-muted">Check before creating a second record. Merging two records is done by an administrator, not here.</p>
       </div>
       <ul className="grid gap-3">
         {candidates.map((c) => (
-          <li key={c.id} className="grid gap-2 border border-rule bg-matte p-4">
+          <li key={c.id} className="grid gap-2 border border-rule bg-matte p-4 rounded-lg">
             <div className="flex flex-wrap items-center gap-3">
               <span className="font-display text-lg">{c.initials}</span>
-              <span className="font-mono text-xs tracking-[0.1em] text-faint">ACC. {c.accession}</span>
+              <span className="text-xs text-faint">ACC. {c.accession}</span>
               {c.ageYears != null && <span className="text-sm text-muted">{c.ageYears} y</span>}
-              {c.mrn && <span className="font-mono text-xs text-muted">MRN {c.mrn}</span>}
-              {c.phoneMasked && <span className="font-mono text-xs text-muted">{c.phoneMasked}</span>}
+              {c.mrn && <span className="text-xs text-muted">MRN {c.mrn}</span>}
+              {c.phoneMasked && <span className="text-xs text-muted">{c.phoneMasked}</span>}
               <Badge tone={c.blocking ? "conflict" : c.strong ? "unverified" : "neutral"}>{c.blocking ? "MRN in use" : c.strong ? "Strong match" : "Weak match"}</Badge>
             </div>
             <ul className="text-sm text-muted">

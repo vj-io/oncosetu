@@ -129,12 +129,12 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
             <tbody>
               {d.history.map((h) => (
                 <tr key={h.id}>
-                  <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(h.recordedAt)}</td>
+                  <td className="text-xs whitespace-nowrap">{STAMP.format(h.recordedAt)}</td>
                   <td><Badge tone={h.action === 'withdraw' ? 'conflict' : h.action === 'grant' ? 'verified' : 'setu'}>{h.action}</Badge></td>
                   <td>{actorLabel(h)}{h.witnessedBy && <span className="text-muted"> · witness {d.witness.get(h.witnessedBy) ?? '—'}</span>}</td>
                   <td>{h.method === 'desk_assisted' ? 'Desk, witnessed' : 'Own code'}</td>
                   <td className="text-sm">{h.action === 'withdraw' ? 'all withdrawn' : (Object.keys(PURPOSE_LABEL) as (keyof typeof PURPOSE_LABEL)[]).filter((k) => h.purposes[k]).map((k) => PURPOSE_LABEL[k]).join(', ') || 'none'}</td>
-                  <td className="font-mono text-xs">{h.noticeVersion} · {h.language}</td>
+                  <td className="text-xs">{h.noticeVersion} · {h.language}</td>
                 </tr>
               ))}
             </tbody>
@@ -150,7 +150,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
                 <thead><tr><th>When</th><th>Who</th><th>What they did</th></tr></thead>
                 <tbody>{d.log.events.map((e) => (
                   <tr key={e.seq}>
-                    <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(e.at)}</td>
+                    <td className="text-xs whitespace-nowrap">{STAMP.format(e.at)}</td>
                     <td>{e.actorName ?? (e.actorRole === 'system' ? 'System' : 'Patient side')} <Badge>{e.actorRole}</Badge></td>
                     <td className="text-sm">{describeAction(e.action)}<span className="text-muted"> · {describeTarget(e.targetType)}</span></td>
                   </tr>
@@ -162,8 +162,8 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
                 <thead><tr><th>When</th><th>Share link</th><th>What happened</th></tr></thead>
                 <tbody>{d.log.shareViews.map((v) => (
                   <tr key={v.id}>
-                    <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(v.at)}</td>
-                    <td className="font-mono text-xs">{v.shareLinkId.slice(0, 8)}</td>
+                    <td className="text-xs whitespace-nowrap">{STAMP.format(v.at)}</td>
+                    <td className="text-xs">{v.shareLinkId.slice(0, 8)}</td>
                     <td><Badge tone={v.outcome === 'viewed' ? 'neutral' : 'unverified'}>{v.outcome.replace('_', ' ')}</Badge></td>
                   </tr>
                 ))}</tbody>

@@ -33,15 +33,15 @@ export default async function ErasurePage() {
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td className="font-mono text-[13px]">{accession(r.patientId)}</td>
+                <td className="text-[13px]">{accession(r.patientId)}</td>
                 <td className="text-sm">{istDate(r.requestedAt)}</td>
                 <td className="text-sm">{BY[r.requestedByKind]}</td>
                 <td className="text-sm">{istDate(r.eligibleAfter)}</td>
-                <td><Badge tone={STATE[r.state].tone}>{r.due ? 'Due' : STATE[r.state].label}</Badge>{r.completedAt && <span className="mt-1 block font-mono text-[12px] text-muted">{istDate(r.completedAt)}</span>}</td>
+                <td><Badge tone={STATE[r.state].tone}>{r.due ? 'Due' : STATE[r.state].label}</Badge>{r.completedAt && <span className="mt-1 block text-[12px] text-muted">{istDate(r.completedAt)}</span>}</td>
                 <td className="text-right text-sm">
                   {(r.state === 'queued' || r.state === 'scheduled') && <ExecuteErasure id={r.id} accession={accession(r.patientId)} due={r.due} eligibleAfter={istDate(r.eligibleAfter)} />}
                   {r.counts && (
-                    <details className="max-w-xs text-left font-mono text-[12px] text-muted">
+                    <details className="max-w-xs text-left text-[12px] text-muted">
                       <summary className="cursor-pointer">Rows per table</summary>
                       {countsText(r.counts)}
                     </details>

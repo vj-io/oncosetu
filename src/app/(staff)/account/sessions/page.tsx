@@ -20,9 +20,9 @@ export default async function SessionsPage() {
         <tbody>
           {rows.map((r) => (
             <tr key={r.id}>
-              <td className="font-mono tabular-nums">{when(r.createdAt)}</td>
-              <td className="font-mono tabular-nums">{when(r.lastSeenAt)}</td>
-              <td className="font-mono tabular-nums">{when(r.expiresAt)}</td>
+              <td className="tabular-nums">{when(r.createdAt)}</td>
+              <td className="tabular-nums">{when(r.lastSeenAt)}</td>
+              <td className="tabular-nums">{when(r.expiresAt)}</td>
               <td>{r.current && <Badge tone="verified">This browser</Badge>}</td>
             </tr>
           ))}

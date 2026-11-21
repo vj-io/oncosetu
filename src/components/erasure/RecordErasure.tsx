@@ -13,7 +13,7 @@ export function RecordErasure({ patientId, status }: { patientId: string; status
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  if (status) return <p role="status" className="border border-rule bg-surface px-4 py-3 text-sm">{status}</p>
+  if (status) return <p role="status" className="border border-rule bg-surface px-4 py-3 text-sm rounded-lg">{status}</p>
 
   async function record() {
     setBusy(true)
@@ -25,7 +25,7 @@ export function RecordErasure({ patientId, status }: { patientId: string; status
   }
 
   return (
-    <div className="grid gap-2 border border-rule bg-surface px-4 py-3 text-left">
+    <div className="grid gap-2 border border-rule bg-surface px-4 py-3 text-left rounded-lg">
       <p className="text-sm font-medium">Erasure request</p>
       <p className="text-sm text-muted">Consent was withdrawn. If the patient or caregiver asked for the record to be erased, record it here. It is queued until the retention period has run; nothing is deleted now.</p>
       <Checkbox label="The patient or caregiver asked for erasure" checked={asked} onChange={(e) => setAsked(e.target.checked)} />

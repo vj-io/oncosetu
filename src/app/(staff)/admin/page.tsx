@@ -48,13 +48,13 @@ export default async function AdminOverview() {
         return (
           <section key={g.id} aria-labelledby={`g-${g.id}`} className="grid gap-3">
             <div className="grid gap-0.5">
-              <h2 id={`g-${g.id}`} className="font-display text-2xl tracking-[-0.02em]">{g.title}</h2>
+              <h2 id={`g-${g.id}`} className="text-xl">{g.title}</h2>
               <p className="text-sm text-muted">{def.blurb}</p>
             </div>
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {def.sections.filter((k) => (SECTIONS[k].roles as readonly string[]).includes(s.role)).map((k) => (
                 <li key={k}>
-                  <Link href={SECTIONS[k].href} className="group grid h-full content-start gap-1.5 border border-rule bg-surface px-5 py-4 shadow-placard transition-colors hover:bg-spotlight">
+                  <Link href={SECTIONS[k].href} className="group grid h-full content-start gap-1.5 border border-rule bg-surface px-5 py-4 shadow-placard transition-colors hover:bg-spotlight rounded-lg">
                     <span className="flex items-center justify-between">
                       <span className="font-medium">{PLAIN_LABEL[k]}</span>
                       <ArrowUpRight aria-hidden className="size-4 text-faint group-hover:text-ink" />

@@ -80,11 +80,11 @@ export function AbdmPanel({ patientId }: { patientId: string }) {
   const blocked = ready && (!ready.abha ? 'No ABHA number is recorded for this patient (add it at registration).' : !ready.consent ? 'The patient has not consented to ABDM pull (consent purpose d). Record it on the Consent tab first.' : null)
 
   return (
-    <section aria-labelledby="abdm-h" className="grid gap-5 border border-rule bg-surface p-5 shadow-placard [&>*]:min-w-0">
+    <section aria-labelledby="abdm-h" className="grid gap-5 border border-rule bg-surface p-5 shadow-placard [&>*]:min-w-0 rounded-lg">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
           <p className="ds-kicker flex items-center gap-1.5"><Network aria-hidden className="size-3.5" /> ABDM · health information exchange</p>
-          <h2 id="abdm-h" className="text-xl">Records from ABDM <span data-testid="abdm-planned" className="ml-2 inline-block border border-amber bg-amber-tint px-2 py-0.5 align-middle font-mono text-[11px] tracking-[0.08em] text-amber-ink uppercase">Planned: not live yet</span></h2>
+          <h2 id="abdm-h" className="text-xl">Records from ABDM <span data-testid="abdm-planned" className="ml-2 inline-block border border-amber/40 bg-amber-tint px-2 py-0.5 align-middle text-[13px] text-amber-ink font-medium rounded-full">Planned: not live yet</span></h2>
           <p className="max-w-2xl text-[15px] text-muted">
             Ask the patient to share records linked to their ABHA. Bundles are decrypted only after the consent artefact is checked, mapped from FHIR
             into facts with their source resource, and erased when the artefact ends or the patient revokes it.
@@ -101,7 +101,7 @@ export function AbdmPanel({ patientId }: { patientId: string }) {
       </header>
 
       {blocked ? <Notice tone="unverified" title="Cannot request yet">{blocked}</Notice> : view && (
-        <div className="grid gap-4 border border-rule bg-gallery p-4">
+        <div className="grid gap-4 border border-rule bg-gallery p-4 rounded-lg">
           <fieldset className="grid gap-2">
             <legend className="ds-kicker mb-1 text-muted">Kinds of records</legend>
             <div className="grid gap-2 sm:grid-cols-2">
@@ -157,7 +157,7 @@ export function AbdmPanel({ patientId }: { patientId: string }) {
           <ul aria-label="ABDM documents" className="grid gap-2">
             {view.documents.map((d) => (
               <li key={d.id}>
-                <Link href={`/patients/${patientId}/documents/${d.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-rule bg-gallery px-3 py-2 hover:bg-spotlight">
+                <Link href={`/patients/${patientId}/documents/${d.id}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-rule bg-gallery px-3 py-2 hover:bg-spotlight rounded-lg">
                   <span className="font-medium">{d.title}</span>
                   <Chip tone="setu">ABDM · structured</Chip>
                   <span className="text-sm text-muted">{fmtDate(d.documentDate)}{d.institution ? ` · ${d.institution}` : ''} · {d.events} fact{d.events === 1 ? '' : 's'} · FHIR {d.recordType}</span>

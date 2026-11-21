@@ -58,14 +58,14 @@ export default async function PassportPage({ params, searchParams }: { params: P
   const qr = await QRCode.toDataURL(verifyUrl, { margin: 1, width: 220, errorCorrectionLevel: 'M' })
   // The sealed file holds staff-only lines: offered to records officers and clinicians on screen, never printed.
   const download = s.role === 'desk' ? null : (
-    <a href={`/api/snapshots/${snapshotId}`} download className="text-sm text-setu-ink underline decoration-brass underline-offset-4">Download the sealed file for an offline check</a>
+    <a href={`/api/snapshots/${snapshotId}`} download className="text-sm text-setu-ink underline decoration-link underline-offset-4">Download the sealed file for an offline check</a>
   )
 
   return (
     <PrintSheet lang={lang} langHref={(x) => `/print/passport/${snapshotId}?lang=${x}`} actions={download}>
       <header className="flex items-start justify-between gap-6 border-b-2 border-ink pb-4">
         <p className="font-display text-xl tracking-[-0.02em]">{p.brand}</p>
-        <p className="font-mono text-[12px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
+        <p className="text-[12px] text-muted">{t('asOf', { date: formatDateIN(istDate(p.asOf), lang) })}</p>
       </header>
       <h1 className="mt-6 text-[1.6rem] leading-tight tracking-[-0.02em]">{inLang(p.heading, lang)}</h1>
       <p className="mt-2">{inLang(p.notice, lang).replace(/^This summary contains/, 'This list contains')}</p>
@@ -78,7 +78,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
               const source = it.source.label ? `${t('source')}: ${inLang(it.source.label, lang)}${it.source.page ? `, ${t('page', { n: it.source.page })}` : ''}` : null
               return (
                 <li key={i} className="grid grid-cols-[7.5rem_1fr] gap-x-4 border-b border-rule pb-1.5 break-inside-avoid">
-                  <span className="font-mono text-[12px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
+                  <span className="text-[12px] text-muted">{formatDateIN(it.date, lang, it.precision)}</span>
                   <span>
                     <span className="font-medium">{inLang(it.label, lang)}</span>
                     <span className="text-[13px] text-muted"> · {[it.institution, source, t(CHECKED[it.verification])].filter(Boolean).join(' · ')}</span>
@@ -131,7 +131,7 @@ export default async function PassportPage({ params, searchParams }: { params: P
           <h2 id="seal-h" className={`ds-kicker ${lang === 'hi' ? 'tracking-normal normal-case' : ''}`}>{t('sealTitle')}</h2>
           <p>{t('sealedOn', { when: formatDateTimeIN(p.asOf, lang) })}</p>
           <p className="font-mono text-[12px] break-all">{t('sealText', { id: snapshotId, hash: p.seal.sha256 })}</p>
-          <p className="font-mono text-[12px]">{t('sealKey', { key: keyId ?? '—' })}</p>
+          <p className="text-[12px]">{t('sealKey', { key: keyId ?? '—' })}</p>
           <p className="text-[13px] text-muted">{t('scanToVerify')}</p>
           <p className="font-mono text-[12px] break-all">{verifyUrl}</p>
         </div>

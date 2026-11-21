@@ -18,7 +18,7 @@ export default async function EscalationSheet({ searchParams }: { searchParams: 
       <ol className="mt-6 grid gap-5">
         {STEPS.map(([title, text], i) => (
           <li key={title} className="grid grid-cols-[2rem_1fr] gap-3 break-inside-avoid">
-            <span className="font-mono text-sm text-faint">{String(i + 1).padStart(2, '0')}</span>
+            <span className="text-sm text-faint">{String(i + 1).padStart(2, '0')}</span>
             <div className="grid gap-1"><h2 className="text-lg">{tr(lang, title)}</h2><p>{tr(lang, text)}</p></div>
           </li>
         ))}

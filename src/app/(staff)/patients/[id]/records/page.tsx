@@ -35,7 +35,7 @@ export default async function RecordsPage({ params, searchParams }: { params: Pr
         kicker="All records"
         title="All records"
         description="Every report, scan, lab result and prescription on this record, in date order. Scans are stored and shown, not read. This is a list of papers, not a clinical summary."
-        actions={<Link href={`/patients/${id}/documents`} className="inline-flex min-h-10 items-center border border-rule bg-matte px-3 text-sm hover:bg-spotlight">Group by kind, add papers</Link>}
+        actions={<Link href={`/patients/${id}/documents`} className="inline-flex min-h-10 items-center border border-rule bg-matte px-3 text-sm hover:bg-spotlight rounded-md">Group by kind, add papers</Link>}
       />
       <RecordsBrowser
         patientId={id} rows={data.recs.rows} pairs={data.recs.pairs} rejected={data.recs.rejected} held={data.recs.held} heldScans={data.recs.heldScans} canDecide

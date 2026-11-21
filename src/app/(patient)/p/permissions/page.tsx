@@ -23,7 +23,7 @@ export default async function PermissionsPage({ searchParams }: { searchParams: 
       <p className="mt-3 max-w-prose text-muted">{tv(lang, 'whoIntro')}</p>
       <ul className="mt-8 grid gap-3 md:hidden" data-testid="access-cards">
         {order.map((i) => (
-          <li key={MATRIX_ROLES[i]} className="grid gap-3 border border-rule bg-surface px-4 py-4">
+          <li key={MATRIX_ROLES[i]} className="grid gap-3 border border-rule bg-surface px-4 py-4 rounded-lg">
             <h2 className="text-xl">{tv(lang, `r_${MATRIX_ROLES[i]}` as PrivacyKey)}</h2>
             {([['yes', 'permCan'], ['limited', 'permPart'], ['no', 'permCannot']] as const).map(([cell, label]) => {
               const items = group(i, cell)
@@ -44,7 +44,7 @@ export default async function PermissionsPage({ searchParams }: { searchParams: 
           </li>
         ))}
       </ul>
-      <div className="mt-8 hidden overflow-x-auto border border-rule bg-surface md:block" tabIndex={0} role="region" aria-label={tv(lang, 'whoTitle')}>
+      <div className="mt-8 hidden overflow-x-auto border border-rule bg-surface md:block rounded-lg" tabIndex={0} role="region" aria-label={tv(lang, 'whoTitle')}>
         <table className="w-full min-w-[44rem] border-collapse text-left text-[16px]" data-testid="access-matrix">
           <thead>
             <tr className="border-b border-rule bg-alcove">

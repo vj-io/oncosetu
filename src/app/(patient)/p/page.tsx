@@ -14,7 +14,7 @@ import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadHomeData } from '@/server/portal/home'
 import { buildHomeSummary, type HomeSummary } from '@/server/portal/summary'
 
-const H2 = 'text-2xl leading-tight tracking-[-0.02em]'
+const H2 = 'text-[1.375rem] leading-tight'
 const SHOWN_PAPERS = 3
 
 function Dates({ rows }: { rows: HomeSummary['coming'] }) {
@@ -60,7 +60,7 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
 function Fold({ summary, children }: { summary: string; children: ReactNode }) {
   return (
     <details className="mt-3">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center border border-rule bg-surface px-4 py-2 text-[17px] underline underline-offset-4 marker:hidden [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center rounded-lg border border-rule bg-surface px-4 py-2 text-[17px] underline decoration-link underline-offset-4 marker:hidden [&::-webkit-details-marker]:hidden">
         {summary}
       </summary>
       <div className="mt-2">{children}</div>
@@ -84,11 +84,28 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
   return (
     <PortalFrame ctx={ctx}>
       <Kicker lang={lang}>{tpw(lang, 'homeKicker', ctx.who)}</Kicker>
-      <h1 className="mt-2 text-[2rem] leading-tight tracking-[-0.025em] sm:text-4xl">{tp(lang, 'homeHello', { name: firstName })}</h1>
+      <h1 className="mt-1 text-[1.875rem] leading-tight tracking-[-0.02em] sm:text-[2.25rem]">{tp(lang, 'homeHello', { name: firstName })}</h1>
       <p className="mt-2 max-w-prose text-muted">{tp(lang, 'homeIntro')}</p>
 
+      {/* The one main action, then two counts: what the clinic has and what it still needs */}
+      <section className="mt-6 grid gap-3" aria-label={tp(lang, 'cardUploadTitle')}>
+        <ActionCard primary href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
+        <ul className="grid grid-cols-2 gap-3">
+          <li className="rounded-lg border border-rule bg-surface p-4 shadow-card">
+            <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
+            <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statHas')}</span>
+          </li>
+          <li>
+            <a href="#missing" className="block h-full rounded-lg border border-rule bg-surface p-4 shadow-card hover:bg-spotlight">
+              <span className={`block font-display text-[2rem] leading-none tabular-nums ${pending.length ? 'text-amber-ink' : ''}`}>{pending.length}</span>
+              <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statNeeds')}</span>
+            </a>
+          </li>
+        </ul>
+      </section>
+
       {/* 1. What is missing and where to ask: the thing a family member most needs */}
-      <section className="mt-8" aria-labelledby="look-h" id="missing">
+      <section className="mt-8 scroll-mt-4" aria-labelledby="look-h" id="missing">
         <h2 id="look-h" className={H2}>{tp(lang, 'secLooking')}</h2>
         {pending.length ? (
           <>
@@ -110,7 +127,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
         )}
         {arrived.length > 0 && (
           <div className="mt-6">
-            <h3 className="text-xl leading-tight tracking-[-0.015em]">{tp(lang, 'secArrived')}</h3>
+            <h3 className="text-lg leading-tight">{tp(lang, 'secArrived')}</h3>
             <ul className="mt-3 grid gap-3">
               {arrived.map((m) => (
                 <li key={m.id}><MissingPaper row={m} lang={lang} /></li>
@@ -139,11 +156,6 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
           </div>
         </section>
       )}
-
-      {/* 3. One big way to send papers */}
-      <section className="mt-10" aria-label={tp(lang, 'cardUploadTitle')}>
-        <ActionCard href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
-      </section>
 
       {/* 4. Papers the clinic has: newest three, the rest one tap away */}
       <section className="mt-10" aria-labelledby="docs-h">

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
 import { roleHome } from "@/lib/staff-nav";
-import { Avatar, Badge, Button, Field, Frame, Input, Spotlight, Wordmark } from "@/components/ui";
+import { Avatar, Badge, Button, Field, Input } from "@/components/ui";
+import { AuthShell } from "@/components/shell/AuthShell";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
 
@@ -74,111 +75,85 @@ export default function StaffLoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col">
-      <Spotlight />
-      <header className="relative border-b border-rule">
-        <div className="mx-auto flex h-16 max-w-gallery items-center gap-4 px-4 sm:px-8">
-          <Link href="/" aria-label="OncoSetu home">
-            <Wordmark />
-          </Link>
-          <Link href="/p/login" className="ml-auto inline-flex h-11 items-center font-mono text-[12px] tracking-[0.12em] text-muted uppercase hover:text-ink">
-            Patient portal
-          </Link>
-        </div>
-      </header>
-
-      <main id="main" className="relative mx-auto grid w-full max-w-gallery flex-1 items-start gap-12 px-4 py-12 sm:px-8 lg:grid-cols-[minmax(0,28rem)_minmax(0,1fr)] lg:gap-20 lg:py-20">
-        <div>
-          <h1 className="text-[2.25rem] leading-[1.08] tracking-[-0.03em] sm:text-5xl">Hospital staff sign-in</h1>
-          <p className="mt-4 text-muted">Use your email, your password and the 6-digit code from your authenticator app.</p>
-          {accounts && (
-            <p className="mt-2 text-[15px] lg:hidden">
-              <a href="#demo-accounts" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Trying the demo? Pick a demo role ↓</a>
+    <AuthShell
+      headline="Every paper in one list, with its source words."
+      points={["Today’s patients, the papers that arrived, and the ones still missing", "Email, password and a code from your authenticator app", "Every record you open is written to the activity log"]}
+      footer={<Link href="/p/login" className="inline-flex h-11 items-center rounded-md px-3 text-[15px] font-medium text-nav-text hover:bg-surface hover:text-ink">Patient portal</Link>}
+    >
+      <div className="rounded-xl border border-rule bg-surface p-6 shadow-card sm:p-8">
+        <h1 className="text-[1.75rem] leading-tight tracking-[-0.02em]">Hospital staff sign-in</h1>
+        <p className="mt-2 text-[15px] text-muted">Use your email, your password and the 6-digit code from your authenticator app.</p>
+        {accounts && (
+          <p className="mt-2 text-[15px] lg:hidden">
+            <a href="#demo-accounts" className="text-setu-ink underline decoration-link underline-offset-4 hover:decoration-setu-ink">Trying the demo? Pick a demo role ↓</a>
+          </p>
+        )}
+        {/* method="post": a submit before hydration must never put the password in the URL (it did, as a GET). */}
+        <form method="post" onSubmit={onSubmit} className="mt-6 grid gap-5">
+          <Field label="Email">
+            <Input type="email" name="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <div className="relative">
+            <Field label="Password">
+              <Input type="password" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+            </Field>
+            <Link href="/login/reset" className="absolute -top-1.5 right-0 inline-flex min-h-8 items-center rounded-md px-1 text-sm font-medium text-setu-ink underline decoration-link underline-offset-4 hover:decoration-setu-ink">Forgot your password?</Link>
+          </div>
+          <Field label="Authenticator code" hint={filling ? "Getting a fresh code…" : "6 digits. The app shows a new one every 30 seconds."}>
+            <Input
+              name="totp"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="\d{6}"
+              maxLength={6}
+              required
+              value={totp}
+              onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              className="font-mono text-lg tracking-[0.4em]"
+            />
+          </Field>
+          {error && (
+            <p role="alert" className="flex items-start gap-2 rounded-md border border-madder/30 bg-madder-tint px-4 py-3 text-[15px] text-madder-ink">
+              <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+              {error}
             </p>
           )}
-
-          <Frame animate className="mt-8 px-5 py-6 sm:px-8 sm:py-8">
-            {/* method="post": a submit before hydration must never put the password in the URL (it did, as a GET). */}
-            <form method="post" onSubmit={onSubmit} className="grid gap-5">
-              <Field label="Email">
-                <Input type="email" name="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-              </Field>
-              <Field label="Password">
-                <Input type="password" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
-              </Field>
-              <Field label="Authenticator code" hint={filling ? "Getting a fresh code…" : "6 digits. The app shows a new one every 30 seconds."}>
-                <Input
-                  name="totp"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  pattern="\d{6}"
-                  maxLength={6}
-                  required
-                  value={totp}
-                  onChange={(e) => setTotp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  className="font-mono text-lg tracking-[0.4em]"
-                />
-              </Field>
-              {error && (
-                <p role="alert" className="flex items-start gap-2 border border-madder bg-madder-tint px-4 py-3 text-[15px] text-madder-ink">
-                  <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-                  {error}
-                </p>
-              )}
-              <Button ref={submitRef} type="submit" size="lg" loading={busy} disabled={Boolean(filling)} className="mt-1 w-full">
-                Sign in
-              </Button>
-            </form>
-          </Frame>
-          <p className="mt-4 text-[15px]">
-            <Link href="/login/reset" className="inline-flex min-h-11 items-center text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">Forgot your password?</Link>
-          </p>
-          <p className="mt-2 text-[15px] text-muted">
-            Patient or family?{" "}
-            <Link href="/p/login" className="text-ink underline decoration-brass underline-offset-4 hover:decoration-ink">
-              Sign in here
-            </Link>
-          </p>
-          <p className="mt-2 text-[15px] text-muted">
-            <Link href="/security" className="inline-flex min-h-11 items-center underline decoration-brass underline-offset-4 hover:decoration-ink">Security & compliance</Link>
-          </p>
-        </div>
-
-        <aside aria-labelledby="demo-accounts" className="lg:pt-24">
-          {accounts ? (
-            <section className="ds-placard-in border border-rule bg-surface shadow-placard">
-              <header className="border-b border-rule px-5 py-5 sm:px-6">
-                <p className="ds-kicker">Demo only · made-up hospital</p>
-                <h2 id="demo-accounts" className="mt-2 text-xl tracking-[-0.02em]">
-                  Pick a role to fill in the form
-                </h2>
-                <p className="mt-1 text-sm text-muted">The code is still checked by the server, as it would be for real staff.</p>
-              </header>
-              <ul>
-                {accounts.map((a) => (
-                  <li key={a.email} className="border-b border-rule last:border-b-0">
-                    <button type="button" onClick={() => fill(a)} className="flex min-h-16 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-spotlight sm:px-6">
-                      <Avatar name={a.name} size="sm" />
-                      <span className="grid min-w-0 flex-1">
-                        <span className="text-[15px]">{a.name}</span>
-                        <span className="truncate font-mono text-xs text-muted">{a.email}</span>
-                      </span>
-                      <span className="hidden min-[420px]:inline-flex"><Badge>{ROLE_LABEL[a.role] ?? a.role}</Badge></span>
-                      {filling === a.email ? <LoaderCircle aria-hidden className="ds-spin size-4" /> : <ArrowRight aria-hidden className="size-4 text-faint" />}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </aside>
-      </main>
-
-      <footer className="relative border-t border-rule">
-        <p className="mx-auto max-w-gallery px-4 py-5 font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase sm:px-8">
-          A list of documents, not a clinical summary
+          <Button ref={submitRef} type="submit" size="lg" loading={busy} disabled={Boolean(filling)} className="mt-1 w-full">
+            Sign in
+          </Button>
+        </form>
+        <p className="mt-5 text-[15px] text-muted">
+          Patient or family?{" "}
+          <Link href="/p/login" className="font-medium text-setu-ink underline decoration-link underline-offset-4 hover:decoration-setu-ink">Sign in with your phone</Link>
+          <span aria-hidden> · </span>
+          <Link href="/security" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Security & compliance</Link>
         </p>
-      </footer>
-    </div>
+      </div>
+
+      {accounts ? (
+        <section aria-labelledby="demo-accounts" className="ds-placard-in mt-5 overflow-hidden rounded-xl border border-rule bg-surface shadow-card">
+          <header className="px-5 pt-5 pb-3 sm:px-6">
+            <Badge tone="setu">Demo only · made-up hospital</Badge>
+            <h2 id="demo-accounts" className="mt-3 text-lg">Pick a role to fill in the form</h2>
+            <p className="mt-1 text-sm text-muted">The code is still checked by the server, as it would be for real staff.</p>
+          </header>
+          <ul className="divide-y divide-rule border-t border-rule">
+            {accounts.map((a) => (
+              <li key={a.email}>
+                <button type="button" onClick={() => fill(a)} className="flex min-h-16 w-full items-center gap-4 px-5 py-3 text-left transition-colors hover:bg-spotlight sm:px-6">
+                  <Avatar name={a.name} size="sm" />
+                  <span className="grid min-w-0 flex-1">
+                    <span className="text-[15px] font-semibold">{a.name}</span>
+                    <span className="truncate text-[13px] text-muted">{a.email}</span>
+                  </span>
+                  <span className="hidden min-[420px]:inline-flex"><Badge>{ROLE_LABEL[a.role] ?? a.role}</Badge></span>
+                  {filling === a.email ? <LoaderCircle aria-hidden className="ds-spin size-4" /> : <ArrowRight aria-hidden className="size-4 text-faint" />}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+    </AuthShell>
   );
 }

@@ -53,12 +53,12 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       <Frame matte>
         <div className="grid gap-5 p-4 sm:p-6">
-          <div role="tablist" aria-label="Look up by" className="flex flex-wrap gap-1 border-b border-rule">
+          <div role="tablist" aria-label="Look up by" className="flex w-fit max-w-full flex-wrap gap-1 rounded-md bg-alcove p-1">
             {MODES.map((m) => (
               <button
                 key={m.key} type="button" role="tab" aria-selected={mode === m.key}
                 onClick={() => { setMode(m.key); setValue(""); setHits(null); setMessage(null); setSelected(null); }}
-                className={clsx("h-11 border-b-2 px-3 text-sm", mode === m.key ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink")}
+                className={clsx("h-11 rounded-sm px-4 text-[15px] transition-colors", mode === m.key ? "bg-surface font-semibold text-ink shadow-card" : "text-muted hover:bg-surface/60 hover:text-ink")}
               >
                 {m.label}
               </button>
@@ -82,10 +82,10 @@ export function DeskLookup({ preselected }: { preselected?: DeskHit | null }) {
                 <li key={h.id}>
                   <button
                     type="button" onClick={() => setSelected(h)} aria-pressed={selected?.id === h.id}
-                    className={clsx("flex min-h-14 w-full flex-wrap items-center gap-x-4 gap-y-2 border px-4 py-2 text-left hover:bg-spotlight", selected?.id === h.id ? "border-ink bg-matte" : "border-rule")}
+                    className={clsx("flex min-h-14 w-full flex-wrap items-center gap-x-4 gap-y-2 border px-4 py-2 text-left hover:bg-spotlight rounded-lg", selected?.id === h.id ? "border-ink bg-matte" : "border-rule")}
                   >
-                    <span className="grid size-10 place-items-center border border-rule bg-matte font-display text-lg">{h.initials}</span>
-                    <span className="font-mono text-xs tracking-[0.1em] text-faint">Record code {h.accession}</span>
+                    <span className="grid size-10 place-items-center rounded-full bg-sage-tint font-display text-base text-pine">{h.initials}</span>
+                    <span className="text-xs text-faint">Record code {h.accession}</span>
                     <Badge tone="unverified" className="ml-auto">Verification required</Badge>
                   </button>
                 </li>
@@ -219,7 +219,7 @@ function Verification({ hit }: { hit: DeskHit }) {
     <Frame matte>
       <div className="grid gap-5 p-4 sm:p-6">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="grid size-14 place-items-center border border-rule bg-matte font-display text-2xl shadow-placard">{hit.initials}</span>
+          <span className="grid size-14 place-items-center rounded-full bg-sage-tint font-display text-xl text-pine">{hit.initials}</span>
           <div className="grid gap-1">
             <p className="ds-kicker">Record code {hit.accession}</p>
             <Badge tone="unverified" icon={<KeyRound />}>Verification required</Badge>

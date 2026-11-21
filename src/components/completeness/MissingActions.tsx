@@ -72,7 +72,7 @@ export function MissingActions({ id, patientId, state, proposed, institutionDiff
         {proposed && (
           <div className="grid gap-4">
             <KeyValue items={[
-              { label: 'Paper', value: <a className="underline decoration-brass underline-offset-4" href={proposed.href}>{proposed.label}</a> },
+              { label: 'Paper', value: <a className="underline decoration-link underline-offset-4" href={proposed.href}>{proposed.label}</a> },
               { label: 'Dated', value: proposed.date },
               { label: 'From', value: proposed.institution ?? 'Institution not stated' },
             ]} />

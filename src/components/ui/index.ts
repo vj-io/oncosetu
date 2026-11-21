@@ -21,7 +21,7 @@ export {
 } from "./display";
 export type { Tone, Status, StageState } from "./display";
 
-export { Frame, Card, Placard, EmptyFrame, Stamp, BrassSeal, QuoteHighlight, Spotlight } from "./exhibit";
+export { Frame, Card, Placard, EmptyFrame, Stamp, BrassSeal, QuoteHighlight } from "./exhibit";
 export type { PlacardProps } from "./exhibit";
 
 export { Tabs, Dialog, ToastProvider, useToast, Tooltip, LanguageToggle } from "./interactive";

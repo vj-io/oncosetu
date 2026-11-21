@@ -15,7 +15,7 @@ import { sideStyle } from './side'
 
 const ACTIVE: RequestState[] = ['sent', 'reminder_due', 'open_21d']
 const OPEN: RequestState[] = ['drafted', ...ACTIVE]
-const linkCls = 'text-setu-ink underline decoration-brass underline-offset-4'
+const linkCls = 'text-setu-ink underline decoration-link underline-offset-4'
 
 export function RequestList({ patientId, actor, lang = 'en' }: { patientId: string; actor: 'staff' | 'patient'; lang?: Lang }) {
   const router = useRouter()
@@ -86,10 +86,10 @@ export function RequestList({ patientId, actor, lang = 'en' }: { patientId: stri
                 <div className="grid gap-1 text-[15px]">
                   <p>{t('recordsList', { list: r.documents.map((x) => inLang(x.label, lang)).join(', ') })}</p>
                   {period && <p className="text-muted">{period}</p>}
-                  {r.institutionPatientId && <p className="font-mono text-[13px] text-muted">{t('letterUhid')} {r.institutionPatientId}</p>}
+                  {r.institutionPatientId && <p className="text-[13px] text-muted">{t('letterUhid')} {r.institutionPatientId}</p>}
                   {actor === 'staff' && <p className="text-muted">{t(`state_${r.state}` as RequestKey, { date: date ? formatDateIN(istDate(date), lang) : '' })}{r.daysOpen != null ? ` · ${t('daysOpen', { n: r.daysOpen })}` : ''}</p>}
                   {(r.reminder7SentAt || r.reminder21SentAt) && (
-                    <p className="font-mono text-[12px] text-faint">{[r.reminder7SentAt, r.reminder21SentAt].filter(Boolean).map((x) => t('reminderSent', { date: formatDateIN(istDate(x!), lang) })).join(' · ')}</p>
+                    <p className="text-[12px] text-faint">{[r.reminder7SentAt, r.reminder21SentAt].filter(Boolean).map((x) => t('reminderSent', { date: formatDateIN(istDate(x!), lang) })).join(' · ')}</p>
                   )}
                 </div>
                 {ACTIVE.includes(r.state) && (

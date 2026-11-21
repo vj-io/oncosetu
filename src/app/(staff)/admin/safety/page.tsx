@@ -27,7 +27,7 @@ export default async function SafetyEventsPage() {
             {seen.length > 0 && (
               <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" aria-label="Counts by kind">
                 {seen.map((k) => (
-                  <li key={k} className="grid content-start gap-1 border border-rule bg-surface px-4 py-3">
+                  <li key={k} className="grid content-start gap-1 border border-rule bg-surface px-4 py-3 rounded-lg">
                     <span className="font-display text-2xl leading-none tabular-nums">{data.counts[k]}</span>
                     <span className="text-[13px] text-muted">{SAFETY_META[k].label}</span>
                   </li>
@@ -46,13 +46,13 @@ export default async function SafetyEventsPage() {
           <tbody>
             {data.rows.map((r, i) => (
               <tr key={i} className="align-top">
-                <td className="font-mono text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
+                <td className="text-[13px] whitespace-nowrap">{istDateTime(r.at)}</td>
                 <td className="min-w-64">
                   <Badge tone={SAFETY_META[r.kind].tone}>{r.title}</Badge>
                   <span className="mt-1.5 block text-[15px]">{r.detail}</span>
                 </td>
                 <td className="text-[15px]">{r.who}</td>
-                <td className="font-mono text-[13px]">{r.patientCode ?? '—'}</td>
+                <td className="text-[13px]">{r.patientCode ?? '—'}</td>
               </tr>
             ))}
           </tbody>

@@ -67,14 +67,14 @@ export function ConsentCapture({
 
       <p className="text-sm text-muted">Patients see this service under the name “Setu Records”, on this notice, on the card and in text messages.</p>
 
-      <div lang={lang === "mr" ? "mr" : htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6", (lang === "hi" || lang === "mr") && "font-deva")}>
+      <div lang={lang === "mr" ? "mr" : htmlLang(lang)} className={clsx("grid gap-5 border border-rule bg-surface p-4 sm:p-6 rounded-lg", (lang === "hi" || lang === "mr") && "font-deva")}>
         <h3 className="text-2xl leading-snug tracking-[-0.02em]">{consentCopy.title[lang]}</h3>
         <p className="max-w-2xl text-[17px] leading-relaxed">{consentCopy.intro[lang]}</p>
         <ul className="grid divide-y divide-rule border-y border-rule">
           {PURPOSES.map((k, i) => (
             <li key={k} className="py-3">
               <div className="mb-1 flex flex-wrap items-center gap-2">
-                <span className="font-mono text-xs text-faint">({LETTERS[i]})</span>
+                <span className="text-xs text-faint">({LETTERS[i]})</span>
                 {k === "store" && <Badge tone="setu">{consentCopy.tagRequired[lang]}</Badge>}
               </div>
               <Switch
@@ -164,7 +164,7 @@ export function ConfirmStep<T extends ConfirmState>({
       {sms && (
       <div className="grid gap-2 sm:grid-cols-2">
         {(["otp", "witnessed"] as const).map((m) => (
-          <label key={m} className={clsx("flex min-h-11 cursor-pointer items-start gap-3 border p-3 has-checked:border-ink has-checked:bg-matte", value.method === m ? "border-ink" : "border-rule")}>
+          <label key={m} className={clsx("flex min-h-11 cursor-pointer items-start gap-3 border p-3 has-checked:border-pine has-checked:bg-matte rounded-md", value.method === m ? "border-ink" : "border-rule")}>
             <input type="radio" name={`${id}-method`} className="mt-1 size-4 accent-obsidian" checked={value.method === m} onChange={() => change({ method: m })} />
             <span className="grid gap-0.5">
               <span className="text-[15px] font-medium">{m === "otp" ? "Code sent by SMS" : "In person, witnessed"}</span>

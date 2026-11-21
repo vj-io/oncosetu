@@ -31,8 +31,8 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
           <tbody>
             {data.rows.map((r) => (
               <tr key={r.seq}>
-                <td className="font-mono text-xs">{r.seq}</td>
-                <td className="font-mono text-xs whitespace-nowrap">{STAMP.format(r.at)}</td>
+                <td className="text-xs">{r.seq}</td>
+                <td className="text-xs whitespace-nowrap">{STAMP.format(r.at)}</td>
                 <td>{r.actorName ?? (r.actorRole === 'system' ? 'The system' : 'Patient or family')}</td>
                 <td><Badge>{r.actorRole}</Badge></td>
                 <td>{describeAction(r.action)}</td>

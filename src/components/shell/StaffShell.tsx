@@ -5,12 +5,13 @@ import { SmsContext } from "@/lib/sms-context";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
-import { ClipboardList, ChevronDown, Compass, Copy, LogOut, Menu, MonitorSmartphone, Smartphone } from "lucide-react";
+import { ClipboardCheck, ClipboardList, ChevronDown, Compass, Copy, FolderCheck, KeyRound, ListChecks, LogOut, Menu, MonitorSmartphone, ScanLine, Settings2, Smartphone, Users, type LucideIcon } from "lucide-react";
 import { menuFor, navFor, roleHome, TOUR_ROLES, type StaffRole } from "@/lib/staff-nav";
-import { Avatar, Badge, Dialog, EmptyState, Skeleton, Spotlight, Wordmark } from "@/components/ui";
+import { Avatar, Badge, Dialog, EmptyState, Skeleton, Wordmark } from "@/components/ui";
 import { Tour, startTour } from "./Tour";
 
 export type { StaffRole };
+const NAV_ICON: Record<string, LucideIcon> = { "/desk": ClipboardCheck, "/records": ListChecks, "/patients": Users, "/preauth": FolderCheck, "/capture": ScanLine, "/admin": Settings2 };
 const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records", clinician: "Clinician", org_admin: "Administrator", auditor: "Auditor" };
 
 export type StaffShellProps = {
@@ -41,129 +42,147 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
     }
   }
 
+  const navLink = (n: { href: string; label: string }, onClick?: () => void) => {
+    const Icon = NAV_ICON[n.href] ?? Users;
+    const on = isActive(n.href);
+    return (
+      <Link
+        href={n.href}
+        aria-current={on ? "page" : undefined}
+        onClick={onClick}
+        className={clsx(
+          "flex min-h-11 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
+          on ? "bg-setu-tint font-semibold text-setu-ink" : "text-nav-text hover:bg-spotlight hover:text-ink",
+        )}
+      >
+        <Icon aria-hidden className={clsx("size-[18px] shrink-0", !on && "text-nav-muted")} />
+        {n.label}
+      </Link>
+    );
+  };
+
+  const account = (where: "sidebar" | "bar") => (
+    <details className="group relative">
+      <summary
+        className={clsx(
+          "flex min-h-11 cursor-pointer list-none items-center gap-2.5 rounded-md text-left [&::-webkit-details-marker]:hidden",
+          where === "sidebar" ? "w-full px-2 py-1.5 hover:bg-spotlight" : "px-1.5 hover:bg-spotlight",
+        )}
+      >
+        <span className="sr-only">Account menu</span>
+        <Avatar name={user.name} size="sm" />
+        {where === "sidebar" && (
+          <span className="grid min-w-0 flex-1 leading-tight">
+            <span className="truncate text-sm font-semibold text-ink">{user.name}</span>
+            <span className="truncate text-[13px] text-nav-muted">{ROLE_LABEL[user.role]}</span>
+          </span>
+        )}
+        <ChevronDown aria-hidden className={clsx("size-4 shrink-0 text-nav-muted", where === "sidebar" ? "rotate-180 group-open:rotate-0" : "group-open:rotate-180")} />
+      </summary>
+      <div
+        className={clsx(
+          "absolute z-50 hidden w-64 overflow-hidden rounded-lg border border-rule bg-surface py-1 text-ink shadow-pop group-open:grid",
+          where === "sidebar" ? "bottom-full left-0 mb-2" : "top-full right-0 mt-2",
+        )}
+      >
+        <p className="border-b border-rule px-4 py-2.5 text-sm">
+          <span className="block font-medium text-ink">{user.name}</span>
+          <span className="text-[13px] text-faint">{ROLE_LABEL[user.role]} · {user.orgName}</span>
+        </p>
+        {TOUR_ROLES.includes(user.role) && (
+          <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2.5 px-4 text-left text-[15px] hover:bg-spotlight">
+            <Compass aria-hidden className="size-4 text-muted" />Take the 2-minute tour
+          </button>
+        )}
+        {menu.map((m) => (
+          <Link key={m.href} href={m.href} onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")} className="flex min-h-11 items-center gap-2.5 px-4 text-[15px] hover:bg-spotlight">
+            {m.href === "/measure" ? <ClipboardList aria-hidden className="size-4 text-muted" /> : m.href === "/admin/duplicates" ? <Copy aria-hidden className="size-4 text-muted" /> : m.href === "/account/password" ? <KeyRound aria-hidden className="size-4 text-muted" /> : <MonitorSmartphone aria-hidden className="size-4 text-muted" />}
+            {m.label}
+          </Link>
+        ))}
+        <button type="button" onClick={signOut} disabled={signingOut} className="flex min-h-11 items-center gap-2.5 border-t border-rule px-4 text-left text-[15px] hover:bg-spotlight">
+          <LogOut aria-hidden className="size-4 text-muted" />Sign out
+        </button>
+      </div>
+    </details>
+  );
+
   return (
-    <div className="relative flex min-h-dvh flex-col">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:bg-obsidian focus:px-4 focus:py-3 focus:text-gallery">
+    <div className="relative min-h-dvh lg:pl-64">
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-pine focus:px-4 focus:py-3 focus:text-white">
         Skip to content
       </a>
 
-      {demo && (
-        <div className="relative z-40 bg-obsidian text-gallery">
-          <div className="mx-auto flex min-h-11 max-w-gallery items-center justify-between gap-3 pl-4 sm:pl-8">
-            <p className="font-mono text-[11px] tracking-[0.14em] uppercase">
-              Demo · synthetic data
-            </p>
-            <button
-              type="button"
-              onClick={() => setPhoneOpen(true)}
-              className="inline-flex h-11 shrink-0 items-center gap-2 border-l border-gallery/25 px-4 font-mono text-[11px] tracking-[0.14em] whitespace-nowrap uppercase hover:bg-label focus-visible:outline-gallery sm:px-6"
-            >
-              <Smartphone aria-hidden className="size-4" />
-              Demo phone
-            </button>
-          </div>
-        </div>
-      )}
-
-      <header className="sticky top-0 z-30 border-b border-rule bg-gallery/92 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-gallery items-center gap-3 px-4 sm:px-8 lg:gap-8">
-          <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="-ml-2 grid size-11 shrink-0 place-items-center hover:bg-spotlight lg:hidden">
-            <Menu aria-hidden className="size-5" />
-          </button>
-          <Link href={home} aria-label="OncoSetu home" className="flex min-h-11 shrink-0 items-center gap-3">
+      {/* Desktop: a fixed pine sidebar. */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-rule bg-surface lg:flex">
+        <div className="px-4 pt-5 pb-4">
+          <Link href={home} aria-label="OncoSetu home" className="flex min-h-11 items-center rounded-md px-1 ">
             <Wordmark />
           </Link>
-          <nav aria-label="Primary" className="hidden lg:block">
-            <ul className="flex items-center gap-1">
-              {nav.map((n) => (
-                <li key={n.href}>
-                  <Link
-                    href={n.href}
-                    aria-current={isActive(n.href) ? "page" : undefined}
-                    className={clsx(
-                      "inline-flex h-11 items-center border-b-2 px-2.5 font-mono text-[12px] tracking-[0.12em] whitespace-nowrap uppercase transition-colors",
-                      isActive(n.href) ? "border-ink text-ink" : "border-transparent text-muted hover:text-ink",
-                    )}
-                  >
-                    {n.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <div className="ml-auto flex items-center gap-2">
-            <details className="group relative">
-              <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-2 hover:bg-spotlight [&::-webkit-details-marker]:hidden">
-                <span className="sr-only">Account menu</span>
-                <Avatar name={user.name} size="sm" />
-                <span className="hidden text-left leading-tight whitespace-nowrap md:grid xl:max-2xl:hidden">
-                  <span className="text-sm text-ink">{user.name}</span>
-                  <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase" title={user.orgName}>{ROLE_LABEL[user.role]}</span>
-                </span>
-                <ChevronDown aria-hidden className="size-4 text-faint group-open:rotate-180" />
-              </summary>
-              <div className="absolute right-0 z-50 mt-1 hidden w-64 border border-rule bg-matte py-1 shadow-frame group-open:grid">
-                <p className="border-b border-rule px-4 py-2 text-sm"><span className="block text-ink">{user.name}</span><span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">{ROLE_LABEL[user.role]} · {user.orgName}</span></p>
-                {TOUR_ROLES.includes(user.role) && (
-                  <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
-                    <Compass aria-hidden className="size-4" />Take the 2-minute tour
-                  </button>
-                )}
-                {menu.map((m) => (
-                  <Link key={m.href} href={m.href} onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")} className="flex min-h-11 items-center gap-2 px-4 text-[15px] hover:bg-spotlight">
-                    {m.href === "/measure" ? <ClipboardList aria-hidden className="size-4" /> : m.href === "/admin/duplicates" ? <Copy aria-hidden className="size-4" /> : <MonitorSmartphone aria-hidden className="size-4" />}
-                    {m.label}
-                  </Link>
-                ))}
-                <button type="button" onClick={signOut} disabled={signingOut} className="flex min-h-11 items-center gap-2 px-4 text-left text-[15px] hover:bg-spotlight">
-                  <LogOut aria-hidden className="size-4" />Sign out
-                </button>
-              </div>
-            </details>
-          </div>
+          <p className="mt-1 truncate px-1 text-[13px] text-nav-muted" title={user.orgName}>{user.orgName}</p>
         </div>
-      </header>
+        <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 py-2">
+          <ul className="grid gap-1">
+            {nav.map((n) => <li key={n.href}>{navLink(n)}</li>)}
+          </ul>
+        </nav>
+        <div className="border-t border-rule p-3">{account("sidebar")}</div>
+      </aside>
 
-      <div className="relative flex flex-1 flex-col">
-        <Spotlight />
-        <main id="main" tabIndex={-1} className="relative mx-auto w-full max-w-gallery flex-1 px-4 py-8 outline-none sm:px-8 sm:py-10">
+      <div className="flex min-h-dvh flex-col">
+        {/* Tablet and phone: a pine top bar with the menu. */}
+        <header className="sticky top-0 z-30 border-b border-rule bg-surface lg:hidden">
+          <div className="flex h-14 items-center gap-2 px-2 sm:px-4">
+            <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="grid size-11 shrink-0 place-items-center rounded-md text-ink hover:bg-spotlight">
+              <Menu aria-hidden className="size-5" />
+            </button>
+            <Link href={home} aria-label="OncoSetu home" className="flex min-h-11 shrink-0 items-center rounded-md px-1 ">
+              <Wordmark />
+            </Link>
+            <div className="ml-auto">{account("bar")}</div>
+          </div>
+        </header>
+
+        {demo && (
+          <div className="border-b border-setu/25 bg-setu-tint text-setu-ink">
+            <div className="mx-auto flex min-h-11 max-w-gallery items-center justify-between gap-3 pl-4 sm:pl-8">
+              <p className="text-[13px] font-medium">Demo · synthetic data</p>
+              <button
+                type="button"
+                onClick={() => setPhoneOpen(true)}
+                className="inline-flex h-11 shrink-0 items-center gap-2 px-4 text-[13px] font-medium whitespace-nowrap hover:bg-setu/10 sm:px-8"
+              >
+                <Smartphone aria-hidden className="size-4" />
+                Demo phone
+              </button>
+            </div>
+          </div>
+        )}
+
+        <main id="main" tabIndex={-1} className="relative mx-auto w-full max-w-gallery flex-1 px-4 py-6 outline-none sm:px-8 sm:py-8">
           <SmsContext.Provider value={{ sms, demo }}>{children}</SmsContext.Provider>
         </main>
-      </div>
 
-      <footer className="border-t border-rule">
-        <p className="mx-auto max-w-gallery px-4 py-5 font-mono text-[11px] leading-relaxed tracking-[0.12em] text-faint uppercase sm:px-8">
-          {pathname === "/admin" || pathname.startsWith("/admin/")
-            ? "OncoSetu is a records index, not a clinical tool · Every change made here is written to the activity log"
-            : "A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document"}
-        </p>
-      </footer>
+        <footer className="border-t border-rule">
+          <p className="mx-auto max-w-gallery px-4 py-4 text-[13px] leading-relaxed text-faint sm:px-8">
+            {pathname === "/admin" || pathname.startsWith("/admin/")
+              ? "OncoSetu is a records index, not a clinical tool · Every change made here is written to the activity log"
+              : "A list of what is in the file, not a clinical summary · Every fact shown links to the exact words in the document"}
+          </p>
+        </footer>
+      </div>
 
       <Dialog open={navOpen} onClose={() => setNavOpen(false)} placement="left" title={<Wordmark />} description={`${ROLE_LABEL[user.role]} · ${user.orgName}`}>
         <nav aria-label="Primary">
-          <ul className="grid">
-            {nav.map((n) => (
-              <li key={n.href}>
-                <Link
-                  href={n.href}
-                  aria-current={isActive(n.href) ? "page" : undefined}
-                  className={clsx(
-                    "flex h-12 items-center border-b border-rule border-l-2 pl-3 text-[17px]",
-                    isActive(n.href) ? "border-l-ink text-ink" : "border-l-transparent text-muted hover:bg-spotlight hover:text-ink",
-                  )}
-                  onClick={() => setNavOpen(false)}
-                >
-                  {n.label}
-                </Link>
-              </li>
-            ))}
+          <ul className="grid gap-1">
+            {nav.map((n) => <li key={n.href}>{navLink(n, () => setNavOpen(false))}</li>)}
           </ul>
         </nav>
-        <div className="mt-8 flex items-center gap-3">
+        <div className="mt-8 flex items-center gap-3 border-t border-rule pt-4">
           <Avatar name={user.name} size="sm" />
           <div className="grid leading-tight">
-            <span className="text-sm">{user.name}</span>
-            <span className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">{ROLE_LABEL[user.role]}</span>
+            <span className="text-sm font-medium">{user.name}</span>
+            <span className="text-[13px] text-faint">{ROLE_LABEL[user.role]}</span>
           </div>
         </div>
       </Dialog>
@@ -212,10 +231,10 @@ function DemoOutbox() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-[22rem] rounded-[2rem] border-[10px] border-obsidian bg-gallery shadow-frame">
+    <div className="mx-auto max-w-[22rem] rounded-[2rem] border-[10px] border-pine-deep bg-gallery shadow-pop">
       <div className="flex items-center justify-between border-b border-rule px-4 py-2.5">
-        <span className="font-mono text-[11px] tracking-[0.14em] text-faint uppercase">Inbox</span>
-        <span className="flex items-center gap-1.5 font-mono text-[11px] tracking-[0.14em] text-setu-ink uppercase">
+        <span className="text-[13px] text-faint font-medium">Inbox</span>
+        <span className="flex items-center gap-1.5 text-[13px] text-setu-ink font-medium">
           <span aria-hidden className="ds-pulse size-1.5 rounded-full bg-setu" />
           Live · 3 s
         </span>
@@ -231,18 +250,18 @@ function DemoOutbox() {
             <article key={m.id} className="grid gap-1.5">
               <header className="flex flex-wrap items-center gap-2">
                 <Badge tone={/whats/i.test(m.channel) ? "setu" : "neutral"}>{/whats/i.test(m.channel) ? "WhatsApp" : "SMS"}</Badge>
-                <span className="font-mono text-xs text-muted">{m.toMasked}</span>
+                <span className="text-xs text-muted">{m.toMasked}</span>
                 <Badge tone={m.delivery === "failed" ? "conflict" : m.delivery === "sent" ? "verified" : "neutral"}>
                   {m.delivery === "failed" && m.deliveryError ? `failed · ${m.deliveryError}` : m.delivery}
                 </Badge>
-                <time dateTime={m.createdAt} className="ml-auto font-mono text-[11px] text-faint">
+                <time dateTime={m.createdAt} className="ml-auto text-xs text-faint">
                   {new Date(m.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                 </time>
               </header>
-              <p className="border border-rule bg-matte px-3 py-2.5 text-[14px] leading-relaxed break-words whitespace-pre-wrap">
+              <p className="rounded-lg rounded-tl-xs border border-rule bg-matte px-3 py-2.5 text-[14px] leading-relaxed break-words whitespace-pre-wrap">
                 {m.body.split(/(https?:\/\/\S+)/g).map((part, i) =>
                   i % 2 ? (
-                    <a key={i} href={part} target="_blank" rel="noreferrer" className="break-all text-setu-ink underline decoration-brass underline-offset-2">
+                    <a key={i} href={part} target="_blank" rel="noreferrer" className="break-all text-setu-ink underline decoration-link underline-offset-2">
                       {part}
                     </a>
                   ) : (

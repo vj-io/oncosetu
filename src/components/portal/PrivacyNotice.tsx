@@ -34,14 +34,14 @@ export function PrivacyNotice({ lang, version, initial }: { lang: Lang; version:
   }
 
   return (
-    <section aria-labelledby="notice-h" className="grid gap-4 border border-rule bg-surface px-5 py-5">
+    <section aria-labelledby="notice-h" className="grid gap-4 border border-rule bg-surface px-5 py-5 rounded-lg">
       <h2 id="notice-h" className="text-xl">{tv(lang, "noticeTitle")}</h2>
       <ul className="grid gap-2 text-[17px]">
         <li>{tv(lang, "noticeWhat")}</li>
         <li>{tv(lang, "noticeWhy")}</li>
         <li>{tv(lang, "noticeHow")}</li>
       </ul>
-      {saved && <p role="status" className="flex items-start gap-2 border border-sage bg-sage-tint px-4 py-3 text-sage-ink"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "ackSaved")}</p>}
+      {saved && <p role="status" className="flex items-start gap-2 border border-sage/40 bg-sage-tint px-4 py-3 text-sage-ink rounded-lg"><CircleCheck aria-hidden className="mt-1 size-5 shrink-0" />{tv(lang, "ackSaved")}</p>}
       {ack?.current ? (
         <p data-testid="ack-done" className="text-[17px]">{tp(lang, "ackDonePlain", { date: formatDateTimeIN(new Date(ack.at), lang) })}</p>
       ) : (

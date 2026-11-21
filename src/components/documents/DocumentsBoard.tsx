@@ -169,7 +169,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
     <div className="grid gap-10">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         {/* Summary */}
-        <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6">
+        <section aria-labelledby="progress-h" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-3 self-start border border-rule bg-surface p-5 shadow-placard sm:p-6 rounded-lg">
           <p className="ds-kicker">In this file</p>
           <h2 id="progress-h" className="text-xl tracking-[-0.02em]" data-testid="doc-counts">{data.rows.length - held.length - blocked.length - removed.length} filed · {held.length} held{blocked.length ? ` · ${blocked.length} blocked` : ''}{removed.length ? ` · ${removed.length} rejected` : ''}</h2>
           <p className="text-sm text-muted">
@@ -186,7 +186,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             onDragOver={(e) => { e.preventDefault(); setDrag(true) }}
             onDragLeave={() => setDrag(false)}
             onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) void fromFiles(e.dataTransfer.files) }}
-            className={clsx('grid place-items-center gap-3 border-2 border-dashed px-6 py-8 text-center transition-colors', drag ? 'border-setu bg-setu-tint' : 'border-control bg-matte')}
+            className={clsx('grid place-items-center gap-3 border-2 border-dashed px-6 py-8 text-center transition-colors rounded-xl', drag ? 'border-setu/40 bg-setu-tint' : 'border-control bg-matte')}
           >
             <Upload aria-hidden className="size-7 text-muted" strokeWidth={1.5} />
             <div className="grid gap-1">
@@ -198,10 +198,10 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
             <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
             <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>Choose files</Button>
           </div>
-          {batchNote && <p role="alert" data-testid="batch-limit" className="border border-l-[3px] border-rule border-l-madder bg-surface px-4 py-3 text-sm text-madder-ink">{batchNote}</p>}
+          {batchNote && <p role="alert" data-testid="batch-limit" className="border border-l-[3px] border-rule border-l-madder bg-surface px-4 py-3 text-sm text-madder-ink rounded-lg">{batchNote}</p>}
 
           {samples && (
-            <details className="border border-rule bg-surface p-4">
+            <details className="border border-rule bg-surface p-4 rounded-lg">
               <summary className="cursor-pointer text-sm text-muted">Demo tools: add sample documents</summary>
               <div className="mt-3 grid gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -211,7 +211,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
               <ul className="grid gap-1.5 sm:grid-cols-2">
                 {samples.items.map((s) => (
                   <li key={s.file}>
-                    <button type="button" onClick={() => fromSamples([s.file])} className="flex w-full items-start gap-2 border border-rule bg-matte px-3 py-2 text-left text-sm hover:border-ink hover:bg-spotlight">
+                    <button type="button" onClick={() => fromSamples([s.file])} className="flex w-full items-start gap-2 border border-rule bg-matte px-3 py-2 text-left text-sm hover:border-ink hover:bg-spotlight rounded-md">
                       {s.kind === 'image' || s.kind === 'dicom' || s.kind === 'zip' ? <FileImage aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" /> : <FileText aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />}
                       <span className="grid min-w-0"><span className="truncate">{s.title}</span></span>
                     </button>
@@ -225,10 +225,10 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
           {uploads.length > 0 && (
             <ul aria-label="Uploads" className="grid gap-1.5">
               {uploads.map((u) => (
-                <li key={u.key} className="grid gap-1 border border-rule bg-matte px-3 py-2">
+                <li key={u.key} className="grid gap-1 border border-rule bg-matte px-3 py-2 rounded-lg">
                   <div className="flex items-center justify-between gap-3 text-sm">
                     <span className="truncate">{u.name}</span>
-                    <span className={clsx('shrink-0 font-mono text-[11px] tracking-[0.1em] uppercase', u.state === 'error' ? 'text-madder-ink' : u.state === 'done' ? 'text-sage-ink' : 'text-setu-ink')}>
+                    <span className={clsx('shrink-0 text-[13px] font-medium', u.state === 'error' ? 'text-madder-ink' : u.state === 'done' ? 'text-sage-ink' : 'text-setu-ink')}>
                       {u.state === 'preparing' ? 'Preparing' : u.state === 'uploading' ? `${u.pct}%` : u.state === 'done' ? 'Received' : 'Not accepted'}
                     </span>
                   </div>
@@ -300,7 +300,7 @@ function RemovedGroup({ rows, patientId, canDecide, onChange }: { rows: DocSumma
       {error && <p role="alert" className="text-sm text-madder-ink">{error}</p>}
       <ul className="mt-3 grid gap-3">
         {rows.map((r) => (
-          <li key={r.id} className="grid gap-1 border border-l-[3px] border-rule border-l-madder bg-matte p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start" data-testid="rejected-row">
+          <li key={r.id} className="grid gap-1 border border-l-[3px] border-rule border-l-madder bg-matte p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start rounded-lg" data-testid="rejected-row">
             <div className="grid gap-1">
               <p className="text-base">{r.title}{r.documentDate ? ` · ${fmtDate(r.documentDate)}` : ''}</p>
               <p className="text-sm text-muted">
@@ -345,10 +345,10 @@ function DocRow({ row: r, patientId, canDecide, index, onChange, tour }: { row: 
   if (r.flags.detached) chips.push({ icon: <Fingerprint />, text: 'Detached', tone: 'conflict' })
 
   return (
-    <li data-tour={tour} className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
+    <li data-tour={tour} className={clsx('ds-frame-in border border-l-[3px] border-rule bg-matte shadow-placard rounded-lg', TONE[TONE_FOR[r.status] ?? 'neutral'].bar)} style={{ ['--delay' as string]: `${Math.min(index, 8) * 40}ms` }}>
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:p-5">
         <div className="grid min-w-0 gap-1.5">
-          <p className="font-mono text-[11px] tracking-[0.12em] text-faint uppercase">Received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
+          <p className="text-[13px] text-faint font-medium">Received {fmtDateTime(r.receivedAt)}{r.pages ? ` · ${r.pages} page${r.pages > 1 ? 's' : ''}` : ''}</p>
           <h4 className="text-lg leading-snug tracking-[-0.015em]">
             {r.title}
             {r.institution && <span className="text-muted"> · {r.institution}</span>}

@@ -49,7 +49,7 @@ export function EmailDropPanel({ patientId, configured, address, contacts, careg
   if (!configured) return <p className="text-muted">Email drop is not set up on this server.</p>;
   return (
     <div className="grid gap-4">
-      <div className="grid gap-2 border border-rule bg-surface p-4">
+      <div className="grid gap-2 border border-rule bg-surface p-4 rounded-lg">
         <p className="ds-kicker text-muted">Drop address</p>
         {address ? (
           <p className="font-mono text-[15px] break-all" data-testid="drop-address">{address}</p>
@@ -96,7 +96,7 @@ export function EmailDropPanel({ patientId, configured, address, contacts, careg
       {canManage && (!adding ? (
         <div><Button variant="secondary" onClick={() => setAdding(true)} icon={<MailPlus aria-hidden />}>Add a verified address</Button></div>
       ) : (
-        <div className="grid gap-4 border border-rule bg-surface p-4">
+        <div className="grid gap-4 border border-rule bg-surface p-4 rounded-lg">
           <p className="ds-kicker">New verified address</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Email address"><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} autoComplete="off" /></Field>

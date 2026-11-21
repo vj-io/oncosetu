@@ -85,10 +85,10 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
         <div className="flex items-center gap-2"><Check aria-hidden className="size-5 text-sage-ink" /><h3 className="text-xl">{t('linkReady')}</h3></div>
         <div className="grid gap-5 sm:grid-cols-[auto_1fr] sm:items-start">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={created.qr} alt={t('qrAlt')} width={200} height={200} className="border border-rule bg-white p-2" />
+          <img src={created.qr} alt={t('qrAlt')} width={200} height={200} className="border border-rule bg-white p-2 rounded-md" />
           <div className="grid min-w-0 gap-3">
             <Field label={ui.plain(t('linkLabel'))}>
-              <Input readOnly value={created.url} onFocus={(e) => e.currentTarget.select()} className="font-mono text-[13px]" />
+              <Input readOnly value={created.url} onFocus={(e) => e.currentTarget.select()} className="text-[13px]" />
             </Field>
             <div className="flex flex-wrap gap-2">
               <Button size={ui.size} className={ui.btn} variant="secondary" icon={copied ? <Check /> : <Copy />} onClick={copy}>{copied ? t('copied') : t('copy')}</Button>
@@ -96,7 +96,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
             </div>
             <p className="text-[15px]">{t('worksUntil', { date: formatDateIN(istDate(created.expiresAt), lang) })}</p>
             <p className="text-[15px]">{created.papers === 1 ? t('createdScopeOne', { date: formatDateIN(istDate(created.asOf), lang) }) : t('createdScope', { n: created.papers, date: formatDateIN(istDate(created.asOf), lang) })}</p>
-            {created.passcode && <p className={clsx('flex items-center gap-2 text-[15px]', lang === 'hi' ? 'font-deva' : 'font-mono')}><KeyRound aria-hidden className="size-4" />{t('passcodeReminder', { code: created.passcode })}</p>}
+            {created.passcode && <p className={clsx('flex items-center gap-2 text-[15px]', lang === 'hi' ? 'font-deva' : '')}><KeyRound aria-hidden className="size-4" />{t('passcodeReminder', { code: created.passcode })}</p>}
             {created.passcode && <p className="text-sm text-muted">{t('passcodeAfter')}</p>}
             <p className="text-sm text-muted">{t('keyNote')}</p>
           </div>
@@ -112,7 +112,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
         <div className="grid gap-1">
           <h3 className="text-xl">{t('formTitle')}</h3>
           <p className="text-[15px] text-muted">{t('formIntro')}</p>
-          <p className={ui.kicker ? clsx('text-faint', ui.kicker) : 'font-mono text-[12px] text-faint'}>{t('asOf', { date: formatDateIN(istDate(pre.asOf), lang) })}</p>
+          <p className={ui.kicker ? clsx('text-faint', ui.kicker) : 'text-[12px] text-faint'}>{t('asOf', { date: formatDateIN(istDate(pre.asOf), lang) })}</p>
         </div>
         {quotesAllowed && (
           <Field label={ui.plain(t('scopeLabel'))}>
@@ -133,7 +133,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
         <Switch label={t('passcodeOn')} checked={usePasscode} onChange={(e) => setUsePasscode(e.target.checked)} />
         {usePasscode ? (
           <Field label={ui.plain(t('passcodeLabel'))} hint={t('passcodeHint')}>
-            <Input value={passcode} onChange={(e) => setPasscode(e.target.value)} minLength={6} maxLength={64} autoComplete="off" className="font-mono" />
+            <Input value={passcode} onChange={(e) => setPasscode(e.target.value)} minLength={6} maxLength={64} autoComplete="off" className="" />
           </Field>
         ) : (
           <p role="note" className="flex items-start gap-2 border-l-[3px] border-l-amber bg-amber-tint px-3 py-2 text-[15px] text-amber-ink">

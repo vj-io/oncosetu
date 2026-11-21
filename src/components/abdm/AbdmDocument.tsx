@@ -69,7 +69,7 @@ export async function AbdmDocument({ patientId, documentId, focusEventId }: { pa
           </>
         }
       />
-      <div className="grid gap-1.5 border border-l-[3px] border-rule border-l-setu bg-surface px-4 py-3 text-[15px]">
+      <div className="grid gap-1.5 border border-l-[3px] border-rule border-l-setu bg-surface px-4 py-3 text-[15px] rounded-lg">
         <p className="font-medium text-setu-ink">Structured source: copied from FHIR resources, not read from a page</p>
         <p className="text-muted">
           Received through ABDM{req?.hipId ? ` from ${req.hipId}` : ''}, decrypted only after the consent artefact was checked. Each fact names the resource it
@@ -123,15 +123,15 @@ export async function AbdmDocument({ patientId, documentId, focusEventId }: { pa
         <section aria-labelledby="res-h" className="grid content-start gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto">
           <h2 id="res-h" className="ds-kicker">Source resources · FHIR R4 JSON as received</h2>
           {facts.map(({ e, resources }) => resources.map((r) => (
-            <article key={`${e.id}:${r.ref}`} id={`r-${e.id}`} className={clsx('scroll-mt-24 border bg-matte shadow-frame', focus === e.id ? 'border-brass outline-2 outline-brass' : 'border-rule')}>
+            <article key={`${e.id}:${r.ref}`} id={`r-${e.id}`} className={clsx('scroll-mt-24 border bg-matte shadow-frame rounded-lg', focus === e.id ? 'border-brass outline-2 outline-brass' : 'border-rule')}>
               <header className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-surface px-4 py-2">
-                <span className="font-mono text-[11px] tracking-[0.12em] break-all text-faint uppercase">{r.ref}</span>
-                <span className="font-mono text-[11px] text-faint" title="SHA-256 of the canonical resource JSON (stored as the evidence hash)">#{r.hash?.slice(0, 10)}</span>
+                <span className="font-mono text-[13px] tracking-[0.12em] break-all text-faint font-medium">{r.ref}</span>
+                <span className="text-xs text-faint" title="SHA-256 of the canonical resource JSON (stored as the evidence hash)">#{r.hash?.slice(0, 10)}</span>
               </header>
               <pre className="max-h-80 overflow-auto p-4 font-mono text-[12.5px] leading-relaxed whitespace-pre-wrap break-words">{r.json ? JSON.stringify(r.json, null, 2) : 'Resource not found in the bundle.'}</pre>
             </article>
           )))}
-          <details className="border border-rule bg-surface p-4">
+          <details className="border border-rule bg-surface p-4 rounded-lg">
             <summary className="cursor-pointer text-sm font-medium">Whole bundle · {doc.mime} · {(doc.sizeBytes / 1024).toFixed(0)} KB · sha256 {doc.sha256.slice(0, 12)}…</summary>
             <pre className="mt-3 max-h-[32rem] overflow-auto font-mono text-[12px] whitespace-pre-wrap break-words">{JSON.stringify(bundle, null, 2)}</pre>
           </details>

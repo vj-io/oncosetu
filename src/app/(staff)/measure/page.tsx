@@ -31,7 +31,7 @@ export default async function MeasurePage({ searchParams }: { searchParams: Prom
             <tbody>
               {mine.map((f) => (
                 <tr key={f.id}>
-                  <td className="font-mono text-[13px]">{formatDateIN(f.consultationDate, 'en')}</td><td className="capitalize">{f.phase}</td>
+                  <td className="text-[13px]">{formatDateIN(f.consultationDate, 'en')}</td><td className="capitalize">{f.phase}</td>
                   <td>{f.missingRecordPresent ? `${f.missingRecordCount}: ${f.missingTypes.map((t) => staffDocLabel(t as DocType)).join(', ') || 'types not given'}` : 'None'}</td>
                   <td>{IMPACT[f.impact]}</td><td>{f.repeatTestOrdered ? f.repeatTestReason?.replace('_', ' ') : 'No'}</td>
                 </tr>

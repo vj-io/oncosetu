@@ -12,7 +12,7 @@ import { diagnosisHits } from './helpers/text'
 import type { Page } from '@playwright/test'
 
 const sectionOf = (page: Page, title: string) => page.locator('section', { has: page.getByRole('heading', { name: title, exact: true }) })
-const count = async (page: Page, title: string) => Number((await sectionOf(page, title).locator('header span').nth(1).innerText()).trim())
+const count = async (page: Page, title: string) => Number((await sectionOf(page, title).locator('header [data-count]').innerText()).trim())
 
 // Answers by tap: yes / no / not sure per question, a place and a month typed or picked.
 const NO: Answers = {

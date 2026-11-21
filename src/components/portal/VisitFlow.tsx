@@ -235,7 +235,7 @@ export function VisitFlow({
       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
         <button
           type="button" onClick={() => speak(id, field)} aria-pressed={listening === id}
-          className="inline-flex min-h-12 items-center gap-2 border border-ink px-4 text-[16px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery"
+          className="inline-flex min-h-12 items-center gap-2 rounded-lg border border-control px-4 text-[16px] hover:bg-spotlight aria-pressed:bg-obsidian aria-pressed:text-gallery rounded-lg"
         >
           {listening === id ? <Square aria-hidden className="size-4" /> : <Mic aria-hidden className="size-4" />}
           {tp(lang, listening === id ? "voiceStop" : "voiceStart")}
@@ -262,7 +262,7 @@ export function VisitFlow({
   const months = Array.from({ length: 12 }, (_, i) => formatDateIN(`2026-${String(i + 1).padStart(2, "0")}-01`, lang, "month").split(" ")[0]);
   const years = Array.from({ length: 16 }, (_, i) => currentYear - i);
   const when = (
-    <fieldset className="grid gap-3 border border-rule px-4 py-4">
+    <fieldset className="grid gap-3 border border-rule px-4 py-4 rounded-lg">
       <legend className="px-1 text-[17px] font-medium">{tp(lang, "f_when")}</legend>
       <div className="grid grid-cols-2 gap-3">
         <PField label={tp(lang, "f_month")}>
@@ -284,7 +284,7 @@ export function VisitFlow({
 
   if (phase === "saved") {
     return (
-      <div role="status" className="mt-8 grid gap-4 border border-sage bg-sage-tint px-5 py-6">
+      <div role="status" className="mt-8 grid gap-4 border border-sage/40 bg-sage-tint px-5 py-6 rounded-lg">
         <h2 ref={heading} tabIndex={-1} className="flex items-start gap-2 text-2xl text-sage-ink outline-none">
           <CircleCheck aria-hidden className="mt-1 size-6 shrink-0" />
           {tp(lang, confirmedSave ? "savedTitle" : "savedUnconfirmed")}
@@ -306,7 +306,7 @@ export function VisitFlow({
     return (
       <section aria-labelledby="rv" className="mt-8 grid gap-5">
         <h2 id="rv" ref={heading} tabIndex={-1} className="text-2xl outline-none">{tp(lang, "reviewTitle")}</h2>
-        <div className="border border-rule bg-surface px-5 py-5 shadow-placard">
+        <div className="border border-rule bg-surface px-5 py-5 shadow-placard rounded-lg">
           <p className="font-medium">{readback.intro}</p>
           <ul className="mt-3 grid gap-3">
             {readback.lines.map((l) => (
@@ -334,10 +334,10 @@ export function VisitFlow({
   const choices = q.id === "anything_else" ? (["yes", "no"] as const) : (["yes", "no", "unsure"] as const);
   return (
     <section aria-labelledby="qh" className="mt-8 grid gap-5">
-      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[16px] text-muted">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
+      {lastAnswered && step === 0 && !reviewed && <p className="border border-rule bg-alcove px-4 py-3 text-[16px] text-muted rounded-lg">{tp(lang, "visitLast", { date: lastAnswered })}</p>}
       <div className="grid gap-2">
         <p className="text-[16px] text-muted">{tp(lang, "questionProgress", { n: step + 1, total: questions.length })}</p>
-        <div aria-hidden className="h-2 border border-rule bg-alcove">
+        <div aria-hidden className="h-2 overflow-hidden rounded-full bg-floor">
           <div className="h-full bg-setu transition-[width] duration-300" style={{ width: `${((step + 1) / questions.length) * 100}%` }} />
         </div>
       </div>
@@ -348,7 +348,7 @@ export function VisitFlow({
           <button
             key={c} type="button" role="radio" aria-checked={a?.yn === c}
             onClick={() => { setError(null); setA(q.id, { yn: c }); }}
-            className="min-h-14 border border-ink px-4 py-3 text-[18px] font-medium transition-colors hover:bg-spotlight aria-checked:bg-obsidian aria-checked:text-gallery"
+            className="min-h-14 rounded-lg border border-control px-4 py-3 text-[18px] font-medium transition-colors hover:bg-spotlight aria-checked:bg-obsidian aria-checked:text-gallery rounded-lg"
           >
             {tp(lang, c)}
           </button>

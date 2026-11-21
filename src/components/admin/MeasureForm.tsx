@@ -62,7 +62,7 @@ export function MeasureForm({ encounters, today, initialEncounterId }: { encount
 
       <Switch label="First visit at this centre" checked={firstVisit} onChange={(e) => setFirstVisit(e.target.checked)} />
 
-      <fieldset className="grid gap-4 border border-rule p-4">
+      <fieldset className="grid gap-4 border border-rule p-4 rounded-lg">
         <legend className="ds-kicker px-2">Referenced but absent</legend>
         <Field label="Was at least one referenced document missing from the file?">
           <Select value={missing} required onChange={(e) => setMissing(e.target.value as '' | 'no' | 'yes')}><option value="">Choose an answer</option><option value="no">No, nothing missing</option><option value="yes">Yes, at least one</option></Select>
@@ -83,7 +83,7 @@ export function MeasureForm({ encounters, today, initialEncounterId }: { encount
         )}
       </fieldset>
 
-      <fieldset className="grid gap-4 border border-rule p-4">
+      <fieldset className="grid gap-4 border border-rule p-4 rounded-lg">
         <legend className="ds-kicker px-2">Impact</legend>
         <Field label="Impact of missing records on this consultation"><Select value={impact} required onChange={(e) => setImpact(e.target.value)}><option value="">Choose an answer</option>{IMPACTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
         <Checkbox label="A test was re-ordered that the patient reports having had elsewhere" checked={repeat} onChange={(e) => setRepeat(e.target.checked)} />

@@ -40,7 +40,7 @@ function Metric({ label, value, note }: { label: string; value: string | number;
 
 function History({ created, entries }: { created: string; entries: HistoryEntry[] }) {
   return (
-    <ol className="grid gap-1 font-mono text-[12px] text-muted">
+    <ol className="grid gap-1 text-[12px] text-muted">
       <li>{d(created)} · Noticed as missing</li>
       {entries.map((h, i) => (
         <li key={i}>{d(h.at)} · {ACTION_WORD[h.action] ?? h.action}{h.from && h.to ? ` (${STATE_WORD[h.from] ?? h.from} to ${STATE_WORD[h.to] ?? h.to})` : ''} · {h.role === 'system' ? 'the system' : h.role}</li>
@@ -67,14 +67,14 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
           {t.quote && !view.desk && <q className="font-display text-[17px] leading-snug">{t.quote}</q>}
           <span className="text-[14px] text-muted">
             {docLabel(it.triggerDoc?.docType ?? null)}{t.pageNo ? `, p.${t.pageNo}` : ''}{t.institution ? ` · ${t.institution}` : ''} · documented {formatDateIN(t.date, 'en', t.precision)}
-            {src && !view.desk && <> · <Link href={src} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Show the exact words<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
+            {src && !view.desk && <> · <Link href={src} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-link underline-offset-4">Show the exact words<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
           </span>
         </span>
       ) : it.scanDoc ? (
         <span className="grid gap-1">
           <span className="text-[14px] text-muted">
             Scan on file: {it.scanDoc.scanLabel ?? 'scan'} · {it.scanDoc.documentDate ? formatDateIN(it.scanDoc.documentDate) : 'date not stated'}{it.scanDoc.institution ? ` · ${it.scanDoc.institution}` : ''}
-            {!view.desk && <> · <Link href={`/patients/${patientId}/documents/${it.scanDoc.id}`} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-brass underline-offset-4">Open the scan<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
+            {!view.desk && <> · <Link href={`/patients/${patientId}/documents/${it.scanDoc.id}`} className="inline-flex items-center gap-0.5 text-setu-ink underline decoration-link underline-offset-4">Open the scan<ArrowUpRight aria-hidden className="size-3.5" /></Link></>}
           </span>
           <span className="text-[13px] text-faint">The scan is stored, not read. This only notes that no written report came with it.</span>
         </span>
@@ -100,7 +100,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
       label: 'Requests',
       value: (
         <span className="flex flex-wrap gap-2">
-          {requests.map((r) => <Link key={r.id} href={`/patients/${patientId}/requests#r-${r.id}`} className="underline decoration-brass underline-offset-4">{r.institution} · {r.state.replace('_', ' ')}</Link>)}
+          {requests.map((r) => <Link key={r.id} href={`/patients/${patientId}/requests#r-${r.id}`} className="underline decoration-link underline-offset-4">{r.institution} · {r.state.replace('_', ' ')}</Link>)}
         </span>
       ),
     }] : []),
@@ -130,7 +130,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
       )}
       {rows.length > 0 && <KeyValue className="sm:ml-25" items={rows} />}
       <details className="group sm:ml-25">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-setu-ink underline decoration-brass underline-offset-4">Where this came from, and what has happened</summary>
+        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm text-setu-ink underline decoration-link underline-offset-4">Where this came from, and what has happened</summary>
         <KeyValue className="mt-2" items={detailRows} />
       </details>
     </article>
@@ -161,7 +161,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
           actions={<LanguageToggle value={lang} langs={['en', 'hi']} />}
         />
         <Explainer>{EXPLAIN.completeness} {EXPLAIN.letter}</Explainer>
-        <dl className="grid grid-cols-2 gap-6 border border-rule bg-surface px-5 py-5 sm:grid-cols-5">
+        <dl className="grid grid-cols-2 gap-6 border border-rule bg-surface px-5 py-5 sm:grid-cols-5 rounded-lg">
           <Metric label="Noticed" value={m.detected} />
           <Metric label="Asked for" value={m.requested} />
           <Metric label="Arrived" value={m.received} />
@@ -175,7 +175,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
         <header className="flex flex-wrap items-baseline gap-x-4 border-b border-rule pb-3">
           <h2 id="open-h" className="text-xl tracking-[-0.02em] sm:text-2xl">Not in file</h2>
           <InfoTip>{EXPLAIN.completeness}</InfoTip>
-          <span className="min-w-6 border border-rule bg-matte px-1.5 text-center font-mono text-xs text-muted tabular-nums">{c.open.length}</span>
+          <span className="min-w-6 bg-alcove px-1.5 text-center text-xs text-muted tabular-nums rounded-full">{c.open.length}</span>
           {c.open.some((x) => x.state === 'received') && <span className="text-sm text-muted" data-testid="missing-split">{c.open.filter((x) => x.state !== 'received').length} not in file · {c.open.filter((x) => x.state === 'received').length} arrived, confirm</span>}
         </header>
         {c.open.length ? c.open.map((it, i) => (
@@ -189,7 +189,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
         <details className="group grid gap-6">
           <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-baseline gap-x-4 border-b border-rule pb-3">
             <h2 className="text-xl tracking-[-0.02em] sm:text-2xl">Resolved</h2>
-            <span className="min-w-6 border border-rule bg-matte px-1.5 text-center font-mono text-xs text-muted tabular-nums">{c.resolved.length}</span>
+            <span className="min-w-6 bg-alcove px-1.5 text-center text-xs text-muted tabular-nums rounded-full">{c.resolved.length}</span>
             <span className="text-sm text-muted">Closed, not obtainable and dismissed · <span className="group-open:hidden">show</span><span className="hidden group-open:inline">hide</span></span>
           </summary>
           <div className="mt-6 grid gap-8">
@@ -201,7 +201,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
       )}
 
       {c.shadow && (
-        <details className="group border border-dashed border-slate bg-slate-tint/40 px-5 py-4">
+        <details className="group border border-dashed border-slate bg-slate-tint/40 px-5 py-4 rounded-lg">
           <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-3">
             <StatusBadge status="shadow_mode" />
             <span className="font-display text-lg">Checks still under review: not shown to clinicians</span>

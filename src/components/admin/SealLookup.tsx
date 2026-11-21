@@ -19,7 +19,7 @@ export function SealLookup() {
   return (
     <form onSubmit={go} className="grid gap-4">
       <Field label="Seal link or code" error={err ?? undefined}>
-        <Input value={v} onChange={(e) => { setV(e.target.value); setErr(null) }} autoComplete="off" spellCheck={false} className="font-mono" />
+        <Input value={v} onChange={(e) => { setV(e.target.value); setErr(null) }} autoComplete="off" spellCheck={false} className="" />
       </Field>
       <div><Button type="submit">Check this record</Button></div>
     </form>

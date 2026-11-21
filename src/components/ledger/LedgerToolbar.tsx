@@ -82,21 +82,21 @@ export function LedgerToolbar({ patientId, eligibleIds, counts, canSeal }: { pat
         {sealed ? (
           <div className="grid justify-items-center gap-5 py-2 text-center">
             <BrassSeal animate code={sealed.sha256} label="Sealed" size={148} />
-            <Link href={`/verify/${sealed.snapshotId}`} className="text-setu-ink underline decoration-brass underline-offset-4">Check the seal (public page)</Link>
+            <Link href={`/verify/${sealed.snapshotId}`} className="text-setu-ink underline decoration-link underline-offset-4">Check the seal (public page)</Link>
             <details className="text-left text-[13px] text-muted">
               <summary className="cursor-pointer">Technical details</summary>
               <p className="mt-1 font-mono break-all">SHA-256 {sealed.sha256}</p>
-              <p className="font-mono">Ed25519 key {sealed.keyId}</p>
+              <p className="">Ed25519 key {sealed.keyId}</p>
             </details>
           </div>
         ) : (
           <div className="grid gap-4">
             <KeyValue items={[
-              { label: 'Checked against the page', value: <span className="font-mono tabular-nums">{counts.verified}</span> },
-              { label: 'Not yet checked', value: <span className="font-mono tabular-nums">{counts.unverified} <span className="font-sans text-muted">· kept, marked as unchecked</span></span> },
-              { label: 'Disputed', value: <span className="font-mono tabular-nums">{counts.disputed}</span> },
-              { label: 'Documents', value: <span className="font-mono tabular-nums">{counts.documents}</span> },
-              { label: 'Papers not in file', value: <span className="font-mono tabular-nums">{counts.missing} <span className="font-sans text-muted">· listed in the record</span></span> },
+              { label: 'Checked against the page', value: <span className="tabular-nums">{counts.verified}</span> },
+              { label: 'Not yet checked', value: <span className="tabular-nums">{counts.unverified} <span className="font-sans text-muted">· kept, marked as unchecked</span></span> },
+              { label: 'Disputed', value: <span className="tabular-nums">{counts.disputed}</span> },
+              { label: 'Documents', value: <span className="tabular-nums">{counts.documents}</span> },
+              { label: 'Papers not in file', value: <span className="tabular-nums">{counts.missing} <span className="font-sans text-muted">· listed in the record</span></span> },
             ]} />
             {error && <p className="text-sm text-madder-ink">{error}</p>}
           </div>

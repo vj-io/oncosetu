@@ -3,7 +3,7 @@
 //   ANTHROPIC_API_KEY                                   → @ai-sdk/anthropic, model claude-sonnet-5-5
 //   GOOGLE_GENERATIVE_AI_API_KEY                        → @ai-sdk/google, GEMINI_MODEL (default gemini-3.5-flash-lite),
 //                                                          free tier: every call goes through the shared quota (quota.ts)
-//   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN → Vercel AI Gateway, anthropic/claude-sonnet-5.5
+//   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN | running on Vercel → Vercel AI Gateway, anthropic/claude-sonnet-5.5
 //   otherwise                                           → null (rule-based extraction)
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
@@ -46,7 +46,8 @@ export function llmProvider(): LlmProvider | null {
       .filter((m) => m && m !== modelId).map((m) => ({ modelId: m, model: google(m) }))
     return { provider: 'google', modelId, model: google(modelId), fallbacks }
   }
-  if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) {
+  // On Vercel the OIDC token arrives per request (x-vercel-oidc-token), not in the environment; the gateway reads it at call time
+  if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1')) {
     const modelId = process.env.AI_GATEWAY_MODEL || 'anthropic/claude-sonnet-5.5' // an id from https://ai-gateway.vercel.sh/v1/models
     return { provider: 'gateway', modelId, model: gateway(modelId) }
   }

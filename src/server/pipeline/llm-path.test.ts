@@ -436,7 +436,7 @@ describe('the request sent to the model', () => {
 // ---------- production wiring: provider selection and the real adapter on the wire ----------
 
 describe('production provider selection and the real Anthropic adapter (fetch stubbed, no network)', () => {
-  const env = (o: Record<string, string>) => { for (const k of ['ANTHROPIC_API_KEY', 'AI_ENABLED', 'AI_GATEWAY_API_KEY', 'VERCEL_OIDC_TOKEN']) vi.stubEnv(k, o[k] ?? '') }
+  const env = (o: Record<string, string>) => { for (const k of ['ANTHROPIC_API_KEY', 'AI_ENABLED', 'AI_GATEWAY_API_KEY', 'VERCEL_OIDC_TOKEN', 'VERCEL', 'AI_GATEWAY_MODEL']) vi.stubEnv(k, o[k] ?? '') }
 
   it('selection: none → null; Anthropic key → anthropic/claude-sonnet-5-5; gateway only with AI_ENABLED=true and a credential; Anthropic wins', () => {
     env({})
@@ -449,6 +449,12 @@ describe('production provider selection and the real Anthropic adapter (fetch st
     expect(llmProvider()).toMatchObject({ provider: 'gateway', modelId: 'anthropic/claude-sonnet-5.5' })
     env({ AI_ENABLED: 'true', VERCEL_OIDC_TOKEN: 't' })
     expect(llmProvider()).toMatchObject({ provider: 'gateway' })
+    env({ AI_ENABLED: 'true', VERCEL: '1' }) // a Vercel function: the OIDC token comes with each request, not in the environment
+    expect(llmProvider()).toMatchObject({ provider: 'gateway' })
+    env({ VERCEL: '1' })
+    expect(llmProvider()).toBeNull() // on Vercel but AI not enabled
+    env({ AI_ENABLED: 'true', VERCEL: '1', AI_GATEWAY_MODEL: 'anthropic/claude-haiku-5.5' })
+    expect(llmProvider()).toMatchObject({ provider: 'gateway', modelId: 'anthropic/claude-haiku-5.5' })
     env({ ANTHROPIC_API_KEY: 'sk-x', AI_ENABLED: 'true', AI_GATEWAY_API_KEY: 'k' })
     expect(llmProvider()).toMatchObject({ provider: 'anthropic', modelId: 'claude-sonnet-5-5' })
   })

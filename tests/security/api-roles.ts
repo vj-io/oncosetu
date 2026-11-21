@@ -44,6 +44,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/auth/patient/otp/start': 'public',
   'POST /api/auth/patient/otp/verify': 'public',
   'POST /api/auth/staff/login': 'public',
+  'POST /api/auth/staff/password': `${FRONT} ${AUDIT}`,
   // machine callers: Vercel Cron (bearer CRON_SECRET), Postmark (basic auth), Twilio (request signature)
   'GET /api/cron/abdm-erase': cron,
   'GET /api/cron/backup': cron,

@@ -22,6 +22,7 @@ export const STAFF_NAV: { href: string; label: string; roles: StaffRole[] }[] = 
 export const STAFF_MENU: { href: string; label: string; roles: StaffRole[] }[] = [
   { href: '/measure', label: 'Study form (1 min)', roles: ['clinician'] },
   { href: '/admin/duplicates', label: 'Duplicate records', roles: ['records'] },
+  { href: '/account/password', label: 'Change password', roles: ['desk', 'records', 'clinician', 'org_admin', 'auditor'] },
   { href: '/account/sessions', label: 'Where you are signed in', roles: ['desk', 'records', 'clinician', 'org_admin', 'auditor'] },
 ]
 

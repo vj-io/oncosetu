@@ -131,7 +131,7 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
           <Field label="Full name"><Input value={form.name} onChange={set('name')} autoComplete="off" maxLength={100} /></Field>
           <Field label="Work email"><Input type="email" value={form.email} onChange={set('email')} autoComplete="off" /></Field>
           <Field label="Role"><Select value={form.role} onChange={set('role')}>{ROLES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</Select></Field>
-          <Field label="Temporary password" hint="At least 12 characters. Use Generate, and give it to them in person, never by e-mail or chat: it stays their password (there is no change-password screen yet).">
+          <Field label="Temporary password" hint="At least 12 characters. Use Generate and give it to them in person, never by e-mail or chat; they replace it under their name (top right) → Change password.">
             <div className="flex gap-2">
               <Input value={form.password} onChange={set('password')} autoComplete="off" spellCheck={false} className="font-mono" />
               <Button variant="secondary" onClick={() => setForm((f) => ({ ...f, password: randomPassword() }))}>Generate</Button>

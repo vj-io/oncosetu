@@ -16,6 +16,7 @@ import type { DocType } from '@/core/types'
 import type { LlmExtractor } from '@/server/pipeline/core'
 import type { LlmProvider } from './provider'
 import { reserveLlmCall, settleLlmCall, type LlmOutcome, type QuotaDenial, type Reservation } from './quota'
+import type { Scrubber } from './scrub'
 
 export type AiRunRecord = {
   kind: 'extract'; provider: string; model: string; promptId: string; promptVersion: string; schemaVersion: string
@@ -59,9 +60,10 @@ const statusOf = (e: unknown) => (APICallError.isInstance(e) ? e.statusCode : un
  * one retry on a schema failure, and one step down the fallback list per 503. Quota: the free-tier provider's shared
  * budget, plus the org's daily call/token budget for any provider bound to an org (aiAllowed does that).
  */
-export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = quotaFor(p)): LlmExtractor {
+export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = quotaFor(p), scrubber?: Scrubber): LlmExtractor {
   return async (pages: { pageNo: number; text: string }[], docType: DocType): Promise<Extraction | null> => {
-    const prompt = buildExtractionPrompt(pages, docType)
+    // the provider sees the page text without this patient's identifiers (scrub.ts); the answer gets them back below
+    const prompt = buildExtractionPrompt(scrubber ? pages.map((pg) => ({ ...pg, text: scrubber.scrub(pg.text) })) : pages, docType)
     const models = [{ modelId: p.modelId, model: p.model }, ...(p.fallbacks ?? [])]
     const inputHash = sha256Hex(EXTRACTION_SYSTEM_PROMPT + '\n' + prompt)
     let mi = 0
@@ -84,8 +86,11 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
           model: m.model, instructions: EXTRACTION_SYSTEM_PROMPT, prompt, output: Output.object({ schema: outputSchemaFor(p) }),
           maxOutputTokens: 8000, maxRetries: p.provider === 'google' ? 0 : 2, // paid providers: SDK retries 429/5xx (E-DOC-20)
           abortSignal: AbortSignal.timeout(90_000),
+          // via AI Gateway: only providers that do not train on prompts and keep no copy of them
+          ...(p.provider === 'gateway' ? { providerOptions: { gateway: { disallowPromptTraining: true, zeroDataRetention: process.env.AI_ZERO_DATA_RETENTION !== 'false' } } } : {}),
         })
-        const out = p.provider === 'google' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
+        const parsed = p.provider === 'google' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
+        const out = scrubber ? scrubber.restore(parsed) : parsed
         const tokensIn = res.usage.inputTokens ?? null, tokensOut = res.usage.outputTokens ?? null
         if (slot !== null) await quota!.settle(slot, 'ok', (tokensIn ?? 0) + (tokensOut ?? 0))
         runs.push({ ...base, outputHash: sha256Hex(JSON.stringify(out)), latencyMs: Date.now() - t0, tokensIn, tokensOut, outcome: 'ok' })

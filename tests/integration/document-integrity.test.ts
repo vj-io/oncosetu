@@ -196,6 +196,40 @@ describe('intake and pipeline paths', () => {
     }
   }, 120_000)
 
+  it('the AI provider receives the report without the patient\'s name (processing passes the identifier scrubber)', async () => {
+    const c = await imp()
+    const { MockLanguageModelV4 } = await import('ai/test')
+    const { setLlmProviderForTests } = await import('../../src/server/ai/provider')
+    const prompts: string[] = []
+    const model = new MockLanguageModelV4({
+      provider: 'mock', modelId: 'mock-model',
+      doGenerate: async (opts) => {
+        prompts.push(JSON.stringify(opts.prompt))
+        const reply = { schema_version: 'extraction.v1', doc_type: 'chemo_daycare_record', items: [],
+          header: { name: null, age: null, sex: null, dob: null, mrn: null, report_date: null, institution: null, referring_doctor: null } }
+        return { content: [{ type: 'text', text: JSON.stringify(reply) }], finishReason: { unified: 'stop', raw: 'stop' }, usage: { inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 5, text: 5, reasoning: 0 } }, warnings: [] }
+      },
+    })
+    const [settings] = await owner`select flags from org_settings where org_id = ${ORG}`
+    await owner`update org_settings set flags = flags || '{"ai_extraction": true}'::jsonb where org_id = ${ORG}`
+    await owner.begin(async (tx) => {
+      await tx`select set_config('app.org_id', ${ORG}, true)`
+      await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${pid}, 'grant', ${tx.json({ store: true, ai: true, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
+    })
+    setLlmProviderForTests({ provider: 'anthropic', modelId: 'mock-model', model } as never)
+    try {
+      const up = await upload('discharge.pdf', new Uint8Array(readFileSync('public/demo-docs/hero__01-discharge-summary.pdf')))
+      await c.proc.runDocument(up.documentId, ORG)
+      expect(['auto', 'attached']).toContain((await docRow(up.documentId)).attachState) // filed: the name on the paper matched the patient
+      expect(prompts.length).toBeGreaterThan(0)
+      expect(prompts.join('\n')).not.toMatch(/sunita|deshmukh/i)
+      expect(prompts.join('\n')).toMatch(/\[PATIENT_NAME_\d\]/)
+    } finally {
+      setLlmProviderForTests(undefined)
+      await owner`update org_settings set flags = ${owner.json(settings.flags)} where org_id = ${ORG}`
+    }
+  }, 120_000)
+
   it('the same report forwarded twice (re-saved, so new bytes) is flagged as a near-duplicate of the first (FR-ING-06)', async () => {
     const c = await imp()
     const { PDFDocument } = await import('pdf-lib')

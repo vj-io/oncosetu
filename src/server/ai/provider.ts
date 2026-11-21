@@ -47,7 +47,7 @@ export function llmProvider(): LlmProvider | null {
     return { provider: 'google', modelId, model: google(modelId), fallbacks }
   }
   if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) {
-    const modelId = 'anthropic/claude-sonnet-5.5'
+    const modelId = process.env.AI_GATEWAY_MODEL || 'anthropic/claude-sonnet-5.5' // an id from https://ai-gateway.vercel.sh/v1/models
     return { provider: 'gateway', modelId, model: gateway(modelId) }
   }
   return null

@@ -23,6 +23,9 @@ export class SmsError extends Error {
 
 const TIMEOUT_MS = 10_000
 
+/** Whether a text message can reach anyone here: a real provider, or the demo's simulated phone. */
+export const smsAvailable = (): boolean => process.env.DEMO_MODE === 'true' || smsProvider('sms') !== null
+
 export function smsProvider(channel: SmsChannel = 'sms'): SmsProvider | null {
   const sid = process.env.TWILIO_ACCOUNT_SID
   const token = process.env.TWILIO_AUTH_TOKEN

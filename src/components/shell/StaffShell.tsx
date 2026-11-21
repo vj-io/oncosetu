@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { SmsContext } from "@/lib/sms-context";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
@@ -15,10 +16,11 @@ const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records"
 export type StaffShellProps = {
   user: { name: string; role: StaffRole; orgName: string };
   demo: boolean;
+  sms?: boolean;
   children: ReactNode;
 };
 
-export function StaffShell({ user, demo, children }: StaffShellProps) {
+export function StaffShell({ user, demo, sms = true, children }: StaffShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [navOpen, setNavOpen] = useState(false);
@@ -125,7 +127,7 @@ export function StaffShell({ user, demo, children }: StaffShellProps) {
       <div className="relative flex flex-1 flex-col">
         <Spotlight />
         <main id="main" tabIndex={-1} className="relative mx-auto w-full max-w-gallery flex-1 px-4 py-8 outline-none sm:px-8 sm:py-10">
-          {children}
+          <SmsContext.Provider value={{ sms, demo }}>{children}</SmsContext.Provider>
         </main>
       </div>
 

@@ -5,6 +5,7 @@ import { LoginForm } from '@/components/portal/LoginForm'
 import { Kicker } from '@/components/portal/ui'
 import { tp } from '@/i18n/patient'
 import { isDemo } from '@/server/demo'
+import { smsAvailable } from '@/server/sms/provider'
 import { safePortalNext } from '@/lib/safe-next'
 import { browserLang, langParam } from '@/server/portal/context'
 import { getSession } from '@/server/session'
@@ -29,7 +30,8 @@ export default async function PatientLoginPage({ searchParams }: { searchParams:
       <Kicker lang={lang}>{tp(lang, station ? 'stationKicker' : 'loginKicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em]">{tp(lang, station ? 'stationTitle' : 'loginTitle')}</h1>
       <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : 'loginIntro')}</p>
-      <LoginForm lang={lang} demo={isDemo()} after={after} station={station} />
+      {smsAvailable() ? <LoginForm lang={lang} demo={isDemo()} after={after} station={station} />
+        : <p role="status" className="mt-6 border border-rule bg-matte p-4 text-[16px]">{tp(lang, 'loginUnavailable')}</p>}
       <p className="mt-8 text-[16px] text-muted">{tp(lang, 'loginHelp')}</p>
       <p className="mt-3 text-[16px] text-muted">
         {tp(lang, 'staffLinkText')}{' '}

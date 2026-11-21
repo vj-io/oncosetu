@@ -33,6 +33,13 @@ describe('JPEG 2000 DICOM preview (decoded for display only)', () => {
     for (const [x, y] of [[0, 0], [47, 0], [0, 47], [47, 47], [20, 31]]) expect(dv.getUint16((y * 48 + x) * 2, true)).toBe(j2kGradient(x, y))
   })
 
+  it('a synthetic file with its own codestream draws no picture, so a 40 KB vendor header costs nothing to build', async () => {
+    const description = `SERIES ${'X'.repeat(40_000)}`
+    const dcm = await buildSyntheticDicom({ modality: 'MR', patientName: 'Test^Synthetic', studyUid: '1.2.3', size: 48, description, encapsulated: { transferSyntax: TS_J2K_LOSSLESS, frames: [J2K] } })
+    expect(dcm.includes(Buffer.from(description))).toBe(true)
+    expect(dcm.includes(Buffer.from(J2K))).toBe(true)
+  }, 5_000) // drawing that description as an unused caption took about 40 s a file and timed out the imaging integration test
+
   it('draws a PNG for a JPEG 2000 DICOM, and the picture follows the window in the header', async () => {
     const dcm = await buildSyntheticDicom({ modality: 'CT', patientName: 'Test^Synthetic', studyUid: '1.2.826.0.1.3680043.8.498.77', size: 48, encapsulated: { transferSyntax: TS_J2K_LOSSLESS, frames: [J2K] } })
     const r = await renderDicomFrame(dcm)

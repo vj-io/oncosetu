@@ -93,9 +93,11 @@ export async function buildSyntheticDicom(o: SyntheticOpts): Promise<Buffer> {
   const sixteen = ['CT', 'PT', 'MR', 'CR', 'DX', 'MG', 'NM'].includes(o.modality)
   const frameBuffers: Buffer[] = []
   for (let f = 0; f < frames; f++) {
+    if (o.rawFrames) { frameBuffers.push(o.rawFrames[f]); continue }
+    // a handed-in codestream is the picture; drawing one only to drop it took ~40 s per file for a 40 KB description caption
+    if (o.encapsulated) { frameBuffers.push(Buffer.alloc(0)); continue }
     const grey = await syntheticPicture(o.modality, size, frames > 1 ? f / (frames - 1) : o.slice ?? 0.5, `${o.description ?? o.modality} · synthetic sample`)
-    if (o.rawFrames) frameBuffers.push(o.rawFrames[f])
-    else if (sixteen) { const b = Buffer.alloc(grey.length * 2); grey.forEach((g, i) => b.writeUInt16LE(g * 16, i * 2)); frameBuffers.push(b) } else frameBuffers.push(Buffer.from(grey))
+    if (sixteen) { const b = Buffer.alloc(grey.length * 2); grey.forEach((g, i) => b.writeUInt16LE(g * 16, i * 2)); frameBuffers.push(b) } else frameBuffers.push(Buffer.from(grey))
   }
   const ts = o.encapsulated?.transferSyntax ?? o.transferSyntax ?? (o.rle ? '1.2.840.10008.1.2.5' : '1.2.840.10008.1.2.1')
   const sop = ({ CT: '1.2.840.10008.5.1.4.1.1.2', MR: '1.2.840.10008.5.1.4.1.1.4', PT: '1.2.840.10008.5.1.4.1.1.128', CR: '1.2.840.10008.5.1.4.1.1.1', DX: '1.2.840.10008.5.1.4.1.1.1.1', MG: '1.2.840.10008.5.1.4.1.1.1.2', US: '1.2.840.10008.5.1.4.1.1.6.1', NM: '1.2.840.10008.5.1.4.1.1.20' } as const)[o.modality]

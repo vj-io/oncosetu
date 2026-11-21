@@ -64,10 +64,10 @@ describe('Groq (free plan): chunks, best-effort schema, selection', () => {
     expect(await llmExtractor({ provider: 'groq', modelId: 'm', model: dead, maxInputTokens: 1000 }, [], null)([page(1, 'aaaa')], 'discharge_summary')).toBeNull()
   })
 
-  it('GROQ_API_KEY selects Groq (gpt-oss-120b by default, chunks of 4000 tokens); GROQ_MODEL and GROQ_MAX_INPUT_TOKENS override', () => {
+  it('GROQ_API_KEY selects Groq (gpt-oss-120b by default, chunks of 3000 tokens); GROQ_MODEL and GROQ_MAX_INPUT_TOKENS override', () => {
     for (const k of ['ANTHROPIC_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'AI_ENABLED', 'GROQ_MODEL', 'GROQ_MAX_INPUT_TOKENS', 'GROQ_MAX_OUTPUT_TOKENS']) vi.stubEnv(k, '')
     vi.stubEnv('GROQ_API_KEY', 'gsk_test')
-    expect(llmProvider()).toMatchObject({ provider: 'groq', modelId: 'openai/gpt-oss-120b', maxInputTokens: 4000, maxOutputTokens: 3000, augmentRules: true })
+    expect(llmProvider()).toMatchObject({ provider: 'groq', modelId: 'openai/gpt-oss-120b', maxInputTokens: 3000, maxOutputTokens: 3000, augmentRules: true })
     vi.stubEnv('GROQ_MODEL', 'openai/gpt-oss-20b'); vi.stubEnv('GROQ_MAX_INPUT_TOKENS', '3000'); vi.stubEnv('GROQ_MAX_OUTPUT_TOKENS', '2000')
     expect(llmProvider()).toMatchObject({ provider: 'groq', modelId: 'openai/gpt-oss-20b', maxInputTokens: 3000, maxOutputTokens: 2000 })
   })

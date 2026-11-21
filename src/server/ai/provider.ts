@@ -4,7 +4,8 @@
 //   GOOGLE_GENERATIVE_AI_API_KEY                        → @ai-sdk/google, GEMINI_MODEL (default gemini-3.5-flash-lite),
 //                                                          free tier: every call goes through the shared quota (quota.ts)
 //   GROQ_API_KEY                                        → @ai-sdk/groq, GROQ_MODEL (default openai/gpt-oss-120b); free plan, no card:
-//                                                          long documents go in chunks of GROQ_MAX_INPUT_TOKENS (default 4000)
+//                                                          long documents go in chunks of GROQ_MAX_INPUT_TOKENS (default 3000: with ~2000 tokens of
+//                                                          prompt and schema a request stays under the 8000-a-minute cap)
 //   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN | running on Vercel → Vercel AI Gateway, anthropic/claude-sonnet-5.5
 //   otherwise                                           → null (rule-based extraction)
 import { createAnthropic } from '@ai-sdk/anthropic'
@@ -59,7 +60,7 @@ export function llmProvider(): LlmProvider | null {
     const modelId = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
     return {
       provider: 'groq', modelId, model: createGroq({ apiKey: process.env.GROQ_API_KEY })(modelId), augmentRules: true,
-      maxInputTokens: Number(process.env.GROQ_MAX_INPUT_TOKENS) || 4000, maxOutputTokens: Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 3000,
+      maxInputTokens: Number(process.env.GROQ_MAX_INPUT_TOKENS) || 3000, maxOutputTokens: Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 3000,
     }
   }
   // On Vercel the OIDC token arrives per request (x-vercel-oidc-token), not in the environment; the gateway reads it at call time

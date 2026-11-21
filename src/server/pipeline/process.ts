@@ -15,6 +15,7 @@ import { storedBytes, storeFile } from '@/server/files'
 import { log } from '@/server/log'
 import { activeConsent } from '@/server/patients'
 import { llmExtractor, type AiRunRecord } from '@/server/ai/extract'
+import { makeScrubber } from '@/server/ai/scrub'
 import { aiAllowed } from '@/server/ai/provider'
 import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
@@ -301,8 +302,8 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   // ── extracted ──
   await setStage(orgId, documentId, 'extracted')
   const runs: AiRunRecord[] = []
-  const ai = await withOrg(orgId, (tx) => aiAllowed(tx, orgId, patientId))
-  const ex = await extractCandidates(classified, ai.provider ? llmExtractor(ai.provider, runs) : null, { augmentRules: ai.provider?.provider === 'google' })
+  const ai = await withOrg(orgId, async (tx) => ({ ...(await aiAllowed(tx, orgId, patientId)), identity: await patientIdentity(tx, patientId) }))
+  const ex = await extractCandidates(classified, ai.provider ? llmExtractor(ai.provider, runs, undefined, makeScrubber(ai.identity)) : null, { augmentRules: ai.provider?.augmentRules })
   if (ex.method === 'llm' && ex.llmDocType && !manualType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
   // A free-tier quota refusal is not an error: the rule-based path ran instead, and the document says why.
   const quotaSkip = runs.find((r) => r.outcome.startsWith('quota_'))?.outcome

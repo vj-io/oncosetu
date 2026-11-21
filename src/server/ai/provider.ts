@@ -3,10 +3,14 @@
 //   ANTHROPIC_API_KEY                                   → @ai-sdk/anthropic, model claude-sonnet-5-5
 //   GOOGLE_GENERATIVE_AI_API_KEY                        → @ai-sdk/google, GEMINI_MODEL (default gemini-3.5-flash-lite),
 //                                                          free tier: every call goes through the shared quota (quota.ts)
-//   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN → Vercel AI Gateway, anthropic/claude-sonnet-5.5
+//   GROQ_API_KEY                                        → @ai-sdk/groq, GROQ_MODEL (default openai/gpt-oss-120b); free plan, no card:
+//                                                          long documents go in chunks of GROQ_MAX_INPUT_TOKENS (default 3000: with ~2000 tokens of
+//                                                          prompt and schema a request stays under the 8000-a-minute cap)
+//   AI_ENABLED=true + AI_GATEWAY_API_KEY | VERCEL_OIDC_TOKEN | running on Vercel → Vercel AI Gateway, anthropic/claude-sonnet-5.5
 //   otherwise                                           → null (rule-based extraction)
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createGroq } from '@ai-sdk/groq'
 import { gateway, type LanguageModel } from 'ai'
 import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
@@ -14,7 +18,13 @@ import { orgSettings } from '@/db/schema'
 import { activeConsent } from '@/server/patients'
 
 export type LlmProvider = {
-  provider: 'anthropic' | 'google' | 'gateway'; modelId: string; model: LanguageModel
+  provider: 'anthropic' | 'google' | 'groq' | 'gateway'; modelId: string; model: LanguageModel
+  /** A provider with a small per-minute token allowance (Groq's free plan): page text goes in chunks of about this many tokens. */
+  maxInputTokens?: number
+  /** Answer cap; with a per-minute token allowance it has to fit beside the input (default 8000). */
+  maxOutputTokens?: number
+  /** Free-plan model, recall below the rule library's: its facts are added to the rules' ones, never replace them. */
+  augmentRules?: boolean
   /** Tried in order when the primary model is overloaded (503); each attempt still takes a quota slot. */
   fallbacks?: { modelId: string; model: LanguageModel }[]
   /** Set by aiAllowed(): every call then counts against this org's daily budget (PRD §9.6, ai/quota.ts). */
@@ -44,10 +54,18 @@ export function llmProvider(): LlmProvider | null {
     const modelId = process.env.GEMINI_MODEL || GEMINI_DEFAULT_MODEL
     const fallbacks = (process.env.GEMINI_FALLBACK_MODELS ?? GEMINI_DEFAULT_FALLBACKS).split(',').map((m) => m.trim())
       .filter((m) => m && m !== modelId).map((m) => ({ modelId: m, model: google(m) }))
-    return { provider: 'google', modelId, model: google(modelId), fallbacks }
+    return { provider: 'google', modelId, model: google(modelId), fallbacks, augmentRules: true }
   }
-  if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN)) {
-    const modelId = 'anthropic/claude-sonnet-5.5'
+  if (process.env.GROQ_API_KEY) {
+    const modelId = process.env.GROQ_MODEL || 'openai/gpt-oss-120b'
+    return {
+      provider: 'groq', modelId, model: createGroq({ apiKey: process.env.GROQ_API_KEY })(modelId), augmentRules: true,
+      maxInputTokens: Number(process.env.GROQ_MAX_INPUT_TOKENS) || 3000, maxOutputTokens: Number(process.env.GROQ_MAX_OUTPUT_TOKENS) || 3000,
+    }
+  }
+  // On Vercel the OIDC token arrives per request (x-vercel-oidc-token), not in the environment; the gateway reads it at call time
+  if (process.env.AI_ENABLED === 'true' && (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || process.env.VERCEL === '1')) {
+    const modelId = process.env.AI_GATEWAY_MODEL || 'anthropic/claude-sonnet-5.5' // an id from https://ai-gateway.vercel.sh/v1/models
     return { provider: 'gateway', modelId, model: gateway(modelId) }
   }
   return null

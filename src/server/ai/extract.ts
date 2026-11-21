@@ -16,6 +16,7 @@ import type { DocType } from '@/core/types'
 import type { LlmExtractor } from '@/server/pipeline/core'
 import type { LlmProvider } from './provider'
 import { reserveLlmCall, settleLlmCall, type LlmOutcome, type QuotaDenial, type Reservation } from './quota'
+import type { Scrubber } from './scrub'
 
 export type AiRunRecord = {
   kind: 'extract'; provider: string; model: string; promptId: string; promptVersion: string; schemaVersion: string
@@ -33,8 +34,8 @@ const quotaFor = (p: LlmProvider): QuotaFns | null => (p.provider === 'google' |
   settle: settleLlmCall,
 } : null)
 
-// Gemini's response-schema dialect rejects `const` and length/size bounds (400 "invalid argument"). Send a copy without
-// them; the full ExtractionSchema still validates the answer here, item by item.
+// Gemini's response-schema dialect rejects `const` and length/size bounds (400 "invalid argument"); Groq's best-effort mode gets the
+// same plain copy. The full ExtractionSchema still validates the answer here, item by item.
 const GEMINI_DROP = new Set(['$schema', 'maxLength', 'minLength', 'maxItems', 'minItems', 'maximum', 'minimum', 'exclusiveMaximum', 'exclusiveMinimum'])
 export function geminiSchemaOf(s: unknown): unknown {
   if (Array.isArray(s)) return s.map(geminiSchemaOf)
@@ -43,7 +44,7 @@ export function geminiSchemaOf(s: unknown): unknown {
 }
 let geminiSchema: ReturnType<typeof jsonSchema> | undefined
 const outputSchemaFor = (p: LlmProvider) =>
-  p.provider === 'google' ? (geminiSchema ??= jsonSchema(geminiSchemaOf(z.toJSONSchema(ExtractionSchema)) as Parameters<typeof jsonSchema>[0])) : ExtractionSchema
+  p.provider === 'google' || p.provider === 'groq' ? (geminiSchema ??= jsonSchema(geminiSchemaOf(z.toJSONSchema(ExtractionSchema)) as Parameters<typeof jsonSchema>[0])) : ExtractionSchema
 
 /** Keeps every item that passes the full schema; one over-long quote must not throw away the whole document. */
 export function parseItemwise(raw: unknown): Extraction {
@@ -54,14 +55,32 @@ export function parseItemwise(raw: unknown): Extraction {
 
 const statusOf = (e: unknown) => (APICallError.isInstance(e) ? e.statusCode : undefined)
 
+/** No new chunk starts after this; with one 90 s call after it, extraction ends well inside a 300 s function. */
+export const CHUNK_WINDOW_MS = 150_000
+
+/** Page groups of about `maxTokens` each (4 characters a token), in page order; a page larger than that goes alone. */
+export function chunkPages<P extends { text: string }>(pages: P[], maxTokens: number): P[][] {
+  const chunks: P[][] = []
+  let cur: P[] = [], used = 0
+  for (const pg of pages) {
+    const t = Math.ceil(pg.text.length / 4)
+    if (cur.length && used + t > maxTokens) { chunks.push(cur); cur = []; used = 0 }
+    cur.push(pg); used += t
+  }
+  if (cur.length) chunks.push(cur)
+  return chunks
+}
+
 /**
  * An extractor bound to a provider; pushes one AiRunRecord per attempt into `runs`. At most three attempts:
  * one retry on a schema failure, and one step down the fallback list per 503. Quota: the free-tier provider's shared
  * budget, plus the org's daily call/token budget for any provider bound to an org (aiAllowed does that).
+ * A provider with `maxInputTokens` (Groq's free plan) gets the pages in chunks, one call each; the answers are merged.
  */
-export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = quotaFor(p)): LlmExtractor {
-  return async (pages: { pageNo: number; text: string }[], docType: DocType): Promise<Extraction | null> => {
-    const prompt = buildExtractionPrompt(pages, docType)
+export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFns | null = quotaFor(p), scrubber?: Scrubber): LlmExtractor {
+  const once = async (pages: { pageNo: number; text: string }[], docType: DocType): Promise<Extraction | null> => {
+    // the provider sees the page text without this patient's identifiers (scrub.ts); the answer gets them back below
+    const prompt = buildExtractionPrompt(scrubber ? pages.map((pg) => ({ ...pg, text: scrubber.scrub(pg.text) })) : pages, docType)
     const models = [{ modelId: p.modelId, model: p.model }, ...(p.fallbacks ?? [])]
     const inputHash = sha256Hex(EXTRACTION_SYSTEM_PROMPT + '\n' + prompt)
     let mi = 0
@@ -82,10 +101,17 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
       try {
         const res = await generateText({
           model: m.model, instructions: EXTRACTION_SYSTEM_PROMPT, prompt, output: Output.object({ schema: outputSchemaFor(p) }),
-          maxOutputTokens: 8000, maxRetries: p.provider === 'google' ? 0 : 2, // paid providers: SDK retries 429/5xx (E-DOC-20)
+          // paid providers: SDK retries 429/5xx (E-DOC-20); Groq's free plan: up to 3 waits of the retry-after it sends
+          maxOutputTokens: p.maxOutputTokens ?? 8000, maxRetries: p.provider === 'google' ? 0 : p.provider === 'groq' ? 3 : 2,
           abortSignal: AbortSignal.timeout(90_000),
+          // via AI Gateway: only providers that do not train on prompts and keep no copy of them
+          ...(p.provider === 'gateway' ? { providerOptions: { gateway: { disallowPromptTraining: true, zeroDataRetention: process.env.AI_ZERO_DATA_RETENTION !== 'false' } } } : {}),
+          // Groq: schema followed best-effort (strict mode needs every field required); short reasoning saves the minute's tokens;
+          // temperature 0 because at the default about half the answers (live, demo summary) came back with no items at all
+          ...(p.provider === 'groq' ? { temperature: 0, providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false, reasoningEffort: 'low' } } } : {}),
         })
-        const out = p.provider === 'google' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
+        const parsed = p.provider === 'google' || p.provider === 'groq' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
+        const out = scrubber ? scrubber.restore(parsed) : parsed
         const tokensIn = res.usage.inputTokens ?? null, tokensOut = res.usage.outputTokens ?? null
         if (slot !== null) await quota!.settle(slot, 'ok', (tokensIn ?? 0) + (tokensOut ?? 0))
         runs.push({ ...base, outputHash: sha256Hex(JSON.stringify(out)), latencyMs: Date.now() - t0, tokensIn, tokensOut, outcome: 'ok' })
@@ -102,5 +128,15 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
       }
     }
     return null
+  }
+  return async (pages, docType) => {
+    if (!p.maxInputTokens) return once(pages, docType)
+    const outs: Extraction[] = [], stopAt = Date.now() + CHUNK_WINDOW_MS
+    for (const chunk of chunkPages(pages, p.maxInputTokens)) {
+      if (Date.now() > stopAt) break // later pages keep the rule-based facts (augmentRules); the run must end inside the function's 300 s
+      const o = await once(chunk, docType); if (o) outs.push(o)
+    }
+    if (!outs.length) return null
+    return { ...outs[0], items: outs.flatMap((o) => o.items) } // type and header from the first chunk that answered
   }
 }

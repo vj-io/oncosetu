@@ -1,7 +1,7 @@
 // Transport: the sandbox client's request shapes (stubbed fetch; no live sandbox account exists) and the in-process HIP.
 import { describe, expect, it } from 'vitest'
 import { decryptEntry, ephemeral } from './crypto'
-import { abdmTransport, entryChecksum, InProcessGateway, SandboxGateway, type ConsentRequestInit } from './transport'
+import { abdmTransport, entryChecksum, InProcessGateway, SandboxGateway, type ConsentRequestInit, abdmAvailable } from './transport'
 
 const NOW = new Date('2026-11-02T06:00:00.000Z')
 const init: ConsentRequestInit = {
@@ -66,8 +66,12 @@ describe('SandboxGateway request shapes', () => {
     await expect(stub(401).gw.consentStatus('x')).rejects.toMatchObject({ code: 'gateway_http_401' })
   })
 
-  it('abdmTransport(): in-process by default, sandbox only with all three ABDM_* variables', () => {
-    expect(abdmTransport({}).kind).toBe('in_process')
+  it('abdmTransport(): in-process (synthetic) only in demo mode, sandbox only with all three ABDM_* variables', () => {
+    expect(abdmTransport({ DEMO_MODE: 'true' }).kind).toBe('in_process')
+    expect(() => abdmTransport({})).toThrow('abdm_not_configured') // a real deployment never gets synthetic records
+    expect(abdmAvailable({})).toBe(false)
+    expect(abdmAvailable({ DEMO_MODE: 'true' })).toBe(true)
+    expect(abdmAvailable({ ABDM_CLIENT_ID: 'a', ABDM_CLIENT_SECRET: 'b', ABDM_BASE_URL: 'https://x' })).toBe(true)
     expect(abdmTransport({ ABDM_CLIENT_ID: 'a', ABDM_CLIENT_SECRET: 'b', ABDM_BASE_URL: 'https://x' }).kind).toBe('sandbox')
     expect(() => abdmTransport({ ABDM_CLIENT_ID: 'a' })).toThrow('abdm_env_incomplete')
   })

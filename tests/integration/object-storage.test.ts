@@ -126,6 +126,32 @@ describe('originals in object storage', () => {
     }
   }, 60_000)
 
+  it('with an object store, upload chunks are kept there (empty rows), join back exactly, and are deleted when the upload closes', async () => {
+    const c = await ctx()
+    c.objects.setObjectStoreForTests(memStore)
+    const ch = await import('../../src/server/uploads/chunks')
+    const file = new Uint8Array(Buffer.concat([Buffer.alloc(300_000, 7), Buffer.alloc(120_000, 9)]))
+    const sha = createHash('sha256').update(file).digest('hex')
+    const who = base.uploadedBy
+    const { id } = await c.db.withOrg(ORG_NARMADA_ID, (tx) => ch.startUpload(tx, {
+      orgId: ORG_NARMADA_ID, patientId: pid, uploader: who, fileName: 'scan.zip', totalSize: file.length, totalChunks: 2, sha256: sha, intakeRoute: 'bulk',
+    } as Parameters<typeof ch.startUpload>[1]))
+    try {
+      for (const [idx, part] of [file.subarray(0, 300_000), file.subarray(300_000)].entries())
+        await c.db.withOrg(ORG_NARMADA_ID, (tx) => ch.putChunk(tx, { sessionId: id, patientId: pid, uploader: who, orgId: ORG_NARMADA_ID, idx, bytes: part }))
+      const rows = await owner`select idx, octet_length(bytes_enc)::int len from upload_chunks where session_id = ${id} order by idx`
+      expect(rows.map((r) => r.len)).toEqual([0, 0]) // nothing of the file in the database
+      expect(objects.has(ch.chunkKey(ORG_NARMADA_ID, id, 0)) && objects.has(ch.chunkKey(ORG_NARMADA_ID, id, 1))).toBe(true)
+      expect(Buffer.from(objects.get(ch.chunkKey(ORG_NARMADA_ID, id, 0))!).includes(Buffer.alloc(64, 7))).toBe(false) // stored encrypted
+      const got = await c.db.withOrg(ORG_NARMADA_ID, (tx) => ch.assemble(tx, id, pid, who))
+      expect(Buffer.from(got.bytes).equals(Buffer.from(file))).toBe(true)
+      await c.db.withOrg(ORG_NARMADA_ID, (tx) => ch.closeSession(tx, id, 'done'))
+      expect(objects.has(ch.chunkKey(ORG_NARMADA_ID, id, 0)) || objects.has(ch.chunkKey(ORG_NARMADA_ID, id, 1))).toBe(false)
+    } finally {
+      await owner`delete from upload_sessions where id = ${id}`
+    }
+  }, 60_000)
+
   it('with no store configured, files stay in Postgres as before', async () => {
     const c0 = await ctx()
     c0.objects.setObjectStoreForTests(null)

@@ -1,6 +1,7 @@
 // Groq's free plan (no card): long documents go in chunks, one call each, answers merged; each call asks for the schema
 // best-effort with low reasoning; an item that fails the schema is dropped, not the whole answer; and the provider is
 // selected from GROQ_API_KEY.
+import { APICallError } from 'ai'
 import { MockLanguageModelV4 } from 'ai/test'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { EXTRACTION_SCHEMA_VERSION } from '@/core/extract'
@@ -65,9 +66,10 @@ describe('Groq (free plan): chunks, best-effort schema, selection', () => {
   })
 
   it('GROQ_API_KEY selects Groq (gpt-oss-120b by default, chunks of 3000 tokens); GROQ_MODEL and GROQ_MAX_INPUT_TOKENS override', () => {
-    for (const k of ['ANTHROPIC_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'AI_ENABLED', 'GROQ_MODEL', 'GROQ_MAX_INPUT_TOKENS', 'GROQ_MAX_OUTPUT_TOKENS']) vi.stubEnv(k, '')
+    for (const k of ['ANTHROPIC_API_KEY', 'GOOGLE_GENERATIVE_AI_API_KEY', 'AI_ENABLED', 'GROQ_MODEL', 'GROQ_MAX_INPUT_TOKENS', 'GROQ_MAX_OUTPUT_TOKENS', 'GROQ_FALLBACK_MODELS']) vi.stubEnv(k, '')
     vi.stubEnv('GROQ_API_KEY', 'gsk_test')
     expect(llmProvider()).toMatchObject({ provider: 'groq', modelId: 'openai/gpt-oss-120b', maxInputTokens: 3000, maxOutputTokens: 3000, augmentRules: true })
+    expect(llmProvider()!.fallbacks!.map((f) => f.modelId)).toEqual(['openai/gpt-oss-20b'])
     vi.stubEnv('GROQ_MODEL', 'openai/gpt-oss-20b'); vi.stubEnv('GROQ_MAX_INPUT_TOKENS', '3000'); vi.stubEnv('GROQ_MAX_OUTPUT_TOKENS', '2000')
     expect(llmProvider()).toMatchObject({ provider: 'groq', modelId: 'openai/gpt-oss-20b', maxInputTokens: 3000, maxOutputTokens: 2000 })
   })
@@ -86,5 +88,19 @@ describe('Groq (free plan): chunks, best-effort schema, selection', () => {
     const out = await llmExtractor({ provider: 'groq', modelId: 'm', model, maxInputTokens: 1000 }, [], null)([page(1, 'aaaa'), page(2, 'bbbb'), page(3, 'cccc'), page(4, 'dddd')], 'discharge_summary')
     expect(calls).toBe(1)
     expect(out).not.toBeNull()
+  })
+  it('when one model\'s daily allowance is used up (429), the next model reads the same pages', async () => {
+    const used = new MockLanguageModelV4({ provider: 'groq', modelId: 'big', doGenerate: async () => { throw new APICallError({ message: 'Rate limit reached: tokens per day', url: 'https://api.groq.com', requestBodyValues: {}, statusCode: 429, isRetryable: false }) } })
+    const spare = new MockLanguageModelV4({
+      provider: 'groq', modelId: 'small',
+      doGenerate: async () => {
+        const answer = { schema_version: EXTRACTION_SCHEMA_VERSION, doc_type: 'discharge_summary', header: HEADER, items: [{ event_type: 'procedure_documented', fields: { procedure_text: 'X' }, quote: 'Procedure noted on page 1 of the report.', page_no: 1 }] }
+        return { content: [{ type: 'text', text: JSON.stringify(answer) }], finishReason: { unified: 'stop', raw: 'stop' }, usage: USAGE, warnings: [] }
+      },
+    })
+    const runs: AiRunRecord[] = []
+    const out = await llmExtractor({ provider: 'groq', modelId: 'big', model: used, fallbacks: [{ modelId: 'small', model: spare }], maxInputTokens: 3000 }, runs, null)([page(1, 'aaaa')], 'discharge_summary')
+    expect(out!.items).toHaveLength(1)
+    expect(runs.map((r) => `${r.model}:${r.outcome}`)).toEqual(['big:rate_limited', 'small:ok'])
   })
 })

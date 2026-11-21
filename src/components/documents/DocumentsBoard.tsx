@@ -193,6 +193,7 @@ export function DocumentsBoard({ patientId, patientName, demo, initial, canDecid
               <p className="font-display text-lg tracking-[-0.015em]">Drop the patient’s records here</p>
               <p data-testid="staff-upload-formats" className="text-sm text-muted">PDF, photos (JPEG, PNG, HEIC, WebP, TIFF), scan files (X-ray, CT, PET, MRI, DICOM), ECG files, short videos, Word or text reports, or a ZIP of these · up to {MAX_BATCH} files and {MAX_BATCH_BYTES / MB} MB per upload · {MAX_FILE_BYTES / MB} MB per file, {MAX_ZIP_BYTES / MB} MB per ZIP.</p>
               <p className="text-sm text-muted">OncoSetu keeps the scan and reads the written report; it doesn’t interpret images.</p>
+              <p className="text-sm text-muted">Scan CD: zip only the folder that holds the images (often called DICOM), not the whole CD with its viewer program. The upload is smaller and faster, and nothing is lost.</p>
             </div>
             <input ref={input} type="file" multiple className="sr-only" aria-label="Choose files" onChange={(e) => { if (e.target.files?.length) void fromFiles(e.target.files); e.target.value = '' }} />
             <Button size="sm" variant="secondary" onClick={() => input.current?.click()}>Choose files</Button>

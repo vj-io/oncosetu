@@ -2,6 +2,8 @@
 // the server keeps each chunk encrypted until the file is complete, then joins them, checks size and SHA-256 and hands the
 // bytes to the normal upload path. Resumable: a session reports which chunks it already has, and a chunk can be re-sent.
 // Chunks are deleted as soon as the file is assembled (or the session is aborted or expired).
+// With an object store (S3_*), each encrypted chunk is kept there and its row holds only the metadata: an upload then costs
+// the database's monthly network allowance (Neon's free plan: 5 GB) nothing, instead of the file's size when it is joined.
 import { createHash } from 'node:crypto'
 import { and, asc, count, eq, lt, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
@@ -57,13 +59,19 @@ async function ownSession(tx: Tx, sessionId: string, patientId: string, uploader
   return s
 }
 
+/** Object-store key of one chunk (encrypted, temporary). */
+export const chunkKey = (orgId: string, sessionId: string, idx: number) => `u/${orgId}/${sessionId}/${idx}`
+
 export async function putChunk(tx: Tx, a: { sessionId: string; patientId: string; uploader: { kind: string; id: string }; orgId: string; idx: number; bytes: Uint8Array }): Promise<{ received: number }> {
   const s = await ownSession(tx, a.sessionId, a.patientId, a.uploader)
   if (a.idx < 0 || a.idx >= s.totalChunks) throw new HttpError(400, 'invalid_request', 'Unknown chunk number')
   if (!a.bytes.length || a.bytes.length > CHUNK_BYTES + 1024) throw new HttpError(413, 'chunk_too_large', 'Chunk is too large')
   const { bytes, dekWrapped } = encryptBytes(Buffer.from(a.bytes))
-  await tx.insert(uploadChunks).values({ orgId: a.orgId, sessionId: s.id, idx: a.idx, bytesEnc: bytes, dekWrapped, size: a.bytes.length })
-    .onConflictDoUpdate({ target: [uploadChunks.sessionId, uploadChunks.idx], set: { bytesEnc: bytes, dekWrapped, size: a.bytes.length } }) // re-sending a chunk replaces it
+  const store = objectStore()
+  if (store) await store.put(chunkKey(a.orgId, s.id, a.idx), bytes) // an empty row below means "in the object store"
+  const kept = store ? Buffer.alloc(0) : bytes
+  await tx.insert(uploadChunks).values({ orgId: a.orgId, sessionId: s.id, idx: a.idx, bytesEnc: kept, dekWrapped, size: a.bytes.length })
+    .onConflictDoUpdate({ target: [uploadChunks.sessionId, uploadChunks.idx], set: { bytesEnc: kept, dekWrapped, size: a.bytes.length } }) // re-sending a chunk replaces it
   const [{ n }] = await tx.select({ n: count() }).from(uploadChunks).where(eq(uploadChunks.sessionId, s.id))
   return { received: n }
 }
@@ -80,14 +88,25 @@ export async function assemble(tx: Tx, sessionId: string, patientId: string, upl
   const s = await ownSession(tx, sessionId, patientId, uploader)
   const rows = await tx.select().from(uploadChunks).where(eq(uploadChunks.sessionId, s.id)).orderBy(asc(uploadChunks.idx))
   if (rows.length !== s.totalChunks || rows.some((r, n) => r.idx !== n)) throw new HttpError(409, 'chunks_missing', 'Some parts of the file have not arrived yet')
-  const bytes = Buffer.concat(rows.map((r) => decryptBytes(Buffer.from(r.bytesEnc), r.dekWrapped)))
+  const store = objectStore()
+  const parts: Buffer[] = []
+  for (let i = 0; i < rows.length; i += 6) { // a few at a time from the object store
+    parts.push(...await Promise.all(rows.slice(i, i + 6).map(async (r) => {
+      if (r.bytesEnc.length) return decryptBytes(Buffer.from(r.bytesEnc), r.dekWrapped)
+      if (!store) throw new HttpError(500, 'chunk_store_missing', 'Part of this upload is in object storage, which is not configured')
+      return decryptBytes(Buffer.from(await store.get(chunkKey(r.orgId, s.id, r.idx))), r.dekWrapped)
+    })))
+  }
+  const bytes = Buffer.concat(parts)
   if (bytes.length !== Number(s.totalSize)) throw new HttpError(422, 'size_mismatch', 'The file arrived with the wrong size. Please try again')
   if (createHash('sha256').update(bytes).digest('hex') !== s.sha256) throw new HttpError(422, 'checksum_mismatch', 'The file was damaged on the way. Please try again')
   return { bytes: new Uint8Array(bytes), session: s }
 }
 
 export async function closeSession(tx: Tx, sessionId: string, state: 'done' | 'aborted'): Promise<void> {
-  await tx.delete(uploadChunks).where(eq(uploadChunks.sessionId, sessionId))
+  const gone = await tx.delete(uploadChunks).where(eq(uploadChunks.sessionId, sessionId)).returning({ orgId: uploadChunks.orgId, idx: uploadChunks.idx, len: sql<number>`octet_length(${uploadChunks.bytesEnc})` })
+  const store = objectStore()
+  if (store) await Promise.all(gone.filter((r) => Number(r.len) === 0).map((r) => store.del(chunkKey(r.orgId, sessionId, r.idx))))
   await tx.update(uploadSessions).set({ state }).where(eq(uploadSessions.id, sessionId))
 }
 

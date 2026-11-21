@@ -9,6 +9,7 @@ import { initials } from '@/server/patients'
 import { todaysEncounters } from '@/server/registration/desk'
 import { accession } from '@/server/registration/http'
 import { requireStaff } from '@/server/session'
+import { smsAvailable } from '@/server/sms/provider'
 
 const TIME = new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -28,7 +29,9 @@ export default async function DeskPage({ searchParams }: { searchParams: Promise
     <section className="grid grid-cols-[minmax(0,1fr)] gap-10">
       <SectionHeader
         as="h1" kicker="Desk · today" title="Front desk"
-        description="Identify the person with the card, phone, MRN or name. A record opens only after a code is sent to the registered contact, or after consent given in person with a witness."
+        description={smsAvailable()
+          ? 'Identify the person with the card, phone, MRN or name. A record opens only after a code is sent to the registered contact, or after consent given in person with a witness.'
+          : 'Identify the person with the card, phone, MRN or name. A record opens only after consent is given in person with a witness (text messages are not set up at this clinic).'}
         actions={<ButtonLink href="/patients/new" variant="secondary">Register a new patient</ButtonLink>}
       />
       <DeskLookup preselected={preselected} />

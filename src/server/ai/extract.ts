@@ -106,8 +106,9 @@ export function llmExtractor(p: LlmProvider, runs: AiRunRecord[], quota: QuotaFn
           abortSignal: AbortSignal.timeout(90_000),
           // via AI Gateway: only providers that do not train on prompts and keep no copy of them
           ...(p.provider === 'gateway' ? { providerOptions: { gateway: { disallowPromptTraining: true, zeroDataRetention: process.env.AI_ZERO_DATA_RETENTION !== 'false' } } } : {}),
-          // Groq: schema followed best-effort (strict mode needs every field required); short reasoning saves the minute's tokens
-          ...(p.provider === 'groq' ? { providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false, reasoningEffort: 'low' } } } : {}),
+          // Groq: schema followed best-effort (strict mode needs every field required); short reasoning saves the minute's tokens;
+          // temperature 0 because at the default about half the answers (live, demo summary) came back with no items at all
+          ...(p.provider === 'groq' ? { temperature: 0, providerOptions: { groq: { structuredOutputs: true, strictJsonSchema: false, reasoningEffort: 'low' } } } : {}),
         })
         const parsed = p.provider === 'google' || p.provider === 'groq' ? parseItemwise(res.output) : ExtractionSchema.parse(res.output)
         const out = scrubber ? scrubber.restore(parsed) : parsed

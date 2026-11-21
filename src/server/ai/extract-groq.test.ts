@@ -22,13 +22,13 @@ describe('Groq (free plan): chunks, best-effort schema, selection', () => {
   })
 
   it('sends one call per chunk, each with best-effort schema and low reasoning, and merges the items in page order', async () => {
-    const seen: { pages: number[]; providerOptions: unknown; maxOutputTokens?: number; schema: string }[] = []
+    const seen: { pages: number[]; providerOptions: unknown; maxOutputTokens?: number; temperature?: number; schema: string }[] = []
     const model = new MockLanguageModelV4({
       provider: 'groq', modelId: 'openai/gpt-oss-120b',
       doGenerate: async (opts) => {
         const prompt = JSON.stringify(opts.prompt)
         const pages = [...prompt.matchAll(/=== PAGE (\d+) ===/g)].map((m) => Number(m[1]))
-        seen.push({ pages, providerOptions: opts.providerOptions, maxOutputTokens: opts.maxOutputTokens, schema: JSON.stringify(opts.responseFormat) })
+        seen.push({ pages, providerOptions: opts.providerOptions, maxOutputTokens: opts.maxOutputTokens, temperature: opts.temperature, schema: JSON.stringify(opts.responseFormat) })
         const items = pages.map((n) => ({ event_type: 'procedure_documented', fields: { procedure_text: `Procedure ${n}` }, quote: `Procedure noted on page ${n} of the report.`, page_no: n }))
         items.push({ event_type: 'not_an_event', fields: {}, quote: 'Not a real event type on this page.', page_no: 99 } as never) // fails the schema: dropped alone
         const answer = { schema_version: EXTRACTION_SCHEMA_VERSION, doc_type: 'discharge_summary', header: HEADER, items }
@@ -40,6 +40,7 @@ describe('Groq (free plan): chunks, best-effort schema, selection', () => {
     const out = await llmExtractor({ provider: 'groq', modelId: 'openai/gpt-oss-120b', model, maxInputTokens: 1000, maxOutputTokens: 2500 }, runs, null, makeScrubber({ name: 'Nobody Here' }))(pages, 'discharge_summary')
     expect(seen.map((s) => s.pages)).toEqual([[1, 2], [3]])
     for (const s of seen) expect(s.maxOutputTokens).toBe(2500)
+    for (const s of seen) expect(s.temperature).toBe(0)
     for (const s of seen) expect(s.schema).toContain('procedure_documented') // the plain copy: no const or length bounds
     for (const s of seen) expect(s.schema).not.toMatch(/"const"|"maxLength"|"minLength"/)
     for (const s of seen) expect(s.providerOptions).toMatchObject({ groq: { structuredOutputs: true, strictJsonSchema: false, reasoningEffort: 'low' } })

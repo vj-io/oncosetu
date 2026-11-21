@@ -317,3 +317,61 @@ test('FR-ADM-04 the daily erasure cron executes a request once it is due @clock'
     await patient.dispose()
   }
 })
+
+test('Forgotten password: reset on the sign-in page with the authenticator code; an administrator deletes an account and adds the same email back', async ({ staff, browser, ui }) => {
+  const admin = await staff('admin'), records = await staff('records')
+  const email = `itest-${randomUUID().slice(0, 8)}@ganga.test`, password = `Pw-${randomUUID()}`, next = `New-${randomUUID()}`
+  const made = await admin.post('/api/admin/staff', { name: 'Test Forgot Person', email, role: 'desk', password })
+  expect(made.status).toBe(200)
+  const id: string = made.body.id, secret: string = made.body.enrollment.secret
+  let readded: string | undefined
+  const signIn = async (pw: string, aheadMs: number) => {
+    const c = await anonymous()
+    try { return (await c.post('/api/auth/staff/login', { data: { email, password: pw, totp: totp(secret, Date.now() + aheadMs) } })).status() } finally { await c.dispose() }
+  }
+  try {
+    const page = await (await browser.newContext({ baseURL: BASE })).newPage()
+    await page.goto('/login')
+    await page.getByRole('link', { name: 'Forgot your password?' }).click()
+    await expect(page.getByRole('heading', { name: 'Forgot your password?' })).toBeVisible()
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Authenticator code').fill(totp(secret, Date.now()))
+    await page.getByLabel('New password', { exact: true }).fill(next)
+    await page.getByLabel('New password again').fill(next)
+    await page.getByRole('button', { name: 'Set new password' }).click()
+    await expect(page.getByText('Your password is changed, and you are signed out everywhere.')).toBeVisible()
+    await page.context().close()
+    expect(await signIn(password, 30_000)).toBe(401) // the old password no longer works
+    expect(await signIn(next, 30_000)).toBe(200) // the new one does, with the next code
+    expect(await auditOf(id, 'auth.password_reset')).toHaveLength(1)
+
+    // Delete from the staff screen: gone from the list, cannot sign in, cannot be reactivated.
+    const adminPage = await ui('admin')
+    await adminPage.goto('/admin/staff')
+    const row = adminPage.getByRole('row').filter({ hasText: email })
+    await row.getByRole('button', { name: 'Delete', exact: true }).click()
+    await expect(adminPage.getByRole('dialog')).toContainText(`${email} can be used again`)
+    await adminPage.getByRole('button', { name: 'Delete account' }).click()
+    await expect(adminPage.getByText('Account deleted')).toBeVisible()
+    await expect(row).toHaveCount(0)
+    expect(await signIn(next, 60_000)).toBe(401)
+    expect((await admin.post(`/api/admin/staff/${id}`, { action: 'reactivate' })).status).toBe(404)
+    expect((await auditOf(id, 'staff.delete'))[0].details).toEqual({ role: 'desk' })
+    const [gone] = await adminDb.select().from(staffTable).where(eq(staffTable.id, id))
+    expect(gone).toMatchObject({ name: 'Test Forgot Person', active: false, totpSecretEnc: null, totpEnabled: false }) // records keep the name
+    expect(gone.email).toBe(`deleted-${id}@deleted.invalid`)
+
+    // The same email can be added again, as a new account.
+    const again = await admin.post('/api/admin/staff', { name: 'Test Forgot Person', email, role: 'desk', password })
+    expect(again.status).toBe(200)
+    readded = again.body.id
+    expect(readded).not.toBe(id)
+
+    // Guards: not oneself, administrators only.
+    expect((await admin.post(`/api/admin/staff/${await staffId(EMAIL.admin)}`, { action: 'delete' })).body.error.code).toBe('self_delete')
+    expect((await records.post(`/api/admin/staff/${readded}`, { action: 'delete' })).status).toBe(403)
+  } finally {
+    if (readded) await admin.post(`/api/admin/staff/${readded}`, { action: 'delete' })
+    else await admin.post(`/api/admin/staff/${id}`, { action: 'delete' })
+  }
+})

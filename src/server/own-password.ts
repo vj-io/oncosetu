@@ -2,7 +2,7 @@
 // toward the same lock as sign-in (5 → 15 minutes), on `sideDb` so the count survives the request's rollback (POOL RULE,
 // src/db/index.ts); after a change every other sign-in of the account ends. Shared demo accounts keep their password.
 import { and, eq, sql } from 'drizzle-orm'
-import { sideDb } from '@/db'
+import { type DB, sideDb } from '@/db'
 import { staff } from '@/db/schema'
 import type { AuditDetails } from './audit'
 import { hashPassword, verifyPassword } from './crypto'
@@ -10,7 +10,17 @@ import { revokeOtherSessions } from './own-sessions'
 import type { StaffSession } from './session'
 
 export const MIN_PASSWORD = 12
-const MAX_FAILURES = 5 // as at sign-in (src/app/api/auth/staff/login/route.ts)
+export const MAX_FAILURES = 5 // as at sign-in (src/app/api/auth/staff/login/route.ts)
+
+/** Counts one wrong guess toward the sign-in lock (5 → 15 minutes); a lock that has run out restarts the count. Returns the count. */
+export async function countWrongGuess(conn: DB, staffId: string): Promise<number> {
+  const expired = sql`(${staff.lockedUntil} is not null and ${staff.lockedUntil} <= now())`
+  const [u] = await conn.update(staff).set({
+    failedLogins: sql`case when ${expired} then 1 else ${staff.failedLogins} + 1 end`,
+    lockedUntil: sql`case when ${expired} then null when ${staff.failedLogins} + 1 >= ${MAX_FAILURES} then now() + interval '15 minutes' else ${staff.lockedUntil} end`,
+  }).where(eq(staff.id, staffId)).returning({ failed: staff.failedLogins })
+  return u.failed
+}
 
 /** Why a new password is refused, or null. Pure. */
 export function newPasswordProblem(current: string, next: string): string | null {
@@ -29,14 +39,10 @@ export async function changeOwnPassword(s: StaffSession, current: string, next: 
   if (row.isDemo) return { ok: false, status: 403, code: 'demo_account', message: 'Demo accounts share one password, so it cannot be changed here' }
   if (row.lockedUntil && row.lockedUntil > new Date()) return { ok: false, status: 403, code: 'locked', message: 'Too many wrong passwords. Try again in 15 minutes' }
   if (!(await verifyPassword(current, row.passwordHash))) {
-    const expired = sql`(${staff.lockedUntil} is not null and ${staff.lockedUntil} <= now())`
-    const [u] = await sideDb.update(staff).set({
-      failedLogins: sql`case when ${expired} then 1 else ${staff.failedLogins} + 1 end`,
-      lockedUntil: sql`case when ${expired} then null when ${staff.failedLogins} + 1 >= ${MAX_FAILURES} then now() + interval '15 minutes' else ${staff.lockedUntil} end`,
-    }).where(eq(staff.id, s.staffId)).returning({ failed: staff.failedLogins })
+    const failed = await countWrongGuess(sideDb, s.staffId)
     return {
       ok: false, status: 403, code: 'wrong_password', message: 'The current password is not right',
-      audit: { action: 'auth.password_change_failed', details: { locked: u.failed >= MAX_FAILURES } },
+      audit: { action: 'auth.password_change_failed', details: { locked: failed >= MAX_FAILURES } },
     }
   }
   const problem = newPasswordProblem(current, next)

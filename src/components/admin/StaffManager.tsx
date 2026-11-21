@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Plus, RotateCcw, UserCheck, UserX } from 'lucide-react'
+import { Plus, RotateCcw, Trash2, UserCheck, UserX } from 'lucide-react'
 import { Badge, Button, Checkbox, Dialog, Field, Input, Select, Table } from '@/components/ui'
 import { postJson, useRun } from './client'
 
@@ -48,7 +48,7 @@ function EnrollmentDialog({ who, enrollment, onClose }: { who: string; enrollmen
 export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }) {
   const { busy, run } = useRun()
   const [adding, setAdding] = useState(false)
-  const [confirm, setConfirm] = useState<{ kind: 'deactivate' | 'reset_totp' | 'set_role'; row: StaffItem; role?: string } | null>(null)
+  const [confirm, setConfirm] = useState<{ kind: 'deactivate' | 'delete' | 'reset_totp' | 'set_role'; row: StaffItem; role?: string } | null>(null)
   const [enrollment, setEnrollment] = useState<{ who: string; data: Enrollment } | null>(null)
   const [form, setForm] = useState({ name: '', email: '', role: 'desk', password: '' })
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -66,7 +66,7 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
     if (!confirm) return
     const { kind, row, role } = confirm
     const r = await run(`${kind}:${row.id}`, () => postJson<{ enrollment?: Enrollment }>(`/api/admin/staff/${row.id}`, kind === 'set_role' ? { action: 'set_role', role } : { action: kind }),
-      kind === 'deactivate' ? 'Account deactivated; sessions revoked' : kind === 'set_role' ? 'Role changed' : 'Authenticator reset; sessions revoked')
+      kind === 'deactivate' ? 'Account deactivated; sessions revoked' : kind === 'delete' ? 'Account deleted' : kind === 'set_role' ? 'Role changed' : 'Authenticator reset; sessions revoked')
     setConfirm(null)
     if (r?.enrollment) setEnrollment({ who: row.name, data: r.enrollment })
   }
@@ -114,6 +114,7 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
                         onClick={() => run(`reactivate:${r.id}`, () => postJson(`/api/admin/staff/${r.id}`, { action: 'reactivate' }), 'Account reactivated')}>Reactivate</Button>
                     )}
                     <Button size="sm" variant="ghost" icon={<RotateCcw aria-hidden />} disabled={busy !== null} onClick={() => setConfirm({ kind: 'reset_totp', row: r })}>Reset authenticator</Button>
+                    <Button size="sm" variant="ghost" icon={<Trash2 aria-hidden />} disabled={r.id === meId || lastAdmin || r.isDemo || busy !== null} onClick={() => setConfirm({ kind: 'delete', row: r })}>Delete</Button>
                   </div>
                 </td>
               </tr>
@@ -141,11 +142,11 @@ export function StaffManager({ rows, meId }: { rows: StaffItem[]; meId: string }
       </Dialog>
 
       <Dialog open={!!confirm} onClose={() => setConfirm(null)}
-        title={confirm?.kind === 'deactivate' ? `Deactivate ${confirm.row.name}?` : confirm?.kind === 'set_role' ? `Change ${confirm.row.name} from ${roleName(confirm.row.role)} to ${roleName(confirm.role ?? '')}?` : `Reset the authenticator of ${confirm?.row.name}?`}
-        description={confirm?.kind === 'deactivate' ? 'They are signed out immediately and cannot sign in until reactivated.' : confirm?.kind === 'set_role' ? 'Their access changes straight away, and the change is written to the activity log.' : 'The old authenticator stops working and every live session is revoked. A new QR code is shown once.'}
+        title={confirm?.kind === 'deactivate' ? `Deactivate ${confirm.row.name}?` : confirm?.kind === 'delete' ? `Delete the account of ${confirm.row.name} for good?` : confirm?.kind === 'set_role' ? `Change ${confirm.row.name} from ${roleName(confirm.row.role)} to ${roleName(confirm.role ?? '')}?` : `Reset the authenticator of ${confirm?.row.name}?`}
+        description={confirm?.kind === 'deactivate' ? 'They are signed out immediately and cannot sign in until reactivated.' : confirm?.kind === 'delete' ? `They are signed out, and the account cannot be brought back. Records they worked on still show their name. To let them in again, add them as a new staff member; ${confirm.row.email} can be used again.` : confirm?.kind === 'set_role' ? 'Their access changes straight away, and the change is written to the activity log.' : 'The old authenticator stops working and every live session is revoked. A new QR code is shown once.'}
         footer={<>
           <Button variant="ghost" onClick={() => setConfirm(null)}>Cancel</Button>
-          <Button variant={confirm?.kind === 'deactivate' ? 'danger' : 'primary'} onClick={confirmed} loading={busy !== null}>{confirm?.kind === 'deactivate' ? 'Deactivate' : confirm?.kind === 'set_role' ? 'Change role' : 'Reset authenticator'}</Button>
+          <Button variant={confirm?.kind === 'deactivate' || confirm?.kind === 'delete' ? 'danger' : 'primary'} onClick={confirmed} loading={busy !== null}>{confirm?.kind === 'deactivate' ? 'Deactivate' : confirm?.kind === 'delete' ? 'Delete account' : confirm?.kind === 'set_role' ? 'Change role' : 'Reset authenticator'}</Button>
         </>} />
 
       <EnrollmentDialog key={enrollment?.data.secret ?? 'none'} who={enrollment?.who ?? ''} enrollment={enrollment?.data ?? null} onClose={() => setEnrollment(null)} />

@@ -80,6 +80,9 @@ describe('originals in object storage', () => {
     const { c, row } = await uploadStudy('1.2.826.0.1.3680043.8.498.902')
     const b = objects.get(row.object_key)!
     b[b.length - 1] ^= 1
+    // This instance still holds the authentic copy it wrote at upload (files.ts caches originals); a read that reaches the
+    // store, as on any other instance, must refuse the changed object.
+    c.files.resetOriginalCacheForTests()
     await expect(c.db.withOrg(ORG_NARMADA_ID, (tx) => c.files.readFile(tx, row.id))).rejects.toThrow()
     await expect(owner`update document_files set object_key = 'o/elsewhere' where id = ${row.id}`).rejects.toThrow(/immutable/)
   }, 90_000)

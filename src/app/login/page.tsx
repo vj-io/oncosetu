@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
 import { roleHome } from "@/lib/staff-nav";
-import { Avatar, Badge, Button, Field, Input } from "@/components/ui";
+import { Avatar, Badge, Button, Field, Input, PasswordInput } from "@/components/ui";
 import { AuthShell } from "@/components/shell/AuthShell";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
@@ -95,7 +95,7 @@ export default function StaffLoginPage() {
           </Field>
           <div className="relative">
             <Field label="Password">
-              <Input type="password" name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+              <PasswordInput name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
             </Field>
             <Link href="/login/reset" className="absolute -top-1.5 right-0 inline-flex min-h-8 items-center rounded-md px-1 text-sm font-medium text-setu-ink underline decoration-link underline-offset-4 hover:decoration-setu-ink">Forgot your password?</Link>
           </div>

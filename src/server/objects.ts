@@ -4,6 +4,14 @@
 // A minimal AWS Signature Version 4 client (PUT, GET, DELETE of one object), so no SDK is added.
 import { createHash, createHmac } from 'node:crypto'
 
+/** A refusal from the store, with its HTTP status and S3 error code (AccessDenied, NoSuchKey, …). */
+export class ObjectStoreError extends Error {
+  constructor(public method: string, public status: number, public storageCode: string) {
+    super(`object storage ${method} failed: HTTP ${status} ${storageCode}`.trim())
+    this.name = 'ObjectStoreError'
+  }
+}
+
 export type ObjectStore = {
   put(key: string, body: Uint8Array): Promise<void>
   get(key: string): Promise<Uint8Array>
@@ -46,7 +54,7 @@ export function s3Store(env: { endpoint: string; region: string; bucket: string;
     const res = await fetch(url, { method, headers: { ...headers, authorization }, body: body ? new Uint8Array(body) : undefined })
     if (!res.ok && !(method === 'DELETE' && res.status === 404)) {
       const text = (await res.text()).slice(0, 300)
-      throw new Error(`object storage ${method} failed: HTTP ${res.status} ${text.match(/<Code>([^<]+)<\/Code>/)?.[1] ?? ''}`.trim())
+      throw new ObjectStoreError(method, res.status, text.match(/<Code>([^<]+)<\/Code>/)?.[1] ?? '')
     }
     return res
   }

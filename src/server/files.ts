@@ -5,7 +5,9 @@ import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documentFiles } from '@/db/schema'
 import { decryptBytes, encryptBytes, sha256Hex } from './crypto'
-import { objectStore } from './objects'
+import { HttpError } from './http'
+import { log } from './log'
+import { objectStore, ObjectStoreError } from './objects'
 
 export type StoreFileInput = {
   orgId: string; patientId: string; documentId: string; kind: 'original' | 'page_image'
@@ -40,10 +42,22 @@ export async function readFile(tx: Tx, fileId: string) {
   }
 }
 
+/** Shown when object storage cannot hand back a stored original. */
+export const FILE_UNAVAILABLE = 'The stored file could not be read just now. It is kept: try again later, or ask an administrator to check the file storage (its daily download limit, or its access key).'
+
 /** The plaintext of a document_files row, wherever its ciphertext lives (AES-GCM: a changed object fails to decrypt). */
 export async function storedBytes(f: { objectKey: string | null; bytesEnc: Buffer | Uint8Array; dekWrapped: string }): Promise<Buffer> {
   if (!f.objectKey) return decryptBytes(Buffer.from(f.bytesEnc), f.dekWrapped)
   const store = objectStore()
   if (!store) throw new Error('this file is in object storage, but no object store is configured (S3_*)')
-  return decryptBytes(Buffer.from(await store.get(f.objectKey)), f.dekWrapped)
+  let sealed: Uint8Array
+  try {
+    sealed = await store.get(f.objectKey)
+  } catch (e) {
+    // The store refused or could not be reached (a key without read access, another bucket, an outage). The original is
+    // kept; say so plainly instead of failing with an unhandled error that the viewer shows as a compression problem.
+    log.error('stored file could not be read', e instanceof ObjectStoreError ? { status: e.status, storageCode: e.storageCode } : { errorName: (e as Error).name })
+    throw new HttpError(503, 'file_unavailable', FILE_UNAVAILABLE)
+  }
+  return decryptBytes(Buffer.from(sealed), f.dekWrapped)
 }

@@ -23,7 +23,7 @@ test('V01-E2E-01 staff logs in with TOTP; a wrong TOTP is rejected', async ({ pa
   // The real form: wrong code shows the alert and stays on /login; the right code signs in to the desk.
   await page.goto('/login')
   await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password').fill(PASSWORD)
+  await page.getByLabel('Password', { exact: true }).fill(PASSWORD) // exact: the eye button is named "Show password"
   await page.getByLabel('Authenticator code').fill(wrongTotpFor(email))
   await page.getByRole('button', { name: 'Sign in' }).click()
   await expect(page.locator('p[role="alert"]')).toContainText('incorrect')

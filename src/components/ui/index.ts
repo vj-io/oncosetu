@@ -1,4 +1,5 @@
 export { Button, ButtonLink, buttonClasses, Input, Textarea, Select, Checkbox, Switch, Field } from "./form";
+export { PasswordInput } from "./PasswordInput";
 export type { ButtonProps, ButtonLinkProps, ButtonVariant, ButtonSize } from "./form";
 
 export {

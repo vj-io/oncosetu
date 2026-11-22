@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, KeyRound, Plus, RefreshCw, Tag, Unlink } from 'lucide-react'
-import { Button, Field, Input, Select, StageTracker, Textarea, useToast } from '@/components/ui'
+import { Button, Field, Input, PasswordInput, Select, StageTracker, Textarea, useToast } from '@/components/ui'
 import { EVENT_FIELDS, EXTRACTABLE_EVENT_TYPES } from '@/core/types'
 import { HeldStages } from './HeldStages'
 import { postJson } from './IdentityDecision'
@@ -165,7 +165,7 @@ export function PasswordForm({ documentId, incorrect }: { documentId: string; in
   return (
     <form className="grid gap-3" onSubmit={(e) => { e.preventDefault(); void a.run(`/api/documents/${documentId}/password`, { password: pw }, 'Opening with the password').then(() => setPw('')) }}>
       <Field label="PDF password" error={a.error ?? (incorrect ? 'That password did not open the file.' : undefined)} hint="Labs often use the date of birth or phone number. Used once to read the file; never stored.">
-        <Input type="password" autoComplete="off" value={pw} onChange={(e) => setPw(e.target.value)} />
+        <PasswordInput autoComplete="off" value={pw} onChange={(e) => setPw(e.target.value)} />
       </Field>
       <div><Button type="submit" size="sm" icon={<KeyRound />} loading={a.busy} disabled={!pw}>Open file</Button></div>
     </form>

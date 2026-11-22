@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Maximize2, Pause, Play, ScanLine } from "lucide-react";
 import { bodyLabel, fmtDay } from "@/server/records/core";
 
+
+const PREVIEW_FAILED = "Preview could not be shown — the file is stored";
 export type ImagingDetails = {
   label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null
   patientName: string | null; patientSex: string | null; patientAge: string | null; instances: number; frames: number; synthetic: boolean
@@ -74,7 +76,12 @@ export function ImagingViewer({ documentId, details, canView, compact = false, s
             <img
               src={`/api/documents/${documentId}/preview?frame=${i}${win ? `&window=${win}` : ""}`} alt={`Preview picture of ${details.label}, image ${i + 1} of ${slices}`}
               className={compact ? "h-[18rem] w-auto max-w-full object-contain" : "h-[26rem] max-h-[32rem] w-auto max-w-full object-contain"}
-              onLoad={() => setShown(i)} onError={() => { setPlaying(false); setFailed("Preview not available for this compression — file stored"); }}
+              onLoad={() => setShown(i)}
+              onError={(e) => {
+                setPlaying(false);
+                // An <img> cannot read the error, so ask once: the server says whether it is the compression or the storage.
+                fetch(e.currentTarget.src).then((r) => (r.ok ? null : r.json())).then((j) => setFailed(j?.error?.message ?? PREVIEW_FAILED)).catch(() => setFailed(PREVIEW_FAILED));
+              }}
             />
           ) : (
             <p className="flex items-center gap-2 px-4 py-10 text-center text-sm text-gallery"><ScanLine aria-hidden className="size-5" />{failed ?? "Preview not available — file stored"}</p>

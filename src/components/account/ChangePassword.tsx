@@ -1,7 +1,7 @@
 'use client'
 import { useState, type FormEvent } from 'react'
 import { friendlyError, postJson } from '@/components/admin/client'
-import { Button, Field, Input } from '@/components/ui'
+import { Button, Field, PasswordInput } from '@/components/ui'
 
 /** The form's own check before sending: the two new entries match. The server checks the rest (own-password.ts). */
 export const confirmProblem = (next: string, again: string) => (again && next !== again ? 'The two new passwords are not the same' : null)
@@ -35,13 +35,13 @@ export function ChangePassword({ min }: { min: number }) {
   return (
     <form method="post" onSubmit={submit} className="grid max-w-md gap-4">
       <Field label="Current password">
-        <Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+        <PasswordInput autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
       </Field>
       <Field label="New password" hint={`At least ${min} characters. A short sentence you can remember is easiest.`}>
-        <Input type="password" autoComplete="new-password" minLength={min} value={next} onChange={(e) => setNext(e.target.value)} required />
+        <PasswordInput autoComplete="new-password" minLength={min} value={next} onChange={(e) => setNext(e.target.value)} required />
       </Field>
       <Field label="New password again" error={mismatch}>
-        <Input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
+        <PasswordInput autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} required />
       </Field>
       <div><Button type="submit" loading={busy} disabled={!ready}>Change password</Button></div>
       {msg && <p role="status" className={msg.ok ? 'text-sm text-sage-ink' : 'text-sm text-madder-ink'}>{msg.text}</p>}

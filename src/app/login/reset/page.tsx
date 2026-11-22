@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import Link from "next/link";
 import { CircleAlert, CircleCheck } from "lucide-react";
 import { confirmProblem } from "@/components/account/ChangePassword";
-import { Button, Field, Frame, Input } from "@/components/ui";
+import { Button, Field, Frame, Input, PasswordInput } from "@/components/ui";
 import { AuthShell } from "@/components/shell/AuthShell";
 
 const MIN = 12; // MIN_PASSWORD, src/server/own-password.ts
@@ -79,10 +79,10 @@ export default function ResetPasswordPage() {
                   />
                 </Field>
                 <Field label="New password" hint={`At least ${MIN} characters. A short sentence you can remember is easiest.`}>
-                  <Input type="password" name="new-password" autoComplete="new-password" minLength={MIN} required value={next} onChange={(e) => setNext(e.target.value)} />
+                  <PasswordInput name="new-password" autoComplete="new-password" minLength={MIN} required value={next} onChange={(e) => setNext(e.target.value)} />
                 </Field>
                 <Field label="New password again" error={mismatch}>
-                  <Input type="password" name="new-password-again" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
+                  <PasswordInput name="new-password-again" autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)} />
                 </Field>
                 {error && (
                   <p role="alert" className="flex items-start gap-2 border border-madder/40 bg-madder-tint px-4 py-3 text-[15px] text-madder-ink rounded-lg">

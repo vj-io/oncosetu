@@ -76,7 +76,7 @@ function Fold({ summary, children }: { summary: string; children: ReactNode }) {
 export default async function PatientHome({ searchParams }: { searchParams: PortalSearch }) {
   const ctx = await loadPortal(searchParams)
   const { lang } = ctx
-  const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId, ctx.disclosure))
+  const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId, { disclosure: ctx.disclosure, session: ctx.session }))
   const sum = buildHomeSummary(data, ctx.disclosure, lang)
   const q = `?lang=${lang}`
   const pending = sum.looking.filter((m) => m.state !== 'received')

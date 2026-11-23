@@ -25,12 +25,17 @@ const notFound = () => new HttpError(404, 'not_found', 'Not found')
 const ATTACHED = ['auto', 'attached'] as const
 
 /**
- * S3a: a patient/caregiver session opens the files it uploaded itself; staff-uploaded originals only once disclosure is
- * cleared (they can name the diagnosis), and never one that is not, or no longer, attached to this patient.
+ * S3a: a patient/caregiver session opens the files it uploaded itself (the same person: a caregiver's upload can name the
+ * diagnosis to a patient not yet told); everything else only once disclosure is cleared (FR-CON-07), and never one that
+ * is not, or no longer, attached to this patient.
  */
-export const patientMayOpen = (d: Pick<Doc, 'uploadedByKind' | 'attachState'>, disclosure: string) =>
-  d.uploadedByKind === 'patient' || d.uploadedByKind === 'caregiver'
+export const patientMayOpen = (d: Pick<Doc, 'uploadedByKind' | 'uploadedById' | 'attachState'>, disclosure: string, who: { kind: 'patient' | 'caregiver'; id: string }) =>
+  (d.uploadedByKind === who.kind && d.uploadedById === who.id)
   || (disclosure === 'cleared' && (ATTACHED as readonly string[]).includes(d.attachState))
+
+/** Who a patient-side session is, for patientMayOpen. */
+export const portalActor = (s: { kind: 'patient' | 'caregiver'; patientId: string; caregiverId?: string }) =>
+  ({ kind: s.kind, id: s.kind === 'caregiver' ? s.caregiverId! : s.patientId })
 
 /** Loads a document visible under RLS and applies the patient access policy (uniform 404 for unknown ids). */
 export async function loadDocument(ctx: Ctx, documentId: string): Promise<Doc> {

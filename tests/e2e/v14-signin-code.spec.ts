@@ -1,6 +1,7 @@
 // FR-ID-02 in person, FR-ING-03: where no SMS reaches the patient, staff show a one-time sign-in code on screen ("Give
 // sign-in code"). The patient signs in on their own phone with it and sends a paper. That paper is stored once: the
-// clinician and the patient (from the portal) open the same original, byte for byte; another patient cannot open it.
+// clinician and the patient (from the portal) open the same original, byte for byte; another patient cannot open it, and
+// a paper the caregiver sent opens for the patient only once disclosure is cleared (FR-CON-07).
 import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { adminDb } from '../../src/db'
@@ -12,7 +13,7 @@ import { test, expect } from './helpers/fixtures'
 test('FR-ID-02 the desk gives a sign-in code; the patient signs in with it, sends a paper; doctor and patient open the same stored file', async ({ staff, ui, browser }) => {
   const desk = await staff('desk')
   // AI reading off: the paper is only stored and read by the rule library, so the test needs no LLM call.
-  const p = await registerPatient(desk, { base: 'hero', primaryContact: 'patient', purposes: { ...ALL_PURPOSES, ai: false } })
+  const p = await registerPatient(desk, { base: 'hero', primaryContact: 'patient', withCaregiver: true, purposes: { ...ALL_PURPOSES, ai: false } })
   const since = new Date(Date.now() - 1000)
 
   // Desk screen: six digits and the phone's last four; nothing is texted, the issue is audited.
@@ -78,6 +79,26 @@ test('FR-ID-02 the desk gives a sign-in code; the patient signs in with it, send
   const byPatient = await page.request.get((await open.getAttribute('href'))!)
   expect(byPatient.status()).toBe(200)
   expect(sha(await byPatient.body())).toBe(doc.sha256)
+
+  // FR-CON-07: a paper the caregiver sent can name the diagnosis, so the patient (not yet told) cannot open it; the
+  // caregiver can open their own, not the patient's. Once a clinician clears disclosure, the patient opens it too.
+  const caregiver = await portalLogin(p.caregiverPhone!)
+  const cgUp = await caregiver.upload('/api/p/documents', { ...demoDoc('hero__10-histopathology-later.pdf'), mimeType: 'application/pdf' })
+  expect(cgUp.ok).toBe(true)
+  const cgDoc = (await documentsOf(p.id)).find((d) => d.uploadedByKind === 'caregiver')!
+  await waitDoc(records, cgDoc.id)
+  if ((await documentsOf(p.id)).find((d) => d.id === cgDoc.id)!.attachState === 'pending_decision') {
+    expect((await records.post(`/api/documents/${cgDoc.id}/attach`, { decision: 'attach', reason: 'Name checked on the page by eye' })).ok).toBe(true)
+  }
+  expect((await page.request.get(`/api/documents/${cgDoc.id}/file`)).status()).toBe(404)
+  await page.goto('/p?lang=en')
+  await expect(page.getByTestId('open-paper')).toHaveCount(1) // their own paper only
+  expect((await caregiver.ctx.get(`/api/documents/${cgDoc.id}/file`)).status()).toBe(200)
+  expect((await caregiver.ctx.get(`/api/documents/${doc.id}/file`)).status()).toBe(404)
+  await caregiver.dispose()
+  const clinician = await staff('clinician')
+  expect((await clinician.post(`/api/patients/${p.id}/disclosure`, { status: 'cleared', reason: 'patient_informed' })).ok).toBe(true)
+  expect((await page.request.get(`/api/documents/${cgDoc.id}/file`)).status()).toBe(200)
   await ctx.close()
 
   // Another patient (C) opens only their own file: A's paper is not found for them, and not listed.

@@ -69,6 +69,8 @@ const WORDS: Record<string, string> = {
   'auth.patient_login': 'Patient signed in',
   'auth.otp_sent': 'Sign-in code sent',
   'auth.otp_failed': 'Wrong sign-in code',
+  'auth.signin_code_issued': 'Sign-in code shown at the desk',
+  'auth.signin_code_limited': 'Sign-in code limit reached',
   'abdm.consent_denied': 'ABDM consent was denied', 'abdm.consent_expired': 'ABDM consent expired', 'abdm.consent_granted': 'ABDM consent was given', 'abdm.consent_revoked': 'ABDM consent was withdrawn',
   'abdm.erased': 'ABDM records erased', 'abdm.transfer_failed': 'ABDM transfer failed', 'abdm.transfer_refused': 'ABDM transfer refused',
   'audit.export': 'Activity log exported', 'audit.verify_chain': 'Whole log checked for changes', 'auth.demo_signin': 'Demo sign-in',

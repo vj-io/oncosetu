@@ -24,14 +24,15 @@ export default async function PatientLoginPage({ searchParams }: { searchParams:
   const station = sp.station === '1'
   const after = station ? `/p/visit?station=1${chosen ? `&lang=${chosen}` : ''}` : landing(next, chosen)
   if (s && s.kind !== 'staff') redirect(after)
+  const sms = smsAvailable()
   return (
     // Not signed in: the neutral brand always (nothing is known about this visitor's disclosure status).
     <PatientShell brand="Setu Records" lang={lang} displayName="" homeHref={`/p/login${station ? '?station=1' : chosen ? `?lang=${chosen}` : ''}`}>
       <Kicker lang={lang}>{tp(lang, station ? 'stationKicker' : 'loginKicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em]">{tp(lang, station ? 'stationTitle' : 'loginTitle')}</h1>
-      <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : 'loginIntro')}</p>
-      {smsAvailable() ? <LoginForm lang={lang} demo={isDemo()} after={after} station={station} />
-        : <p role="status" className="mt-6 border border-rule bg-matte p-4 text-[16px] rounded-lg">{tp(lang, 'loginUnavailable')}</p>}
+      <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : sms ? 'loginIntro' : 'loginIntroDesk')}</p>
+      {/* without SMS the code comes from the front desk (staff "Give sign-in code") */}
+      <LoginForm lang={lang} demo={isDemo()} after={after} station={station} sms={sms} />
       <p className="mt-8 text-[16px] text-muted">{tp(lang, 'loginHelp')}</p>
       <p className="mt-3 text-[16px] text-muted">
         {tp(lang, 'staffLinkText')}{' '}

@@ -7,7 +7,7 @@ import { tp } from '@/i18n/patient'
 export type HomeData = {
   /** Today in India time (YYYY-MM-DD, demo-clock aware): splits the written dates into coming up and earlier. */
   today: string
-  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null }[]
+  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null; /** The patient may open this paper's file. */ open?: boolean }[]
   /** Production completeness items: a document type linked to a date, never a reason. */
   looking: {
     id: string; expectedTypes: DocType[]; state: 'expected' | 'requested' | 'received'
@@ -47,7 +47,7 @@ export type LookingRow = {
 }
 
 export type HomeSummary = {
-  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean }[]
+  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean; open: boolean }[]
   looking: LookingRow[]
   /** Dates written in the papers that are today or later, soonest first. */
   coming: WrittenDateRow[]
@@ -120,6 +120,7 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
       dated: x.documentDate ? tp(lang, 'docDatedOn', { date: formatDateIN(x.documentDate, lang) }) : null,
       received: tp(lang, 'docReceivedOn', { date: formatDateIN(istDate(x.receivedAt), lang) }),
       disputed: !!x.disputed,
+      open: !!x.open,
     }))
 
   const looking: LookingRow[] = d.looking.map((x) => {

@@ -16,10 +16,14 @@ const MAX_TRIES = 5; // the server locks the phone for 15 minutes after 5 wrong 
 const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 const minutesLeft = (ms: number) => Math.max(1, Math.ceil(ms / 60_000));
 
-/** `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for. */
-export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; demo: boolean; after: string; station?: boolean }) {
+/**
+ * `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for.
+ * `sms` false = no text message can reach anyone here: the code always comes from the front desk, so nothing is sent.
+ */
+export function LoginForm({ lang, demo, after, station = false, sms = true }: { lang: Lang; demo: boolean; after: string; station?: boolean; sms?: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<"phone" | "code">("phone");
+  const [fromDesk, setFromDesk] = useState(!sms); // the code in hand came from the front desk, not an SMS
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,9 +44,20 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
     }
   }
 
+  /** Straight to the code box with a desk code: asking for an SMS would replace the desk code with a new one. */
+  function takeDeskCode() {
+    if (phone.replace(/\D/g, "").length < 10) return setError(tp(lang, "phoneInvalid"));
+    setError(null);
+    setCode("");
+    setFromDesk(true);
+    setStep("code");
+  }
+
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
+    if (!sms) return takeDeskCode();
     if (phone.replace(/\D/g, "").length < 10) return setError(tp(lang, "phoneInvalid"));
+    setFromDesk(false);
     const t = Date.now();
     const recent = asked.filter((x) => t - x < SEND_WINDOW_MS);
     if (recent.length >= SEND_MAX) { // the server would send nothing: say so, and when to try again
@@ -132,22 +147,27 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
             </PField>
             {error && <ErrorNote>{error}</ErrorNote>}
             <PButton type="submit" big loading={busy} className="w-full">
-              {tp(lang, "sendCode")}
+              {tp(lang, sms ? "sendCode" : "next")}
             </PButton>
+            {sms && (
+              <button type="button" data-testid="have-desk-code" onClick={takeDeskCode} className="h-11 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
+                {tp(lang, "haveDeskCode")}
+              </button>
+            )}
           </form>
         ) : (
           <form method="post" onSubmit={verify} className="grid gap-5" noValidate>
             <p role="status" className="text-[16px] text-muted">
-              {tp(lang, "codeSent")}
+              {tp(lang, fromDesk ? "deskCodeHelp" : "codeSent")}
             </p>
-            {asked.length > 0 && (() => {
+            {!fromDesk && asked.length > 0 && (() => {
               const last = asked[asked.length - 1];
               const recent = asked.filter((x) => now - x < SEND_WINDOW_MS);
               const limited = recent.length >= SEND_MAX;
               return <p role="status" data-testid="code-sent-at" className="text-[16px] text-muted">{limited ? tp(lang, "codeWaitMore", { time: clock(last), n: minutesLeft(recent[0] + SEND_WINDOW_MS - now) }) : tp(lang, "codeSentAt", { time: clock(last) })}</p>;
             })()}
-            <p data-testid="code-not-arrived" className="text-[16px] text-muted">{tp(lang, "codeNotArrived")}</p>
-            <PField label={tp(lang, "codeLabel")} hint={tp(lang, "codeHint")}>
+            {!fromDesk && <p data-testid="code-not-arrived" className="text-[16px] text-muted">{tp(lang, "codeNotArrived")}</p>}
+            <PField label={tp(lang, "codeLabel")} hint={tp(lang, fromDesk ? "deskCodeHint" : "codeHint")}>
               <PInput
                 big
                 name="code"
@@ -166,9 +186,11 @@ export function LoginForm({ lang, demo, after, station = false }: { lang: Lang; 
               {tp(lang, "signIn")}
             </PButton>
             <div className="flex flex-wrap gap-x-6">
-              <button type="button" onClick={() => sendCode()} disabled={busy} className="h-11 text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4 disabled:opacity-60">
-                {tp(lang, "resendCode")}
-              </button>
+              {sms && (
+                <button type="button" onClick={() => sendCode()} disabled={busy} className="h-11 text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4 disabled:opacity-60">
+                  {tp(lang, fromDesk ? "sendCode" : "resendCode")}
+                </button>
+              )}
               <button type="button" onClick={() => { setStep("phone"); setError(null); setTries(0); }} className="h-11 text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
                 {tp(lang, "changeNumber")}
               </button>

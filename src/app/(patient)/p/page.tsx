@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CalendarDays, Camera, ClipboardList, FileText, History, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
+import { CalendarDays, Camera, ClipboardList, ExternalLink, FileText, History, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
 import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { MissingPaper } from '@/components/portal/MissingPaper'
@@ -47,6 +47,11 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
             <div className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-[17px]">{d.label}</span>
               <span className="text-[16px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
+              {d.open && (
+                <a href={`/api/documents/${d.id}/file`} target="_blank" rel="noopener" data-testid="open-paper" className="inline-flex min-h-11 items-center gap-2 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
+                  <ExternalLink aria-hidden className="size-4" />{tp(lang, 'openPaper')}
+                </a>
+              )}
               <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
             </div>
           </Frame>
@@ -71,7 +76,7 @@ function Fold({ summary, children }: { summary: string; children: ReactNode }) {
 export default async function PatientHome({ searchParams }: { searchParams: PortalSearch }) {
   const ctx = await loadPortal(searchParams)
   const { lang } = ctx
-  const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId))
+  const data = await withOrg(ctx.session.orgId, (tx) => loadHomeData(tx, ctx.session.orgId, ctx.session.patientId, ctx.disclosure))
   const sum = buildHomeSummary(data, ctx.disclosure, lang)
   const q = `?lang=${lang}`
   const pending = sum.looking.filter((m) => m.state !== 'received')

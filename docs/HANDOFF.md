@@ -39,7 +39,10 @@ Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulate
 Twilio (the pilot), the code comes from the front desk: a patient's Overview tab has "Give sign-in code", which shows a
 one-time 6-digit code (same 5-minute lifetime, send limit and 5-try lock as an SMS code) for the primary contact to type
 with their phone number. A record without a mobile number gets one on Consent & access (Caregivers and contact), with the
-patient present; one number belongs to one record per clinic. Home lists the papers the patient may open (`patientMayOpen`), served by the same
+patient present; one number belongs to one record per clinic. After that first code sign-in, home offers "Choose a
+password" (`/p/password`, migration 0029: scrypt hash on `patients` / `caregivers`); from then on the patient signs in
+from home with mobile number + password (`POST /api/auth/patient/password`; 5 wrong tries lock it for 15 minutes; a
+forgotten password is replaced by signing in with a desk code and choosing a new one). Home lists the papers the patient may open (`patientMayOpen`), served by the same
 `/api/documents/[id]/file` route and stored original that staff open.
 
 ### Environment variables (names only)

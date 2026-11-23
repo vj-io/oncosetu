@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers'
 import { brandFor, langFromAcceptLanguage } from '@/core/copy'
 import type { Disclosure, Lang } from '@/core/types'
 import { withOrg } from '@/db'
-import { orgSettings, patients, type OrgFlags } from '@/db/schema'
+import { caregivers, orgSettings, patients, type OrgFlags } from '@/db/schema'
 import { LANG_COOKIE, langParam, pickLang } from './lang'
 import { decryptField } from '../crypto'
 import { activeConsent, assertPatientAccess, initials, type ActiveConsent } from '../patients'
@@ -24,6 +24,8 @@ export type PortalCtx = {
   consent: ActiveConsent | null
   /** Who is acting: every mutation is attributed to this id (FR-CON-02). */
   actor: { kind: 'patient' | 'caregiver'; id: string }
+  /** The signed-in person has chosen a portal password (else home offers to choose one). */
+  hasPassword: boolean
 }
 
 /** "Mohd.", "Dr.", "K." are not names: use the whole name then. */
@@ -51,10 +53,11 @@ export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx
     await assertPatientAccess({ db: tx, session }, session.patientId)
     const [p] = await tx.select({
       nameEnc: patients.nameEnc, disclosure: patients.disclosureStatus, primaryContact: patients.primaryContact,
-      lang: patients.preferredLanguage,
+      lang: patients.preferredLanguage, pw: patients.passwordHash,
     }).from(patients).where(eq(patients.id, session.patientId))
+    const [cg] = session.caregiverId ? await tx.select({ pw: caregivers.passwordHash }).from(caregivers).where(eq(caregivers.id, session.caregiverId)) : []
     const [s] = await tx.select({ flags: orgSettings.flags }).from(orgSettings).where(eq(orgSettings.orgId, session.orgId))
-    return { p, flags: s?.flags ?? { voice: false, tts: false, ai_extraction: false }, consent: await activeConsent(tx, session.patientId) }
+    return { p, hasPassword: !!(session.caregiverId ? cg?.pw : p.pw), flags: s?.flags ?? { voice: false, tts: false, ai_extraction: false }, consent: await activeConsent(tx, session.patientId) }
   })
   return {
     session,
@@ -67,5 +70,6 @@ export async function loadPortal(searchParams?: PortalSearch): Promise<PortalCtx
     flags: data.flags,
     consent: data.consent,
     actor: { kind: session.kind, id: session.caregiverId ?? session.patientId },
+    hasPassword: data.hasPassword,
   }
 }

@@ -2,7 +2,7 @@ import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
 import { ConsentSignPanel } from '@/components/registration/ConsentSignPanel'
 import { IdCheckPanel } from '@/components/registration/IdCheckPanel'
 import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
-import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
+import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PatientPhonePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
 import { Badge, EmptyState, Frame, Table } from '@/components/ui'
 import { consents, shareLinks, staff } from '@/db/schema'
 import { now } from '@/server/clock'
@@ -86,6 +86,7 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
           patientId={id} minor={p.minor} patientCanReceiveCode={d.canCode}
           caregivers={p.caregivers.map(({ id: cid, name, relation, phoneMasked, isGuardian, active }) => ({ id: cid, name, relation, phoneMasked, isGuardian, active }))}
         />
+        {!p.deceased && (role === 'desk' || role === 'records' || role === 'clinician') && <PatientPhonePanel patientId={id} phoneMasked={p.phoneMasked} />}
         <PrimaryContactPanel patientId={id} current={p.primaryContact} minor={p.minor} />
       </Section>
 

@@ -1,11 +1,11 @@
 // Patient-level settings from the Consent & access tab: disclosure (FR-CON-07), primary contact, deceased (E-ID-11),
 // handing control to a minor who turned 18 (E-ID-10), break-glass (FR-ID-10).
-import { and, eq, isNull } from 'drizzle-orm'
+import { and, eq, isNull, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { breakGlass, caregivers, patients, sessions } from '@/db/schema'
 import { registrationCopy } from '@/i18n/registration'
 import { now } from '../clock'
-import { decryptField } from '../crypto'
+import { decryptField, encryptField, maskPhone, normalizePhone, phoneHmac } from '../crypto'
 import { HttpError } from '../http'
 import { sendMessage } from '../outbox'
 import { assertPatientAccess } from '../patients'
@@ -13,7 +13,7 @@ import { primaryContactTarget, patientPhoneTarget, tellPatient } from './contact
 import { confirmAction, confirmPurpose } from './confirm'
 import { fail, type StaffCtx } from './http'
 import { ageAt } from './logic'
-import type { Confirm } from './schemas'
+import { phoneField, type Confirm } from './schemas'
 
 /** Disclosure changes carry a reason CODE (the audit log holds ids and enums only, never free text). */
 export const DISCLOSURE_REASONS = [
@@ -55,6 +55,28 @@ export async function setPrimaryContact(ctx: StaffCtx<{ primaryContact: 'patient
     && await tellPatient(ctx.db, { orgId: ctx.session.orgId, patientId, templateKey: 'primary_contact.changed', body: registrationCopy.primaryContactSms })
   await ctx.audit('patient.primary_contact_changed', 'patient', patientId, { from: p.primaryContact, to: primaryContact, patientNotified })
   return { ok: true, primaryContact }
+}
+
+/** The patient's own phone, added or changed with the patient in front of staff (witnessed; nothing can be texted to a number not yet on file). */
+export const patientPhoneSchema = z.object({ phone: phoneField, confirm: z.object({ method: z.literal('witnessed'), attest: z.literal(true) }) })
+
+export async function setPatientPhone(ctx: StaffCtx<z.infer<typeof patientPhoneSchema>>, patientId: string) {
+  const p = await loadFor(ctx, patientId)
+  if (p.deceased) return fail(409, 'deceased', 'This patient is recorded as deceased')
+  const phone = normalizePhone(ctx.body.phone)
+  const h = phone ? phoneHmac(phone) : null
+  if (!phone || !h) return fail(400, 'invalid_phone', 'Enter a mobile number with 10 digits, or with its country code')
+  if (h === p.phoneHmac) return fail(409, 'unchanged', 'This number is already on file')
+  // Sign-in by phone opens the first record a number belongs to, so one number belongs to one person in this clinic.
+  const [other] = await ctx.db.select({ id: patients.id }).from(patients).where(and(eq(patients.phoneHmac, h), ne(patients.id, patientId))).limit(1)
+  const [cg] = await ctx.db.select({ id: caregivers.id }).from(caregivers).where(and(eq(caregivers.phoneHmac, h), eq(caregivers.active, true), isNull(caregivers.revokedAt))).limit(1)
+  if (other || cg) return fail(409, 'phone_in_use', 'This number is already on another record in this clinic (a patient or a caregiver)')
+  // The old number hears about it first, so a change they did not make is noticed.
+  const oldNotified = !!p.phoneEnc
+    && await tellPatient(ctx.db, { orgId: ctx.session.orgId, patientId, templateKey: 'patient_phone.changed', body: registrationCopy.patientPhoneSms })
+  await ctx.db.update(patients).set({ phoneEnc: encryptField(phone), phoneHmac: h, updatedAt: new Date() }).where(eq(patients.id, patientId))
+  await ctx.audit('patient.phone_changed', 'patient', patientId, { hadPhone: !!p.phoneEnc, oldNotified, method: 'witnessed' })
+  return { ok: true, phoneMasked: maskPhone(phone) }
 }
 
 /** Closes patient-facing access: sessions are refused on the next request and OTP login skips deceased patients. */

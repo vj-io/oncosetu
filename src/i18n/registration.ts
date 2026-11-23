@@ -31,6 +31,11 @@ export const registrationCopy = {
     hi: 'आपके Setu Records खाते में परिवार का एक सदस्य जोड़ा गया। अगर यह आपने नहीं किया, तो क्लिनिक को बताइए।',
     hinglish: 'Setu Records account mein ek family member joda gaya. Aapne nahi kiya to clinic ko batayein.',
   },
+  patientPhoneSms: {
+    en: 'The mobile number on your Setu Records account was changed at the clinic. If this was not you, tell the clinic.',
+    hi: 'आपके Setu Records खाते का मोबाइल नंबर क्लिनिक में बदला गया। अगर यह आपने नहीं किया, तो क्लिनिक को बताइए।',
+    hinglish: 'Aapke Setu Records account ka mobile number clinic mein badla gaya. Aapne nahi kiya to clinic ko batayein.',
+  },
   primaryContactSms: {
     en: 'The main contact for your Setu Records account was changed. If this was not you, tell the clinic.',
     hi: 'आपके Setu Records खाते का मुख्य संपर्क बदला गया। अगर यह आपने नहीं किया, तो क्लिनिक को बताइए।',

@@ -170,6 +170,29 @@ export function DisclosurePanel({ patientId, current, canEdit }: { patientId: st
   );
 }
 
+/** The patient's own mobile number: codes and the portal sign-in use it. Added or changed only with the patient present. */
+export function PatientPhonePanel({ patientId, phoneMasked }: { patientId: string; phoneMasked: string | null }) {
+  const a = useAction(patientId);
+  const [phone, setPhone] = useState("");
+  const [here, setHere] = useState(false);
+  return (
+    <div className="grid gap-3" data-testid="patient-phone">
+      <p className="text-sm">{phoneMasked ? <>Patient’s mobile: <span className="font-mono">{phoneMasked}</span></> : "No mobile number on file for the patient. Add one so they can sign in to see and send papers."}</p>
+      <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,16rem)_auto]">
+        <Field label={phoneMasked ? "New mobile number" : "Mobile number"} hint="10 digits, or with the country code.">
+          <Input type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </Field>
+        <Button className="sm:mt-6" variant="secondary" disabled={!here || phone.replace(/\D/g, "").length < 10} loading={a.busy === "ph"}
+          onClick={() => a.run("ph", "phone", { phone, confirm: { method: "witnessed", attest: true } }, () => { setPhone(""); setHere(false); return "Mobile number saved."; })}>
+          {phoneMasked ? "Change number" : "Add number"}
+        </Button>
+      </div>
+      <Checkbox checked={here} onChange={(e) => setHere(e.target.checked)} label="The patient is here in person and told me this number is theirs." />
+      <Status error={a.error} done={a.done} />
+    </div>
+  );
+}
+
 export function PrimaryContactPanel({ patientId, current, minor }: { patientId: string; current: "patient" | "caregiver"; minor: boolean }) {
   const a = useAction(patientId);
   const [v, setV] = useState(current);

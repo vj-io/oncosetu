@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { documentFiles, patients } from '@/db/schema'
 import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
-import { loadDocument, patientMayOpen } from '@/server/pipeline/actions'
+import { loadDocument, patientMayOpen, portalActor } from '@/server/pipeline/actions'
 import { patientIdParam } from '@/server/registration/http'
 
 const q = z.object({ kind: z.enum(['original', 'page']).default('original'), page: z.coerce.number().int().min(1).default(1) })
@@ -14,7 +14,7 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   const d = await loadDocument(ctx, patientIdParam(ctx))
   if (ctx.session.kind !== 'staff') {
     const [p] = await ctx.db.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, d.patientId))
-    if (!patientMayOpen(d, p?.disclosure ?? 'unknown')) throw new HttpError(404, 'not_found', 'Not found')
+    if (!patientMayOpen(d, p?.disclosure ?? 'unknown', portalActor(ctx.session))) throw new HttpError(404, 'not_found', 'Not found')
   }
   if (d.status === 'quarantined') throw new HttpError(403, 'quarantined', 'This file is quarantined and cannot be opened')
   const kind = ctx.query.kind === 'page' ? 'page_image' : 'original'

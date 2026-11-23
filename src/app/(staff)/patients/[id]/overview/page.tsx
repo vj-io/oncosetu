@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Activity, CalendarRange, Check, Circle, ClipboardList, FilePlus2, FileX, FolderOpen, GitCompare, ListChecks, Sparkles, UserX } from 'lucide-react'
 import { Notice } from '@/components/registration/Notice'
 import { PreVisitLinkButton } from '@/components/registration/PreVisitLinkButton'
+import { SigninCodeButton } from '@/components/registration/SigninCodeButton'
 import { careMilestones, RecordGlance } from '@/components/doctor/Dashboard'
 import { ActionList, Badge, Checklist, Legend, MilestoneLine, Panel, ProgressMeter, Ring, type ActionItem } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
@@ -76,6 +77,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
       </dl>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-rule pt-3">
         {role !== 'org_admin' && <PreVisitLinkButton patientId={id} />}
+        {role !== 'org_admin' && !p.deceased && <SigninCodeButton patientId={id} />}
         <Link className={`${linkCls} inline-flex min-h-11 items-center`} href={`${base}/card`}>Records card</Link>
         {o.consent && <span className="text-[13px] text-muted">Last consent {formatDateIN(o.consent.recordedAt.toISOString())}</span>}
       </div>

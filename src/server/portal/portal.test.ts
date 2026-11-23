@@ -340,7 +340,8 @@ describe('patient surfaces: privacy and labels', () => {
 
   it('a paper is listed by its kind and dates only: no field carries a file name', () => {
     const s = buildHomeSummary({ ...home, documents: [{ id: 'x', docType: 'imaging_report', documentDate: '2026-03-12', receivedAt: '2026-11-02T04:44:00.000Z', fileName: 'RAMESH_KUMAR_PET_report.pdf' } as HomeData['documents'][number]] }, 'not_cleared', 'en')
-    expect(Object.keys(s.documents[0]).sort()).toEqual(['dated', 'disputed', 'id', 'label', 'received'])
+    expect(Object.keys(s.documents[0]).sort()).toEqual(['dated', 'disputed', 'id', 'label', 'open', 'received'])
+    expect(s.documents[0].open).toBe(false) // only a yes/no: the link is built from the id
     expect(JSON.stringify(s)).not.toMatch(/RAMESH|\.pdf/)
   })
 

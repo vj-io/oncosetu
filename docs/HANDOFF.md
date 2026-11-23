@@ -35,7 +35,11 @@ write locally is visible on the live site. Use the second organisation (Ganga Va
 the demo organisation (Narmada Regional Cancer Centre) holds the judged demo data.
 
 Sign in at `/login`: in demo mode a panel lists the demo staff (password `Demo@2026`) and fills a live TOTP code.
-Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulated SMS).
+Patient portal: `/p/login`, the OTP arrives in the "Demo phone" drawer (simulated SMS). Without demo mode and without
+Twilio (the pilot), the code comes from the front desk: a patient's Overview tab has "Give sign-in code", which shows a
+one-time 6-digit code (same 5-minute lifetime, send limit and 5-try lock as an SMS code) for the primary contact to type
+with their phone number. Home lists the papers the patient may open (`patientMayOpen`), served by the same
+`/api/documents/[id]/file` route and stored original that staff open.
 
 ### Environment variables (names only)
 

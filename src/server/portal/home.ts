@@ -7,6 +7,8 @@ import type { Tx } from '@/db'
 import { documents, events, inboundAliases, missingRecords, patientStatements, recordRequests, shareLinks } from '@/db/schema'
 import { now } from '../clock'
 import { dropAddress, inboundDomain } from '../inbound/staff'
+import { patientMayOpen, portalActor } from '../pipeline/actions'
+import { STUDY_BUNDLE_MIME } from '../pipeline/study'
 import type { HomeData } from './summary'
 
 const asDocType = (t: string | null): DocType | null => ((DOC_TYPES as readonly string[]).includes(t ?? '') ? (t as DocType) : null)
@@ -19,10 +21,11 @@ export const consentFormOf = (flags: Record<string, unknown> | null | undefined)
 
 export const OPEN_REQUEST_STATES = ['drafted', 'sent', 'reminder_due', 'open_21d'] as const
 
-export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Promise<HomeData> {
+/** With `viewer` (the signed-in session and the patient's disclosure), each paper says whether they may open it (patientMayOpen). */
+export async function loadHomeData(tx: Tx, orgId: string, patientId: string, viewer?: { disclosure: string; session: Parameters<typeof portalActor>[0] }): Promise<HomeData> {
   const at = await now(orgId)
   const [docs, looking, [open], [last], [shares]] = await Promise.all([
-    tx.select({ id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt, flags: documents.flags })
+    tx.select({ id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt, flags: documents.flags, mime: documents.mime, uploadedByKind: documents.uploadedByKind, uploadedById: documents.uploadedById, attachState: documents.attachState })
       .from(documents)
       .where(and(
         eq(documents.patientId, patientId), isNull(documents.duplicateOf),
@@ -90,6 +93,8 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string): Pr
     today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
       id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true, consentForm: consentFormOf(d.flags),
+      // the same stored original staff open (/api/documents/[id]/file); scans are pictures drawn by the viewer, not a file to open here
+      open: !!viewer && patientMayOpen(d, viewer.disclosure, portalActor(viewer.session)) && d.mime !== 'application/dicom' && d.mime !== STUDY_BUNDLE_MIME,
     })),
     looking: looking.map((m) => {
       const st = m.eventDate == null && typeof m.window?.triggerId === 'string' ? stmtDate.get(m.window.triggerId) : undefined

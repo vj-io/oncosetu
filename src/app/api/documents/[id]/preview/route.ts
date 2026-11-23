@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { documentFiles, patients } from '@/db/schema'
 import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
-import { loadDocument, patientMayOpen } from '@/server/pipeline/actions'
+import { loadDocument, patientMayOpen, portalActor } from '@/server/pipeline/actions'
 import { renderDicomFrame, type Preview } from '@/server/pipeline/dicom'
 import { bundleCache } from '@/server/pipeline/bundle-cache'
 import { bundleSliceAt, STUDY_BUNDLE_MIME } from '@/server/pipeline/study'
@@ -20,7 +20,7 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   const d = await loadDocument(ctx, patientIdParam(ctx))
   if (ctx.session.kind !== 'staff') {
     const [p] = await ctx.db.select({ disclosure: patients.disclosureStatus }).from(patients).where(eq(patients.id, d.patientId))
-    if (!patientMayOpen(d, p?.disclosure ?? 'unknown')) throw new HttpError(404, 'not_found', 'Not found')
+    if (!patientMayOpen(d, p?.disclosure ?? 'unknown', portalActor(ctx.session))) throw new HttpError(404, 'not_found', 'Not found')
   }
   if (d.status === 'quarantined') throw new HttpError(403, 'quarantined', 'This file is quarantined and cannot be opened')
   if (d.mime !== 'application/dicom' && d.mime !== STUDY_BUNDLE_MIME) throw new HttpError(404, 'not_found', 'Not found')

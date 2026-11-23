@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { currentItem, patientGroupsFor, patientIdIn, sidebarFor } from './sidebar'
 import { tabAllowed } from './patient-tabs'
 import { STAFF_ROLES } from './staff-nav'
 
 const ID = '01a1ffb0-0236-73d9-801e-470462b492d1'
-const page = (href: string) => existsSync(join(process.cwd(), 'src/app/(staff)', href.replace(/\/patients\/[^/]+/, '/patients/[id]'), 'page.tsx'))
+/** A route's page file: `<dir>/page.tsx`, or one inside a route group (`<dir>/(name)/page.tsx`), which the URL does not show. */
+const pageIn = (dir: string) => existsSync(join(dir, 'page.tsx'))
+  || (existsSync(dir) && readdirSync(dir, { withFileTypes: true }).some((d) => d.isDirectory() && /^\(.+\)$/.test(d.name) && existsSync(join(dir, d.name, 'page.tsx'))))
+const page = (href: string) => pageIn(join(process.cwd(), 'src/app/(staff)', href.replace(/\/patients\/[^/]+/, '/patients/[id]')))
 
 describe('staff sidebar', () => {
   it('every link is a real page, and no page is listed twice for a role (a ?view= sub-page counts once)', () => {

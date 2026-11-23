@@ -21,6 +21,8 @@ const uuidLit = (id: string) => {
  * parameters. The id is checked against the UUID grammar first, so nothing else can reach the SQL text.
  */
 const idIs = (col: AnyColumn, id: string) => sql`${col} = ${uuidLit(id)}`
+/** The same, for a list of ids (each checked against the UUID grammar): `col in ('<uuid>', …)`. */
+const idIn = (col: AnyColumn, ids: string[]) => sql`${col} in (${sql.join(ids.map(uuidLit), sql`, `)})`
 
 export async function loadRecordRows(tx: Tx, patientId: string): Promise<RecordRows> {
   const [evs, evd, docs, stmts, miss, vers] = await Promise.all([
@@ -51,6 +53,48 @@ export async function loadRecordRows(tx: Tx, patientId: string): Promise<RecordR
   return { patientId, events: evs, evidence: evd, documents: docs, statements: stmts, missing: miss, verifications: vers }
 }
 
+/**
+ * loadRecordRows for many patients in one go: the same six queries with `in (…)`, rows grouped per patient, so the patient
+ * list costs seven queries whatever its length (it used to cost seven per patient). Row shapes match loadRecordRows exactly
+ * (the patient id used for grouping is removed again), because sealing hashes these rows.
+ */
+export async function loadRecordRowsFor(tx: Tx, ids: string[]): Promise<Map<string, RecordRows>> {
+  const out = new Map<string, RecordRows>(ids.map((id) => [id, { patientId: id, events: [], evidence: [], documents: [], statements: [], missing: [], verifications: [] }]))
+  if (!ids.length) return out
+  const [evs, evd, docs, stmts, miss, vers] = await Promise.all([
+    tx.select().from(events).where(idIn(events.patientId, ids)),
+    tx.select({
+      pid: evidence.patientId, eventId: evidence.eventId, documentId: evidence.documentId, pageNo: evidence.pageNo, charStart: evidence.charStart,
+      charEnd: evidence.charEnd, quote: evidence.quote, quoteSha256: evidence.quoteSha256, statementId: evidence.statementId,
+    }).from(evidence).where(idIn(evidence.patientId, ids)),
+    tx.select({
+      pid: documents.patientId, id: documents.id, docType: documents.docType, documentDate: documents.documentDate, receivedAt: documents.receivedAt,
+      institutionName: documents.institutionName, sha256: documents.sha256, amendmentOf: documents.amendmentOf,
+      duplicateOf: documents.duplicateOf, attachState: documents.attachState, attachDecidedAt: documents.attachDecidedAt, attachReason: documents.attachReason,
+      identityResult: documents.identityResult, status: documents.status,
+    }).from(documents).where(idIn(documents.patientId, ids)),
+    tx.select({
+      pid: patientStatements.patientId, id: patientStatements.id, questionId: patientStatements.questionId, answer: patientStatements.answer, transcript: patientStatements.transcript,
+      language: patientStatements.language, confirmation: patientStatements.confirmation, createdAt: patientStatements.createdAt,
+    }).from(patientStatements).where(idIn(patientStatements.patientId, ids)),
+    tx.select({
+      pid: missingRecords.patientId, ruleId: missingRecords.ruleId, ruleVersion: missingRecords.ruleVersion, mode: missingRecords.mode, triggerEventId: missingRecords.triggerEventId,
+      expectedTypes: missingRecords.expectedTypes, state: missingRecords.state, dedupeKey: missingRecords.dedupeKey, matchWindow: missingRecords.matchWindow,
+    }).from(missingRecords).where(idIn(missingRecords.patientId, ids)),
+    tx.select({
+      pid: verifications.patientId, eventId: verifications.eventId, action: verifications.action, toStatus: verifications.toStatus, role: verifications.role,
+      at: verifications.at, viewedSource: verifications.viewedSource, actorName: staff.name,
+    }).from(verifications).leftJoin(staff, eq(staff.id, verifications.actorId)).where(idIn(verifications.patientId, ids)),
+  ])
+  for (const e of evs) out.get(e.patientId)?.events.push(e)
+  for (const { pid, ...r } of evd) out.get(pid)?.evidence.push(r)
+  for (const { pid, ...r } of docs) out.get(pid)?.documents.push(r)
+  for (const { pid, ...r } of stmts) out.get(pid)?.statements.push(r)
+  for (const { pid, ...r } of miss) out.get(pid)?.missing.push(r)
+  for (const { pid, ...r } of vers) out.get(pid)?.verifications.push(r)
+  return out
+}
+
 export type SnapshotRow = typeof snapshots.$inferSelect
 
 export async function latestSnapshot(tx: Tx, patientId: string): Promise<{ row: SnapshotRow; snapshot: Snapshot; summary: SnapshotSummary } | null> {
@@ -58,6 +102,16 @@ export async function latestSnapshot(tx: Tx, patientId: string): Promise<{ row: 
     .where(idIs(snapshots.patientId, patientId)).orderBy(snapshots.patientId, desc(snapshots.seq)) // the newest one; DISTINCT ON instead of LIMIT, which would be a bind parameter
   if (!r) return null
   return { row: r.s, snapshot: JSON.parse(r.s.canonicalJson) as Snapshot, summary: snapshotSummary(r.s, r.signer) }
+}
+
+/** latestSnapshot for many patients: one query. */
+export async function latestSnapshotsFor(tx: Tx, ids: string[]): Promise<Map<string, { row: SnapshotRow; snapshot: Snapshot; summary: SnapshotSummary }>> {
+  const out = new Map<string, { row: SnapshotRow; snapshot: Snapshot; summary: SnapshotSummary }>()
+  if (!ids.length) return out
+  const rows = await tx.selectDistinctOn([snapshots.patientId], { s: snapshots, signer: staff.name }).from(snapshots).leftJoin(staff, eq(staff.id, snapshots.signerId))
+    .where(idIn(snapshots.patientId, ids)).orderBy(snapshots.patientId, desc(snapshots.seq))
+  for (const r of rows) out.set(r.s.patientId, { row: r.s, snapshot: JSON.parse(r.s.canonicalJson) as Snapshot, summary: snapshotSummary(r.s, r.signer) })
+  return out
 }
 
 export async function listSnapshots(tx: Tx, patientId: string): Promise<SnapshotSummary[]> {

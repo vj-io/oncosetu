@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { menuFor, navFor, roleHome, STAFF_MENU, STAFF_NAV, STAFF_ROLES, TOUR_ROLES } from './staff-nav'
+
+/** A route's page file: `<dir>/page.tsx`, or one inside a route group (`<dir>/(name)/page.tsx`), which the URL does not show. */
+const pageIn = (dir: string) => existsSync(join(dir, 'page.tsx'))
+  || (existsSync(dir) && readdirSync(dir, { withFileTypes: true }).some((d) => d.isDirectory() && /^\(.+\)$/.test(d.name) && existsSync(join(dir, d.name, 'page.tsx'))))
 
 describe('roleHome', () => {
   it('sends every role to its own landing page', () => {
@@ -36,7 +40,7 @@ describe('roleHome', () => {
     expect(TOUR_ROLES).toEqual(['clinician', 'records'])
   })
   it('every nav and menu link points at a real page and none is listed twice for a role', () => {
-    const page = (href: string) => existsSync(join(process.cwd(), 'src/app/(staff)', href, 'page.tsx'))
+    const page = (href: string) => pageIn(join(process.cwd(), 'src/app/(staff)', href))
     for (const n of [...STAFF_NAV, ...STAFF_MENU]) expect(page(n.href), n.href).toBe(true)
     for (const r of STAFF_ROLES) {
       const hrefs = [...navFor(r), ...menuFor(r)].map((n) => n.href)

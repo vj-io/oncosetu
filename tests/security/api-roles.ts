@@ -137,6 +137,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/patients/[id]/erasure': CLINICAL,
   'POST /api/patients/[id]/id-verification': FRONT,
   'POST /api/patients/[id]/inbound-alias': FRONT,
+  'POST /api/patients/[id]/phone': FRONT,
   'POST /api/patients/[id]/pre-visit-link': FRONT,
   'POST /api/patients/[id]/seal': 'clinician',
   'POST /api/patients/[id]/signin-code': FRONT,

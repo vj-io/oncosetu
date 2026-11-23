@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { adminDb } from '../../src/db'
 import { documentFiles } from '../../src/db/schema'
-import { ALL_PURPOSES, demoDoc, portalLogin, registerPatient, waitDoc } from './helpers/api'
+import { ALL_PURPOSES, anonymous, demoDoc, freshPhone, portalLogin, registerPatient, waitDoc } from './helpers/api'
 import { auditOf, documentsOf, smsTo } from './helpers/db'
 import { test, expect } from './helpers/fixtures'
 
@@ -110,4 +110,45 @@ test('FR-ID-02 the desk gives a sign-in code; the patient signs in with it, send
   await expect(otherPage.getByTestId('open-paper')).toHaveCount(0)
   await otherPage.context().close()
   await other.dispose()
+})
+
+test('a patient registered without a mobile number gets one added at the desk (in person); then the sign-in code works', async ({ staff, ui }) => {
+  const desk = await staff('desk')
+  const p = await registerPatient(desk, { base: 'hero', primaryContact: 'patient', withCaregiver: false, phone: null, purposes: { ...ALL_PURPOSES, ai: false } })
+  const noPhone = await desk.post(`/api/patients/${p.id}/signin-code`)
+  expect(noPhone.status).toBe(409)
+  expect(noPhone.body.error.message).toContain('Consent & access')
+
+  // Consent & access → Caregivers and contact: the number is saved only once the in-person box is ticked.
+  const page = await ui('desk')
+  await page.goto(`/patients/${p.id}/consent`)
+  const box = page.getByTestId('patient-phone')
+  await expect(box).toContainText('No mobile number on file')
+  const phone = freshPhone()
+  await box.getByLabel('Mobile number').fill(phone)
+  await expect(box.getByRole('button', { name: 'Add number' })).toBeDisabled()
+  await box.getByLabel('The patient is here in person and told me this number is theirs.').check()
+  await box.getByRole('button', { name: 'Add number' }).click()
+  await expect(box).toContainText('Mobile number saved.')
+  await expect(box).toContainText(phone.replace(/\D/g, '').slice(-4))
+  expect((await auditOf(p.id, 'patient.phone_changed'))[0]?.details).toMatchObject({ hadPhone: false, oldNotified: false, method: 'witnessed' })
+
+  // Now the desk code goes to that number, and signs the patient in.
+  const issued = await desk.post(`/api/patients/${p.id}/signin-code`)
+  expect(issued.ok).toBe(true)
+  const anon = await anonymous()
+  expect((await anon.post('/api/auth/patient/otp/verify', { data: { phone, code: issued.body.code } })).status()).toBe(200)
+  await anon.dispose()
+
+  // A number already on another record is refused; changing the number tells the old one.
+  const other = await registerPatient(desk, { base: 'hero', primaryContact: 'patient', withCaregiver: false, purposes: { ...ALL_PURPOSES, ai: false } })
+  const taken = await desk.post(`/api/patients/${p.id}/phone`, { phone: other.phone, confirm: { method: 'witnessed', attest: true } })
+  expect(taken.status).toBe(409)
+  expect(taken.body.error.code).toBe('phone_in_use')
+  const since = new Date(Date.now() - 1000)
+  const changed = await desk.post(`/api/patients/${p.id}/phone`, { phone: freshPhone(), confirm: { method: 'witnessed', attest: true } })
+  expect(changed.ok).toBe(true)
+  expect((await smsTo(phone)).filter((m) => m.createdAt >= since).map((m) => m.templateKey)).toEqual(['patient_phone.changed'])
+  // Without the in-person attestation the request is refused before anything changes.
+  expect((await desk.post(`/api/patients/${p.id}/phone`, { phone: freshPhone() })).status).toBe(400)
 })

@@ -17,7 +17,7 @@ export async function issueSigninCode(ctx: StaffCtx<unknown>, patientId: string)
   if (p.deceased) return fail(409, 'deceased', 'This patient is recorded as deceased')
   const target = await primaryContactTarget(ctx.db, patientId)
   const h = target ? phoneHmac(target.phone) : null
-  if (!target || !h) return fail(409, 'no_phone', 'No phone number is on file for the primary contact')
+  if (!target || !h) return fail(409, 'no_phone', 'No phone number is on file for the primary contact. Add the patient’s number on the Consent & access tab (Caregivers and contact).')
   const toCaregiver = !!target.caregiverId
   const issued = await startOtp(h)
   if (!issued) {

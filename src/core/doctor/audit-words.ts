@@ -49,6 +49,7 @@ const WORDS: Record<string, string> = {
   'patient.search': 'Searched for a patient',
   'patient.disclosure_changed': 'Whether the diagnosis may be discussed was changed',
   'patient.primary_contact_changed': 'Main contact changed',
+  'patient.phone_changed': 'Patient’s mobile number added or changed',
   'patient.pre_visit_link_sent': 'Pre-visit link sent',
   'patient.token_issued': 'Records card issued',
   'patient.token_reissued': 'Records card replaced',

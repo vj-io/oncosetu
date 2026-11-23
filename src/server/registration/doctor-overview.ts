@@ -11,7 +11,7 @@ import { staffDocLabel } from '@/core/copy'
 import { placeFromWording, sameWords } from '@/components/doctor/facts'
 import { now } from '../clock'
 import { buildLedgerView } from '../ledger/core'
-import { latestSnapshot, loadRecordRows } from '../ledger/record'
+import { latestSnapshot, latestSnapshotsFor, loadRecordRows, loadRecordRowsFor } from '../ledger/record'
 import { hardToReadDoc, isHeldDoc } from '../pipeline/held'
 import { loadCompleteness } from '../radar-ui/completeness'
 import type { StaffSession } from '../session'
@@ -42,11 +42,11 @@ export async function patientGlances(tx: Tx, ids: string[], orgId: string): Prom
 export async function newSinceSealCounts(tx: Tx, ids: string[], orgId: string): Promise<Map<string, number>> {
   const out = new Map<string, number>(ids.map((id) => [id, 0]))
   if (!ids.length) return out
-  const at = (await now(orgId)).toISOString()
-  await Promise.all(ids.map(async (id) => {
-    const [rows, prev] = await Promise.all([loadRecordRows(tx, id), latestSnapshot(tx, id)])
-    out.set(id, newItemTotal(buildLedgerView({ rows, prev: prev ? { snapshot: prev.snapshot, summary: prev.summary } : null, role: 'clinician', now: at })))
-  }))
+  const [at, all, snaps] = await Promise.all([now(orgId), loadRecordRowsFor(tx, ids), latestSnapshotsFor(tx, ids)]) // 8 queries for any number of patients
+  for (const id of ids) {
+    const prev = snaps.get(id)
+    out.set(id, newItemTotal(buildLedgerView({ rows: all.get(id)!, prev: prev ? { snapshot: prev.snapshot, summary: prev.summary } : null, role: 'clinician', now: at.toISOString() })))
+  }
   return out
 }
 

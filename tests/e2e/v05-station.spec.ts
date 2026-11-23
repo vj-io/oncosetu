@@ -30,7 +30,7 @@ test('FR-VOX-02 desk station: sign in with the phone code, answer, confirm, and 
 
   for (let i = 0; i < 5; i++) {
     await page.getByRole('radio', { name: 'No', exact: true }).click()
-    await page.getByRole('button', { name: 'Next' }).click()
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
   }
   await expect(page.getByRole('heading', { name: 'Please check what we understood' })).toBeVisible()
   await page.getByRole('button', { name: 'Yes, this is right' }).click()

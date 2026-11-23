@@ -7,6 +7,7 @@ import { Frame } from "@/components/ui";
 import { dm } from "@/i18n/demo";
 import { tp } from "@/i18n/patient";
 import { DEMO_PEOPLE } from "@/lib/demo-people";
+import { PPassword } from "./PPassword";
 import { ErrorNote, PButton, PField, PInput } from "./ui";
 
 const SEND_WINDOW_MS = 10 * 60_000; // the server allows 3 sends per phone per 10 minutes and answers the same every time
@@ -19,10 +20,13 @@ const minutesLeft = (ms: number) => Math.max(1, Math.ceil(ms / 60_000));
 /**
  * `after` is where a successful sign-in goes: /p, or the (server-validated) portal page the visitor came for.
  * `sms` false = no text message can reach anyone here: the code always comes from the front desk, so nothing is sent.
+ * Opens on phone + password (signing in from home); a code (first time, forgotten password) is one link away. The desk
+ * station opens on the code: it is at the clinic, where the desk gives one.
  */
 export function LoginForm({ lang, demo, after, station = false, sms = true }: { lang: Lang; demo: boolean; after: string; station?: boolean; sms?: boolean }) {
   const router = useRouter();
-  const [step, setStep] = useState<"phone" | "code">("phone");
+  const [step, setStep] = useState<"password" | "phone" | "code">(station ? "phone" : "password");
+  const [password, setPassword] = useState("");
   const [fromDesk, setFromDesk] = useState(!sms); // the code in hand came from the front desk, not an SMS
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -76,6 +80,27 @@ export function LoginForm({ lang, demo, after, station = false, sms = true }: { 
     setNow(t);
     setStep("code"); // always: the answer never says whether the number is known
   }
+
+  async function signInWithPassword(e: FormEvent) {
+    e.preventDefault();
+    if (phone.replace(/\D/g, "").length < 10) return setError(tp(lang, "phoneInvalid"));
+    if (!password) return setError(tp(lang, "passwordWrong"));
+    setBusy(true);
+    setError(null);
+    const res = await post("/api/auth/patient/password", station ? { phone, password, station } : { phone, password });
+    if (!res) return setBusy(false);
+    if (res.ok) {
+      router.replace(after);
+      router.refresh();
+      return;
+    }
+    setBusy(false);
+    setError(tp(lang, res.status === 401 ? "passwordWrong" : res.status === 429 ? "passwordLocked" : "genericError"));
+  }
+
+  const toCode = () => { setStep("phone"); setError(null); setPassword(""); };
+  const toPassword = () => { setStep("password"); setError(null); setCode(""); };
+  const linkCls = "h-11 justify-self-start text-left text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4";
 
   async function verify(e: FormEvent) {
     e.preventDefault();
@@ -140,8 +165,23 @@ export function LoginForm({ lang, demo, after, station = false, sms = true }: { 
   return (
     <div className="mt-8 grid gap-6">
       <Frame className="px-5 py-6 sm:px-8 sm:py-8">
-        {step === "phone" ? (
+        {step === "password" ? (
+          <form method="post" onSubmit={signInWithPassword} className="grid gap-5" noValidate data-testid="password-form">
+            <PField label={tp(lang, "phoneLabel")} hint={tp(lang, "phoneHint")}>
+              <PInput big type="tel" name="phone" inputMode="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </PField>
+            <PField label={tp(lang, "passwordLabel")}>
+              <PPassword big name="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} showLabel={tp(lang, "pwShow")} />
+            </PField>
+            {error && <ErrorNote>{error}</ErrorNote>}
+            <PButton type="submit" big loading={busy} className="w-full">
+              {tp(lang, "signIn")}
+            </PButton>
+            <button type="button" data-testid="use-code" onClick={toCode} className={linkCls}>{tp(lang, "useCodeLink")}</button>
+          </form>
+        ) : step === "phone" ? (
           <form method="post" onSubmit={sendCode} className="grid gap-5" noValidate>
+            {!station && <p className="text-[16px] text-muted">{tp(lang, sms ? "loginIntro" : "loginIntroDesk")}</p>}
             <PField label={tp(lang, "phoneLabel")} hint={tp(lang, "phoneHint")}>
               <PInput big type="tel" name="phone" inputMode="tel" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} />
             </PField>
@@ -150,10 +190,11 @@ export function LoginForm({ lang, demo, after, station = false, sms = true }: { 
               {tp(lang, sms ? "sendCode" : "next")}
             </PButton>
             {sms && (
-              <button type="button" data-testid="have-desk-code" onClick={takeDeskCode} className="h-11 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
+              <button type="button" data-testid="have-desk-code" onClick={takeDeskCode} className={linkCls}>
                 {tp(lang, "haveDeskCode")}
               </button>
             )}
+            {!station && <button type="button" data-testid="use-password" onClick={toPassword} className={linkCls}>{tp(lang, "usePasswordLink")}</button>}
           </form>
         ) : (
           <form method="post" onSubmit={verify} className="grid gap-5" noValidate>

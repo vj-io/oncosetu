@@ -30,7 +30,7 @@ export default async function PatientLoginPage({ searchParams }: { searchParams:
     <PatientShell brand="Setu Records" lang={lang} displayName="" homeHref={`/p/login${station ? '?station=1' : chosen ? `?lang=${chosen}` : ''}`}>
       <Kicker lang={lang}>{tp(lang, station ? 'stationKicker' : 'loginKicker')}</Kicker>
       <h1 className="mt-3 text-[2rem] leading-tight tracking-[-0.025em]">{tp(lang, station ? 'stationTitle' : 'loginTitle')}</h1>
-      <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : sms ? 'loginIntro' : 'loginIntroDesk')}</p>
+      <p className="mt-3 text-muted">{tp(lang, station ? 'stationIntro' : 'loginIntroPassword')}</p>
       {/* without SMS the code comes from the front desk (staff "Give sign-in code") */}
       <LoginForm lang={lang} demo={isDemo()} after={after} station={station} sms={sms} />
       <p className="mt-8 text-[16px] text-muted">{tp(lang, 'loginHelp')}</p>

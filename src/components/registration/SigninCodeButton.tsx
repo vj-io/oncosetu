@@ -46,7 +46,7 @@ export function SigninCodeButton({ patientId }: { patientId: string }) {
           <div className="grid gap-1.5">
             <p className="text-sm text-muted">Sign-in code for the {got.toCaregiver ? "caregiver" : "patient"} (phone {got.phone})</p>
             <p data-testid="signin-code" className="font-mono text-3xl tracking-[0.3em]">{got.code}</p>
-            <p className="text-sm text-muted">Works once, until {TIME.format(got.until)}. On their own phone they open <span className="font-medium text-ink">{got.url}</span> (or scan the code), enter this phone number and the 6 digits.</p>
+            <p className="text-sm text-muted">Works once, until {TIME.format(got.until)}. On their own phone they open <span className="font-medium text-ink">{got.url}</span> (or scan the code), tap “First time here, or forgot your password?”, enter this phone number and the 6 digits. Then they choose a password on their home page, to sign in from home without a code.</p>
           </div>
           {qr && <div aria-label="QR code that opens the patient sign-in page" role="img" className="size-28 shrink-0 bg-white p-1 [&_svg]:size-full" dangerouslySetInnerHTML={{ __html: qr }} />}
         </div>

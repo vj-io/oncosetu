@@ -2,7 +2,7 @@
 import { hardToReadDoc, isHeldDoc } from '../pipeline/held'
 import { and, count, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
-import { documents, encounters, patients, snapshots } from '@/db/schema'
+import { caregivers, documents, encounters, patients, snapshots } from '@/db/schema'
 import { activeConsent, loadPatient, type ActiveConsent, type PatientView } from '../patients'
 import { primaryContactTarget } from './contact'
 import { accession } from './http'
@@ -22,6 +22,8 @@ export type Overview = {
    *  organisation is not shown: PRD §10.3 gives another organisation's data only through a patient consent link, and
    *  person_registered_elsewhere() (drizzle/0019) stays unused until that consent exists. */
   abha: { verified: boolean } | null
+  /** How the primary contact signs in to the portal: with their password, with a code each time, or not at all (no phone). */
+  portalSignIn: 'password' | 'code_only' | 'no_phone'
 }
 
 export async function loadOverview(tx: Tx, patientId: string): Promise<Overview | null> {
@@ -36,10 +38,12 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     tx.select().from(encounters).where(eq(encounters.patientId, patientId)).orderBy(desc(encounters.startedAt)).limit(1),
     tx.select().from(snapshots).where(eq(snapshots.patientId, patientId)).orderBy(desc(snapshots.seq)).limit(1),
     primaryContactTarget(tx, patientId),
-    tx.select({ onFile: sql<boolean>`${patients.abhaHmac} is not null`, verified: patients.abhaVerified })
+    tx.select({ onFile: sql<boolean>`${patients.abhaHmac} is not null`, verified: patients.abhaVerified, pw: sql<boolean>`${patients.passwordHash} is not null` })
       .from(patients).where(eq(patients.id, patientId)),
   ])
   const docTotal = byType.reduce((n, d) => n + d.n, 0)
+  // Whoever signs in by phone (the primary contact) has chosen a portal password, or still needs a code each time.
+  const [cgPw] = target?.caregiverId ? await tx.select({ pw: sql<boolean>`${caregivers.passwordHash} is not null` }).from(caregivers).where(eq(caregivers.id, target.caregiverId)) : []
   const steps: OverviewStep[] = [
     { key: 'identity', label: 'Identity registered', done: true },
     { key: 'consent', label: 'Consent on file', done: !!consent?.purposes.store },
@@ -54,5 +58,6 @@ export async function loadOverview(tx: Tx, patientId: string): Promise<Overview 
     steps, encounter: enc ? { id: enc.id, type: enc.type, startedAt: enc.startedAt } : null,
     snapshot: snap ? { seq: snap.seq, sha256: snap.sha256, sealedAt: snap.sealedAt } : null,
     abha: abha?.onFile ? { verified: abha.verified } : null,
+    portalSignIn: !target ? 'no_phone' : (target.caregiverId ? cgPw?.pw : abha?.pw) ? 'password' : 'code_only',
   }
 }

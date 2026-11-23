@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { CalendarDays, Camera, ClipboardList, ExternalLink, FileText, History, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
+import { CalendarDays, Camera, ClipboardList, ExternalLink, FileText, History, KeyRound, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
 import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { MissingPaper } from '@/components/portal/MissingPaper'
@@ -95,6 +95,8 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
       {/* The one main action, then two counts: what the clinic has and what it still needs */}
       <section className="mt-6 grid gap-3" aria-label={tp(lang, 'cardUploadTitle')}>
         <ActionCard primary href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
+        {/* without a password the next sign-in needs a code from the clinic: offer it once, near the top */}
+        {!ctx.hasPassword && <ActionCard href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwCardTitle')} text={tp(lang, 'pwCardText')} />}
         <ul className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3">
           <li className="rounded-lg border border-rule bg-surface p-4 shadow-card">
             <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
@@ -185,6 +187,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
           <li><MoreLink href={`/p/requests${q}`} icon={<Mail />} title={tp(lang, 'cardRequestsTitle')} note={sum.requests} /></li>
           <li><MoreLink href={`/p/share${q}`} icon={<Share2 />} title={tp(lang, 'cardShareTitle')} note={sum.shares} /></li>
           <li><MoreLink href={`/p/consent${q}`} icon={<ShieldCheck />} title={tp(lang, 'cardConsentTitle')} note={tp(lang, 'cardConsentText')} /></li>
+          <li><MoreLink href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwTitle')} note={tp(lang, ctx.hasPassword ? 'pwMoreSet' : 'pwMoreNone')} /></li>
           <li><MoreLink href={`/p/access${q}`} icon={<History />} title={tp(lang, 'cardAccessTitle')} note={tp(lang, 'cardAccessText')} /></li>
         </ul>
       </section>

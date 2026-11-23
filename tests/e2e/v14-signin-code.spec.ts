@@ -32,11 +32,12 @@ test('FR-ID-02 the desk gives a sign-in code; the patient signs in with it, send
   const ctx = await browser.newContext()
   const page = await ctx.newPage()
   await page.goto('/p/login?lang=en')
+  await page.getByTestId('use-code').click() // the page opens on phone + password; a first sign-in uses a code
   await page.getByLabel('Mobile number').fill(p.phone!)
   await page.getByTestId('have-desk-code').click()
   await expect(page.getByText('Enter the 6-digit code the clinic front desk gave you.')).toBeVisible()
   await page.getByLabel('6-digit code').fill(code)
-  await page.getByRole('button', { name: 'Sign in' }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await expect(page).toHaveURL(/\/p(\?.*)?$/)
 
   // ...and sends a paper through the portal's own form.
@@ -121,6 +122,8 @@ test('a patient registered without a mobile number gets one added at the desk (i
 
   // Consent & access → Caregivers and contact: the number is saved only once the in-person box is ticked.
   const page = await ui('desk')
+  await page.goto(`/patients/${p.id}/overview`)
+  await expect(page.getByTestId('portal-signin')).toHaveText('No mobile number: add one')
   await page.goto(`/patients/${p.id}/consent`)
   const box = page.getByTestId('patient-phone')
   await expect(box).toContainText('No mobile number on file')

@@ -167,6 +167,11 @@ export const patients = pgTable('patients', {
   disclosureSetAt: tsz('disclosure_set_at'),
   preferredLanguage: lang('preferred_language').notNull().default('en'),
   status: patientStatus('status').notNull().default('active'),
+  /** Portal sign-in with a password the person chose (0029): scrypt hash; null = sign-in codes only. */
+  passwordHash: text('password_hash'),
+  passwordSetAt: tsz('password_set_at'),
+  passwordFailed: integer('password_failed').notNull().default(0),
+  passwordLockedUntil: tsz('password_locked_until'),
   createdBy: uuid('created_by'),
   createdAt: createdAt(),
   updatedAt: tsz('updated_at').notNull().defaultNow(),
@@ -201,6 +206,11 @@ export const caregivers = pgTable('caregivers', {
   isGuardian: boolean('is_guardian').notNull().default(false),
   active: boolean('active').notNull().default(true),
   revokedAt: tsz('revoked_at'),
+  /** Portal sign-in with a password the person chose (0029): scrypt hash; null = sign-in codes only. */
+  passwordHash: text('password_hash'),
+  passwordSetAt: tsz('password_set_at'),
+  passwordFailed: integer('password_failed').notNull().default(0),
+  passwordLockedUntil: tsz('password_locked_until'),
   createdBy: uuid('created_by'),
   createdAt: createdAt(),
 }, (t) => [index('caregivers_patient_idx').on(t.patientId), index('caregivers_phone_idx').on(t.phoneHmac)])

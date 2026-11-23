@@ -71,6 +71,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         {o.encounter && <Row label="Started">{DATETIME.format(o.encounter.startedAt)}</Row>}
         <Row label="Consent">{o.consent ? `On file (${o.consent.language.toUpperCase()})` : 'None active'}</Row>
         <Row label="Papers on file">{o.docTotal}{heldN ? `, ${heldN} held for a person to check` : ''}</Row>
+        <Row label="Portal sign-in" testId="portal-signin">{o.portalSignIn === 'password' ? 'Password chosen' : o.portalSignIn === 'code_only' ? 'No password yet: give a sign-in code' : <Link className={linkCls} href={`${base}/consent#people-h`}>No mobile number: add one</Link>}</Row>
         <Row label="Registered contact">{p.primaryContact === 'caregiver' ? 'The caregiver' : 'The patient'}{p.minor && <> <Badge tone="unverified">Minor</Badge></>}</Row>
         <Row label="ABHA" testId="abha-status">{o.abha ? `ABHA on file (${o.abha.verified ? 'verified' : 'unverified'}).` : 'No ABHA number on file.'}</Row>
         <Row label="Last sealed">{o.snapshot ? <Link className={linkCls} href={`${base}/timeline`}>{formatDateIN(o.snapshot.sealedAt.toISOString())}: see it as it was</Link> : 'Not sealed yet'}</Row>

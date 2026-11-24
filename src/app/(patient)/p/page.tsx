@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
-import { CalendarDays, Camera, ClipboardList, ExternalLink, FileText, History, KeyRound, Mail, Send, ShieldCheck, Share2, Stethoscope } from 'lucide-react'
+import { CalendarDays, Camera, ChevronDown, ClipboardList, ExternalLink, FileText, History, KeyRound, Mail, Send, Settings, ShieldCheck, Share2, Stethoscope, Users, Building2 } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
 import { DisputeDocument } from '@/components/portal/DisputeDocument'
 import { MissingPaper } from '@/components/portal/MissingPaper'
 import { MoreLink } from '@/components/portal/MoreLink'
 import { PortalFrame } from '@/components/portal/PortalFrame'
 import { Kicker, PLink } from '@/components/portal/ui'
-import { EmptyState, Frame } from '@/components/ui'
+import { EmptyState } from '@/components/ui'
 import { withOrg } from '@/db'
 import type { Lang } from '@/core/types'
 import { tp, tpw } from '@/i18n/patient'
@@ -14,23 +14,39 @@ import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadHomeData } from '@/server/portal/home'
 import { buildHomeSummary, type HomeSummary } from '@/server/portal/summary'
 
-const H2 = 'text-[1.375rem] leading-tight'
 const SHOWN_PAPERS = 3
+
+/**
+ * A home section: one white card with a grey title band and an optional count, so each part of the page has its own
+ * visible edge. Rows inside are divided by hairlines, not boxed again.
+ */
+function Section({ id, headingId, title, count, children, className = 'mt-8' }: { id?: string; headingId: string; title: string; count?: number; children: ReactNode; className?: string }) {
+  return (
+    <section id={id} aria-labelledby={headingId} className={`${className} scroll-mt-4 overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card`}>
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-control/25 bg-alcove px-4 py-2.5">
+        <h2 id={headingId} className="text-[1.25rem] leading-tight">{title}</h2>
+        {count !== undefined && <span className="grid h-8 min-w-8 place-items-center rounded-full border border-control/40 bg-surface px-2 text-[16px] font-medium tabular-nums">{count}</span>}
+      </div>
+      <div className="p-4">{children}</div>
+    </section>
+  )
+}
+
+const ROWS = 'grid divide-y divide-rule'
+const ROW = 'py-4 first:pt-0 last:pb-0'
 
 function Dates({ rows }: { rows: HomeSummary['coming'] }) {
   return (
-    <ul className="grid gap-2">
+    <ul className={ROWS}>
       {rows.map((d) => (
-        <li key={d.id}>
-          <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
-            <CalendarDays aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
-            <div className="grid min-w-0 flex-1 gap-0.5">
-              <span className="text-[17px] font-medium">{d.date}</span>
-              {/* the words are copied from the paper, so they stay as written (often English) */}
-              <span className="text-[17px] break-words">{d.what}</span>
-              {d.source && <span className="text-[16px] text-muted">{d.source}</span>}
-            </div>
-          </Frame>
+        <li key={d.id} className={`${ROW} flex items-start gap-3`}>
+          <CalendarDays aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
+          <div className="grid min-w-0 flex-1 gap-0.5">
+            <span className="text-[17px] font-medium">{d.date}</span>
+            {/* the words are copied from the paper, so they stay as written (often English) */}
+            <span className="text-[17px] break-words">{d.what}</span>
+            {d.source && <span className="text-[16px] text-muted">{d.source}</span>}
+          </div>
         </li>
       ))}
     </ul>
@@ -39,22 +55,20 @@ function Dates({ rows }: { rows: HomeSummary['coming'] }) {
 
 function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) {
   return (
-    <ul className="grid gap-2">
+    <ul className={ROWS}>
       {rows.map((d) => (
-        <li key={d.id}>
-          <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
-            <FileText aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
-            <div className="grid min-w-0 flex-1 gap-0.5">
-              <span className="text-[17px]">{d.label}</span>
-              <span className="text-[16px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
-              {d.open && (
-                <a href={`/api/documents/${d.id}/file`} target="_blank" rel="noopener" data-testid="open-paper" className="inline-flex min-h-11 items-center gap-2 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
-                  <ExternalLink aria-hidden className="size-4" />{tp(lang, 'openPaper')}
-                </a>
-              )}
-              <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
-            </div>
-          </Frame>
+        <li key={d.id} className={`${ROW} flex items-start gap-3`}>
+          <FileText aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
+          <div className="grid min-w-0 flex-1 gap-0.5">
+            <span className="text-[17px]">{d.label}</span>
+            <span className="text-[16px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
+            {d.open && (
+              <a href={`/api/documents/${d.id}/file`} target="_blank" rel="noopener" data-testid="open-paper" className="inline-flex min-h-11 items-center gap-2 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
+                <ExternalLink aria-hidden className="size-4" />{tp(lang, 'openPaper')}
+              </a>
+            )}
+            <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
+          </div>
         </li>
       ))}
     </ul>
@@ -64,11 +78,12 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
 /** A native "show more" row: works without scripts, and is a full-height tap target. */
 function Fold({ summary, children }: { summary: string; children: ReactNode }) {
   return (
-    <details className="mt-3">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center rounded-lg border border-rule bg-surface px-4 py-2 text-[17px] underline decoration-link underline-offset-4 marker:hidden [&::-webkit-details-marker]:hidden">
-        {summary}
+    <details className="group mt-3 border-t border-rule pt-3">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-control/40 bg-surface px-4 py-2 text-[17px] marker:hidden hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+        <span className="underline decoration-link underline-offset-4">{summary}</span>
+        <ChevronDown aria-hidden className="size-5 shrink-0 text-faint transition-transform group-open:rotate-180" />
       </summary>
-      <div className="mt-2">{children}</div>
+      <div className="mt-3">{children}</div>
     </details>
   )
 }
@@ -92,63 +107,87 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
       <h1 className="mt-1 text-[1.875rem] leading-tight tracking-[-0.02em] sm:text-[2.25rem]">{tp(lang, 'homeHello', { name: firstName })}</h1>
       <p className="mt-2 max-w-prose text-muted">{tp(lang, 'homeIntro')}</p>
 
-      {/* The one main action, then two counts: what the clinic has and what it still needs */}
-      <section className="mt-6 grid gap-3" aria-label={tp(lang, 'cardUploadTitle')}>
+      {/* 1. The one main action: send papers. Everything else on this page is quieter. */}
+      <div className="mt-6 grid gap-3">
         <ActionCard primary href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
-        {/* without a password the next sign-in needs a code from the clinic: offer it once, near the top */}
-        {!ctx.hasPassword && <ActionCard href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwCardTitle')} text={tp(lang, 'pwCardText')} />}
-        <ul className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3">
-          <li className="rounded-lg border border-rule bg-surface p-4 shadow-card">
-            <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
-            <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statHas')}</span>
+        {/* what the clinic has and what it still needs: one white strip, both cells jump to their list */}
+        <ul className="grid grid-cols-2 divide-x divide-control/25 overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card">
+          <li>
+            <a href="#papers" className="block h-full p-4 hover:bg-spotlight">
+              <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
+              <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statHas')}</span>
+            </a>
           </li>
           <li>
-            <a href="#missing" className="block h-full rounded-lg border border-rule bg-surface p-4 shadow-card hover:bg-spotlight">
+            <a href="#missing" className="block h-full p-4 hover:bg-spotlight">
               <span className={`block font-display text-[2rem] leading-none tabular-nums ${pending.length ? 'text-amber-ink' : ''}`}>{pending.length}</span>
               <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statNeeds')}</span>
             </a>
           </li>
         </ul>
-      </section>
+      </div>
 
-      {/* 1. What is missing and where to ask: the thing a family member most needs */}
-      <section className="mt-8 scroll-mt-4" aria-labelledby="look-h" id="missing">
-        <h2 id="look-h" className={H2}>{tp(lang, 'secLooking')}</h2>
+      {/* 2. What is missing and where to ask */}
+      <Section id="missing" headingId="look-h" title={tp(lang, 'secLooking')} count={pending.length}>
         {pending.length ? (
           <>
-            <p className="mt-2 max-w-prose text-muted">{tp(lang, 'lookingIntro')}</p>
-            <ul className="mt-4 grid gap-3">
+            <p className="max-w-prose text-muted">{tp(lang, 'lookingIntro')}</p>
+            <ul className={`mt-4 ${ROWS}`}>
               {pending.map((m) => (
-                <li key={m.id}><MissingPaper row={m} lang={lang} /></li>
+                <li key={m.id} className={ROW}><MissingPaper bare row={m} lang={lang} /></li>
               ))}
             </ul>
           </>
         ) : sum.documents.length ? (
-          <p className="mt-3 text-muted">{tp(lang, 'lookingEmpty')}</p>
+          <p className="text-muted">{tp(lang, 'lookingEmpty')}</p>
         ) : (
-          // an empty file is not "nothing missing": say the clinic has nothing, and put the Send button first
+          // an empty file is not "nothing missing": say the clinic has nothing, and point at the Send button
           <>
-            <p className="mt-3 max-w-prose text-muted">{tp(lang, 'lookingEmptyNoDocs')}</p>
-            <div className="mt-4"><PLink href={`/p/upload${q}`} icon={<Send />} className="w-full sm:w-auto">{tp(lang, 'lookingSend')}</PLink></div>
+            <p className="max-w-prose text-muted">{tp(lang, 'lookingEmptyNoDocs')}</p>
+            <div className="mt-4"><PLink variant="secondary" href={`/p/upload${q}`} icon={<Send />} className="w-full sm:w-auto">{tp(lang, 'lookingSend')}</PLink></div>
           </>
         )}
         {arrived.length > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 border-t border-control/25 pt-5">
             <h3 className="text-lg leading-tight">{tp(lang, 'secArrived')}</h3>
-            <ul className="mt-3 grid gap-3">
+            <ul className={`mt-3 ${ROWS}`}>
               {arrived.map((m) => (
-                <li key={m.id}><MissingPaper row={m} lang={lang} /></li>
+                <li key={m.id} className={ROW}><MissingPaper bare row={m} lang={lang} /></li>
               ))}
             </ul>
           </div>
         )}
-      </section>
+      </Section>
 
-      {/* 2. Dates already written in the papers: coming up first, earlier ones folded away */}
+      {/* 3. The questions before the visit */}
+      <div className="mt-8">
+        <ActionCard href={`/p/visit${q}`} icon={<ClipboardList />} title={tp(lang, 'cardVisitTitle')} text={tp(lang, 'cardVisitText')} note={sum.visit} />
+      </div>
+
+      {/* 4. Papers the clinic has: newest three, the rest one tap away; each can be opened */}
+      <Section id="papers" headingId="docs-h" title={tp(lang, 'secDocs')} count={sum.documents.length}>
+        {sum.documents.length ? (
+          <>
+            <Papers rows={sum.documents.slice(0, SHOWN_PAPERS)} lang={lang} />
+            {sum.documents.length > SHOWN_PAPERS && (
+              <Fold summary={tp(lang, 'docsShowAll', { n: sum.documents.length })}><Papers rows={sum.documents.slice(SHOWN_PAPERS)} lang={lang} /></Fold>
+            )}
+          </>
+        ) : (
+          <EmptyState icon={<Send />} title={tp(lang, 'docsEmpty')} />
+        )}
+      </Section>
+
+      {/* 5. Share with a doctor, and letters to other hospitals */}
+      <div className="mt-8 grid gap-3">
+        <ActionCard href={`/p/share${q}`} icon={<Share2 />} title={tp(lang, 'cardShareTitle')} text={tp(lang, 'cardShareText')} note={sum.shares} />
+        <ActionCard href={`/p/requests${q}`} icon={<Mail />} title={tp(lang, 'cardRequestsTitle')} text={tp(lang, 'cardRequestsText')} note={sum.requests} />
+      </div>
+
+      {/* 6. Dates already written in the papers: coming up first, earlier ones folded away */}
       {hasDates && (
-        <section className="mt-10" aria-labelledby="written-h">
-          <h2 id="written-h" className={H2}>{tp(lang, 'secComing')}</h2>
-          <p className="mt-2 max-w-prose text-muted">{tp(lang, 'writtenIntro')}</p>
+        <Section headingId="written-h" title={tp(lang, 'secComing')} className="mt-10">
+          <p className="max-w-prose text-muted">{tp(lang, 'writtenIntro')}</p>
           <div className="mt-4">
             {sum.coming.length ? <Dates rows={sum.coming} /> : <p className="text-muted">{tp(lang, 'comingNone')}</p>}
             {sum.earlier.length > 0 && (
@@ -161,36 +200,30 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
               </p>
             )}
           </div>
-        </section>
+        </Section>
       )}
 
-      {/* 4. Papers the clinic has: newest three, the rest one tap away */}
-      <section className="mt-10" aria-labelledby="docs-h">
-        <h2 id="docs-h" className={H2}>{tp(lang, 'secDocs')}</h2>
-        {sum.documents.length ? (
-          <div className="mt-4">
-            <Papers rows={sum.documents.slice(0, SHOWN_PAPERS)} lang={lang} />
-            {sum.documents.length > SHOWN_PAPERS && (
-              <Fold summary={tp(lang, 'docsShowAll', { n: sum.documents.length })}><Papers rows={sum.documents.slice(SHOWN_PAPERS)} lang={lang} /></Fold>
-            )}
-          </div>
-        ) : (
-          <EmptyState className="mt-4" icon={<Send />} title={tp(lang, 'docsEmpty')} />
-        )}
-      </section>
-
-      {/* 5. Everything else, as quiet rows */}
-      <section className="mt-10" aria-labelledby="more-h">
-        <h2 id="more-h" className={H2}>{tp(lang, 'secMore')}</h2>
-        <ul className="mt-4 grid gap-2">
-          <li><MoreLink href={`/p/visit${q}`} icon={<ClipboardList />} title={tp(lang, 'cardVisitTitle')} note={sum.visit} /></li>
-          <li><MoreLink href={`/p/requests${q}`} icon={<Mail />} title={tp(lang, 'cardRequestsTitle')} note={sum.requests} /></li>
-          <li><MoreLink href={`/p/share${q}`} icon={<Share2 />} title={tp(lang, 'cardShareTitle')} note={sum.shares} /></li>
-          <li><MoreLink href={`/p/consent${q}`} icon={<ShieldCheck />} title={tp(lang, 'cardConsentTitle')} note={tp(lang, 'cardConsentText')} /></li>
-          <li><MoreLink href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwTitle')} note={tp(lang, ctx.hasPassword ? 'pwMoreSet' : 'pwMoreNone')} /></li>
-          <li><MoreLink href={`/p/access${q}`} icon={<History />} title={tp(lang, 'cardAccessTitle')} note={tp(lang, 'cardAccessText')} /></li>
-        </ul>
-      </section>
+      {/* 7. Rare things, tucked away but one tap from here. Without a password, one quiet reminder stays in view. */}
+      <div className="mt-10 grid gap-3">
+        {!ctx.hasPassword && <MoreLink href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwCardTitle')} note={tp(lang, 'pwCardText')} />}
+        <details className="group overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 marker:hidden hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+            <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-alcove text-pine [&_svg]:size-5 [&_svg]:stroke-[1.5]"><Settings /></span>
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <span className="text-[17px] leading-snug font-medium">{tp(lang, 'secSettings')}</span>
+              <span className="text-[16px] text-muted">{tp(lang, 'settingsNote')}</span>
+            </span>
+            <ChevronDown aria-hidden className="size-5 shrink-0 text-faint transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="grid gap-2 border-t border-control/25 bg-alcove/60 p-3">
+            <li><MoreLink href={`/p/consent${q}`} icon={<ShieldCheck />} title={tp(lang, 'cardConsentTitle')} note={tp(lang, 'cardConsentText')} /></li>
+            <li><MoreLink href={`/p/access${q}`} icon={<History />} title={tp(lang, 'cardAccessTitle')} note={tp(lang, 'cardAccessText')} /></li>
+            <li><MoreLink href={`/p/permissions${q}`} icon={<Users />} title={tp(lang, 'navWho')} /></li>
+            <li><MoreLink href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwTitle')} note={tp(lang, ctx.hasPassword ? 'pwMoreSet' : 'pwMoreNone')} /></li>
+            <li><MoreLink href={`/p/abdm${q}`} icon={<Building2 />} title={tp(lang, 'navAbdmShort')} /></li>
+          </ul>
+        </details>
+      </div>
     </PortalFrame>
   )
 }

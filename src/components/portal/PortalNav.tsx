@@ -15,8 +15,8 @@ export type BarItem = { href: string; label: string; query: string; icon: ReactN
 const isActive = (pathname: string, href: string) => (href === "/p" ? pathname === "/p" : pathname === href || pathname.startsWith(`${href}/`));
 
 /**
- * Desktop: one line of tabs, a "Privacy & access" menu, Sign out at the right.
- * Phone: a bottom tab bar (Home · Send · Requests · Share · More), as in the phone apps people already use. "More" opens a
+ * Desktop: one line of tabs, a "Settings and privacy" menu, Sign out at the right.
+ * Phone: a bottom tab bar (Home · Send · Questions · Share · More), as in the phone apps people already use. "More" opens a
  * panel with every other page and Sign out. Keyboard: Escape closes the menus and returns focus to their button.
  */
 export function PortalNav({

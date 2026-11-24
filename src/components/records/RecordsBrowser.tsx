@@ -171,7 +171,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] [&>*]:min-w-0">
-        <ul ref={listRef} className="grid content-start border border-rule bg-surface rounded-lg" aria-label="Records">
+        <ul ref={listRef} className="grid content-start overflow-hidden border border-edge bg-surface shadow-card rounded-lg" aria-label="Records">
           {filtered.length === 0 && <li className="p-6 text-[15px] text-muted">No papers match this filter.</li>}
           {filtered.map((r, i) => {
             const Icon = ICON[r.kind]
@@ -182,7 +182,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
               <li key={r.id} className="contents">
                 {newYear && <div className="border-b border-rule bg-matte px-3 py-1.5 text-xs text-muted">{yearOf(r)}</div>}
                 <button type="button" id={`rec-${r.id}`} aria-current={sel === r.id ? 'true' : undefined} onClick={() => select(r.id)}
-                  className={clsx('grid w-full gap-1 border-b border-rule px-3 py-3 text-left last:border-b-0 hover:bg-spotlight/60', sel === r.id && 'bg-sage-tint/60 outline-2 -outline-offset-2 outline-pine')}>
+                  className={clsx('grid w-full gap-1 border-b border-rule px-3 py-3 text-left last:border-b-0 hover:bg-spotlight/60', sel === r.id && 'bg-setu-tint shadow-[inset_3px_0_0_var(--color-setu)]')}>
                   <span className="flex items-start gap-2">
                     <Icon aria-hidden className="mt-0.5 size-4 shrink-0 text-muted" />
                     <span className="grid min-w-0 flex-1 gap-0.5">
@@ -210,7 +210,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
         </ul>
 
         <div
-          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:sticky lg:top-20 lg:z-auto lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-rule lg:bg-surface lg:p-4 lg:rounded-lg')}
+          className={clsx(sheet ? 'fixed inset-0 z-40 overflow-y-auto bg-surface p-4' : 'hidden', 'lg:sticky lg:top-20 lg:z-auto lg:block lg:max-h-[calc(100dvh-6rem)] lg:self-start lg:overflow-y-auto lg:border lg:border-edge lg:bg-surface lg:p-4 lg:shadow-card lg:rounded-lg')}
           role="region" aria-label="Preview" data-testid="preview-panel"
         >
           {selected ? (

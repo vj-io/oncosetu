@@ -46,7 +46,7 @@ export function InfoTip({ children, label = "What this shows", className }: { ch
         role="tooltip"
         id={id}
         className={clsx(
-          "absolute top-full left-0 z-40 mt-1.5 w-[min(20rem,calc(100vw-2rem))] border border-rule bg-matte px-3 py-2 text-left text-[14px] leading-snug font-normal tracking-normal text-ink normal-case shadow-frame",
+          "absolute top-full left-0 z-40 mt-1.5 w-[min(20rem,calc(100vw-2rem))] border border-edge bg-matte px-3 py-2 text-left text-[14px] leading-snug font-normal tracking-normal text-ink normal-case shadow-frame",
           !open && "hidden", // not just invisible: a closed tip near the right edge still widened a phone page
         )}
         style={{ left: shift }}
@@ -61,7 +61,7 @@ export function InfoTip({ children, label = "What this shows", className }: { ch
 /** The same explanation as one visible line under a heading: for the features a first-time doctor must not miss. */
 export function Explainer({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <p className={clsx("flex max-w-3xl items-start gap-2 rounded-lg border border-wash-rule bg-wash px-4 py-3 text-[14px] leading-snug text-muted", className)}>
+    <p className={clsx("flex max-w-3xl items-start gap-2 rounded-lg border border-edge border-l-[3px] border-l-setu bg-surface px-4 py-3 text-[14px] leading-snug text-muted", className)}>
       <Info aria-hidden className="mt-0.5 size-4 shrink-0 text-setu-ink" />
       <span>
         <span className="font-medium text-setu-ink">What this shows. </span>

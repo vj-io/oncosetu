@@ -52,7 +52,6 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
     ...(count('unverified') ? [{ href: `${base}/ledger`, label: 'Check items against the page', icon: <ListChecks />, count: count('unverified'), tone: 'unverified' as const }] : []),
     ...(tabAllowed('documents', role) ? [{ href: `${base}/documents`, label: 'Add papers', icon: <FilePlus2 />, tone: 'neutral' as const }] : []),
   ]
-  const needLines = actions.filter((x) => x.count).length
 
   const setup = (
     <Panel title={`Setting up this record: ${done} of ${o.steps.length} steps done`} icon={<ClipboardList />} id="setup">
@@ -110,7 +109,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
 
       {doctor ? (
         <>
-          <Band id="look-h" title="Needs a look" purpose="Start here. Each line opens the page where it is done; the strip shows where the file stands." count={needLines}>
+          <Band id="look-h" title="Needs a look" purpose="Start here. Each line opens the page where it is done; the strip shows where the file stands.">
             <SummaryStrip
               label="Where the file stands"
               cols={5}
@@ -155,7 +154,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
             )}
           </Band>
 
-          <Band id="visit-h" title="This visit and the file" purpose="Visit facts, consent and sign-in. Used less often than the lines above."> 
+          <Band id="file-h" title="This visit and the file" purpose="Visit facts, consent and sign-in. Used less often than the lines above."> 
             <div className={role === 'clinician' ? 'grid items-start gap-5' : 'grid items-start gap-5 lg:grid-cols-2'}>
               {visit}
               {role !== 'clinician' && setup}
@@ -163,7 +162,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
           </Band>
         </>
       ) : (
-        <Band id="visit-h" title="This visit and the file" purpose="Visit facts, consent and sign-in, and the steps for setting up this record.">
+        <Band id="file-h" title="This visit and the file" purpose="Visit facts, consent and sign-in, and the steps for setting up this record.">
           <div className="grid items-start gap-5 lg:grid-cols-2">
             {setup}
             {visit}

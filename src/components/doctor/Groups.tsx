@@ -8,7 +8,7 @@ import { TONE, type Tone } from '@/components/ui'
    a "more" fold and a status checklist. Server-safe. Colour always comes with a word or a number. Rhythm: 12 px inside a card,
    20 px between cards in a group, 40 px between groups. */
 
-const EDGE = 'border-control/30'
+const EDGE = 'border-edge'
 const dot = (t: Tone) => (t === 'neutral' ? 'bg-control' : TONE[t].solid)
 
 /** The count pill beside a group title. */
@@ -54,7 +54,7 @@ export function SummaryStrip({ items, label, cols, className, tour }: { items: S
         const cell = 'grid h-full min-h-11 content-start gap-1.5 bg-surface p-4'
         return (
           <li key={k} className="min-w-0 last:odd:col-span-2 lg:last:odd:col-span-1">
-            {it.href ? <Link href={it.href} className={clsx(cell, 'hover:bg-spotlight')}>{body}</Link> : <div className={cell}>{body}</div>}
+            {it.href ? <Link href={it.href} className={clsx(cell, 'hover:bg-spotlight focus-visible:-outline-offset-2')}>{body}</Link> : <div className={cell}>{body}</div>}
           </li>
         )
       })}
@@ -65,9 +65,9 @@ export function SummaryStrip({ items, label, cols, className, tour }: { items: S
 /** A closed fold for what is read less often (explanations, long lists). Nothing in it is removed; it opens in one tap. */
 export function More({ summary, children, className }: { summary: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <details className={clsx('group rounded-xl border bg-surface', EDGE, className)}>
+    <details className={clsx('group/more rounded-xl border bg-surface', EDGE, className)}>
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 px-4 text-[15px] font-medium text-setu-ink [&::-webkit-details-marker]:hidden">
-        <ChevronRight aria-hidden className="size-4 shrink-0 transition-transform group-open:rotate-90" />
+        <ChevronRight aria-hidden className="size-4 shrink-0 transition-transform group-open/more:rotate-90" />
         {summary}
       </summary>
       <div className={clsx('grid gap-3 border-t px-4 py-4', EDGE)}>{children}</div>

@@ -168,7 +168,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
           description="Each box below is a paper that another document mentions and that we do not hold. The wording is about papers only; a person confirms every closure."
           actions={<LanguageToggle value={lang} langs={['en', 'hi']} />}
         />
-        <div className="grid gap-3 rounded-xl border border-control/30 bg-surface p-5 shadow-card">
+        <div className="grid gap-3 rounded-xl border border-edge bg-surface p-5 shadow-card">
           <Pipeline label="Missing papers, from noticed to closed" stages={[
             { label: 'Noticed', value: m.detected, tone: 'unverified', detail: 'Mentioned in another paper' },
             { label: 'Asked for', value: m.requested, tone: 'setu', detail: 'A request letter was made' },
@@ -184,7 +184,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
       </div>
 
       <section aria-labelledby="open-h" className="grid gap-6">
-        <header className="grid gap-1 border-b border-control/30 pb-3">
+        <header className="grid gap-1 border-b border-edge pb-3">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h2 id="open-h" className="text-xl">Not in file</h2>
             <InfoTip>{EXPLAIN.completeness}</InfoTip>
@@ -215,7 +215,7 @@ export default async function CompletenessPage({ params, searchParams }: { param
 
       {c.resolved.length > 0 && (
         <details className="group grid gap-6 border-l-[3px] border-l-sage pl-4">
-          <summary className="grid min-h-11 cursor-pointer list-none gap-1 border-b border-control/30 pb-3">
+          <summary className="grid min-h-11 cursor-pointer list-none gap-1 border-b border-edge pb-3">
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <h2 className="text-xl">Resolved</h2>
               <CountPill n={c.resolved.length} />

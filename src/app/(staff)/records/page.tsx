@@ -117,7 +117,7 @@ export default async function RecordsQueuePage({ searchParams }: { searchParams:
 
       {!view && (
         <>
-          <div className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             <StatTile href="/records?view=ask" tone="unverified" icon={<Mail />} value={chase.counts.toAsk} label="Papers to ask for" sub="Mentioned, not in file" />
             <StatTile href="/records?view=reminders" tone="setu" icon={<Send />} value={chase.counts.reminders} label="Letter reminders due" sub="A week or more, no reply" />
             <StatTile href="/records?view=arrived" tone="verified" icon={<PackageCheck />} value={chase.counts.arrived} label="Arrived to confirm" sub="May close an item" />

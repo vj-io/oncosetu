@@ -33,7 +33,7 @@ export default async function SharePage({ searchParams }: { searchParams: Portal
           </>
         ) : (
           // Nothing sealed yet: say what happens next instead of a form that cannot work
-          <div className="grid gap-3 rounded-lg border border-control/40 border-t-[3px] border-t-setu bg-surface px-5 py-5 shadow-card">
+          <div className="grid gap-3 rounded-lg border border-edge border-t-[3px] border-t-setu bg-surface px-5 py-5 shadow-card">
             <div className="flex items-start gap-3">
               <CalendarClock aria-hidden className="mt-1 size-6 shrink-0 text-setu-ink" strokeWidth={1.5} />
               <h2 id="new-h" className="text-2xl leading-snug">{tp(lang, 'shareWaitTitle')}</h2>

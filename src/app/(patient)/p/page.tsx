@@ -22,10 +22,10 @@ const SHOWN_PAPERS = 3
  */
 function Section({ id, headingId, title, count, children, className = 'mt-8' }: { id?: string; headingId: string; title: string; count?: number; children: ReactNode; className?: string }) {
   return (
-    <section id={id} aria-labelledby={headingId} className={`${className} scroll-mt-4 overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card`}>
-      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-control/25 bg-alcove px-4 py-2.5">
+    <section id={id} aria-labelledby={headingId} className={`${className} scroll-mt-4 overflow-hidden rounded-xl border border-edge bg-surface shadow-card`}>
+      <div className="flex min-h-12 items-center justify-between gap-3 border-b border-rule bg-alcove px-4 py-2.5">
         <h2 id={headingId} className="text-[1.25rem] leading-tight">{title}</h2>
-        {count !== undefined && <span className="grid h-8 min-w-8 place-items-center rounded-full border border-control/40 bg-surface px-2 text-[16px] font-medium tabular-nums">{count}</span>}
+        {count !== undefined && <span className="grid h-8 min-w-8 place-items-center rounded-full border border-edge bg-surface px-2 text-[16px] font-medium tabular-nums">{count}</span>}
       </div>
       <div className="p-4">{children}</div>
     </section>
@@ -79,7 +79,7 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
 function Fold({ summary, children }: { summary: string; children: ReactNode }) {
   return (
     <details className="group mt-3 border-t border-rule pt-3">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-control/40 bg-surface px-4 py-2 text-[17px] marker:hidden hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 rounded-lg border border-edge bg-surface px-4 py-2 text-[17px] marker:hidden hover:bg-spotlight [&::-webkit-details-marker]:hidden">
         <span className="underline decoration-link underline-offset-4">{summary}</span>
         <ChevronDown aria-hidden className="size-5 shrink-0 text-faint transition-transform group-open:rotate-180" />
       </summary>
@@ -111,15 +111,15 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
       <div className="mt-6 grid gap-3">
         <ActionCard primary href={`/p/upload${q}`} icon={<Camera />} title={tp(lang, 'cardUploadTitle')} text={tp(lang, 'cardUploadText')} />
         {/* what the clinic has and what it still needs: one white strip, both cells jump to their list */}
-        <ul className="grid grid-cols-2 divide-x divide-control/25 overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card">
+        <ul className="grid grid-cols-2 divide-x divide-rule overflow-hidden rounded-xl border border-edge bg-surface shadow-card">
           <li>
-            <a href="#papers" className="block h-full p-4 hover:bg-spotlight">
+            <a href="#papers" className="block h-full p-4 hover:bg-spotlight focus-visible:-outline-offset-2">
               <span className="block font-display text-[2rem] leading-none tabular-nums">{sum.documents.length}</span>
               <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statHas')}</span>
             </a>
           </li>
           <li>
-            <a href="#missing" className="block h-full p-4 hover:bg-spotlight">
+            <a href="#missing" className="block h-full p-4 hover:bg-spotlight focus-visible:-outline-offset-2">
               <span className={`block font-display text-[2rem] leading-none tabular-nums ${pending.length ? 'text-amber-ink' : ''}`}>{pending.length}</span>
               <span className="mt-2 block text-[16px] leading-snug text-muted">{tp(lang, 'statNeeds')}</span>
             </a>
@@ -148,7 +148,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
           </>
         )}
         {arrived.length > 0 && (
-          <div className="mt-6 border-t border-control/25 pt-5">
+          <div className="mt-6 border-t border-rule pt-5">
             <h3 className="text-lg leading-tight">{tp(lang, 'secArrived')}</h3>
             <ul className={`mt-3 ${ROWS}`}>
               {arrived.map((m) => (
@@ -206,8 +206,8 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
       {/* 7. Rare things, tucked away but one tap from here. Without a password, one quiet reminder stays in view. */}
       <div className="mt-10 grid gap-3">
         {!ctx.hasPassword && <MoreLink href={`/p/password${q}`} icon={<KeyRound />} title={tp(lang, 'pwCardTitle')} note={tp(lang, 'pwCardText')} />}
-        <details className="group overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card">
-          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 marker:hidden hover:bg-spotlight [&::-webkit-details-marker]:hidden">
+        <details className="group overflow-hidden rounded-xl border border-edge bg-surface shadow-card">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center gap-3 px-4 py-3 marker:hidden hover:bg-spotlight focus-visible:-outline-offset-2 [&::-webkit-details-marker]:hidden">
             <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-alcove text-pine [&_svg]:size-5 [&_svg]:stroke-[1.5]"><Settings /></span>
             <span className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-[17px] leading-snug font-medium">{tp(lang, 'secSettings')}</span>
@@ -215,7 +215,7 @@ export default async function PatientHome({ searchParams }: { searchParams: Port
             </span>
             <ChevronDown aria-hidden className="size-5 shrink-0 text-faint transition-transform group-open:rotate-180" />
           </summary>
-          <ul className="grid gap-2 border-t border-control/25 bg-alcove/60 p-3">
+          <ul className="grid gap-2 border-t border-rule bg-alcove/60 p-3">
             <li><MoreLink href={`/p/consent${q}`} icon={<ShieldCheck />} title={tp(lang, 'cardConsentTitle')} note={tp(lang, 'cardConsentText')} /></li>
             <li><MoreLink href={`/p/access${q}`} icon={<History />} title={tp(lang, 'cardAccessTitle')} note={tp(lang, 'cardAccessText')} /></li>
             <li><MoreLink href={`/p/permissions${q}`} icon={<Users />} title={tp(lang, 'navWho')} /></li>

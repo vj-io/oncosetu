@@ -20,10 +20,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const metadata = { title: 'What’s new · OncoSetu' }
 
-/** One kind of change: a coloured edge, a title with its count and a one-line purpose, then the lines. Tight inside (12 px). */
+/** One kind of change: a coloured edge, a title with its count and a one-line purpose, then the lines. Tight inside (12 px).
+ *  An empty section keeps its title and purpose but gets a grey edge: a red or amber bar over "None." reads as an alarm. */
 function Section({ id, title, count, description, children, empty, tip, tone = 'neutral' }: { id: string; n: string; title: string; count: number; description: string; children?: React.ReactNode; empty?: string; tip?: string; tone?: Tone }) {
   return (
-    <section id={id} aria-labelledby={`sec-${id}`} className={`grid scroll-mt-32 gap-3 border-l-[3px] pl-4 ${TONE[tone].bar}`}>
+    <section id={id} aria-labelledby={`sec-${id}`} className={`grid scroll-mt-32 gap-3 border-l-[3px] pl-4 ${count ? TONE[tone].bar : 'border-l-edge'}`}>
       <header className="grid gap-1">
         <div className="flex items-center gap-x-3">
           <h3 id={`sec-${id}`} className="text-lg">{title}</h3>
@@ -37,7 +38,7 @@ function Section({ id, title, count, description, children, empty, tip, tone = '
   )
 }
 
-const LIST = 'divide-y divide-rule overflow-hidden rounded-lg border border-control/30 bg-surface shadow-card'
+const LIST = 'divide-y divide-rule overflow-hidden rounded-lg border border-edge bg-surface shadow-card'
 const FIRST = 10
 
 /** A list of lines: the first ten show, the rest open under "Show N more". Every line stays on the page. */
@@ -87,7 +88,7 @@ function SealPlaque({ v, patientId }: { v: LedgerView; patientId: string }) {
 
 function JumpBar({ items }: { items: { href: string; label: string; n: number }[] }) {
   return (
-    <nav aria-label="Jump to a section" className="sticky top-14 z-20 lg:top-16 -mx-4 overflow-x-auto border-y border-control/30 bg-surface/95 px-4 shadow-card backdrop-blur-sm sm:-mx-8 sm:px-8">
+    <nav aria-label="Jump to a section" className="sticky top-14 z-20 lg:top-16 -mx-4 overflow-x-auto border-y border-edge bg-surface/95 px-4 shadow-card backdrop-blur-sm sm:-mx-8 sm:px-8">
       <ul className="flex min-w-max gap-1">
         {items.map((i) => (
           <li key={i.href}>
@@ -156,7 +157,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
         )}
         <div className="grid items-center gap-6 lg:grid-cols-[1fr_minmax(20rem,26rem)]">
           <SealPlaque v={v} patientId={id} />
-          <div className="flex items-center gap-4 rounded-xl border border-control/30 bg-surface p-4 shadow-card">
+          <div className="flex items-center gap-4 rounded-xl border border-edge bg-surface p-4 shadow-card">
             <Ring
               size={112}
               label={`${v.counts.verified} of ${total} items checked against the page`}
@@ -254,7 +255,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ id: str
           </Section>
 
           <Section id="duplicates" n={num()} title="Duplicates hidden" count={v.duplicates.count} description="Same kind, date and details as an item already listed, or from a duplicate document. The first one received is kept.">
-            <details className="group rounded-lg border border-control/30 bg-surface">
+            <details className="group rounded-lg border border-edge bg-surface">
               <summary className="flex min-h-11 cursor-pointer items-center gap-2 px-4 text-[15px]"><Copy aria-hidden className="size-4 text-faint" />Show the {v.duplicates.count} hidden {v.duplicates.count === 1 ? 'item' : 'items'}</summary>
               <ul className="grid divide-y divide-rule border-t border-rule">
                 {v.duplicates.items.map((d) => (

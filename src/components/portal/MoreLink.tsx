@@ -5,7 +5,7 @@ import { ArrowRight } from "lucide-react";
 /** A quiet row for the "Settings and privacy" list on Home: a title, an optional short line, a tap target at least 56px tall. */
 export function MoreLink({ href, icon, title, note }: { href: string; icon: ReactNode; title: string; note?: string }) {
   return (
-    <Link href={href} className="group flex min-h-14 items-center gap-3 rounded-lg border border-control/40 bg-surface px-4 py-3 shadow-card transition-colors hover:bg-spotlight">
+    <Link href={href} className="group flex min-h-14 items-center gap-3 rounded-lg border border-edge bg-surface px-4 py-3 shadow-card transition-colors hover:bg-spotlight">
       <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-alcove text-pine [&_svg]:size-5 [&_svg]:stroke-[1.5]">{icon}</span>
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="text-[17px] leading-snug font-medium">{title}</span>

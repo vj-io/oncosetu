@@ -7,10 +7,10 @@ export function PaperPreview({ id, mime, pages, pageImages, className }: { id: s
   if (mime === 'application/pdf') return <div className={className}><PdfPages src={`/api/documents/${id}/file?kind=original`} pages={pages ?? 1} /></div>
   if (pageImages.length) {
     return (
-      <div className={`grid gap-2 rounded-lg border border-[#d9cfb3] bg-[#fbf8f1] p-2 ${className ?? ''}`}>
+      <div className={`grid gap-2 rounded-lg border border-paper-rule bg-paper p-2 ${className ?? ''}`}>
         {pageImages.map((n) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={n} src={`/api/documents/${id}/file?kind=page&page=${n}`} alt={`Page ${n} of the paper as it was received`} className="block h-auto w-full border border-[#d9cfb3] bg-white" />
+          <img key={n} src={`/api/documents/${id}/file?kind=page&page=${n}`} alt={`Page ${n} of the paper as it was received`} className="block h-auto w-full border border-paper-rule bg-white" />
         ))}
       </div>
     )

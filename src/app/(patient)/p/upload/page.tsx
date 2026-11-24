@@ -28,8 +28,8 @@ export default async function UploadPage({ searchParams }: { searchParams: Porta
       </details>
 
       {/* forwarding is shown as working only when this clinic has switched it on; otherwise one honest line */}
-      <section aria-labelledby="fwd-h" className="mt-8 overflow-hidden rounded-xl border border-control/40 bg-surface shadow-card">
-        <h2 id="fwd-h" className="border-b border-control/25 bg-alcove px-4 py-3 text-[1.25rem] leading-tight">{tp(lang, 'forwardSoonTitle')}</h2>
+      <section aria-labelledby="fwd-h" className="mt-8 overflow-hidden rounded-xl border border-edge bg-surface shadow-card">
+        <h2 id="fwd-h" className="border-b border-rule bg-alcove px-4 py-3 text-[1.25rem] leading-tight">{tp(lang, 'forwardSoonTitle')}</h2>
         <div className="p-4">
           {forwardingOn ? (
             <>

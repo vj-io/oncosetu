@@ -55,7 +55,7 @@ export default async function AdminOverview() {
     <div className="grid grid-cols-1 gap-8">
       <SectionHeader as="h1" kicker={`${admin ? 'Admin' : 'Audit'} · ${s.orgName}`} title={admin ? 'Admin' : 'Audit and oversight'}
         description={admin ? 'Five areas. Every change made here is written to the activity log, without names or document text.' : 'Two areas you can review: safety and activity, and quality. You cannot open patient records or change settings.'} />
-      <ul aria-label="At a glance" className="ds-feature rounded-2xl border border-rule p-3 shadow-card sm:p-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <ul aria-label="At a glance" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <li><StatTile tone="conflict" icon={<ShieldAlert />} value={safety.total} label="Blocked and held" sub={`In the last ${safety.days} days`} href="/admin/safety" /></li>
         {admin
           ? <li><StatTile icon={<Users />} value={c.staff} label="Active staff" sub="Accounts that can sign in" href="/admin/staff" /></li>

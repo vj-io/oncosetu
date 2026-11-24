@@ -117,8 +117,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
       </nav>
 
-      <SectionHeader
-        className="border-b border-[#d0d5dd] pb-5!"
+      <SectionHeader feature
         as="h2"
         kicker="Document"
         title={<>{title}{doc.institutionName ? <span className="text-muted"> · {doc.institutionName}</span> : null}</>}
@@ -216,7 +215,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
               ? <ImagingViewer documentId={doc.id} details={imaging} canView />
               : <Notice tone="shadow" icon={<ScanText />} title="The header could not be read">{fileInfo?.previewNote ?? 'The file is stored as it came.'}</Notice>)
             : doc.mime === 'application/pdf'
-              ? <div className="max-h-[40rem] overflow-y-auto border border-[#d9cfb3]"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
+              ? <div className="max-h-[40rem] overflow-y-auto border border-paper-rule"><PdfPages src={`/api/documents/${doc.id}/file?kind=original`} pages={doc.pages ?? 1} /></div>
             : doc.mime.startsWith('video/')
               ? <video controls preload="metadata" className="max-h-[32rem] w-full border border-rule bg-obsidian" src={`/api/documents/${doc.id}/file?kind=original`} data-testid="video-player" />
               : <Notice tone="shadow" icon={<ScanText />} title="Kept exactly as it arrived">Open the original to view it with the right program.</Notice>)}

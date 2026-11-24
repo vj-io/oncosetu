@@ -42,7 +42,7 @@ export default async function TimelinePage({ params, searchParams }: { params: P
       <Explainer>{EXPLAIN.ledger.replace('What arrived after the last sealed visit.', 'Everything on file, laid out by date.')}</Explainer>
 
       {data.asOf && (
-        <Frame tone="feature" className="flex flex-wrap items-center gap-5 border-l-[3px] border-l-brass px-5 py-4">
+        <Frame className="flex flex-wrap items-center gap-5 border-l-[3px] border-l-brass px-5 py-4">
           <BrassSeal code={data.asOf.sha256} label="Sealed" size={72} />
           <div className="grid gap-1">
             <p className="text-[15px]">The record as it stood when the visit was sealed, {data.asOf.sealedLabel}{data.asOf.signerName && <> by {data.asOf.signerName}</>}. Read-only.</p>

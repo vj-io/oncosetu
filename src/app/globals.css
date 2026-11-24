@@ -67,7 +67,7 @@
   --color-highlight-on: #fde68a; /* the active quote */
   --color-paper: #fbf8f1; /* warm surface for page text */
   --color-paper-band: #f4eee1;
-  --color-paper-rule: #e2d9c3;
+  --color-paper-rule: #d9cfb3; /* 1.46:1 on white, the same weight as the card edge */
   --color-link: #7fa7b0; /* link underline */
 
   /* Semantic pairs */
@@ -103,7 +103,6 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
-  --radius-2xl: 16px; /* was undefined: `--radius-*: initial` wiped it, so rounded-2xl generated nothing */
   --radius-full: 9999px;
 
   --shadow-*: initial;
@@ -267,9 +266,6 @@
   }
   .ds-table tbody tr:hover td {
     background: var(--color-spotlight);
-  }
-  .ds-table tbody tr:has(a):hover {
-    cursor: pointer;
   }
 
   .ds-skeleton {

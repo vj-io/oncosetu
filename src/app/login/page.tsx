@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CircleAlert, LoaderCircle } from "lucide-react";
 import { roleHome } from "@/lib/staff-nav";
 import { Avatar, Badge, Button, Field, Input, PasswordInput } from "@/components/ui";
-import { AuthShell } from "@/components/shell/AuthShell";
+import { AuthShell, useAuthBrand } from "@/components/shell/AuthShell";
 
 type DemoAccount = { role: string; name: string; email: string; password: string; totp: string };
 
@@ -32,6 +32,7 @@ export default function StaffLoginPage() {
   const [accounts, setAccounts] = useState<DemoAccount[] | null>(null);
   const [filling, setFilling] = useState<string | null>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
+  const brand = useAuthBrand();
 
   useEffect(() => {
     fetchDemoAccounts().then((a) => a?.length && setAccounts(a));
@@ -125,8 +126,13 @@ export default function StaffLoginPage() {
         <p className="mt-5 text-[15px] text-muted">
           Patient or family?{" "}
           <Link href="/p/login" className="font-medium text-setu-ink underline decoration-link underline-offset-4 hover:decoration-setu-ink">Sign in with your phone</Link>
-          <span aria-hidden> · </span>
-          <Link href="/security" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Security & compliance</Link>
+          {/* The security page carries the product name: not linked from the neutral address. */}
+          {brand === "OncoSetu" && (
+            <>
+              <span aria-hidden> · </span>
+              <Link href="/security" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Security & compliance</Link>
+            </>
+          )}
         </p>
       </div>
 

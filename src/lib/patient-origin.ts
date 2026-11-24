@@ -6,3 +6,9 @@ export function patientOrigin(own: string, configured = process.env.NEXT_PUBLIC_
   const v = configured?.trim().replace(/\/+$/, '')
   return v && /^https:\/\/[a-z0-9.-]+$/i.test(v) ? v : own
 }
+
+/** True when a request's host (X-Forwarded-Host or Host) is the configured neutral patient address. */
+export function isPatientHost(host: string | null | undefined, configured = process.env.NEXT_PUBLIC_PATIENT_ORIGIN): boolean {
+  const neutral = patientOrigin('', configured)
+  return Boolean(neutral && host && new URL(neutral).host === host.toLowerCase())
+}

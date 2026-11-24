@@ -33,7 +33,7 @@ export function PatientShell({
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-pine focus:px-4 focus:py-3 focus:text-white">
         {shellCopy.skipToContent[lang]}
       </a>
-      <header className="relative z-10 border-b border-rule bg-surface">
+      <header className="relative z-10 border-b border-edge bg-surface">
         <div className="mx-auto flex min-h-16 max-w-reading flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
           <Link href={homeHref} aria-label={brand} className="inline-flex h-11 items-center rounded-md"><Wordmark brand={brand} /></Link>
           <div className="ml-auto flex items-center gap-4">

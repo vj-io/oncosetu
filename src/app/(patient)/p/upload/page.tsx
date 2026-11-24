@@ -3,7 +3,6 @@ import { PortalFrame } from '@/components/portal/PortalFrame'
 import { Kicker } from '@/components/portal/ui'
 import { UploadForm } from '@/components/portal/UploadForm'
 import { tp } from '@/i18n/patient'
-import { Frame } from '@/components/ui'
 import { withOrg } from '@/db'
 import { loadPortal, type PortalSearch } from '@/server/portal/context'
 import { loadForwarding } from '@/server/portal/home'
@@ -29,33 +28,31 @@ export default async function UploadPage({ searchParams }: { searchParams: Porta
       </details>
 
       {/* forwarding is shown as working only when this clinic has switched it on; otherwise one honest line */}
-      <section aria-labelledby="fwd-h" className="mt-8">
-        <h2 id="fwd-h" className="text-xl">{tp(lang, 'forwardSoonTitle')}</h2>
-        {forwardingOn ? (
-          <>
-            <p className="mt-2 max-w-prose text-muted">{tp(lang, 'forwardIntro')}</p>
-            <ul className="mt-4 grid gap-2">
-              {fwd.whatsapp && (
-                <li>
-                  <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
+      <section aria-labelledby="fwd-h" className="mt-8 overflow-hidden rounded-xl border border-edge bg-surface shadow-card">
+        <h2 id="fwd-h" className="border-b border-rule bg-alcove px-4 py-3 text-[1.25rem] leading-tight">{tp(lang, 'forwardSoonTitle')}</h2>
+        <div className="p-4">
+          {forwardingOn ? (
+            <>
+              <p className="max-w-prose text-muted">{tp(lang, 'forwardIntro')}</p>
+              <ul className="mt-4 grid divide-y divide-rule">
+                {fwd.whatsapp && (
+                  <li className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     <MessageCircle aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                     <span className="text-[17px]">{tp(lang, 'forwardWhatsApp', { number: fwd.whatsapp })}</span>
-                  </Frame>
-                </li>
-              )}
-              {fwd.email && (
-                <li>
-                  <Frame tone="tint" className="flex items-start gap-3 px-4 py-3">
+                  </li>
+                )}
+                {fwd.email && (
+                  <li className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     <Mail aria-hidden className="mt-1 size-5 shrink-0 text-faint" />
                     <span className="min-w-0 text-[17px] break-words">{tp(lang, 'forwardEmail', { address: fwd.email })}</span>
-                  </Frame>
-                </li>
-              )}
-            </ul>
-          </>
-        ) : (
-          <p className="mt-2 max-w-prose text-muted">{tp(lang, 'forwardSoon')}</p>
-        )}
+                  </li>
+                )}
+              </ul>
+            </>
+          ) : (
+            <p className="max-w-prose text-muted">{tp(lang, 'forwardSoon')}</p>
+          )}
+        </div>
       </section>
     </PortalFrame>
   )

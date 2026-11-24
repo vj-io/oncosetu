@@ -55,7 +55,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
           signed={signed.map((x) => ({ id: x.id, action: x.action, signer: x.signer, signedAt: x.signedAt, dateText: formatDateTimeIN(new Date(x.signedAt), lang) }))}
         />
 
-        <section aria-labelledby="rights-h" className="grid gap-3 border border-rule bg-surface px-5 py-5 rounded-lg">
+        <section aria-labelledby="rights-h" className="grid gap-3 rounded-lg border border-edge bg-surface px-5 py-5 shadow-card">
           <h2 id="rights-h" className="text-xl">{tv(lang, 'rightsTitle')}</h2>
           <ul className="grid gap-1.5 text-[17px]">
             <li>{tv(lang, 'rightAccess')}</li>
@@ -65,7 +65,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Port
           </ul>
         </section>
 
-        <section aria-labelledby="id-h" className="grid gap-2 border border-rule bg-surface px-5 py-5 rounded-lg">
+        <section aria-labelledby="id-h" className="grid gap-2 rounded-lg border border-edge bg-surface px-5 py-5 shadow-card">
           <h2 id="id-h" className="text-xl">{tv(lang, 'idTitle')}</h2>
           <p data-testid="id-record" className="text-[17px]">
             {privacy.idRecord

@@ -85,7 +85,7 @@ export const encountersOf = (patientId: string) => adminDb.select().from(encount
 export const patientRow = async (patientId: string) => (await adminDb.select().from(patients).where(eq(patients.id, patientId)))[0]
 
 export const auditOf = (targetId: string, action: string) =>
-  adminDb.select().from(auditLog).where(and(eq(auditLog.orgId, ORG), eq(auditLog.targetId, targetId), eq(auditLog.action, action)))
+  adminDb.select().from(auditLog).where(and(eq(auditLog.orgId, ORG), eq(auditLog.targetId, targetId), eq(auditLog.action, action))).orderBy(auditLog.seq) // oldest first: callers read [0] and .at(-1)
 export const caregiversOf = (patientId: string) => adminDb.select().from(caregivers).where(eq(caregivers.patientId, patientId))
 /** Portal sessions of one caregiver that still work (not revoked). */
 export const liveCaregiverSessions = (caregiverId: string) =>

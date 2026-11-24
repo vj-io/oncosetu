@@ -15,21 +15,21 @@ const DOT: Record<Tone, string> = {
   neutral: "bg-control", setu: "bg-setu", verified: "bg-sage", unverified: "bg-amber", conflict: "bg-madder", patient: "bg-violet", shadow: "bg-slate", brass: "bg-brass",
 };
 
-/** A white panel with an icon, a title and an optional aside (a link or a pill). */
-/** `feature` marks the one card a dashboard leads with: a soft teal wash and the logo-ring overlay. `tint` marks a side card
- *  (next actions, what changed, visit facts): a very light teal, so the white main cards read first. */
+/** A white card in two parts: a header band (icon, title, optional aside) over a hairline, then the body.
+ *  `feature` marks the one card a dashboard leads with, `tint` a side card; both are white now and differ only by a 3px
+ *  teal top bar on `feature`. Structure (edge, band, shadow) separates the card from the canvas, not a pale tint. */
 export function Panel({ title, icon, aside, children, className, id, feature, tint }: { title: ReactNode; icon?: ReactNode; aside?: ReactNode; children: ReactNode; className?: string; id?: string; feature?: boolean; tint?: boolean }) {
   const hid = id ? `${id}-h` : undefined;
   return (
-    <section aria-labelledby={hid} id={id} className={clsx("grid content-start gap-4 rounded-xl border p-5 shadow-card sm:p-6", feature ? "ds-feature border-rule" : tint ? "border-wash-rule bg-wash" : "border-rule bg-surface", className)}>
-      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+    <section aria-labelledby={hid} id={id} data-tint={tint ? "" : undefined} className={clsx("grid content-start rounded-xl border border-edge bg-surface shadow-card", feature && "border-t-[3px] border-t-setu", className)}>
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-rule px-5 py-3.5 sm:px-6">
         <h2 id={hid} className="flex items-center gap-3 text-lg">
-          {icon && <span aria-hidden className={clsx("grid size-9 shrink-0 place-items-center rounded-md text-setu-ink [&_svg]:size-[18px]", feature || tint ? "bg-surface shadow-card" : "bg-alcove")}>{icon}</span>}
+          {icon && <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-md bg-setu-tint text-setu-ink [&_svg]:size-[18px]">{icon}</span>}
           {title}
         </h2>
         {aside}
       </header>
-      {children}
+      <div className="grid content-start gap-4 p-5 sm:p-6">{children}</div>
     </section>
   );
 }
@@ -95,7 +95,7 @@ export function ActionList({ items, empty }: { items: ActionItem[]; empty?: Reac
         const t = TONE[a.tone ?? "setu"];
         return (
           <li key={k}>
-            <Link href={a.href} className={clsx("flex min-h-12 items-center gap-3 rounded-md px-3 py-2 text-[15px] font-medium transition-colors", a.urgent ? `${TONE.conflict.bg} ${TONE.conflict.text} hover:brightness-[0.98]` : "bg-surface shadow-[0_1px_2px_rgb(16_24_40/0.04)] hover:bg-alcove")}>
+            <Link href={a.href} className={clsx("flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-[15px] font-medium transition-colors", a.urgent ? `border-madder/40 ${TONE.conflict.bg} ${TONE.conflict.text} shadow-[inset_3px_0_0_var(--color-madder)] hover:brightness-[0.98]` : "border-rule bg-surface hover:border-control hover:bg-spotlight")}>
               <span aria-hidden className={clsx("grid size-8 shrink-0 place-items-center rounded-sm [&_svg]:size-4", a.urgent ? "bg-surface/70" : `${t.bg} ${t.text}`)}>{a.icon}</span>
               <span className="min-w-0 flex-1">{a.label}</span>
               {a.count != null && <span className="font-semibold tabular-nums">{a.count}</span>}
@@ -171,15 +171,22 @@ export function StatTile({ icon, value, label, sub, tone = "setu", href }: { ico
   const body = (
     <>
       <span aria-hidden className={clsx("grid size-9 place-items-center rounded-sm [&_svg]:size-[18px]", TONE[tone].bg, TONE[tone].text)}>{icon}</span>
-      <span className="font-display text-[2rem] leading-none tabular-nums">{value}</span>
+      <span className="font-display text-[1.75rem] leading-none font-semibold tabular-nums">{value}</span>
       <span className="grid gap-0.5">
         <span className="text-[15px] font-semibold">{label}</span>
         {sub && <span className="text-[13px] leading-snug text-muted">{sub}</span>}
       </span>
     </>
   );
-  const cls = "grid h-full content-start gap-2.5 rounded-xl border border-rule bg-surface p-4 shadow-card sm:p-5";
-  return href ? <Link href={href} className={clsx(cls, "transition-colors hover:border-control/40")}>{body}</Link> : <div className={cls}>{body}</div>;
+  const cls = "relative grid h-full content-start gap-2.5 rounded-xl border border-edge bg-surface p-4 shadow-card sm:p-5";
+  return href
+    ? (
+      <Link href={href} className={clsx(cls, "transition-[border-color,box-shadow] hover:border-control hover:shadow-pop")}>
+        {body}
+        <ChevronRight aria-hidden className="absolute top-4 right-4 size-4 text-faint" />
+      </Link>
+    )
+    : <div className={cls}>{body}</div>;
 }
 
 /** Horizontal bars: one row per category, its count and a bar to scale with the largest. Zero rows stay (a bar of nothing). */

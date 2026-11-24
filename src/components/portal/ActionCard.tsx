@@ -10,7 +10,7 @@ export function ActionCard({ href, icon, title, text, note, primary = false }: {
       href={href}
       className={clsx(
         "group flex min-h-[88px] items-center gap-4 rounded-lg px-4 py-4 shadow-card transition-colors sm:px-5",
-        primary ? "bg-pine text-white hover:bg-pine-hover" : "border border-rule bg-surface hover:border-control/50 hover:bg-spotlight",
+        primary ? "bg-pine text-white hover:bg-pine-hover" : "border border-edge bg-surface hover:border-control/70 hover:bg-spotlight",
       )}
     >
       <span aria-hidden className={clsx("grid size-12 shrink-0 place-items-center rounded-md [&_svg]:size-6", primary ? "bg-white/15 text-white" : "bg-setu-tint text-setu-ink")}>

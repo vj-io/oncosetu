@@ -15,8 +15,8 @@ export type BarItem = { href: string; label: string; query: string; icon: ReactN
 const isActive = (pathname: string, href: string) => (href === "/p" ? pathname === "/p" : pathname === href || pathname.startsWith(`${href}/`));
 
 /**
- * Desktop: one line of tabs, a "Privacy & access" menu, Sign out at the right.
- * Phone: a bottom tab bar (Home · Send · Requests · Share · More), as in the phone apps people already use. "More" opens a
+ * Desktop: one line of tabs, a "Settings and privacy" menu, Sign out at the right.
+ * Phone: a bottom tab bar (Home · Send · Questions · Share · More), as in the phone apps people already use. "More" opens a
  * panel with every other page and Sign out. Keyboard: Escape closes the menus and returns focus to their button.
  */
 export function PortalNav({
@@ -117,7 +117,7 @@ export function PortalNav({
             <ChevronDown aria-hidden className={clsx("size-4 transition-transform", open && "rotate-180")} />
           </button>
           {open && (
-            <ul className="absolute top-full right-0 z-30 mt-2 grid min-w-60 overflow-hidden rounded-lg border border-rule bg-surface py-1 shadow-pop">
+            <ul className="absolute top-full right-0 z-30 mt-2 grid min-w-60 overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-pop">
               {group.items.map((it) => (
                 <li key={it.href}>
                   <Link
@@ -137,7 +137,7 @@ export function PortalNav({
       {/* phone: a bottom tab bar, and a "More" panel above it */}
       {more && <div aria-hidden className="fixed inset-0 z-40 bg-ink/30 md:hidden" onClick={() => setMore(false)} />}
       {more && (
-        <div ref={panel} id="portal-more" className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-50 mx-2 rounded-xl border border-rule bg-surface p-2 shadow-pop md:hidden">
+        <div ref={panel} id="portal-more" className="fixed inset-x-0 bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))] z-50 mx-2 rounded-xl border border-edge bg-surface p-2 shadow-pop md:hidden">
           <div className="flex items-center justify-between px-2 pt-1 pb-2">
             <p className="text-[16px] font-semibold">{moreTitle}</p>
             <button type="button" onClick={() => { setMore(false); moreBtn.current?.focus(); }} className="grid size-11 place-items-center rounded-md text-muted hover:bg-spotlight" aria-label={closeLabel}>

@@ -26,7 +26,7 @@ export default async function AccessPage({ searchParams }: { searchParams: Porta
         <EmptyState className="mt-8" icon={<Eye />} title={tp(lang, 'accessEmpty')} />
       ) : (
         <>
-          <ol className="mt-8 divide-y divide-rule border border-rule bg-surface rounded-lg">
+          <ol className="mt-8 divide-y divide-rule rounded-lg border border-edge bg-surface shadow-card">
             {log.map((e) => (
               <li key={e.id} className="grid gap-0.5 px-4 py-3">
                 <span className="text-[17px] leading-snug">{e.text}</span>

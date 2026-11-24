@@ -2,21 +2,22 @@ import type { ReactNode } from "react";
 import { PatientShell } from "@/components/shell";
 import { tp, type PatientKey } from "@/i18n/patient";
 import type { PortalCtx } from "@/server/portal/context";
-import { Camera, House, Mail, Share2 } from "lucide-react";
+import { Camera, ClipboardList, House, Share2 } from "lucide-react";
 import { PortalNav, type BarItem, type NavGroup, type NavItem } from "./PortalNav";
 
 const MAIN = [
   ["/p", "navHome"],
   ["/p/upload", "navUpload"],
   ["/p/visit", "navVisit"],
-  ["/p/requests", "navRequests"],
   ["/p/share", "navShare"],
-  ["/p/abdm", "navAbdmShort"],
+  ["/p/requests", "navRequests"],
 ] as const;
+// the rare pages: one menu on a computer, the "More" panel on a phone
 const PRIVACY = [
   ["/p/consent", "navConsent"],
-  ["/p/permissions", "navWho"],
   ["/p/access", "navAccess"],
+  ["/p/permissions", "navWho"],
+  ["/p/abdm", "navAbdmShort"],
 ] as const;
 
 /**
@@ -28,12 +29,12 @@ export function PortalFrame({ ctx, children }: { ctx: PortalCtx; children: React
   const { lang } = ctx;
   const link = ([href, key]: readonly [string, PatientKey]) => ({ href, label: tp(lang, key), query: `?lang=${lang}` });
   const items: NavItem[] = MAIN.map(link);
-  const group: NavGroup = { label: tp(lang, "navPrivacy"), items: PRIVACY.map(link) };
-  // Phone bottom bar: the four daily pages with short labels; the rest sit under "More".
+  const group: NavGroup = { label: tp(lang, "secSettings"), items: PRIVACY.map(link) };
+  // Phone bottom bar: the four pages used most, in order of use (send, questions, share); requests and the rest sit under "More".
   const bar: BarItem[] = [
     { href: "/p", label: tp(lang, "tabHome"), query: `?lang=${lang}`, icon: <House /> },
     { href: "/p/upload", label: tp(lang, "tabSend"), query: `?lang=${lang}`, icon: <Camera /> },
-    { href: "/p/requests", label: tp(lang, "tabRequests"), query: `?lang=${lang}`, icon: <Mail /> },
+    { href: "/p/visit", label: tp(lang, "tabVisit"), query: `?lang=${lang}`, icon: <ClipboardList /> },
     { href: "/p/share", label: tp(lang, "tabShare"), query: `?lang=${lang}`, icon: <Share2 /> },
   ];
   return (

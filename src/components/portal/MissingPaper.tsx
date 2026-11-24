@@ -1,21 +1,27 @@
 import type { Lang } from "@/core/types";
 import { CheckCircle2, FileX, Send } from "lucide-react";
 import { Frame } from "@/components/ui";
+import type { ReactNode } from "react";
 import { tp } from "@/i18n/patient";
 import type { LookingRow } from "@/server/portal/summary";
 import { LetterButton } from "./LetterButton";
 import { PLink } from "./ui";
 
+/** `bare`: no box of its own, for a list that already sits inside a white section card with divided rows. */
+function Box({ bare, className, children }: { bare: boolean; className: string; children: ReactNode }) {
+  return bare ? <div className={className.replace("px-4 py-4", "")}>{children}</div> : <Frame className={className}>{children}</Frame>;
+}
+
 /**
  * One paper the clinic is still looking for: its name, roughly when, where to ask, and what the family can do about it
  * (send a photo, or make the letter to give to that hospital). `showSend` is false on the Requests page.
  */
-export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; lang: Lang; showSend?: boolean }) {
+export function MissingPaper({ row, lang, showSend = true, bare = false }: { row: LookingRow; lang: Lang; showSend?: boolean; bare?: boolean }) {
   const q = `?lang=${lang}`;
   if (row.state === "received") {
     // already with the clinic: a tick, no "where to ask", nothing more to do
     return (
-      <Frame className="flex items-start gap-3 px-4 py-4">
+      <Box bare={bare} className="flex items-start gap-3 px-4 py-4">
         <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-sage-tint text-sage-ink"><CheckCircle2 className="size-5" strokeWidth={1.75} /></span>
         <div className="grid min-w-0 flex-1 gap-1">
           <h3 className="text-lg leading-snug">{row.label}</h3>
@@ -24,11 +30,11 @@ export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; 
           {row.place && <p className="text-[16px] text-muted">{row.place}</p>}
           <p className="text-[16px]">{row.status}</p>
         </div>
-      </Frame>
+      </Box>
     );
   }
   return (
-    <Frame className="grid gap-3 px-4 py-4">
+    <Box bare={bare} className="grid gap-3 px-4 py-4">
       <div className="flex items-start gap-3">
         <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-full bg-alcove text-faint"><FileX className="size-5" strokeWidth={1.75} /></span>
         <div className="grid min-w-0 flex-1 gap-1">
@@ -42,7 +48,7 @@ export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; 
       {row.canLetter && (
         <div className="grid gap-2 sm:grid-cols-2">
           {showSend && (
-            <PLink href={`/p/upload${q}`} icon={<Send />} className="w-full">
+            <PLink variant="secondary" href={`/p/upload${q}`} icon={<Send />} className="w-full">
               {tp(lang, "lookingSend")}
             </PLink>
           )}
@@ -54,6 +60,6 @@ export function MissingPaper({ row, lang, showSend = true }: { row: LookingRow; 
           {tp(lang, "lookingSeeLetter")}
         </PLink>
       )}
-    </Frame>
+    </Box>
   );
 }

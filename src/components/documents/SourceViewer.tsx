@@ -22,7 +22,23 @@ export type ViewerPage = { pageNo: number; text: string; words: { c: number; s: 
 
 const METHOD: Record<string, string> = { text_layer: 'Typed PDF', ocr_llm: 'Read from a photo: check the numbers', manual: 'Entered by staff', structured_map: 'From a health record', asr: 'From speech' }
 
-const SHORT_DATE = (e: Pick<ViewerEvent, 'eventDate'>) => (e.eventDate ? fmtDate(e.eventDate) : 'No date')
+/** The facts column is grouped by what is still to be done with each line, most urgent first. Nothing is hidden: every line is in exactly one group. */
+type GroupKey = 'needs' | 'problem' | 'open' | 'checked' | 'withdrawn'
+const FACT_GROUPS: { key: GroupKey; title: string; bar: string }[] = [
+  { key: 'needs', title: 'Needs checking', bar: 'border-l-amber' },
+  { key: 'problem', title: 'Disputed or rejected', bar: 'border-l-madder' },
+  { key: 'open', title: 'Not yet checked', bar: 'border-l-slate' },
+  { key: 'checked', title: 'Checked', bar: 'border-l-sage' },
+  { key: 'withdrawn', title: 'Withdrawn', bar: 'border-l-slate' },
+]
+function factGroup(e: Pick<ViewerEvent, 'flags' | 'verificationStatus' | 'withdrawnAt'>): GroupKey {
+  if (e.withdrawnAt) return 'withdrawn'
+  if (needsPageCheck(e)) return 'needs'
+  if (e.verificationStatus === 'disputed' || e.verificationStatus === 'rejected') return 'problem'
+  return e.verificationStatus === 'unverified' ? 'open' : 'checked'
+}
+
+const SHORT_DATE =(e: Pick<ViewerEvent, 'eventDate'>) => (e.eventDate ? fmtDate(e.eventDate) : 'No date')
 
 function spanConfidence(page: ViewerPage | undefined, s: number, e: number): number | null {
   const ws = (page?.words ?? []).filter((w) => w.s < e && w.e > s)
@@ -75,8 +91,10 @@ function PageText({ page, events, active, onPick }: { page: ViewerPage; events: 
     .map((x) => ({ id: e.id, s: x.charStart!, e: x.charEnd!, low: !!e.flags.low_confidence })))
   const cuts = [...new Set([0, page.text.length, ...spans.flatMap((s) => [s.s, s.e])])].filter((n) => n >= 0 && n <= page.text.length).sort((a, b) => a - b)
   const firstOf = new Map<string, number>()
+  // While a quote on this page is active, the other quotes step back to a paler band so the active one stands out.
+  const hasActive = spans.some((s) => s.id === active)
   return (
-    <pre className="font-sans text-[14px] leading-[1.75] break-words whitespace-pre-wrap text-ink [tab-size:4]">
+    <pre className="max-w-[72ch] font-mono text-[13.5px] leading-[1.8] break-words whitespace-pre-wrap text-ink [tab-size:4]">
       {cuts.slice(0, -1).map((a, i) => {
         const b = cuts[i + 1]
         const cover = spans.filter((s) => s.s <= a && s.e >= b)
@@ -90,7 +108,13 @@ function PageText({ page, events, active, onPick }: { page: ViewerPage; events: 
             key={a}
             id={id ? `q-${id}` : undefined}
             onClick={() => onPick(cover[0].id)}
-            className={clsx('ds-quote cursor-pointer', cover.every((c) => c.low) && 'ds-quote-low', isActive && 'ds-sweep outline-2 outline-offset-2 outline-brass')}
+            className={clsx(
+              'ds-quote cursor-pointer',
+              cover.every((c) => c.low) && 'ds-quote-low',
+              // Active: darker yellow (#fde68a), a #8f6c12 outline (3.9:1 on that yellow, 4.6:1 on the paper) and a leading marker, so it is not colour alone.
+              isActive && "ds-sweep rounded-[3px] [--ql:var(--color-brass-dark)] [--qb:var(--color-highlight-on)] outline-2 outline-offset-1 outline-brass-dark before:mr-0.5 before:font-semibold before:text-brass-dark before:content-['▸']",
+              !isActive && hasActive && !cover.every((c) => c.low) && '[--qb:#fff8dc]',
+            )}
           >
             {text}
           </mark>
@@ -104,7 +128,7 @@ function PageText({ page, events, active, onPick }: { page: ViewerPage; events: 
 function PageImage({ src, n, boxes }: { src: string; n: number; boxes: number[][] }) {
   const [dim, setDim] = useState<{ w: number; h: number } | null>(null)
   return (
-    <div className="relative border border-rule bg-white">
+    <div className="relative border border-paper-rule bg-white">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={`Page ${n} of the paper as it was received`} className="block h-auto w-full" onLoad={(e) => setDim({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })} />
       {dim && boxes.map((b, i) => (
@@ -121,6 +145,8 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
   const live = useMemo(() => events.filter((e) => !e.withdrawnAt), [events])
   const initial = focusEventId && live.some((e) => e.id === focusEventId) ? focusEventId : null
   const [active, setActive] = useState<string | null>(initial)
+  // Folded fact groups. Picking a fact opens its group; folding the group of the active fact clears the active fact.
+  const [closed, setClosed] = useState<ReadonlySet<GroupKey>>(new Set())
   const isPdf = mime === 'application/pdf'
   const textPages = pages.filter((p) => p.text.trim())
   // A link to one fact opens where its words are lit: the words view, unless the file gives the place on the picture.
@@ -148,6 +174,8 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
     setActive(id)
     markViewed(id)
     const ev = events.find((e) => e.id === id)
+    const g = ev && factGroup(ev)
+    if (g) setClosed((c) => { if (!c.has(g)) return c; const n = new Set(c); n.delete(g); return n })
     // A typed PDF is drawn as plain pictures with no positions, so its highlighted words are on the words view.
     const needsText = isPdf || !ev?.evidence.some((x) => x.bbox?.length)
     if (needsText && textPages.length) setMode('text')
@@ -163,48 +191,14 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
   const activeEvent = events.find((e) => e.id === active)
   const boxesOn = (n: number) => (activeEvent?.evidence ?? []).filter((x) => x.pageNo === n && x.bbox?.length).flatMap((x) => x.bbox!)
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] [&>*]:min-w-0">
-      {/* The original page, first */}
-      <section id="source-panel" aria-labelledby="page-h" className="grid content-start gap-3 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="page-h" className="ds-kicker">{mode === 'page' ? 'The paper as it was received' : 'Words on the page'}</h2>
-          {textPages.length > 0 && (
-            <div className="inline-flex border border-rule text-sm" role="group" aria-label="How to show the paper">
-              {(['page', 'text'] as const).map((m) => (
-                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={clsx('min-h-9 px-3', mode === m ? 'bg-obsidian text-gallery' : 'hover:bg-spotlight')}>{m === 'page' ? 'Page' : 'Words'}</button>
-              ))}
-            </div>
-          )}
-        </div>
-        {mode === 'page' ? (
-          isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
-          : imageDoc ? (
-            <div className="grid gap-2">{(pageImages.length ? pageImages : [1]).map((n) => <PageImage key={n} n={n} src={`/api/documents/${documentId}/file?kind=page&page=${n}`} boxes={boxesOn(n)} />)}</div>
-          ) : <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
-        ) : (
-          <div className="grid gap-3">
-            <p className="text-[13px] text-muted">Highlighted words are the ones the record uses.</p>
-            {!textPages.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">No words were read from this paper (picture only).</p>}
-            {textPages.map((p) => (
-              <article key={p.pageNo} className="border border-rule bg-matte shadow-frame rounded-lg">
-                <header className="flex flex-wrap items-center justify-between gap-2 border-b border-rule bg-surface px-4 py-2">
-                  <span className="text-[13px] text-faint font-medium">Page {p.pageNo}{p.ocrConfidence != null ? ` · read from a photo, confidence ${p.ocrConfidence.toFixed(2)}` : ''}</span>
-                  {p.lowConfidence && <StatusBadge status="low_confidence" />}
-                </header>
-                <div className="px-4 py-4 sm:px-5"><PageText page={p} events={live} active={active} onPick={(id) => pick(id, false)} /></div>
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
+  const toggleGroup = (k: GroupKey) => {
+    if (!closed.has(k) && activeEvent && factGroup(activeEvent) === k) setActive(null)
+    setClosed((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n })
+  }
+  const groups = FACT_GROUPS.map((g) => ({ ...g, items: events.filter((e) => factGroup(e) === g.key) })).filter((g) => g.items.length > 0)
+  const shownPages = mode === 'page' ? (pageImages.length || pageCount) : textPages.length
 
-      {/* Facts, one line each */}
-      <section aria-labelledby="facts-h" className="grid content-start gap-3">
-        <h2 id="facts-h" className="ds-kicker">What the paper says · {live.length} {live.length === 1 ? 'line' : 'lines'}</h2>
-        {!live.length && <p className="border border-dashed border-control bg-gallery p-5 text-[15px] text-muted rounded-lg">Nothing was picked out of this paper automatically. Read the page.</p>}
-        <ul className="grid border border-rule bg-surface rounded-lg">
-          {events.map((e) => {
+  const renderFact = (e: ViewerEvent) => {
             const ev = e.evidence[0]
             const page = pages.find((p) => p.pageNo === ev?.pageNo)
             const conf = ev?.charStart != null && ev.charEnd != null ? spanConfidence(page, ev.charStart, ev.charEnd) : null
@@ -216,16 +210,18 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
             const open = active === e.id
             const state = withdrawn ? <Badge tone="shadow">Withdrawn</Badge> : held ? <Badge tone="unverified" icon={<ScanText />}>Needs checking</Badge> : <StatusBadge status={e.verificationStatus as 'unverified'} />
             return (
-              <li key={e.id} id={`ev-${e.id}`} data-held={held || undefined} className={clsx('scroll-mt-24 border-b border-rule last:border-b-0', open && 'bg-spotlight/50', withdrawn && 'opacity-60')}>
+              // The active row: pale teal (#e3f1f2) plus a 3px #8f6c12 bar, the same colour as the outline on the active quote. The bar is a
+              // pseudo-element so the button's hover colour cannot paint over it (bar 4.9:1 on white, 4.2:1 on the row).
+              <li key={e.id} id={`ev-${e.id}`} data-held={held || undefined} className={clsx('relative scroll-mt-24 border-b border-rule last:border-b-0', open && 'bg-select before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-brass-dark', withdrawn && 'opacity-60')}>
                 <button type="button" aria-expanded={open} onClick={() => (open ? setActive(null) : pick(e.id, false))}
-                  className="grid min-h-12 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-3 py-2 text-left hover:bg-spotlight/60">
-                  <span className="min-w-0 break-words text-[15px] leading-snug"><span className="text-muted">{EVENT_LABEL[e.eventType] ?? e.eventType}</span> · {lineTitle(e)}</span>
+                  className="grid min-h-14 w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 text-left hover:bg-spotlight">
+                  <span className="grid min-w-0 gap-0.5 break-words"><span className="ds-kicker">{EVENT_LABEL[e.eventType] ?? e.eventType}</span><span className="text-[15px] leading-snug font-medium text-ink">{lineTitle(e)}</span></span>
                   <ChevronDown aria-hidden className={clsx('size-4 shrink-0 text-muted transition-transform', open && 'rotate-180')} />
                   <span className="flex flex-wrap items-center gap-x-2 text-[13px] text-muted"><span>{SHORT_DATE(e)}</span>{ev && <span>· page {ev.pageNo}</span>}</span>
                   <span className="justify-self-end">{state}</span>
                 </button>
                 {open && (
-                  <div className="grid gap-3 border-t border-rule px-3 py-3 text-[14px]">
+                  <div className="grid gap-3 border-t border-[#c5dde0] px-4 py-3 text-[14px]">
                     {fields.length > 0 && (
                       <p className="grid gap-0.5">{fields.map(([k, v]) => <span key={k} className="break-words"><span className="text-muted">{FIELD_LABEL[k] ?? k}:</span> {Array.isArray(v) ? v.join(', ') : String(v)}</span>)}</p>
                     )}
@@ -242,7 +238,7 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                       {flags.map((f) => <Badge key={f} tone={(f === 'late_received' ? 'patient' : f === 'identity_warning' ? 'conflict' : 'unverified') as Tone}>{FLAG_LABEL[f]}</Badge>)}
                       {held && e.rowVersion !== undefined && <PageCheckButton eventId={e.id} rowVersion={e.rowVersion} />}
                       {ev && !withdrawn && (
-                        <button type="button" onClick={() => pick(e.id)} className="inline-flex min-h-9 items-center gap-1 px-2 text-sm underline underline-offset-4 hover:bg-spotlight">
+                        <button type="button" onClick={() => pick(e.id)} className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-sm font-medium text-setu-ink underline underline-offset-4 hover:bg-white/70">
                           <Crosshair aria-hidden className="size-4" /> Show on the page
                         </button>
                       )}
@@ -255,8 +251,78 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
                 )}
               </li>
             )
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,6fr)_minmax(0,5fr)] lg:gap-8 [&>*]:min-w-0">
+      {/* The paper, first: a warm sheet (#fbf8f1) with its own sticky header, so it reads as the thing received, not as part of the app */}
+      <section id="source-panel" aria-labelledby="page-h" className="grid content-start overflow-hidden rounded-xl border border-paper-rule bg-paper shadow-card lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-paper-rule bg-paper-band px-4 py-2 lg:sticky lg:top-0 lg:z-10">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <h2 id="page-h" className="text-[15px] font-semibold text-ink">The paper</h2>
+            <span className="text-[13px] text-muted">{mode === 'page' ? 'as received' : 'words read from it'} · {shownPages} {shownPages === 1 ? 'page' : 'pages'}</span>
+          </div>
+          {textPages.length > 0 && (
+            <div className="inline-flex gap-0.5 rounded-md bg-white/70 p-0.5 text-sm ring-1 ring-paper-rule ring-inset" role="group" aria-label="How to show the paper">
+              {(['page', 'text'] as const).map((m) => (
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={clsx('min-h-10 rounded-sm px-3 font-medium', mode === m ? 'bg-obsidian text-white' : 'text-ink hover:bg-white')}>{m === 'page' ? 'Page' : 'Words'}</button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="grid content-start gap-3 p-3 sm:p-4">
+          {mode === 'page' ? (
+            isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
+            : imageDoc ? (
+              <div className="grid gap-2">{(pageImages.length ? pageImages : [1]).map((n) => <PageImage key={n} n={n} src={`/api/documents/${documentId}/file?kind=page&page=${n}`} boxes={boxesOn(n)} />)}</div>
+            ) : <p className="border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
+          ) : (
+            <div className="grid gap-3">
+              <p className="text-[13px] text-muted">Highlighted words are the ones the record uses.</p>
+              {!textPages.length && <p className="border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">No words were read from this paper (picture only).</p>}
+              {textPages.map((p) => (
+                <article key={p.pageNo} className="rounded-lg border border-paper-rule bg-paper">
+                  <header className="flex flex-wrap items-center justify-between gap-2 rounded-t-lg border-b border-paper-rule bg-paper-band px-4 py-2">
+                    <span className="text-[13px] font-medium text-muted">Page {p.pageNo}{p.ocrConfidence != null ? ` · read from a photo, confidence ${p.ocrConfidence.toFixed(2)}` : ''}</span>
+                    {p.lowConfidence && <StatusBadge status="low_confidence" />}
+                  </header>
+                  <div className="px-4 py-4 sm:px-5"><PageText page={p} events={live} active={active} onPick={(id) => pick(id, false)} /></div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Facts found: a white card, one neutral sticky header, rows grouped by what still has to be done with them */}
+      <section aria-labelledby="facts-h" className="grid content-start overflow-hidden rounded-xl border border-edge bg-white shadow-card lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
+        <div className="flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-edge bg-wash px-4 py-2 lg:sticky lg:top-0 lg:z-10">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+            <h2 id="facts-h" className="text-[15px] font-semibold text-ink">Facts found</h2>
+            <span className="text-[13px] text-muted">what the paper says</span>
+          </div>
+          <span className="rounded-full border border-edge bg-white px-2.5 py-0.5 text-[13px] font-semibold text-ink tabular-nums">{live.length}<span className="sr-only"> {live.length === 1 ? 'line' : 'lines'}</span></span>
+        </div>
+        {!live.length && <p className="m-4 border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">Nothing was picked out of this paper automatically. Read the page.</p>}
+        <div>
+          {groups.map((g) => {
+            const shown = !closed.has(g.key)
+            return (
+              <div key={g.key} className="border-b border-rule last:border-b-0">
+                <h3 className={clsx('border-b border-l-[3px] border-b-rule bg-white lg:sticky lg:top-14 lg:z-[5]', g.bar)}>
+                  <button type="button" aria-expanded={shown} aria-controls={`facts-${g.key}`} onClick={() => toggleGroup(g.key)} className="flex min-h-11 w-full items-center gap-2 px-3.5 text-left text-[13px] font-semibold text-ink hover:bg-spotlight">
+                    {g.title}
+                    <span className="rounded-full bg-alcove px-2 py-0.5 text-[13px] font-semibold tabular-nums">{g.items.length}</span>
+                    <ChevronDown aria-hidden className={clsx('ml-auto size-4 shrink-0 text-muted transition-transform', !shown && '-rotate-90')} />
+                  </button>
+                </h3>
+                <ul id={`facts-${g.key}`} className="grid" hidden={!shown}>
+                  {g.items.map(renderFact)}
+                </ul>
+              </div>
+            )
           })}
-        </ul>
+        </div>
       </section>
     </div>
   )
@@ -284,10 +350,10 @@ export function PdfPages({ src, pages }: { src: string; pages: number }) {
   }, [src])
   if (error) return <p className="p-4 text-sm text-muted">The original could not be drawn in the browser.</p>
   return (
-    <div className="grid gap-2 bg-alcove p-2">
+    <div className="grid gap-2 bg-paper p-2">
       {imgs.map((u, i) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={i} src={u} alt={`Original page ${i + 1}`} className="h-auto w-full border border-rule bg-white" />
+        <img key={i} src={u} alt={`Original page ${i + 1}`} className="h-auto w-full border border-paper-rule bg-white" />
       ))}
       {imgs.length < pages && <p className="p-3 text-[13px] text-faint font-medium">Drawing page {imgs.length + 1} of {pages}…</p>}
     </div>

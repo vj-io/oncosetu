@@ -1,21 +1,32 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { createContext, useContext, type ReactNode } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { Wordmark } from "@/components/ui";
+
+type Brand = "OncoSetu" | "Setu Records";
+const BrandContext = createContext<Brand>("OncoSetu");
+/** Set by src/app/login/layout.tsx: "Setu Records" on the neutral patient address, where a patient can land (FR-CON-07). */
+export function AuthBrand({ brand, children }: { brand: Brand; children: ReactNode }) {
+  return <BrandContext.Provider value={brand}>{children}</BrandContext.Provider>;
+}
+export const useAuthBrand = () => useContext(BrandContext);
 
 /**
  * Staff sign-in and password reset: a teal panel that says what OncoSetu is (desktop only) beside the form.
  * The form column keeps its own header on a phone, so the brand is always on screen.
  */
 export function AuthShell({ headline, points, children, footer }: { headline: string; points: string[]; children: ReactNode; footer?: ReactNode }) {
+  const brand = useAuthBrand();
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-pine focus:px-4 focus:py-3 focus:text-white">
         Skip to content
       </a>
       <aside className="ds-side relative hidden flex-col px-12 py-10 text-white lg:flex">
-        <Link href="/" aria-label="OncoSetu home" className="flex min-h-11 w-fit items-center rounded-md focus-visible:outline-white">
-          <Wordmark onDark />
+        <Link href="/" aria-label={`${brand} home`} className="flex min-h-11 w-fit items-center rounded-md focus-visible:outline-white">
+          <Wordmark brand={brand} onDark />
         </Link>
         <div className="my-auto grid max-w-md gap-6">
           <p className="font-display text-[2.5rem] leading-[1.1] tracking-[-0.02em]">{headline}</p>
@@ -29,8 +40,8 @@ export function AuthShell({ headline, points, children, footer }: { headline: st
       </aside>
       <div className="flex min-h-dvh flex-col">
         <header className="flex h-16 items-center gap-4 px-4 sm:px-8">
-          <Link href="/" aria-label="OncoSetu home" className="flex min-h-11 items-center rounded-md lg:hidden">
-            <Wordmark />
+          <Link href="/" aria-label={`${brand} home`} className="flex min-h-11 items-center rounded-md lg:hidden">
+            <Wordmark brand={brand} />
           </Link>
           {footer && <div className="ml-auto">{footer}</div>}
         </header>

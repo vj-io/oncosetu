@@ -1,7 +1,7 @@
-// Encrypted files (originals, page images, upload chunks) in S3-compatible object storage (Backblaze B2 or Cloudflare R2:
-// 10 GB free each) when S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are set; otherwise
-// every file stays in Postgres. Only ciphertext is sent:
-// files are encrypted with a per-file key before upload, and that key lives only in the document_files row.
+// Encrypted files (every stored file body through files.ts sealFile, and upload chunks) in S3-compatible object storage
+// (Backblaze B2 or Cloudflare R2: 10 GB free each) when S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and
+// S3_SECRET_ACCESS_KEY are set; otherwise every file stays in Postgres. Only ciphertext is sent: files are encrypted with
+// a per-file key before upload, and that key lives only in the file's database row.
 // A minimal AWS Signature Version 4 client (PUT, GET, DELETE of one object), so no SDK is added.
 import { createHash, createHmac } from 'node:crypto'
 

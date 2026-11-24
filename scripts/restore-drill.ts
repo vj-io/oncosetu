@@ -192,13 +192,18 @@ async function verifyKeysAndData(sql: Sql, ref: Reference) {
   let names = 0, erased = 0
   for (const r of await sql`select name_enc from patients`) { if (!r.name_enc) { erased++; continue } decryptField(r.name_enc as string); names++ } // '' = erasure tombstone
   let files = 0, bytes = 0, last = '00000000-0000-0000-0000-000000000000'
+  const [{ clipKeys }] = await sql`select exists (select 1 from information_schema.columns where table_schema = 'public'
+    and table_name = 'voice_clips' and column_name = 'object_key') as "clipKeys"`
   for (;;) {
-    const page = await sql`select id, bytes_enc, dek_wrapped, sha256, object_key from document_files where id > ${last} order by id limit 40`
+    // document files and voice clips (0030); a clip has no recorded SHA-256, so for it the AES-GCM tag is the check.
+    // A backup from before 0030 has no voice_clips.object_key: its clips are all in bytes_enc.
+    const page = await sql`select * from (select id, bytes_enc, dek_wrapped, sha256, object_key from document_files
+      union all select id, bytes_enc, dek_wrapped, null, ${clipKeys ? sql`object_key` : sql`null`} from voice_clips) f where id > ${last} order by id limit 40`
     if (!page.length) break
     for (const f of page) {
-      // a file kept in object storage (originals 0028, page images 0030) is fetched from there; the backup holds its row, the bucket its bytes
+      // a file kept in object storage (originals 0028, the rest 0030) is fetched from there; the backup holds its row, the bucket its bytes
       const plain = await storedBytes({ objectKey: f.object_key as string | null, bytesEnc: f.bytes_enc as Buffer, dekWrapped: f.dek_wrapped as string })
-      if (sha256Hex(plain) !== f.sha256) throw new Error(`stored file ${f.id} does not match its recorded SHA-256`)
+      if (f.sha256 !== null && sha256Hex(plain) !== f.sha256) throw new Error(`stored file ${f.id} does not match its recorded SHA-256`)
       files++; bytes += plain.length
     }
     last = page[page.length - 1].id as string

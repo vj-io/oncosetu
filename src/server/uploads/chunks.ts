@@ -39,7 +39,8 @@ export async function startUpload(tx: Tx, i: StartInput): Promise<{ id: string; 
   if (Number(used) + (objectStore() ? 1 : 2) * i.totalSize > storageBudgetBytes()) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
   if (objectStore()) {
     // ponytail: the sum is per organisation (RLS); one org per deployment today, a global sum needs the owner role
-    const [{ stored }] = await tx.execute<{ stored: string }>(sql`select coalesce(sum(size), 0)::text as stored from document_files where object_key is not null`)
+    const [{ stored }] = await tx.execute<{ stored: string }>(sql`select ((select coalesce(sum(size), 0) from document_files where object_key is not null)
+      + (select coalesce(sum(size), 0) from voice_clips where object_key is not null))::text as stored`)
     if (Number(stored) + i.totalSize > objectBudgetBytes()) throw new HttpError(507, 'storage_full', 'There is no room for this file on the server right now. Please hand it to the clinic desk.')
   }
   const [row] = await tx.insert(uploadSessions).values({

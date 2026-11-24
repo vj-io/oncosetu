@@ -756,6 +756,8 @@ export const inboundHoldFiles = pgTable('inbound_hold_files', {
   bytesEnc: bytea('bytes_enc').notNull(),
   dekWrapped: text('dek_wrapped').notNull(),
   size: integer('size').notNull(),
+  // 0030: set when the encrypted file lives in object storage (bytes_enc is then empty), as for document_files.
+  objectKey: text('object_key'),
   createdAt: createdAt(),
 })
 
@@ -895,6 +897,8 @@ export const voiceClips = pgTable('voice_clips', {
   seconds: integer('seconds').notNull().default(0),
   bytesEnc: bytea('bytes_enc').notNull(),
   dekWrapped: text('dek_wrapped').notNull(),
+  // 0030: set when the encrypted clip lives in object storage (bytes_enc is then empty), as for document_files.
+  objectKey: text('object_key'),
   asrProvider: text('asr_provider').notNull(),
   asrModel: text('asr_model').notNull(),
   createdByKind: text('created_by_kind').notNull(),

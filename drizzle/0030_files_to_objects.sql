@@ -1,9 +1,13 @@
--- Page images go to object storage like originals (src/server/files.ts): a free 1 GB database held only about 3,500 pages.
--- New page images are written there directly. The ones already stored keep their bytes in bytes_enc until
--- scripts/move-page-images.ts moves each one; that move is the only change the guard from 0021/0028 now lets through:
--- a page image's bytes_enc emptied and object_key set in one update, every other column unchanged (same ciphertext, same
--- per-file key, same sha256), by the owner role with the transaction-local flag oncosetu.moving_files on. The app role
--- can never do it, and originals stay fully immutable.
+-- Every stored file body goes to object storage when one is configured (src/server/files.ts sealFile): a free 1 GB database
+-- held only about 3,500 page images. Until now only originals (0028) and upload chunks went there. Voice clips and held
+-- inbound files get the same object_key column as document_files: set when the ciphertext lives in the bucket, bytes_enc
+-- then empty; the row keeps the per-file key (dek_wrapped).
+-- Files stored before this keep their bytes until scripts/move-files-to-objects.ts moves each one. For document_files that
+-- move is the only change the 0021/0028 guard now lets through: bytes_enc emptied and object_key set in one update, every
+-- other column unchanged (same ciphertext, same per-file key, same sha256), by the owner role with the transaction-local
+-- flag oncosetu.moving_files on. The app role can never do it; everything else about a stored file stays immutable.
+ALTER TABLE "voice_clips" ADD COLUMN "object_key" text;--> statement-breakpoint
+ALTER TABLE "inbound_hold_files" ADD COLUMN "object_key" text;--> statement-breakpoint
 CREATE OR REPLACE FUNCTION guard_document_file() RETURNS trigger LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
@@ -11,7 +15,7 @@ BEGIN
     IF current_setting('oncosetu.erasing', true) = 'on' AND current_user <> 'oncosetu_app' THEN RETURN OLD; END IF;
     RAISE EXCEPTION 'original files are immutable' USING ERRCODE = 'insufficient_privilege';
   END IF;
-  IF OLD.kind = 'page_image' AND OLD.object_key IS NULL AND NEW.object_key IS NOT NULL
+  IF OLD.object_key IS NULL AND NEW.object_key IS NOT NULL
      AND current_setting('oncosetu.moving_files', true) = 'on' AND current_user <> 'oncosetu_app' THEN
     -- nested so that ordinary updates (superseding a page image) never build the JSON copies of the row
     IF octet_length(NEW.bytes_enc) = 0 AND (to_jsonb(NEW) - 'bytes_enc' - 'object_key') = (to_jsonb(OLD) - 'bytes_enc' - 'object_key') THEN

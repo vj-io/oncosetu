@@ -11,9 +11,11 @@ import { inboundHoldFiles, inboundHolds, patients } from '@/db/schema'
 import { brandFor } from '@/core/copy'
 import { inboundCopy } from '@/i18n/inbound'
 import { writeAudit, type AuditDetails } from '../audit'
-import { decryptBytes, encryptBytes, phoneHmac } from '../crypto'
+import { phoneHmac } from '../crypto'
+import { sealFile, storedBytes } from '../files'
 import { HttpError } from '../http'
 import { log } from '../log'
+import { objectStore } from '../objects'
 import { phoneLogins, startOtp, type PhoneLogin } from '../otp'
 import { sendMessage } from '../outbox'
 import { activeConsent } from '../patients'
@@ -168,8 +170,7 @@ async function holdMedia(tx: Tx, s: Sender, got: Media[]): Promise<string> {
   const [{ n }] = await tx.select({ n: count() }).from(inboundHoldFiles).where(eq(inboundHoldFiles.holdId, holdId))
   const take = ok.slice(0, Math.max(0, MAX_FILES - n))
   for (const f of take) {
-    const { bytes, dekWrapped } = encryptBytes(f.bytes)
-    await tx.insert(inboundHoldFiles).values({ orgId: s.orgId, patientId: s.patientId, holdId, mime: f.mime, bytesEnc: bytes, dekWrapped, size: f.bytes.length })
+    await tx.insert(inboundHoldFiles).values({ orgId: s.orgId, patientId: s.patientId, holdId, mime: f.mime, ...(await sealFile(s.orgId, f.bytes)), size: f.bytes.length })
   }
   for (const e of expired) await audit(tx, s, 'inbound.hold_expired', 'inbound_hold', e.id)
   await audit(tx, s, 'inbound.whatsapp_held', 'inbound_hold', holdId, {
@@ -209,7 +210,7 @@ async function replyWithCode(tx: Tx, s: Sender, code: string): Promise<{ reply: 
     try {
       const r = await ingestDocument(tx, {
         orgId: s.orgId, patientId: s.patientId, uploadedBy, intakeRoute: 'whatsapp', fileName: `whatsapp-${i + 1}.${EXT[f.mime] ?? 'bin'}`,
-        mime: f.mime, bytes: new Uint8Array(decryptBytes(Buffer.from(f.bytesEnc), f.dekWrapped)),
+        mime: f.mime, bytes: new Uint8Array(await storedBytes(f)),
       })
       documentIds.push(r.documentId)
       if (!r.duplicateOf && r.status === 'queued') process.push(r.documentId)
@@ -220,6 +221,11 @@ async function replyWithCode(tx: Tx, s: Sender, code: string): Promise<{ reply: 
   }
   await tx.update(inboundHolds).set({ releasedAt: new Date(), documentIds }).where(eq(inboundHolds.id, hold.id))
   await tx.delete(inboundHoldFiles).where(eq(inboundHoldFiles.holdId, hold.id))
+  // Released files are documents now (stored again, each with a new key); their held copies are deleted from the bucket.
+  // ponytail: a discarded or expired hold's files are dropped with their rows (cascade), so their objects stay in the bucket
+  // as ciphertext nobody holds the key to (at most 10 per hold, as for erased files since 0028); delete them too if that grows.
+  const store = objectStore()
+  if (store) await Promise.all(files.filter((f) => f.objectKey).map((f) => store.del(f.objectKey!)))
   await audit(tx, s, 'inbound.hold_released', 'inbound_hold', hold.id, { patientId: s.patientId, documents: documentIds, skipped })
   return { reply: inboundCopy.released[lang](await brandOf(tx, s.patientId), documentIds.length), process }
 }

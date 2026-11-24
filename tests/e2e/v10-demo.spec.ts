@@ -119,6 +119,8 @@ test('V10-E2E-01 the demo script (docs/DEMO.md), hero journey and admin, step by
     const page = await ctx.newPage()
     await page.goto('/p')
     await expect(page.locator('div[lang="hi"]').first()).toBeAttached() // the patient shell carries the language
+    // The layout's div is there while /p still streams its loading placeholder; wait for the page's own frame (its brand).
+    await expect(page.getByText('Setu Records').first()).toBeVisible()
     const home = await page.locator('body').innerText() // the brand is in the shell header
     expect(home).toContain('Setu Records')
     expect(home).not.toMatch(/onco/i)

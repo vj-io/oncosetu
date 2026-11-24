@@ -1,5 +1,6 @@
-// Encrypted originals in S3-compatible object storage (Backblaze B2 or Cloudflare R2: 10 GB free each) when S3_ENDPOINT,
-// S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are set; otherwise every file stays in Postgres. Only ciphertext is sent:
+// Encrypted files (originals, page images, upload chunks) in S3-compatible object storage (Backblaze B2 or Cloudflare R2:
+// 10 GB free each) when S3_ENDPOINT, S3_REGION, S3_BUCKET, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are set; otherwise
+// every file stays in Postgres. Only ciphertext is sent:
 // files are encrypted with a per-file key before upload, and that key lives only in the document_files row.
 // A minimal AWS Signature Version 4 client (PUT, GET, DELETE of one object), so no SDK is added.
 import { createHash, createHmac } from 'node:crypto'
@@ -69,7 +70,7 @@ let override: ObjectStore | null | undefined
 /** Tests only: use this store (or none) instead of the S3_* environment. */
 export function setObjectStoreForTests(s: ObjectStore | null | undefined) { override = s }
 
-/** The configured object store, or null when originals stay in Postgres. */
+/** The configured object store, or null when files stay in Postgres. */
 export function objectStore(): ObjectStore | null {
   if (override !== undefined) return override
   const { S3_ENDPOINT: endpoint, S3_REGION: region, S3_BUCKET: bucket, S3_ACCESS_KEY_ID: accessKeyId, S3_SECRET_ACCESS_KEY: secretAccessKey } = process.env

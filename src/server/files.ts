@@ -1,5 +1,7 @@
-// Encrypted file storage (ADR-001a): Postgres bytea, or for originals an S3-compatible object store when one is configured
-// (objects.ts; the row then keeps only the key, size, hash and wrapped file key). No public URLs: route handlers stream files.
+// Encrypted file storage (ADR-001a): an S3-compatible object store when one is configured (objects.ts; the row then keeps
+// only the key, size, hash and wrapped file key), else Postgres bytea. Originals and page images alike: page images went to
+// Postgres until 0030, and a free 1 GB database fills at about 3,500 pages (scripts/move-page-images.ts moves the old ones).
+// No public URLs: route handlers stream files.
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
@@ -20,10 +22,9 @@ export type StoreFileInput = {
 export async function storeFile(tx: Tx, f: StoreFileInput): Promise<{ id: string; size: number; sha256: string }> {
   const { bytes, dekWrapped } = encryptBytes(f.bytes)
   const sha256 = sha256Hex(f.bytes)
-  // originals (the big files) go to the object store when there is one; page images stay here (small, and versioned)
-  const store = f.kind === 'original' ? objectStore() : null
+  const store = objectStore()
   const objectKey = store ? `o/${f.orgId}/${randomUUID()}` : null
-  if (store) { await store.put(objectKey!, bytes); remember(objectKey!, bytes) } // processing reads it back next
+  if (store) { await store.put(objectKey!, bytes); remember(objectKey!, bytes) } // processing reads an original back next
   const [row] = await tx.insert(documentFiles).values({
     orgId: f.orgId, patientId: f.patientId, documentId: f.documentId, kind: f.kind, pageNo: f.pageNo ?? null,
     mime: f.mime, bytesEnc: store ? Buffer.alloc(0) : bytes, objectKey, dekWrapped, size: f.bytes.length, sha256,

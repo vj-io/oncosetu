@@ -379,6 +379,8 @@ async function savePages(tx: Tx, doc: typeof documents.$inferSelect, pages: Page
       ocrConfidence: p.ocrConfidence, lowConfidence: p.lowConfidence, processor: p.processor, processorVersion: p.processorVersion,
       textHash: sha256Hex(p.text),
     })
+    // ponytail: with an object store each page image is one upload made inside this transaction (about 0.1 to 0.3 s each),
+    // so a 100-page scan holds it for some seconds; upload them in parallel before the transaction if that ever matters.
     if (p.image) await storeFile(tx, { orgId: doc.orgId, patientId: doc.patientId, documentId: doc.id, kind: 'page_image', pageNo: p.pageNo, mime: 'image/jpeg', bytes: p.image, processor: IMAGE_PROCESSOR })
   }
   await tx.update(documents).set({

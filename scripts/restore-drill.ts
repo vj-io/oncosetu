@@ -196,7 +196,7 @@ async function verifyKeysAndData(sql: Sql, ref: Reference) {
     const page = await sql`select id, bytes_enc, dek_wrapped, sha256, object_key from document_files where id > ${last} order by id limit 40`
     if (!page.length) break
     for (const f of page) {
-      // an original kept in object storage (0028) is fetched from there; the backup holds its row, the bucket its bytes
+      // a file kept in object storage (originals 0028, page images 0030) is fetched from there; the backup holds its row, the bucket its bytes
       const plain = await storedBytes({ objectKey: f.object_key as string | null, bytesEnc: f.bytes_enc as Buffer, dekWrapped: f.dek_wrapped as string })
       if (sha256Hex(plain) !== f.sha256) throw new Error(`stored file ${f.id} does not match its recorded SHA-256`)
       files++; bytes += plain.length

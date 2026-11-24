@@ -165,3 +165,77 @@ describe('originals in object storage', () => {
     expect(createHash('sha256').update(file!.bytes).digest('hex')).toBe(row.sha256)
   }, 90_000)
 })
+
+describe('page images in object storage (0030)', () => {
+  /** A photographed lab note, run through the real pipeline (OCR, re-encoded page image); returns its page image row. */
+  async function processPhoto(text: string) {
+    const c = await ctx()
+    const sharp = (await import('sharp')).default
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="160"><rect width="100%" height="100%" fill="white"/><text x="20" y="90" font-size="40" font-family="Arial">${text}</text></svg>`
+    const bytes = await sharp(Buffer.from(svg)).jpeg().toBuffer()
+    const r = await c.db.withOrg(ORG_NARMADA_ID, (tx) => c.up.ingestUpload(tx, { ...base, fileName: 'note.jpg', bytes: new Uint8Array(bytes) }))
+    const id = r.documents[0].documentId
+    await c.proc.runDocument(id, ORG_NARMADA_ID)
+    const rows = await owner`select id, org_id, object_key, octet_length(bytes_enc)::int as n, sha256 from document_files where document_id = ${id} and kind = 'page_image'`
+    expect(rows).toHaveLength(1)
+    return { c, id, row: rows[0] }
+  }
+  const readSha = async (c: Awaited<ReturnType<typeof ctx>>, fileId: string) => {
+    const f = await c.db.withOrg(ORG_NARMADA_ID, (tx) => c.files.readFile(tx, fileId))
+    return { sha: createHash('sha256').update(f!.bytes).digest('hex'), jpeg: f!.bytes.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) }
+  }
+
+  it('a new page image is kept as ciphertext in the store, no bytes in the row, and reads back as the same picture', async () => {
+    const c0 = await ctx()
+    c0.objects.setObjectStoreForTests(memStore)
+    const { c, row } = await processPhoto('Haemoglobin 11.2 g/dL')
+    expect(row.object_key).toMatch(new RegExp(`^o/${ORG_NARMADA_ID}/[0-9a-f-]{36}$`))
+    expect(row.n).toBe(0)
+    expect(Buffer.from(objects.get(row.object_key)!).subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))).toBe(false) // encrypted
+    c.files.resetOriginalCacheForTests() // read it from the store, as another server instance would
+    expect(await readSha(c, row.id)).toEqual({ sha: row.sha256, jpeg: true })
+  }, 120_000)
+
+  it('move-page-images moves an old page image only after the uploaded copy checks out, once, and only as the owner with the flag on', async () => {
+    const c0 = await ctx()
+    c0.objects.setObjectStoreForTests(null) // as before 0030: the page image is written to Postgres
+    const { c, id, row } = await processPhoto('Platelets 240 x10^3/uL')
+    expect([row.object_key, row.n > 0]).toEqual([null, true])
+    const mv = await import('../../scripts/move-page-images')
+    const only = { documentId: id } // other page images in this database are left alone
+
+    // The guard: the app role cannot make the move even with the flag; the owner cannot without it, nor change anything else with it.
+    const app = postgres(process.env.DATABASE_URL_APP!, { max: 1, prepare: false, onnotice: () => {} })
+    const empty = Buffer.alloc(0), key = `o/${ORG_NARMADA_ID}/${row.id}`
+    try {
+      await expect(app.begin(async (tx) => {
+        await tx`select set_config('app.org_id', ${ORG_NARMADA_ID}, true)`
+        await tx`select set_config('oncosetu.moving_files', 'on', true)`
+        await tx`update document_files set bytes_enc = ${empty}, object_key = ${key} where id = ${row.id}`
+      })).rejects.toThrow(/permission denied for table document_files/) // 0021: the app role may update superseded_at and patient_id only
+    } finally { await app.end() }
+    await expect(owner`update document_files set bytes_enc = ${empty}, object_key = ${key} where id = ${row.id}`).rejects.toThrow(/immutable/)
+    const withFlag = (set: postgres.PendingQuery<postgres.Row[]>, fileId: string) => owner.begin(async (tx) => {
+      await tx`select set_config('oncosetu.moving_files', 'on', true)`
+      await tx`update document_files set ${set} where id = ${fileId}`
+    })
+    const [original] = await owner`select id from document_files where document_id = ${id} and kind = 'original'`
+    await expect(withFlag(owner`bytes_enc = ${empty}, object_key = ${key}, sha256 = 'x'`, row.id)).rejects.toThrow(/immutable/) // anything else changed
+    await expect(withFlag(owner`object_key = ${key}`, row.id)).rejects.toThrow(/immutable/) // the bytes kept in the row
+    await expect(withFlag(owner`bytes_enc = ${empty}, object_key = ${key}`, original.id)).rejects.toThrow(/immutable/) // an original
+
+    // A store that hands back something else: the run stops and the row keeps its bytes.
+    const bad = { ...memStore, async get(k: string) { const b = new Uint8Array(await memStore.get(k)); b[b.length - 1] ^= 1; return b } }
+    await expect(mv.movePageImages(owner, bad, undefined, only)).rejects.toThrow(/does not match/)
+    const [kept] = await owner`select object_key, octet_length(bytes_enc)::int as n from document_files where id = ${row.id}`
+    expect([kept.object_key, kept.n]).toEqual([null, row.n])
+
+    expect(await mv.movePageImages(owner, memStore, undefined, only)).toEqual({ moved: 1, bytes: row.n })
+    const [moved] = await owner`select object_key, octet_length(bytes_enc)::int as n, sha256 from document_files where id = ${row.id}`
+    expect(moved).toEqual({ object_key: key, n: 0, sha256: row.sha256 })
+    c0.objects.setObjectStoreForTests(memStore)
+    c.files.resetOriginalCacheForTests()
+    expect(await readSha(c, row.id)).toEqual({ sha: row.sha256, jpeg: true }) // the viewer's reader gets the same picture
+    expect(await mv.movePageImages(owner, memStore, undefined, only)).toEqual({ moved: 0, bytes: 0 }) // a second run has nothing to do
+  }, 120_000)
+})

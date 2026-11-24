@@ -242,7 +242,7 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
               </ol>
             </nav>
             <div className="ml-auto flex items-center gap-2">
-              {SEARCH_ROLES.includes(user.role) && (
+              {SEARCH_ROLES.includes(user.role) && pathname !== "/patients" && ( /* the Patients page has its own search box */
                 <form role="search" onSubmit={search} className="relative hidden md:block">
                   <label htmlFor="top-search" className="sr-only">Find a patient</label>
                   <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint" />

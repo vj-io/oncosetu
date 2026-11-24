@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowRight, BadgeCheck, Check, FileX, HeartHandshake, Info, Send, Stethoscope, X } from "lucide-react";
 import { Badge, ButtonLink, TONE, type Tone } from "@/components/ui";
 import { PublicShell } from "@/components/shell/PublicShell";
+import { isDemo } from "@/server/demo";
 
 function Entry({ href, icon, tone, title, text, go }: { href: string; icon: ReactNode; tone: Tone; title: string; text: string; go: string }) {
   return (
@@ -100,8 +101,8 @@ export default function Home() {
           <h2 id="about-h" className="text-[1.75rem] leading-tight sm:text-[2.125rem]">About OncoSetu</h2>
           <p className="mt-3 max-w-[44rem] text-[17px] text-muted">
             A patient&rsquo;s cancer history often sits across several hospitals, as paper, phone photos and PDFs, and each new centre starts from
-            scratch. OncoSetu keeps that history as one list, shows where every fact came from, and keeps track of what is still missing. It is an
-            academic prototype, shown here with made-up records only.
+            scratch. OncoSetu keeps that history as one list, shows where every fact came from, and keeps track of what is still missing.{" "}
+            {isDemo() ? "It is an academic prototype, shown here with made-up records only." : "It is an academic pilot; a patient's records are added only with their consent. The example on this page is made up."}
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-2">
             <div className="rounded-lg border border-rule bg-gallery p-6">
@@ -114,7 +115,7 @@ export default function Home() {
               <h3 className="text-lg">What it does not do</h3>
               <ul className="mt-3 grid gap-2.5 text-[15px]">
                 {DOES_NOT.map((t) => <li key={t} className="flex gap-2.5"><X aria-hidden className={`mt-0.5 size-4 shrink-0 ${TONE.conflict.text}`} />{t}</li>)}
-                <li className="flex gap-2.5"><Info aria-hidden className={`mt-0.5 size-4 shrink-0 ${TONE.setu.text}`} />Academic prototype with made-up records only</li>
+                <li className="flex gap-2.5"><Info aria-hidden className={`mt-0.5 size-4 shrink-0 ${TONE.setu.text}`} />{isDemo() ? "Academic prototype with made-up records only" : "Academic pilot: records only with the patient's consent"}</li>
               </ul>
             </div>
           </div>

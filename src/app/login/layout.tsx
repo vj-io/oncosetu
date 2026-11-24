@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { AuthBrand } from "@/components/shell/AuthShell";
 import { isPatientHost } from "@/lib/patient-origin";
+import { isDemo } from "@/server/demo";
 
 // Patient sign-in links to staff sign-in, so on the neutral patient address a patient can land here. There the tab title,
 // description and wordmark say "Setu Records", never the product name (FR-CON-07). The staff address keeps "OncoSetu".
@@ -15,5 +16,5 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function LoginLayout({ children }: { children: React.ReactNode }) {
-  return <AuthBrand brand={(await onNeutralAddress()) ? "Setu Records" : "OncoSetu"}>{children}</AuthBrand>;
+  return <AuthBrand brand={(await onNeutralAddress()) ? "Setu Records" : "OncoSetu"} demo={isDemo()}>{children}</AuthBrand>;
 }

@@ -6,19 +6,22 @@ import { Check } from "lucide-react";
 import { Wordmark } from "@/components/ui";
 
 type Brand = "OncoSetu" | "Setu Records";
-const BrandContext = createContext<Brand>("OncoSetu");
-/** Set by src/app/login/layout.tsx: "Setu Records" on the neutral patient address, where a patient can land (FR-CON-07). */
-export function AuthBrand({ brand, children }: { brand: Brand; children: ReactNode }) {
-  return <BrandContext.Provider value={brand}>{children}</BrandContext.Provider>;
+const BrandContext = createContext<{ brand: Brand; demo: boolean }>({ brand: "OncoSetu", demo: false });
+/**
+ * Set by src/app/login/layout.tsx: "Setu Records" on the neutral patient address, where a patient can land (FR-CON-07);
+ * `demo` (DEMO_MODE) says the records are made up, which is false on the pilot.
+ */
+export function AuthBrand({ brand, demo, children }: { brand: Brand; demo: boolean; children: ReactNode }) {
+  return <BrandContext.Provider value={{ brand, demo }}>{children}</BrandContext.Provider>;
 }
-export const useAuthBrand = () => useContext(BrandContext);
+export const useAuthBrand = () => useContext(BrandContext).brand;
 
 /**
  * Staff sign-in and password reset: a teal panel that says what OncoSetu is (desktop only) beside the form.
  * The form column keeps its own header on a phone, so the brand is always on screen.
  */
 export function AuthShell({ headline, points, children, footer }: { headline: string; points: string[]; children: ReactNode; footer?: ReactNode }) {
-  const brand = useAuthBrand();
+  const { brand, demo } = useContext(BrandContext);
   return (
     <div className="grid min-h-dvh lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[60] focus:rounded-md focus:bg-pine focus:px-4 focus:py-3 focus:text-white">
@@ -36,7 +39,9 @@ export function AuthShell({ headline, points, children, footer }: { headline: st
             ))}
           </ul>
         </div>
-        <p className="text-sm text-white/80">Academic prototype with made-up records. A list of documents, not a clinical summary.</p>
+        <p className="text-sm text-white/80">
+          {demo ? "Academic prototype with made-up records." : "Academic pilot: records are added only with the patient's consent."} A list of documents, not a clinical summary.
+        </p>
       </aside>
       <div className="flex min-h-dvh flex-col">
         <header className="flex h-16 items-center gap-4 px-4 sm:px-8">

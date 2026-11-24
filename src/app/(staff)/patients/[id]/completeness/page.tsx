@@ -4,8 +4,9 @@ import { RoleRestricted } from '@/components/shell/RoleRestricted'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowUpRight, EyeOff } from 'lucide-react'
+import { CountPill, More } from '@/components/doctor/Groups'
 import { MissingActions } from '@/components/completeness/MissingActions'
-import { Badge, Chip, EmptyFrame, EmptyState, EXPLAIN, Explainer, InfoTip, KeyValue, LanguageToggle, SectionHeader, StatusBadge, Pipeline } from '@/components/ui'
+import { Badge, Chip, EmptyFrame, EmptyState, EXPLAIN, Explainer, InfoTip, KeyValue, LanguageToggle, SectionHeader, StatusBadge, Pipeline, TONE, type Tone } from '@/components/ui'
 import { formatDateIN, istDate, patientDocLabel, staffDocLabel } from '@/core/copy'
 import type { DocType } from '@/core/types'
 import { now } from '@/server/clock'
@@ -105,7 +106,7 @@ function Item({ it, patientId, lang, today, history, requests, canAct, canReques
       prefill={{ missingIds: [it.id], institution: t?.institution ?? it.scanDoc?.institution ?? undefined, documents: it.expectedTypes, dateRange: { from, to } }} />
   )
   return (
-    <article id={`m-${it.id}`} data-tour={it.expectedTypes.includes('pathology_report') ? 'missing-histopath' : 'missing'} className="grid scroll-mt-32 gap-4 border-b border-rule pb-8 last:border-b-0">
+    <article id={`m-${it.id}`} data-tour={it.expectedTypes.includes('pathology_report') ? 'missing-histopath' : 'missing'} className="grid scroll-mt-32 gap-3 border-b border-rule pb-6 last:border-b-0">
       {OPEN.includes(it.state) ? (
         <EmptyFrame animate delay={Math.min(index * 60, 400)} title={title} status={it.state} action={actions}
           detail={it.state === 'received' ? 'A paper that may close this item has arrived. It stays open until a person confirms the match or sets it aside.' : undefined} />
@@ -142,21 +143,36 @@ export default async function CompletenessPage({ params, searchParams }: { param
   const m = c.metrics
   const view: View = { desk: session.role === 'desk', neutral: session.role === 'desk' && c.disclosure !== 'cleared' }
 
+  // Open items in three labelled groups, in the order a person acts on them: arrived (confirm), not yet asked for, asked for.
+  const arrived = c.open.filter((x) => x.state === 'received')
+  const notAsked = c.open.filter((x) => x.state === 'expected')
+  const asked = c.open.filter((x) => x.state === 'requested')
+  const other = c.open.filter((x) => x.state !== 'received' && x.state !== 'expected' && x.state !== 'requested')
+  const groupDefs: { id: string; title: string; purpose: string; tone: Tone; items: DescribedItem[] }[] = [
+    { id: 'arrived', title: 'Arrived, to confirm', purpose: 'A paper that may match has come in. It stays open until a person confirms or sets it aside.', tone: 'unverified', items: arrived },
+    { id: 'notasked', title: 'Not yet asked for', purpose: 'Mentioned in another paper and not in the file. No request has been made.', tone: 'unverified', items: notAsked },
+    { id: 'asked', title: 'Asked for', purpose: 'A request letter has been made. Waiting for the paper.', tone: 'setu', items: asked },
+    { id: 'otheropen', title: 'Other open items', purpose: 'Open, in a state not listed above.', tone: 'neutral', items: other },
+  ]
+  const groups = groupDefs.filter((g) => g.items.length > 0)
+  const itemOf = (it: DescribedItem, i: number) => (
+    <Item key={it.id} it={it} index={i} patientId={id} lang={lang} today={today} history={c.history[it.id] ?? []} requests={c.requests[it.id] ?? []} canAct={canAct} canRequest={canRequest} view={view} />
+  )
+
   return (
-    <div className="grid gap-12 py-8">
-      <div className="grid gap-6">
+    <div className="grid gap-10 py-8">
+      <div className="grid gap-5">
         <SectionHeader
           kicker="Missing papers"
           title="Papers mentioned but not in this file"
           description="Each box below is a paper that another document mentions and that we do not hold. The wording is about papers only; a person confirms every closure."
           actions={<LanguageToggle value={lang} langs={['en', 'hi']} />}
         />
-        <Explainer>{EXPLAIN.completeness} {EXPLAIN.letter}</Explainer>
-        <div className="ds-feature grid gap-4 rounded-xl border border-rule p-5 shadow-card">
+        <div className="grid gap-3 rounded-xl border border-control/30 bg-surface p-5 shadow-card">
           <Pipeline label="Missing papers, from noticed to closed" stages={[
             { label: 'Noticed', value: m.detected, tone: 'unverified', detail: 'Mentioned in another paper' },
             { label: 'Asked for', value: m.requested, tone: 'setu', detail: 'A request letter was made' },
-            { label: 'Arrived', value: m.received, tone: 'patient', detail: 'A paper came in; a person confirms' },
+            { label: 'Arrived', value: m.received, tone: 'unverified', detail: 'A paper came in; a person confirms' },
             { label: 'Closed', value: m.closed, tone: 'verified', detail: 'Confirmed by a person' },
           ]} />
           <p className="text-[14px] text-muted">
@@ -164,33 +180,51 @@ export default async function CompletenessPage({ params, searchParams }: { param
             {' · '}{m.closure.den ? 'Counted among items noticed before a sealed visit' : 'No visit sealed since they were noticed'}
           </p>
         </div>
+        <More summary="What this page is, and how a request letter works"><Explainer>{EXPLAIN.completeness} {EXPLAIN.letter}</Explainer></More>
       </div>
 
-      <section aria-labelledby="open-h" className="grid gap-8">
-        <header className="flex flex-wrap items-baseline gap-x-4 border-b border-rule pb-3">
-          <h2 id="open-h" className="text-xl tracking-[-0.02em] sm:text-2xl">Not in file</h2>
-          <InfoTip>{EXPLAIN.completeness}</InfoTip>
-          <span className="min-w-6 bg-alcove px-1.5 text-center text-xs text-muted tabular-nums rounded-full">{c.open.length}</span>
-          {c.open.some((x) => x.state === 'received') && <span className="text-sm text-muted" data-testid="missing-split">{c.open.filter((x) => x.state !== 'received').length} not in file · {c.open.filter((x) => x.state === 'received').length} arrived, confirm</span>}
+      <section aria-labelledby="open-h" className="grid gap-6">
+        <header className="grid gap-1 border-b border-control/30 pb-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <h2 id="open-h" className="text-xl">Not in file</h2>
+            <InfoTip>{EXPLAIN.completeness}</InfoTip>
+            <CountPill n={c.open.length} />
+            {arrived.length > 0 && <span className="text-sm text-muted" data-testid="missing-split">{c.open.filter((x) => x.state !== 'received').length} not in file · {arrived.length} arrived, confirm</span>}
+          </div>
+          <p className="max-w-3xl text-[15px] text-muted">Grouped by what happens next. Arrived papers come first, because a person has to confirm them.</p>
         </header>
-        {c.open.length ? c.open.map((it, i) => (
-          <Item key={it.id} it={it} index={i} patientId={id} lang={lang} today={today} history={c.history[it.id] ?? []} requests={c.requests[it.id] ?? []} canAct={canAct} canRequest={canRequest} view={view} />
-        )) : (
+        {c.open.length ? (
+          <div className="grid gap-10">
+            {groups.map((g) => (
+              <div key={g.id} role="group" aria-labelledby={`g-${g.id}`} className={`grid gap-4 border-l-[3px] pl-4 ${TONE[g.tone].bar}`}>
+                <div className="grid gap-1">
+                  <div className="flex items-center gap-3">
+                    <h3 id={`g-${g.id}`} className="text-lg">{g.title}</h3>
+                    <CountPill n={g.items.length} />
+                  </div>
+                  <p className="max-w-3xl text-[15px] text-muted">{g.purpose}</p>
+                </div>
+                <div className="grid gap-6">{g.items.map((it, i) => itemOf(it, i))}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
           <EmptyState title="No mentioned paper is missing" description="Nothing in the file points to a paper that we do not hold. This list covers only what the documents themselves mention; a paper nobody mentioned cannot appear here." />
         )}
       </section>
 
       {c.resolved.length > 0 && (
-        <details className="group grid gap-6">
-          <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-baseline gap-x-4 border-b border-rule pb-3">
-            <h2 className="text-xl tracking-[-0.02em] sm:text-2xl">Resolved</h2>
-            <span className="min-w-6 bg-alcove px-1.5 text-center text-xs text-muted tabular-nums rounded-full">{c.resolved.length}</span>
-            <span className="text-sm text-muted">Closed, not obtainable and dismissed · <span className="group-open:hidden">show</span><span className="hidden group-open:inline">hide</span></span>
+        <details className="group grid gap-6 border-l-[3px] border-l-sage pl-4">
+          <summary className="grid min-h-11 cursor-pointer list-none gap-1 border-b border-control/30 pb-3">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h2 className="text-xl">Resolved</h2>
+              <CountPill n={c.resolved.length} />
+              <span className="text-sm text-muted"><span className="group-open:hidden">Show</span><span className="hidden group-open:inline">Hide</span></span>
+            </span>
+            <span className="text-[15px] text-muted">Closed, not obtainable and dismissed. Kept for the record; nothing here is waiting.</span>
           </summary>
-          <div className="mt-6 grid gap-8">
-            {c.resolved.map((it, i) => (
-              <Item key={it.id} it={it} index={i} patientId={id} lang={lang} today={today} history={c.history[it.id] ?? []} requests={c.requests[it.id] ?? []} canAct={canAct} canRequest={canRequest} view={view} />
-            ))}
+          <div className="mt-6 grid gap-6">
+            {c.resolved.map((it, i) => itemOf(it, i))}
           </div>
         </details>
       )}

@@ -4,7 +4,8 @@ import { Notice } from '@/components/registration/Notice'
 import { PreVisitLinkButton } from '@/components/registration/PreVisitLinkButton'
 import { SigninCodeButton } from '@/components/registration/SigninCodeButton'
 import { careMilestones, RecordGlance } from '@/components/doctor/Dashboard'
-import { ActionList, Badge, Checklist, Legend, MilestoneLine, Panel, ProgressMeter, Ring, type ActionItem } from '@/components/ui'
+import { Band, StatusChecklist, SummaryStrip } from '@/components/doctor/Groups'
+import { ActionList, Badge, MilestoneLine, Panel, ProgressMeter, type ActionItem } from '@/components/ui'
 import { formatDateIN } from '@/core/copy'
 import { isEmptyOncology } from '@/core/doctor/oncology'
 import { tabAllowed } from '@/lib/patient-tabs'
@@ -42,13 +43,16 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
   const sealed = !!o.snapshot
   const milestones = doctor ? careMilestones(doctor.oncology, IST_DAY.format(new Date()), id) : []
 
+  // Order: what a person has to decide first (held papers, sources that disagree), then what is new, then gaps and checks, then filing more papers.
   const actions: ActionItem[] = [
-    ...(tabAllowed('documents', role) ? [{ href: `${base}/documents`, label: 'Add papers', icon: <FilePlus2 /> }] : []),
     ...(count('held') ? [{ href: `${base}/documents`, label: 'Review held papers', icon: <UserX />, count: count('held'), urgent: true }] : []),
     ...(count('conflicts') ? [{ href: `${base}/ledger#conflicts`, label: 'Compare sources that disagree', icon: <GitCompare />, count: count('conflicts'), urgent: true }] : []),
+    ...(count('new') ? [{ href: `${base}/ledger#new`, label: sealed ? 'See what is new since the last visit' : 'See what is on file', icon: <Sparkles />, count: count('new'), tone: 'setu' as const }] : []),
     ...(count('missing') ? [{ href: `${base}/completeness`, label: 'Ask for missing papers', icon: <FileX />, count: count('missing'), tone: 'unverified' as const }] : []),
-    ...(count('unverified') ? [{ href: `${base}/ledger`, label: 'Check items against the page', icon: <ListChecks />, count: count('unverified'), tone: 'verified' as const }] : []),
+    ...(count('unverified') ? [{ href: `${base}/ledger`, label: 'Check items against the page', icon: <ListChecks />, count: count('unverified'), tone: 'unverified' as const }] : []),
+    ...(tabAllowed('documents', role) ? [{ href: `${base}/documents`, label: 'Add papers', icon: <FilePlus2 />, tone: 'neutral' as const }] : []),
   ]
+  const needLines = actions.filter((x) => x.count).length
 
   const setup = (
     <Panel title={`Setting up this record: ${done} of ${o.steps.length} steps done`} icon={<ClipboardList />} id="setup">
@@ -66,7 +70,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
   )
 
   const visit = (
-    <Panel tint title="This visit" icon={<Activity />} id="visit" aside={<Badge tone={o.encounter ? 'setu' : 'neutral'}>{o.encounter ? ENCOUNTER[o.encounter.type] ?? o.encounter.type : 'No visit started yet'}</Badge>}>
+    <Panel title="This visit" icon={<Activity />} id="visit" aside={<Badge tone={o.encounter ? 'setu' : 'neutral'}>{o.encounter ? ENCOUNTER[o.encounter.type] ?? o.encounter.type : 'No visit started yet'}</Badge>}>
       <dl className="-mt-2 divide-y divide-rule text-[15px]" data-testid="overview-strip">
         {o.encounter && <Row label="Started">{DATETIME.format(o.encounter.startedAt)}</Row>}
         <Row label="Consent">{o.consent ? `On file (${o.consent.language.toUpperCase()})` : 'None active'}</Row>
@@ -82,52 +86,51 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
         <Link className={`${linkCls} inline-flex min-h-11 items-center`} href={`${base}/card`}>Records card</Link>
         {o.consent && <span className="text-[13px] text-muted">Last consent {formatDateIN(o.consent.recordedAt.toISOString())}</span>}
       </div>
+      {visitSealed && (
+        <p className="text-[15px] text-muted" data-testid="study-form-link">
+          This visit is sealed.{' '}
+          <Link className={`${linkCls} inline-flex min-h-11 items-center`} href={`/measure?visit=${o.encounter!.id}`}>Fill the 1-minute study form</Link>
+        </p>
+      )}
     </Panel>
   )
 
   return (
-    <div className="grid gap-5 py-5">
-      {p.deceased && <Notice tone="conflict" title="Recorded as deceased">Patient and caregiver access is closed.</Notice>}
-      {p.disclosure !== 'cleared' && (
-        <Notice title="Use neutral wording with the patient and family">
-          Disclosure is {p.disclosure === 'unknown' ? 'unknown' : 'not cleared'}. Anything the patient or family sees (messages, the card, printed sheets) avoids diagnosis words; staff screens show everything.
-        </Notice>
+    <div className="grid gap-10 py-5">
+      {(p.deceased || p.disclosure !== 'cleared') && (
+        <div className="grid gap-3">
+          {p.deceased && <Notice tone="conflict" title="Recorded as deceased">Patient and caregiver access is closed.</Notice>}
+          {p.disclosure !== 'cleared' && (
+            <Notice title="Use neutral wording with the patient and family">
+              Disclosure is {p.disclosure === 'unknown' ? 'unknown' : 'not cleared'}. Anything the patient or family sees (messages, the card, printed sheets) avoids diagnosis words; staff screens show everything.
+            </Notice>
+          )}
+        </div>
       )}
 
       {doctor ? (
         <>
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-            <Panel feature title="Record status" icon={<FolderOpen />} id="status" aside={canRecords ? <Link href={`${base}/records`} className={`${linkCls} text-sm`}>Open all records</Link> : undefined}>
-              <div className="flex flex-col items-center gap-5 sm:flex-row" data-tour="first-look">
-                <Ring
-                  label={`${o.docTotal} papers in the file and ${heldN} held for a person to check`}
-                  parts={[{ label: 'In file', value: o.docTotal, tone: 'setu' }, { label: 'Held to check', value: heldN, tone: 'conflict' }]}
-                  center={o.docTotal}
-                  caption="papers in file"
-                />
-                <Legend items={[
-                  { label: 'In file', value: o.docTotal, tone: 'setu', href: canRecords ? `${base}/records` : undefined },
-                  { label: 'Held for a person to check', value: heldN, tone: 'conflict', href: `${base}/documents` },
-                  { label: 'Mentioned but not in file', value: count('missing'), tone: 'unverified', dashed: true, href: `${base}/completeness` },
-                  { label: sealed ? 'New since the last sealed visit' : 'Items on file, none sealed yet', value: count('new'), tone: 'patient', dashed: true, href: `${base}/ledger` },
-                  { label: 'Items not yet checked', value: count('unverified'), tone: 'verified', dashed: true, href: `${base}/ledger` },
-                ]} />
-              </div>
-            </Panel>
-            <Panel tint title="Next actions" icon={<Sparkles />} id="next">
-              <ActionList items={actions} empty="Nothing is waiting on this record." />
-            </Panel>
-          </div>
-
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
-            {isEmptyOncology(doctor.oncology)
-              ? <Panel title="Record at a glance" icon={<FolderOpen />} id="glance-empty"><p className="text-[15px] text-muted">Nothing has been read from the papers yet.</p></Panel>
-              : <RecordGlance v={doctor.oncology} />}
-            <div className="grid gap-5">
-              <Panel tint title={sealed ? 'Since the last visit' : 'On file so far'} icon={<CalendarRange />} id="since">
-                <Checklist items={[
+          <Band id="look-h" title="Needs a look" purpose="Start here. Each line opens the page where it is done; the strip shows where the file stands." count={needLines}>
+            <SummaryStrip
+              label="Where the file stands"
+              cols={5}
+              tour="first-look"
+              items={[
+                { label: 'In file', value: o.docTotal, tone: 'neutral', href: canRecords ? `${base}/records` : undefined },
+                { label: 'Held for a person to check', value: heldN, tone: 'conflict', href: `${base}/documents` },
+                { label: 'Mentioned but not in file', value: count('missing'), tone: 'unverified', href: `${base}/completeness` },
+                { label: sealed ? 'New since the last sealed visit' : 'Items on file, none sealed yet', value: count('new'), tone: 'setu', href: `${base}/ledger` },
+                { label: 'Items not yet checked', value: count('unverified'), tone: 'unverified', href: `${base}/ledger` },
+              ]}
+            />
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+              <Panel feature title="Next actions" icon={<Sparkles />} id="next">
+                <ActionList items={actions} empty="Nothing is waiting on this record." />
+              </Panel>
+              <Panel title={sealed ? 'Since the last visit' : 'On file so far'} icon={<CalendarRange />} id="since">
+                <StatusChecklist items={[
                   count('new')
-                    ? { state: 'done', title: `${count('new')} ${sealed ? 'new items since the visit was sealed' : 'items on file'}`, detail: sealed ? undefined : 'No visit has been sealed yet', href: `${base}/ledger` }
+                    ? { state: 'info', title: `${count('new')} ${sealed ? 'new items since the visit was sealed' : 'items on file'}`, detail: sealed ? 'To review: open What’s new' : 'No visit has been sealed yet', href: `${base}/ledger#new` }
                     : { state: 'clear', title: sealed ? 'Nothing new since the last visit' : 'Nothing on file yet' },
                   count('conflicts')
                     ? { state: 'attention', title: `${count('conflicts')} ${count('conflicts') === 1 ? 'source disagrees' : 'sources disagree'}`, detail: 'Both quotes are shown; a clinician decides', href: `${base}/ledger#conflicts` }
@@ -137,30 +140,35 @@ export default async function OverviewPage({ params }: { params: Promise<{ id: s
                     : { state: 'clear', title: 'Nothing held' },
                 ]} />
               </Panel>
-              {visitSealed && (
-                <p className="text-[15px] text-muted" data-testid="study-form-link">
-                  This visit is sealed.{' '}
-                  <Link className={linkCls} href={`/measure?visit=${o.encounter!.id}`}>Fill the 1-minute study form</Link>
-                </p>
-              )}
-              {visit}
             </div>
-          </div>
+          </Band>
 
-          {milestones.length > 0 && (
-            <Panel title="Care so far, from the papers" icon={<CalendarRange />} id="care" aside={tabAllowed('timeline', role) ? <Link href={`${base}/timeline`} className={`${linkCls} text-sm`}>Open the timeline</Link> : undefined}>
-              <MilestoneLine items={milestones} label="Dated care milestones, oldest first" />
-              <p className="text-[13px] text-muted">Only what the papers say happened, with its date. Nothing is inferred about what should come next.</p>
-            </Panel>
-          )}
+          <Band id="record-h" title="What the papers say" purpose="The record in the papers' own words, with the page each line came from.">
+            {isEmptyOncology(doctor.oncology)
+              ? <Panel title="Record at a glance" icon={<FolderOpen />} id="glance-empty"><p className="text-[15px] text-muted">Nothing has been read from the papers yet.</p></Panel>
+              : <RecordGlance v={doctor.oncology} />}
+            {milestones.length > 0 && (
+              <Panel title="Care so far, from the papers" icon={<CalendarRange />} id="care" aside={tabAllowed('timeline', role) ? <Link href={`${base}/timeline`} className={`${linkCls} inline-flex min-h-11 items-center text-sm`}>Open the timeline</Link> : undefined}>
+                <MilestoneLine items={milestones} label="Dated care milestones, oldest first" />
+                <p className="text-[13px] text-muted">Only what the papers say happened, with its date. Nothing is inferred about what should come next.</p>
+              </Panel>
+            )}
+          </Band>
 
-          {role !== 'clinician' && setup}
+          <Band id="visit-h" title="This visit and the file" purpose="Visit facts, consent and sign-in. Used less often than the lines above."> 
+            <div className={role === 'clinician' ? 'grid items-start gap-5' : 'grid items-start gap-5 lg:grid-cols-2'}>
+              {visit}
+              {role !== 'clinician' && setup}
+            </div>
+          </Band>
         </>
       ) : (
-        <div className="grid items-start gap-5 lg:grid-cols-2">
-          {setup}
-          {visit}
-        </div>
+        <Band id="visit-h" title="This visit and the file" purpose="Visit facts, consent and sign-in, and the steps for setting up this record.">
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+            {setup}
+            {visit}
+          </div>
+        </Band>
       )}
     </div>
   )

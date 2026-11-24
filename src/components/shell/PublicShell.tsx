@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { ButtonLink, Wordmark } from "@/components/ui";
+import { isDemo } from "@/server/demo";
 
 /**
  * The frame of every public page (home, security, seal check, not found): the same header and footer, so moving from the
@@ -34,7 +35,8 @@ export function PublicShell({ children, actions = true, brand = "OncoSetu" }: { 
       <main id="main" tabIndex={-1} className="relative flex-1 outline-none">{children}</main>
       <footer className="border-t border-rule">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-1 px-4 py-4 text-[15px] text-muted sm:px-8">
-          <span>{brand} · academic prototype with made-up records</span>
+          {/* The demo runs on made-up records; the pilot holds real patients' records, added only with their consent. */}
+          <span>{brand} · {isDemo() ? "academic prototype with made-up records" : "academic pilot, records added only with the patient's consent"}</span>
           {brand === "OncoSetu" && <Link href="/security" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Security and privacy</Link>}
           <Link href="/verify" className="inline-flex min-h-11 items-center text-ink underline decoration-link underline-offset-4 hover:decoration-ink">Check a sealed record</Link>
         </div>

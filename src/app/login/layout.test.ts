@@ -27,4 +27,14 @@ describe('staff sign-in brand', () => {
     req.headers = { host: 'setu-records.vercel.app' }
     expect(await brand()).toBe('OncoSetu')
   })
+  it('says the records are made up only on the demo (DEMO_MODE), never on the pilot', async () => {
+    req.headers = { host: 'oncosetu-pilot.vercel.app' }
+    const demo = async () => (await LoginLayout({ children: null })).props.demo
+    vi.stubEnv('DEMO_MODE', 'true')
+    expect(await demo()).toBe(true)
+    for (const off of ['false', '']) {
+      vi.stubEnv('DEMO_MODE', off)
+      expect(await demo()).toBe(false)
+    }
+  })
 })

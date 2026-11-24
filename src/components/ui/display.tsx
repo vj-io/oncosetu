@@ -307,7 +307,7 @@ export function SectionHeader({
   description?: ReactNode;
   actions?: ReactNode;
   as?: "h1" | "h2" | "h3";
-  /** The page's lead card when it has no summary block of its own: the teal wash and logo-ring overlay behind the title. */
+  /** A page title with a rule under it (no box, no tint): the title is not a card. */
   feature?: boolean;
   className?: string;
 }) {
@@ -315,7 +315,7 @@ export function SectionHeader({
     <div
       className={clsx(
         "flex flex-wrap items-end justify-between gap-x-6 gap-y-4",
-        feature ? "ds-feature rounded-2xl border border-rule px-5 py-5 shadow-card sm:px-6 sm:py-6" : "pb-2",
+        feature ? "border-b border-edge pb-5" : "pb-2",
         className,
       )}
     >
@@ -374,7 +374,7 @@ export function Table({
       role="region"
       aria-label={typeof caption === "string" ? caption : "Table"}
       tabIndex={0}
-      className="relative overflow-x-auto rounded-lg border border-rule bg-surface shadow-card"
+      className="relative overflow-x-auto rounded-lg border border-edge bg-surface shadow-card"
     >
       <table className={clsx("ds-table", className)} {...rest}>
         {caption && <caption className="ds-kicker px-3.5 pt-3">{caption}</caption>}
@@ -401,7 +401,7 @@ export function EmptyState({
   return (
     <div
       className={clsx(
-        "flex flex-col items-center gap-2.5 rounded-lg border border-wash-rule bg-wash px-6 py-12 text-center",
+        "flex flex-col items-center gap-2.5 rounded-lg border border-dashed border-edge bg-surface px-6 py-12 text-center",
         className,
       )}
     >

@@ -23,11 +23,11 @@ export function Frame({
   caption?: ReactNode;
   animate?: boolean;
   delay?: number;
-  /** "feature": the card a page leads with (teal wash and logo-ring overlay); "tint": a side card (very light teal). */
+  /** "feature": the card a page leads with (white, 3px teal top bar); "tint": a side card (white, plain edge). */
   tone?: "feature" | "tint";
 }) {
   const body = (
-    <div className={clsx("relative rounded-lg border shadow-card", tone === "feature" ? "ds-feature border-rule" : tone === "tint" ? "border-wash-rule bg-wash" : "border-rule bg-surface", matte && "p-1 sm:p-2", animate && "ds-frame-in", className)} style={{ ...delayStyle(delay), ...style }} {...rest}>
+    <div className={clsx("relative rounded-lg border shadow-card", "border-edge bg-surface", tone === "feature" && "border-t-[3px] border-t-setu", matte && "p-1 sm:p-2", animate && "ds-frame-in", className)} style={{ ...delayStyle(delay), ...style }} {...rest}>
       {children}
     </div>
   );
@@ -74,7 +74,7 @@ export function Placard({ kicker, title, titleAs: H = "h3", what, where, who, wh
     .filter(([, value]) => value != null)
     .map(([label, value]) => ({ label, value }));
   return (
-    <article className={clsx("rounded-lg border border-rule bg-surface px-5 py-5 shadow-placard sm:px-6", animate && "ds-placard-in", className)} style={delayStyle(delay)}>
+    <article className={clsx("rounded-lg border border-edge bg-surface px-5 py-5 shadow-placard sm:px-6", animate && "ds-placard-in", className)} style={delayStyle(delay)}>
       {(kicker || status) && (
         <header className="flex flex-wrap items-start justify-between gap-2">
           {kicker && <p className="ds-kicker">{kicker}</p>}

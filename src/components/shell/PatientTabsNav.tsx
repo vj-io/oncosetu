@@ -66,7 +66,7 @@ export function PatientTabsNav({ main, more, inert = false }: { main: TabLink[];
             <ChevronDown aria-hidden className={clsx("size-4", open && "rotate-180")} />
           </button>
           {open && (
-            <ul className="absolute right-0 z-40 mt-2 grid w-64 overflow-hidden rounded-lg border border-rule bg-surface py-1 shadow-pop">
+            <ul className="absolute right-0 z-40 mt-2 grid w-64 overflow-hidden rounded-lg border border-edge bg-surface py-1 shadow-pop">
               {more.map((it) => (
                 <li key={it.href}>
                   <Item it={it} inert={inert} active={on(it.href)} className={clsx("flex min-h-11 items-center px-4 text-[15px] hover:bg-spotlight", on(it.href) ? "bg-setu-tint font-semibold text-setu-ink" : "text-nav-text hover:text-ink")}>

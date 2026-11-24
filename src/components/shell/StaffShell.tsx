@@ -11,6 +11,7 @@ import {
   ScanLine, Search, Send, Settings, Share2, ShieldAlert, ShieldCheck, Siren, Smartphone, Sparkles, TabletSmartphone, UserPlus, Users, type LucideIcon,
 } from "lucide-react";
 import { roleHome, TOUR_ROLES, type StaffRole } from "@/lib/staff-nav";
+import { tabsFor } from "@/lib/patient-tabs";
 import { currentItem, patientGroupsFor, patientIdIn, sidebarFor, type SideGroup, type SideItem } from "@/lib/sidebar";
 import { Avatar, Badge, Dialog, EmptyState, Skeleton, Wordmark } from "@/components/ui";
 import { Tour, startTour } from "./Tour";
@@ -24,6 +25,13 @@ const ICONS: Record<string, LucideIcon> = {
   "chart-column": ChartColumn, eraser: Eraser, settings: Settings, "folder-open": FolderOpen, sparkles: Sparkles, "calendar-range": CalendarRange,
   "message-circle": MessageCircle, "file-text": FileText, "file-x": FileX, "share-2": Share2, "shield-check": ShieldCheck, "id-card": IdCard,
 };
+/** A patient's sections by how often they are opened. The sidebar lists these first, in this order; every other section
+ *  the role may open (Timeline, Pre-auth file, Consent & access, Who opened this record, Records card) sits under a
+ *  collapsed "More". A role's own bar tabs (tabsFor) are always promoted, so the auditor's "Who opened this record"
+ *  stays up front. Only arranges links; who may open what still comes from the patient-tabs role rules. */
+const PATIENT_FIRST = ["overview", "records", "ledger", "completeness", "documents", "requests", "shares", "statements"];
+const sectionKey = (i: SideItem) => i.href.split("/").pop() ?? "";
+
 /** Roles that can search patients from the top bar (the patients list is their page). */
 const SEARCH_ROLES: StaffRole[] = ["desk", "records", "clinician"];
 
@@ -45,9 +53,18 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
   const patientId = patientIdIn(pathname);
   const groups: SideGroup[] = sidebarFor(user.role);
   const patientGroups: SideGroup[] = patientId ? patientGroupsFor(patientId, user.role) : [];
-  const all = [...groups, ...patientGroups].flatMap((g) => g.items);
+  const accountItems: SideItem[] = groups.find((g) => g.label === "Account")?.items ?? [];
+  const sideGroups = groups.filter((g) => g.label !== "Account"); // the account pages live in the account menu
+  const patientItems = patientGroups.flatMap((g) => g.items);
+  const promoted = new Set<string>(tabsFor(user.role).main.map((t) => t.key));
+  const isFirst = (i: SideItem) => PATIENT_FIRST.includes(sectionKey(i)) || promoted.has(sectionKey(i));
+  const rank = (i: SideItem) => { const k = PATIENT_FIRST.indexOf(sectionKey(i)); return k < 0 ? PATIENT_FIRST.length : k; };
+  const patientMain = patientItems.filter(isFirst).sort((a, b) => rank(a) - rank(b));
+  const patientMore = patientItems.filter((i) => !isFirst(i));
+  const all = [...sideGroups, ...accountItems.length ? [{ label: "Account", items: accountItems }] : [], ...patientGroups].flatMap((g) => g.items);
   const current = currentItem(all, pathname, view);
   const currentGroup = [...patientGroups, ...groups].find((g) => g.items.includes(current as SideItem));
+  const moreHasCurrent = patientMore.includes(current as SideItem);
   const crumbs = patientId
     ? [{ label: "Patients", href: user.role === "desk" ? "/desk" : "/patients" }, { label: current?.label ?? "Patient record" }]
     : [currentGroup && currentGroup.label !== "Work" ? { label: currentGroup.label } : null, current ? { label: current.label } : null].filter(Boolean) as { label: string; href?: string }[];
@@ -80,8 +97,8 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
           "flex min-h-10 items-center gap-3 rounded-md px-3 text-[15px] transition-colors",
           i.sub && "ml-4 min-h-9 text-[14px]",
           dark
-            ? on ? "bg-white/12 font-semibold text-white shadow-[inset_0_0_0_1px_rgb(255_255_255/0.10)]" : "text-side-text hover:bg-white/8 hover:text-white focus-visible:outline-white"
-            : on ? "bg-setu-tint font-semibold text-setu-ink" : "text-nav-text hover:bg-spotlight hover:text-ink",
+            ? on ? "bg-white/12 font-semibold text-white shadow-[inset_3px_0_0_#fff,inset_0_0_0_1px_rgb(255_255_255/0.10)]" : "text-side-text hover:bg-white/8 hover:text-white focus-visible:outline-white"
+            : on ? "bg-setu-tint font-semibold text-setu-ink shadow-[inset_3px_0_0_var(--color-setu)]" : "text-nav-text hover:bg-spotlight hover:text-ink",
         )}
       >
         <Icon aria-hidden className={clsx("shrink-0", i.sub ? "size-4" : "size-[18px]", dark && !on && "text-side-muted")} />
@@ -97,7 +114,26 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
           <ArrowLeft aria-hidden className="size-4" />{user.role === "desk" ? "Back to the front desk" : "All patients"}
         </Link>
       )}
-      {[...patientGroups, ...groups.filter((g) => !patientId || g.label === "Account")].map((g) => (
+      {patientId && patientMain.length > 0 && (
+        <div className="grid gap-1">
+          <p className={clsx("px-3 pb-1 text-[12px] font-semibold tracking-[0.02em]", dark ? "text-side-muted" : "text-faint")}>Patient record</p>
+          <ul className="grid gap-0.5">
+            {patientMain.map((i) => <li key={i.href}>{link(i, dark, onClick)}</li>)}
+          </ul>
+        </div>
+      )}
+      {patientId && patientMore.length > 0 && (
+        <details open={moreHasCurrent || undefined} className="group grid gap-1">
+          <summary className={clsx("flex min-h-10 cursor-pointer list-none items-center justify-between rounded-md px-3 text-[12px] font-semibold tracking-[0.02em] [&::-webkit-details-marker]:hidden", dark ? "text-side-muted hover:bg-white/8 hover:text-white focus-visible:outline-white" : "text-faint hover:bg-spotlight")}>
+            More
+            <ChevronDown aria-hidden className="size-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <ul className="grid gap-0.5">
+            {patientMore.map((i) => <li key={i.href}>{link(i, dark, onClick)}</li>)}
+          </ul>
+        </details>
+      )}
+      {sideGroups.filter((g) => !patientId).map((g) => (
         <div key={g.label} className="grid gap-1">
           <p className={clsx("px-3 pb-1 text-[12px] font-semibold tracking-[0.02em]", dark ? "text-side-muted" : "text-faint")}>{g.label}</p>
           <ul className="grid gap-0.5">
@@ -128,7 +164,7 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
       </summary>
       <div
         className={clsx(
-          "absolute z-50 hidden w-64 overflow-hidden rounded-lg border border-rule bg-surface py-1 text-ink shadow-pop group-open:grid",
+          "absolute z-50 hidden w-64 overflow-hidden rounded-lg border border-edge bg-surface py-1 text-ink shadow-pop group-open:grid",
           where === "sidebar" ? "bottom-full left-0 mb-2" : "top-full right-0 mt-2",
         )}
       >
@@ -136,6 +172,14 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
           <span className="block font-medium text-ink">{user.name}</span>
           <span className="text-[13px] text-faint">{ROLE_LABEL[user.role]} · {user.orgName}</span>
         </p>
+        {accountItems.map((i) => {
+          const Icon = ICONS[i.icon] ?? Circle;
+          return (
+            <Link key={i.href} href={i.href} onClick={(e) => e.currentTarget.closest("details")?.removeAttribute("open")} className="flex min-h-11 items-center gap-2.5 px-4 text-left text-[15px] hover:bg-spotlight">
+              <Icon aria-hidden className="size-4 text-muted" />{i.label}
+            </Link>
+          );
+        })}
         {TOUR_ROLES.includes(user.role) && (
           <button type="button" onClick={(e) => { e.currentTarget.closest("details")?.removeAttribute("open"); startTour(); }} className="flex min-h-11 items-center gap-2.5 px-4 text-left text-[15px] hover:bg-spotlight">
             <Compass aria-hidden className="size-4 text-muted" />Take the 2-minute tour
@@ -173,13 +217,13 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
           </Link>
           <p className="mt-1 truncate px-1 text-[13px] text-side-muted" title={user.orgName}>{user.orgName}</p>
         </div>
-        <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 pt-2 pb-4">{navGroups(true)}</nav>
+        <nav aria-label="Primary" className="flex-1 overflow-y-auto px-3 pt-2 pb-4 [scrollbar-color:rgb(255_255_255/.25)_transparent] [scrollbar-width:thin]">{navGroups(true)}</nav>
         <div className="border-t border-white/10 p-3">{account("sidebar")}</div>
       </aside>
 
       <div className="flex min-h-dvh flex-col">
         {/* Top bar: on desktop the breadcrumb and patient search; on tablets and phones the menu, the brand and the account. */}
-        <header className="sticky top-0 z-30 border-b border-rule bg-surface/95 backdrop-blur-sm">
+        <header className="sticky top-0 z-30 border-b border-edge bg-surface/95 backdrop-blur-sm">
           <div className="flex h-14 items-center gap-2 px-2 sm:px-4 lg:h-16 lg:gap-4 lg:px-8">
             <button type="button" onClick={() => setNavOpen(true)} aria-label="Open navigation" className="grid size-11 shrink-0 place-items-center rounded-md text-ink hover:bg-spotlight lg:hidden">
               <Menu aria-hidden className="size-5" />
@@ -202,7 +246,7 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
                 <form role="search" onSubmit={search} className="relative hidden md:block">
                   <label htmlFor="top-search" className="sr-only">Find a patient</label>
                   <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-faint" />
-                  <input id="top-search" name="q" type="search" autoComplete="off" placeholder="Find a patient: name, phone, record code…" className="h-11 w-72 rounded-md border border-rule bg-gallery pr-3 pl-9 text-[15px] placeholder:text-placeholder hover:border-control/60 focus:border-setu-ink focus:bg-surface xl:w-96" />
+                  <input id="top-search" name="q" type="search" autoComplete="off" placeholder="Find a patient: name, phone, record code…" className="h-11 w-72 rounded-md border border-control/60 bg-surface pr-3 pl-9 text-[15px] placeholder:text-placeholder hover:border-control/60 focus:border-setu-ink focus:bg-surface xl:w-96" />
                 </form>
               )}
               {demo && <Badge tone="setu" className="max-md:hidden">Demo · synthetic data</Badge>}

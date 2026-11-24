@@ -51,15 +51,15 @@ export function RecordGlance({ v }: { v: OncologyView }) {
   const shown = SECTIONS.filter((s) => v[s.key].length > 0)
   const empty = SECTIONS.filter((s) => v[s.key].length === 0)
   return (
-    <section aria-labelledby="glance-h" data-tour="oncology" className="grid content-start rounded-xl border border-rule bg-surface shadow-card">
-      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 px-5 pt-5 pb-2 sm:px-6">
+    <section aria-labelledby="glance-h" data-tour="oncology" className="grid content-start rounded-xl border border-edge bg-surface shadow-card">
+      <header className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule px-5 py-3.5 sm:px-6">
         <div className="grid gap-0.5">
           <h2 id="glance-h" className="text-lg">Record at a glance</h2>
           <p className="text-[13px] text-muted">Copied word for word from the papers. OncoSetu does not decide or check the diagnosis.</p>
         </div>
         <Badge icon={<Info />}>Not a clinical summary</Badge>
       </header>
-      <ul className="divide-y divide-rule px-3 pb-2 sm:px-4">
+      <ul className="divide-y divide-rule px-3 py-2 sm:px-4">
         {shown.map((s) => {
           const all = dedupeFacts(s.newest ? newestFirst(v[s.key]) : v[s.key])
           const Icon = s.icon

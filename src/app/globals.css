@@ -9,20 +9,21 @@
  * Colour rule: one hue per meaning, always paired with a word or icon (never colour alone).
  * Each hue ships as a pair: base (strokes, fills, icons) and -ink (text).
  * Measured WCAG contrast (-ink text):          on tint  on canvas  on white
- *   setu-ink    #09606b  (brand / info)          6.22     6.62       7.25
- *   sage-ink    #067647  (verified)              5.06     5.20       5.69
- *   amber-ink   #93470a  (unverified/proposed)   6.01     6.10       6.67
- *   madder-ink  #b42318  (conflict/identity)     5.63     6.01       6.57
- *   violet-ink  #5b3fd1  (patient said)          5.81     6.24       6.83
- *   slate-ink   #4f5b69  (shadow mode)           6.06     6.33       6.92
- *   brass-ink   #7a5a12  (sealed)                5.49     5.82       6.37
- *   ink         #101828                            -     16.22      17.75
- *   muted       #526070  (secondary text)          -      5.88       6.43
- *   faint       #5b6878  (labels)                  -      5.19       5.68
- *   placeholder #667085                            -      4.55       4.97 (inputs are white)
- * Non-text, need 3:1 on canvas: control #7b8594 3.39, amber #c4620a 3.74, sage #12805c 4.47, violet #7a5af8 4.10,
- * setu #0e7f8c 4.30. White on the teal accent #0b6b78 6.20, on its hover #095a65 7.89.
- * rule #e4e7ec and link #9ab9c0 (underline colour) are decorative only.
+ *   setu-ink    #09606b  (brand / info)          6.22     6.40       7.25
+ *   sage-ink    #067647  (verified)              5.06     5.02       5.69
+ *   amber-ink   #93470a  (unverified/proposed)   6.01     5.89       6.67
+ *   madder-ink  #b42318  (conflict/identity)     5.63     5.80       6.57
+ *   violet-ink  #5b3fd1  (patient said)          5.81     6.03       6.83
+ *   slate-ink   #4f5b69  (shadow mode)           6.06     6.11       6.92
+ *   brass-ink   #7a5a12  (sealed)                5.49     5.62       6.37
+ *   ink         #101828                            -     15.66      17.75
+ *   muted       #526070  (secondary text)          -      5.68       6.43
+ *   faint       #5b6878  (labels)                  -      5.01       5.68
+ *   placeholder #667085                            -      4.39       4.97 (inputs are white)
+ * Non-text, need 3:1 on canvas: control #7b8594 3.30, amber #c4620a 3.64, sage #12805c 4.34, violet #7a5af8 3.99,
+ * setu #0e7f8c 4.18. White on the teal accent #0b6b78 6.20, on its hover #095a65 7.89.
+ * Surfaces: a white card on the canvas #eef1f5 is 1.13:1; the card edge #d0d5dd is 1.47:1 on white, 1.30:1 on the canvas.
+ * rule #e4e7ec (dividers inside a card) and link #7fa7b0 (underline colour) are decorative only.
  */
 
 @theme {
@@ -31,11 +32,11 @@
   --color-black: #000000;
 
   /* Surfaces */
-  --color-gallery: #f6f8f9; /* page canvas */
+  --color-gallery: #eef1f5; /* page canvas: a white card on it is 1.13:1, a card edge 1.30:1 */
   --color-surface: #ffffff; /* tiles, panels */
-  /* Side cards (next actions, since the last visit): a very light teal. muted 5.77, faint 5.10, setu-ink 6.51 on wash */
-  --color-wash: #edf4f5;
-  --color-wash-rule: #dbe8ea;
+  /* Sunken neutral INSIDE a white card: panel header bands and table heads. muted 6.0, faint 5.3 on wash */
+  --color-wash: #f7f9fb;
+  --color-wash-rule: #e4e7ec;
   --color-matte: #ffffff; /* inputs, inner frames */
   --color-alcove: #eef1f4; /* recessed rows, table heads, segmented tracks */
   --color-floor: #e4e8ee;
@@ -57,11 +58,17 @@
   --color-muted: #526070;
   --color-faint: #5b6878;
   --color-placeholder: #667085;
-  --color-rule: #e4e7ec; /* hairlines (decorative) */
+  --color-rule: #e4e7ec; /* dividers INSIDE a card (decorative) */
+  --color-edge: #d0d5dd; /* the outer border of a card: 1.47:1 on white, 1.30:1 on the canvas */
+  --color-select: #e3f1f2; /* selected or active row, always with a 3px left bar */
   --color-control: #7b8594; /* control boundaries (3:1) */
-  --color-spotlight: #f0f4f6; /* hover wash */
+  --color-spotlight: #eef2f6; /* hover wash */
   --color-highlight: #fff3c4; /* lit quote */
-  --color-link: #9ab9c0; /* link underline */
+  --color-highlight-on: #fde68a; /* the active quote */
+  --color-paper: #fbf8f1; /* warm surface for page text */
+  --color-paper-band: #f4eee1;
+  --color-paper-rule: #e2d9c3;
+  --color-link: #7fa7b0; /* link underline */
 
   /* Semantic pairs */
   --color-setu: #0e7f8c;
@@ -96,12 +103,13 @@
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --radius-2xl: 16px; /* was undefined: `--radius-*: initial` wiped it, so rounded-2xl generated nothing */
   --radius-full: 9999px;
 
   --shadow-*: initial;
-  --shadow-card: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
-  --shadow-frame: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
-  --shadow-placard: 0 1px 3px rgb(16 24 40 / 0.06), 0 1px 2px rgb(16 24 40 / 0.04);
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.06), 0 2px 6px rgb(16 24 40 / 0.08);
+  --shadow-frame: var(--shadow-card);
+  --shadow-placard: var(--shadow-card);
   --shadow-pop: 0 4px 8px -2px rgb(16 24 40 / 0.08), 0 16px 32px -8px rgb(16 24 40 / 0.18);
   --shadow-keyline: var(--shadow-pop);
   --shadow-seal: 0 1px 0 rgb(58 44 6 / 0.12);
@@ -200,7 +208,7 @@
 
   /* A white tile on the canvas. */
   .ds-sheet {
-    border: 1px solid var(--color-rule);
+    border: 1px solid var(--color-edge);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     box-shadow: var(--shadow-card);
@@ -246,7 +254,7 @@
     text-align: left;
     padding: 0.625rem 0.875rem;
     background: var(--color-wash);
-    border-bottom: 1px solid var(--color-rule);
+    border-bottom: 1px solid var(--color-edge);
     white-space: nowrap;
   }
   .ds-table td {
@@ -259,6 +267,9 @@
   }
   .ds-table tbody tr:hover td {
     background: var(--color-spotlight);
+  }
+  .ds-table tbody tr:has(a):hover {
+    cursor: pointer;
   }
 
   .ds-skeleton {
@@ -452,27 +463,20 @@
     width: min(100%, 420px);
     aspect-ratio: 256 / 360;
     pointer-events: none;
+    opacity: 0.35; /* the arches stay as branding but stop shimmering behind the nav */
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 360' fill='none' stroke='%23fff'%3E%3Cpath d='M10 360V330A34 34 0 0 1 78 330V360' stroke-width='14' stroke-opacity='0.07'/%3E%3Cpath d='M10 360V330A34 34 0 0 1 78 330V360' stroke-width='1.5' stroke-opacity='0.16'/%3E%3Cpath d='M-24 360V330A68 68 0 0 1 112 330V360' stroke-width='1.5' stroke-opacity='0.13'/%3E%3Cpath d='M-58 360V330A102 102 0 0 1 146 330V360' stroke-width='1.5' stroke-opacity='0.11'/%3E%3Cpath d='M-92 360V330A136 136 0 0 1 180 330V360' stroke-width='1.5' stroke-opacity='0.09'/%3E%3Cpath d='M-126 360V330A170 170 0 0 1 214 330V360' stroke-width='1.5' stroke-opacity='0.07'/%3E%3Cpath d='M-160 360V330A204 204 0 0 1 248 330V360' stroke-width='1.5' stroke-opacity='0.055'/%3E%3Cpath d='M-194 360V330A238 238 0 0 1 282 330V360' stroke-width='1.5' stroke-opacity='0.045'/%3E%3C/svg%3E") no-repeat left bottom / 100% 100%;
   }
+  /* The lead card of a page is a plain white card now (it used to be a teal gradient with arch rings behind the content);
+     the class stays so existing call sites keep working, and Panel/Frame mark "feature" with a teal top bar instead. */
   .ds-feature {
     position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    background: linear-gradient(135deg, #e3f0f1 0%, #f1f7f8 42%, #ffffff 100%);
+    background: var(--color-surface);
   }
   .ds-feature::after {
-    content: "";
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-    width: min(360px, 70%);
-    aspect-ratio: 360 / 260;
-    pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 360 260' fill='none' stroke='%230e7f8c'%3E%3Cpath d='M276 260V236A42 42 0 0 1 360 236V260' stroke-width='16' stroke-opacity='0.07'/%3E%3Cpath d='M276 260V236A42 42 0 0 1 360 236V260' stroke-width='1.5' stroke-opacity='0.2'/%3E%3Cpath d='M236 260V236A82 82 0 0 1 400 236V260' stroke-width='1.5' stroke-opacity='0.16'/%3E%3Cpath d='M196 260V236A122 122 0 0 1 440 236V260' stroke-width='1.5' stroke-opacity='0.13'/%3E%3Cpath d='M156 260V236A162 162 0 0 1 480 236V260' stroke-width='1.5' stroke-opacity='0.1'/%3E%3Cpath d='M116 260V236A202 202 0 0 1 520 236V260' stroke-width='1.5' stroke-opacity='0.08'/%3E%3Cpath d='M76 260V236A242 242 0 0 1 560 236V260' stroke-width='1.5' stroke-opacity='0.06'/%3E%3Cpath d='M36 260V236A282 282 0 0 1 600 236V260' stroke-width='1.5' stroke-opacity='0.045'/%3E%3C/svg%3E") no-repeat right bottom / 100% 100%;
+    content: none;
   }
-  /* A faint teal light at the top of the staff canvas, so the page is not one flat grey. */
+  /* The staff canvas is one flat neutral (the teal glow at the top right sat behind the side cards). */
   .ds-canvas {
-    background: radial-gradient(900px 360px at 90% -120px, rgb(14 127 140 / 0.09), transparent 70%);
+    background: none;
   }
 }

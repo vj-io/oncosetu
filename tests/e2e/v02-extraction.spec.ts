@@ -289,6 +289,10 @@ test('V02-E2E-08 OCR images show their confidence; an uncertain OCR event is exc
   const page = await ui('records')
   for (const d of [ct, cbc]) {
     await page.goto(`/patients/${p.id}/documents/${d.id}`)
+    // The page picture beside it actually loads (a broken image keeps naturalWidth 0).
+    const pic = page.getByRole('img', { name: 'Page 1 of the paper as it was received', exact: true })
+    await expect(pic).toHaveCount(1)
+    await expect.poll(() => pic.evaluate((img) => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
     await page.getByRole('button', { name: 'Words', exact: true }).click()
     await expect(page.getByText(/read from a photo, confidence 0\.\d\d/).first()).toBeVisible()
   }

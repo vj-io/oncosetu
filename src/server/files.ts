@@ -1,5 +1,7 @@
-// Encrypted file storage (ADR-001a): Postgres bytea, or for originals an S3-compatible object store when one is configured
-// (objects.ts; the row then keeps only the key, size, hash and wrapped file key). No public URLs: route handlers stream files.
+// Encrypted file storage (ADR-001a): an S3-compatible object store when one is configured (objects.ts; the row then keeps
+// only the key, size, hash and wrapped file key), else Postgres bytea. Every stored file body goes through sealFile:
+// originals, page images, voice clips and held inbound files (until 0030 only originals did, and a free 1 GB database
+// filled at about 3,500 pages; scripts/move-files-to-objects.ts moves the old ones). No public URLs: route handlers stream files.
 import { randomUUID } from 'node:crypto'
 import { eq } from 'drizzle-orm'
 import type { Tx } from '@/db'
@@ -16,17 +18,27 @@ export type StoreFileInput = {
   processor?: { name: string; version: string } | null
 }
 
+/**
+ * Encrypts a file with its own key. With an object store the ciphertext is uploaded (key o/<org>/<uuid>) and the row keeps
+ * an empty bytes_enc; without one the ciphertext is the row's bytes_enc. Read it back with storedBytes.
+ */
+export async function sealFile(orgId: string, plain: Buffer): Promise<{ bytesEnc: Buffer; objectKey: string | null; dekWrapped: string }> {
+  const { bytes, dekWrapped } = encryptBytes(plain)
+  const store = objectStore()
+  if (!store) return { bytesEnc: bytes, objectKey: null, dekWrapped }
+  const objectKey = `o/${orgId}/${randomUUID()}`
+  await store.put(objectKey, bytes)
+  remember(objectKey, bytes) // processing reads an original back next
+  return { bytesEnc: Buffer.alloc(0), objectKey, dekWrapped }
+}
+
 /** Must run inside withOrg(orgId). */
 export async function storeFile(tx: Tx, f: StoreFileInput): Promise<{ id: string; size: number; sha256: string }> {
-  const { bytes, dekWrapped } = encryptBytes(f.bytes)
+  const sealed = await sealFile(f.orgId, f.bytes)
   const sha256 = sha256Hex(f.bytes)
-  // originals (the big files) go to the object store when there is one; page images stay here (small, and versioned)
-  const store = f.kind === 'original' ? objectStore() : null
-  const objectKey = store ? `o/${f.orgId}/${randomUUID()}` : null
-  if (store) { await store.put(objectKey!, bytes); remember(objectKey!, bytes) } // processing reads it back next
   const [row] = await tx.insert(documentFiles).values({
     orgId: f.orgId, patientId: f.patientId, documentId: f.documentId, kind: f.kind, pageNo: f.pageNo ?? null,
-    mime: f.mime, bytesEnc: store ? Buffer.alloc(0) : bytes, objectKey, dekWrapped, size: f.bytes.length, sha256,
+    mime: f.mime, ...sealed, size: f.bytes.length, sha256,
     processor: f.processor?.name ?? null, processorVersion: f.processor?.version ?? null,
   }).returning({ id: documentFiles.id })
   return { id: row.id, size: f.bytes.length, sha256 }

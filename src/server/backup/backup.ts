@@ -3,6 +3,13 @@
 // BACKUP_SLOTS slots, each overwritten after BACKUP_SLOTS weeks, plus a small pointer to the newest (no listing needed).
 // Weekly, not daily: every run reads every row, including every stored file (document_files, most of the database),
 // and Neon's free plan allows 5 GB of network transfer per project per month. Daily runs would take about 4 GB of that.
+//
+// Files in the object store (originals since 0028; page images, voice clips and held inbound files since 0030) are not
+// copied in: the backup holds each one's row (object key, wrapped per-file key, size, SHA-256 where kept) and the bucket
+// holds the ciphertext, which is never rewritten. A restore is complete with the same bucket and APP_MASTER_KEY;
+// restore-from-backup.ts and restore-drill.ts fetch every document file and voice clip and check it. A page image is also
+// derived data: if one were lost, reprocessing its document (POST /api/documents/<id>/reprocess) makes it again from the
+// original (FR-DOC-08). Originals and voice clips depend on the bucket.
 // Neon's free plan keeps 6 h of point-in-time history; these files keep BACKUP_RETENTION_DAYS (default 35).
 //
 // Why the owner role (DATABASE_URL_UNPOOLED): a backup must read every row of every organisation plus

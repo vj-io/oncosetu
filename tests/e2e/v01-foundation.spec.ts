@@ -147,6 +147,12 @@ test('V01-E2E-04 upload 3 PDFs + 2 images, retrieve them; a duplicate is linked,
     expect(got.status()).toBe(200)
     expect(sha(await got.body())).toBe(sha(demoDoc(f).buffer))
   }
+  // The two photos also have a page picture (re-encoded JPEG), served wherever it is stored (object store since 0030).
+  for (const i of [3, 4]) {
+    const pic = await records.ctx.get(`/api/documents/${ups[i].documentId}/file?kind=page&page=1`)
+    expect([pic.status(), pic.headers()['content-type']]).toEqual([200, 'image/jpeg'])
+    expect([...(await pic.body()).subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff])
+  }
   // The same bytes again: linked to the first document, nothing new stored or processed.
   const again = await uploadDemo(records, p.id, files[0])
   expect(again.duplicateOf).toBe(ups[0].documentId)

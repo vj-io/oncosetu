@@ -1,8 +1,19 @@
 // Security headers + nonce-based CSP on every response (Next 16 Proxy; see node_modules/next/dist/docs/01-app/02-guides/content-security-policy.md).
 // Pages must render dynamically for Next to stamp the nonce on its scripts.
 import { NextResponse, type NextRequest } from 'next/server'
+import { patientOrigin } from '@/lib/patient-origin'
 
 export function proxy(request: NextRequest) {
+  // The neutral patient address never shows the branded home page (FR-CON-07): the printed patient guide gives the bare
+  // address, and a patient who has not been told the diagnosis must land on patient sign-in, not on the product's front page.
+  const neutral = patientOrigin('')
+  const host = request.headers.get('x-forwarded-host') ?? request.headers.get('host') ?? request.nextUrl.host
+  if (neutral && request.nextUrl.pathname === '/' && host === new URL(neutral).host) {
+    const to = request.nextUrl.clone()
+    to.pathname = '/p/login'
+    return NextResponse.redirect(to)
+  }
+
   const nonce = Buffer.from(crypto.randomUUID()).toString('base64')
   const dev = process.env.NODE_ENV === 'development'
   // A production build served over plain http on this machine (E2E): WebKit applies upgrade-insecure-requests to localhost

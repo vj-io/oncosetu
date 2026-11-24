@@ -1,6 +1,7 @@
 'use client'
 // Share the document index (J5, FR-PAS-02): fetch the payload of the latest sealed snapshot, encrypt it HERE with a
 // fresh AES-256-GCM key, upload only ciphertext + iv. The key goes into the link's #fragment and never to the server.
+import { patientOrigin } from '@/lib/patient-origin'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import QRCode from 'qrcode'
@@ -59,7 +60,7 @@ export function CreateShareForm({ patientId, actor, lang = 'en', allowQuotes = t
       const r = await api<{ id: string; expiresAt: string }>('/api/shares', {
         ...(actor === 'staff' ? { patientId } : {}), snapshotId: payload.snapshotId, ciphertext, iv, scope, expiresInDays: days, passcode: code, label: label.trim() || null,
       })
-      const url = `${window.location.origin}/s/${r.id}#${key}`
+      const url = `${patientOrigin(window.location.origin)}/s/${r.id}#${key}`
       setCreated({ url, qr: await QRCode.toDataURL(url, { margin: 1, width: 240, errorCorrectionLevel: 'M' }), expiresAt: r.expiresAt, passcode: code, papers: payload.documents.length, asOf: payload.asOf })
       router.refresh()
     } catch (err) {

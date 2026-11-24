@@ -145,6 +145,13 @@ Fill in the times as you go; the 72-hour clock runs from the moment the organisa
 - [ ] **Other duties.** PRD §10.4 does not cover other reporting duties (for example CERT-In incident reporting, contract terms with the hospital or an AI vendor, ABDM obligations if integrated). Ask counsel which apply.
 - [ ] **Review within a week.** Update the threat model (PRD §10.1) and the risk register, add the control or test that would have caught it, record the incident and its closure in the next release audit.
 
+## 6. Deploys and addresses
+
+- **Both Vercel projects deploy from GitHub `main`.** A merge to `main` builds the demo (`oncosetu`) and the pilot (`oncosetu-pilot`) automatically. The pilot project builds production only: its Ignored Build Step skips every non-production build, and all its environment variables are set for Production only, so a branch push never runs against patient data.
+- **Migrations are not run by the build.** Before merging a pull request that adds a file under `drizzle/`, apply it to the pilot and the demo databases with `npx tsx --env-file=<that database's env file> scripts/migrate.ts` (README, "Run locally"). Merging first means the new code runs against the old schema until the migration is applied.
+- **Two addresses for the pilot.** Staff use `oncosetu-pilot.vercel.app`. Patients, families and outside doctors use `setu-records.vercel.app`, which carries no product name (FR-CON-07). `NEXT_PUBLIC_PATIENT_ORIGIN` (pilot Production, read at build time) makes the sign-in QR code and new share links use it; after changing it, redeploy. Both addresses serve the same deployment, and cookies are per address.
+- **Manual deploy** (when GitHub is down): from a checkout of the merge commit, `vercel deploy --prod --scope vaibhav700cs-projects`.
+
 ## Gaps to close before a pilot
 
 - Point-in-time restore covers 6 hours; beyond that the encrypted weekly backups (35 days, restore-tested) lose up to 7 days of writes. A pilot needs a longer PITR window (paid plan) or more frequent backups, and a second backup copy outside the Vercel account (hospital-held), since one account compromise reaches both the app and the Blob store.

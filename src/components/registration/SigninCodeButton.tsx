@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { patientOrigin } from "@/lib/patient-origin";
 import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui";
 import { postJson } from "./api";
@@ -34,7 +35,7 @@ export function SigninCodeButton({ patientId }: { patientId: string }) {
     const r = await postJson<Issued>(`/api/patients/${patientId}/signin-code`);
     setBusy(false);
     if (!r.ok) return setError(r.message);
-    setGot({ ...r.data, until: Date.now() + r.data.minutes * 60_000, url: `${window.location.origin}/p/login` });
+    setGot({ ...r.data, until: Date.now() + r.data.minutes * 60_000, url: `${patientOrigin(window.location.origin)}/p/login` });
   }
 
   return (

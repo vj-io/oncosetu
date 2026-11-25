@@ -7,6 +7,9 @@ import { writeAudit } from '@/server/audit'
 import { patientGlances } from '@/server/registration/doctor-overview'
 import { searchPatients } from '@/server/registration/search'
 import { requireStaff } from '@/server/session'
+import { now } from '@/server/clock'
+import { loadCopyRequests } from '@/server/portal/copies'
+import { CopyRequests } from '@/components/records/CopyRequests'
 
 const DATE = new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' })
 const DISCLOSURE = {
@@ -24,10 +27,15 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
   const s = await requireStaff(['desk', 'records', 'clinician'])
   const q = ((await searchParams).q ?? '').slice(0, 80)
   const desk = s.role === 'desk'
-  const { rows, glance } = await withOrg(s.orgId, async (tx) => {
+  const at = await now(s.orgId)
+  const { rows, glance, copies } = await withOrg(s.orgId, async (tx) => {
     const found = await searchPatients(tx, q)
     if (q.trim()) await writeAudit(tx, { orgId: s.orgId, actorId: s.staffId, actorRole: s.role, action: 'patient.search', details: { results: found.length, role: s.role } })
-    return { rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id), s.orgId) }
+    return {
+      rows: found, glance: desk ? new Map() : await patientGlances(tx, found.filter((r) => r.hasConsent).map((r) => r.id), s.orgId),
+      // Copy requests: the desk does not see them (it sees initials only); clinicians and records staff do.
+      copies: desk ? { rows: [], withoutConsent: 0 } : await loadCopyRequests(tx, at),
+    }
   })
   return (
     <section className="grid grid-cols-[minmax(0,1fr)] gap-8">
@@ -36,6 +44,7 @@ export default async function PatientsPage({ searchParams }: { searchParams: Pro
         description={desk ? 'The desk sees initials only. Open a record through Desk lookup, which checks who the person is first.' : 'Search by name, phone number, hospital number or record code. Each row shows what needs a look before the visit.'}
         actions={<ButtonLink href="/patients/new" icon={<UserPlus aria-hidden />}>Register a patient</ButtonLink>}
       />
+      {!q && <CopyRequests rows={copies.rows} withoutConsent={copies.withoutConsent} limit={5} />}
       <form role="search" className="flex flex-wrap items-center gap-2" action="/patients">
         <label className="sr-only" htmlFor="q">Search patients</label>
         <span className="relative w-full max-w-lg flex-1">

@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
-import { classifyHandwriting, detectLanguage, readPages, type OcrLangs, type OcrProvider } from './text'
+import { classifyHandwriting, detectLanguage, readPages, readsAsPrintedReport, type OcrLangs, type OcrProvider } from './text'
 
 // ---- a password-protected PDF (Standard security handler R2, RC4-40), built by hand for FR-ING-07 ----
 const PAD = Buffer.from('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A', 'hex')
@@ -103,6 +104,62 @@ describe('handwriting classifier (FR-DOC-07)', () => {
   it('too few lines to judge → not handwritten', () => {
     expect(classifyHandwriting([line(3, 0.3), line(3, 0.3)], 0.2).handwritten).toBe(false)
   })
+})
+
+// A phone photo of a printed report can read with many low-confidence lines and be judged handwritten, which drops its
+// text. It is read after all when its words read as a printed report: a strong non-prescription report class and mostly
+// real words. Handwritten prescriptions never pass that.
+describe('printed report pages judged handwritten are read (FR-DOC-07)', () => {
+  const REPORT = [
+    'MRI BRAIN WITH CONTRAST', 'Clinical history: follow up of operated case of glioma.', 'Technique: Multiplanar multisequence MRI of the brain was performed.',
+    'Findings: There is no abnormal enhancement in the operative bed.', 'The ventricles and sulci are normal for age.', 'No midline shift is seen. No diffusion restriction.',
+    'The posterior fossa structures appear normal.', 'Impression: Stable postoperative appearance of the brain.', 'No new lesion is seen on this study.',
+    'Compared with the previous scan dated 12/02/2025.', 'Report Date: 14/11/2026', 'Consultant Radiologist',
+  ].join('\n')
+  const RX = [
+    'Rx', 'Tab. Ondansetron 4 mg twice daily after food', 'Tab. Pantoprazole 40 mg once daily before food', 'Syp. Lactulose 15 ml at night',
+    'Cap. Omeprazole 20 mg once daily', 'Tab. Dexamethasone 4 mg twice daily', 'Inj. Filgrastim 300 mcg sc once', 'Review after two weeks with reports',
+    'Diet as advised', 'Plenty of fluids', 'Dr. signature', 'Date: 14/11/2026',
+  ].join('\n')
+  /** Every other line reads poorly: share 0.5, so the line-confidence rule alone says handwritten. */
+  const provider = (text: string): OcrProvider => ({
+    name: 'fake-ocr', version: '9.9',
+    recognize: async () => {
+      const lines = text.split('\n').map((t, i) => ({ text: t, conf: t.split(' ').map(() => (i % 2 ? 0.55 : 0.9)) }))
+      let s = 0
+      const words = lines.flatMap((l) => l.text.split(' ').map((t, k) => { const w = { t, c: l.conf[k], s, e: s + t.length, b: [0, 0, 1, 1] as [number, number, number, number] }; s += t.length + 1; return w }))
+      return { text, words, lines, mean: 0.72 }
+    },
+  })
+  const png = () => sharp({ create: { width: 200, height: 100, channels: 3, background: '#ffffff' } }).png().toBuffer()
+  it('a printed report that reads poorly is read, and the page says why', async () => {
+    const r = await readPages(new Uint8Array(await png()), 'image/png', undefined, provider(REPORT))
+    expect(r.kind === 'pages' && r.pages[0].handwriting).toMatchObject({ handwritten: false, printedReport: true })
+  })
+  it('a handwritten prescription that reads the same way stays handwritten', async () => {
+    const r = await readPages(new Uint8Array(await png()), 'image/png', undefined, provider(RX))
+    expect(r.kind === 'pages' && r.pages[0].handwriting).toMatchObject({ handwritten: true })
+    expect(r.kind === 'pages' && r.pages[0].handwriting?.printedReport).toBeFalsy()
+  })
+  it('readsAsPrintedReport: report class strong and mostly real words; prescriptions and short or garbled text never', () => {
+    expect(readsAsPrintedReport(REPORT)).toBe(true)
+    expect(readsAsPrintedReport(RX)).toBe(false)
+    expect(readsAsPrintedReport('MRI findings impression')).toBe(false) // too few words to judge
+    // A short printed stamp or heading on a handwritten page: strong words, but too few of them to call the page printed.
+    const stamp = 'MRI brain report. Findings: no enhancement. Impression: stable. Contrast study, radiologist, technique axial sagittal.'
+    expect(readsAsPrintedReport(stamp)).toBe(false)
+    expect(readsAsPrintedReport(`${stamp} ${stamp} ${stamp} ${stamp}`)).toBe(true) // the same words, enough of them
+    expect(readsAsPrintedReport(REPORT.replace(/[a-z]{4,}/g, (w) => `${w[0]}#${w.slice(2)}`))).toBe(false) // words garbled as handwriting OCR is
+  })
+  it('the handwritten samples of the evaluation sets stay handwritten through real OCR', async () => {
+    const files = ['public/demo-docs/hero__05-prescription-handwritten.jpg', 'data/eval/heldout/nandini__04-prescription-handwritten.jpg',
+      'data/eval/heldout/parvati__04-prescription-handwritten.jpg', 'data/eval/heldout/vijay__04-prescription-handwritten.jpg',
+      'data/eval/heldout2/hansa__02-prescription-handwritten.jpg', 'data/eval/heldout3/deviram__03-prescription-handwritten.jpg']
+    for (const f of files) {
+      const r = await readPages(new Uint8Array(readFileSync(f)), 'image/jpeg')
+      expect(r.kind === 'pages' && r.pages[0].handwriting?.handwritten, f).toBe(true)
+    }
+  }, 240_000)
 })
 
 describe('the OCR provider is injectable (FR-DOC-02, ADR-016)', () => {

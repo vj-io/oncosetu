@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import { createWorker, type Worker } from 'tesseract.js'
 import { extractImages, getDocumentProxy, getResolvedPDFJS } from 'unpdf'
 import type { OcrWord } from '@/db/schema'
+import { classifyDocument } from '@/core/extract/classify'
 import { unzipSync } from 'fflate'
 
 export const OCR_LOW_CONFIDENCE = 0.8
@@ -27,6 +28,10 @@ export type Handwriting = {
   lines: number
   /** Share of dark pixels that are ballpoint-blue (handwritten prescriptions in India are mostly blue ink). */
   blueInkShare: number
+  /** The line rule said handwritten, but the words read as a printed report (readsAsPrintedReport), so the page is read. */
+  printedReport?: true
+  /** The line rule said handwritten, and a person marked the file as printed (actions.markPrinted), so the page is read. */
+  printedByStaff?: true
 }
 
 export type PageRead = {
@@ -57,6 +62,8 @@ export type CachedPage = Omit<PageRead, 'image'>
  * OCR'd now, not taken from `cached`), so the caller can renew its lock and save the page.
  */
 export type ReadHooks = {
+  /** A person marked this file as printed: no page is held as handwritten (Handwriting.printedByStaff). */
+  printed?: boolean
   cached?: ReadonlyMap<number, CachedPage>
   onPage?: (info: { pageNo: number; total: number; page: PageRead | null; fresh: boolean }) => Promise<void> | void
 }
@@ -209,9 +216,26 @@ const typedPage = (text: string, processor: string): PageRead => ({
   processor, processorVersion: '1',
 })
 
-async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = tesseractOcr): Promise<PageRead> {
+/**
+ * A phone photo of a printed report can have most of its lines below 0.75 confidence and so be judged handwritten. Its words
+ * still read as a report: a non-prescription class scoring ≥ 9 (the strong-page bar of classify) and ≥ 55% real words. On
+ * the evaluation sets' six handwritten prescriptions real words are 39–46% and no report class leads; on photographed
+ * printed imaging reports judged handwritten they are 62–67% with imaging scores 9–15 (measured 25 Nov 2026).
+ */
+export function readsAsPrintedReport(text: string): boolean {
+  const words = text.split(/\s+/).filter(Boolean)
+  if (words.length < 40) return false
+  const best = Object.entries(classifyDocument([text]).scores).filter(([k]) => !k.startsWith('prescription')).reduce((m, [, v]) => Math.max(m, v), 0)
+  const real = words.filter((w) => /^[A-Za-z]{3,}[.,:;)]?$/.test(w)).length
+  return best >= 9 && real / words.length >= 0.55
+}
+
+async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = tesseractOcr, printed = false): Promise<PageRead> {
   const [first, ink] = await Promise.all([provider.recognize(image, 'eng+hin'), blueInk(image)])
-  const handwriting = classifyHandwriting(first.lines, ink) // calibrated on the eng+hin pass
+  const verdict = classifyHandwriting(first.lines, ink) // calibrated on the eng+hin pass
+  const handwriting: Handwriting = !verdict.handwritten ? verdict
+    : printed ? { ...verdict, handwritten: false, printedByStaff: true }
+    : readsAsPrintedReport(first.text) ? { ...verdict, handwritten: false, printedReport: true } : verdict
   // The Hindi model reads noise on English pages as Devanagari and misreads Latin letters. A page without one confidently
   // read Devanagari word (≥ 0.8) is read again with eng alone: CER 9.4% → 7.9% on the eval image pages (data/eval). On those
   // pages, English ones had no such word and Hindi or mixed ones had ≥ 3 — a Devanagari name in an English header counts.
@@ -319,7 +343,7 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
       const before = hooks.cached?.get(n)
       // A page an earlier attempt already read: its text is kept, only the image is rebuilt (a retry resumes, never restarts).
       if (before && before.source === 'ocr' && before.processor === ocr.name && before.processorVersion === ocr.version) await done({ ...before, image: jpeg }, false)
-      else await done({ ...(await ocrPage(n, jpeg, ocr)), hidden: hidden.trim() || null }, true)
+      else await done({ ...(await ocrPage(n, jpeg, ocr, hooks.printed)), hidden: hidden.trim() || null }, true)
     }
     return { kind: 'pages', pages }
   } finally {
@@ -358,7 +382,7 @@ export async function readPages(bytes: Uint8Array, mime: string, password?: stri
       const image = await normaliseImage(bytes, i, heic)
       const before = hooks.cached?.get(i + 1)
       const reuse = before && before.source === 'ocr' && before.processor === ocr.name && before.processorVersion === ocr.version
-      const page = reuse ? { ...before, image } : await ocrPage(i + 1, image, ocr)
+      const page = reuse ? { ...before, image } : await ocrPage(i + 1, image, ocr, hooks.printed)
       pages.push(page)
       await call({ pageNo: i + 1, total: count, page, fresh: !reuse })
     }

@@ -54,6 +54,15 @@ describe('a file of several reports is split by their headers (E-DOC-10)', () =>
     // With a date label of its own (legible only to the month), it is a report of its own, its day unknown.
     expect(split([page(1, report('04/10/2025')), page(2, `Report Date: 06/2022\n${bare}`)])).toEqual([[[1], '2025-10-04'], [[2], null]])
   })
+  it('each report is named by all its readable pages, not its first page alone', () => {
+    // The lab report's first page is only its letterhead and date: on its own it reads as nothing (the file is mostly imaging).
+    const labHead = 'SHREE DIAGNOSTICS\nReport Date: 13/11/2026\nPatient copy\n'
+    const labRows = 'Haemoglobin\t11.2\tg/dL\t12.0 - 15.0\nTotal Leucocyte Count\t6800\t/cumm\t4000 - 11000\nPlatelet Count\t2.1\tlakh/cumm\t1.5 - 4.5\nNeutrophils\t62\t%\t40 - 75\nLymphocytes\t30\t%\t20 - 45\nReference range\nComplete blood count\n'
+    const pages = [page(1, report('04/10/2025')), page(2, report('05/10/2025', 'MRI brain')), page(3, labHead), page(4, labRows)]
+    const c = classify(pages)
+    expect(c.docType).toBe('imaging_report')
+    expect(splitSections(pages, c, RECEIVED).map((x) => [x.pages, x.docType])).toEqual([[[1], 'imaging_report'], [[2], 'imaging_report'], [[3, 4], 'lab_report']])
+  })
   it('the first readable page is read whole for its date, as the file date is; a file that starts held takes it too', () => {
     const late = `CITY IMAGING CENTRE\n${Array.from({ length: 20 }, (_, i) => `Line ${i + 1}.`).join('\n')}\nDate: 12/02/2025\n`
     expect(split([held(1), page(2, late), page(3, report('10/10/2026'))])).toEqual([[[1, 2], '2025-02-12'], [[3], '2026-10-10']])

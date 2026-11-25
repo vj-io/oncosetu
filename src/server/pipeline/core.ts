@@ -205,14 +205,14 @@ const HEADER_LINES = 15
  */
 export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pick<Classified, 'usable' | 'docType'>, receivedAt: Date): Section[] {
   const usable = new Map(c.usable.map((p) => [p.pageNo, p]))
-  const out: (Section & { read: boolean })[] = []
+  const out: (Section & { read: boolean; texts: string[] })[] = []
   const none = { date: null, institution: null }
   for (const pageNo of pages.map((p) => p.pageNo).sort((a, b) => a - b)) {
     const cur = out.at(-1)
     const p = usable.get(pageNo)
     if (!p) {
       if (cur) cur.pages.push(pageNo)
-      else out.push({ pages: [pageNo], ...none, docType: c.docType, read: false })
+      else out.push({ pages: [pageNo], ...none, docType: c.docType, read: false, texts: [] })
       continue
     }
     // The file's first readable page is read whole, as readHeader reads it for the file's own date.
@@ -229,14 +229,22 @@ export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pic
     if (!cur || (cur.read && ((date && (
       (cur.date && date.iso !== cur.date.iso) || (!cur.date && letterhead)
       || (letterhead && strong && strong !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 3)
-    )) || newKind))) out.push({ pages: [pageNo], date, docType: kind ?? c.docType, institution: h.institution?.value ?? null, read: true })
-    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: kind ?? cur.docType, institution: h.institution?.value ?? null, read: true })
+    )) || newKind))) out.push({ pages: [pageNo], date, docType: kind ?? c.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text] })
+    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: kind ?? cur.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text] })
     else {
       cur.pages.push(pageNo)
       cur.date ??= date
+      cur.texts.push(p.text)
     }
   }
-  return out.map((s) => ({ pages: s.pages, date: s.date, docType: s.docType, institution: s.institution }))
+  // Each report is named by all its readable pages together, not by its first page alone (a lab report whose first page
+  // reads weakly was named after the file's class). One report in the file keeps the file's own class.
+  const named = (s: (typeof out)[number]) => {
+    if (out.length < 2 || !s.texts.length) return s.docType
+    const t = classifyDocument(s.texts).docType
+    return t !== 'other' ? t : s.docType
+  }
+  return out.map((s) => ({ pages: s.pages, date: s.date, docType: named(s), institution: s.institution }))
 }
 
 /**

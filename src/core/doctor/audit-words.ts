@@ -1,7 +1,7 @@
 // Plain-language names for activity-log entries, so no screen prints a raw code such as "event.source_viewed". Pure.
 
 const WORDS: Record<string, string> = {
-  'document.view': 'Opened a document page',
+  'document.view': 'Opened a document', // one row per viewing (30 minutes), not per page or scan image
   'document.upload': 'Document added',
   'document.duplicate_upload': 'Same file uploaded again (not added twice)',
   'document.quarantined': 'File set aside as unsafe or unsupported',

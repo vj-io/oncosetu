@@ -33,8 +33,8 @@ export type RouteCtx<A extends Auth, B, Q> = {
   params: Record<string, string | string[]>
   /** transaction with RLS app.org_id = session.orgId. Throws on public routes: use withOrg() there. */
   db: Tx
-  /** ids/enums only, never PHI. Throws on public routes: use writeAudit() there. */
-  audit: (action: string, targetType: string | null, targetId: string | null, details?: AuditDetails) => Promise<void>
+  /** ids/enums only, never PHI. Throws on public routes: use writeAudit() there. `onceWithinMs`: see writeAudit. */
+  audit: (action: string, targetType: string | null, targetId: string | null, details?: AuditDetails, opts?: { onceWithinMs?: number }) => Promise<void>
 }
 
 export type RouteOpts<A extends Auth, B, Q> = {
@@ -118,11 +118,11 @@ export function route<A extends Auth, B = undefined, Q = undefined>(
       const result = session
         ? await withOrg(session.orgId, async (tx) => handler({
           ...base, db: tx,
-          audit: async (action, targetType, targetId, details) => {
+          audit: async (action, targetType, targetId, details, opts) => {
             await writeAudit(tx, {
               orgId: session.orgId, actorId: session.kind === 'staff' ? session.staffId : (session.caregiverId ?? session.patientId),
               actorRole: sessionRole(session), action, targetType, targetId, requestId, details,
-            })
+            }, opts)
           },
         } as RouteCtx<A, B, Q>))
         : await handler({

@@ -3,6 +3,7 @@
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { documentFiles, patients } from '@/db/schema'
+import { VIEWING_MS } from '@/server/audit'
 import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
 import { loadDocument, patientMayOpen, portalActor } from '@/server/pipeline/actions'
@@ -40,7 +41,8 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   // A study that came in several uploads is stepped through as one series; the part that arrived first stands for it.
   const at = previewTarget(d, await studyParts(ctx.db, d), ctx.query.frame)
   const preview = await pictureOf(at.id, at.mime, at.index)
-  await ctx.audit('document.view', 'document', d.id, { kind: 'preview', frame: ctx.query.frame ?? -1, ...(at.id !== d.id ? { part: at.id } : {}) })
+  // one row per viewing: the first picture is recorded, the rest of the series stepped through in the next 30 minutes is not
+  await ctx.audit('document.view', 'document', d.id, { kind: 'preview', frame: ctx.query.frame ?? -1, ...(at.id !== d.id ? { part: at.id } : {}) }, { onceWithinMs: VIEWING_MS })
   if (!preview.ok) return new Response(JSON.stringify({ error: { code: 'no_preview', message: preview.note } }), { status: 422, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } })
   return new Response(new Uint8Array(preview.png), { headers: { 'content-type': 'image/png', 'cache-control': 'private, no-store', 'x-content-type-options': 'nosniff', 'content-security-policy': "default-src 'none'; img-src 'self'", 'cross-origin-resource-policy': 'same-origin' } })
 })

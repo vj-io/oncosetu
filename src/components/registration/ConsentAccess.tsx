@@ -170,6 +170,45 @@ export function DisclosurePanel({ patientId, current, canEdit }: { patientId: st
   );
 }
 
+const NAME_REASONS: [string, string][] = [
+  ["spelling_correction", "Spelling correction"], ["married_or_legal_change", "Married or legal name change"], ["entered_in_error", "Entered wrongly at registration"],
+];
+
+/** The name papers are matched against. Clinician only; the old name can stay as another name so its papers still match. */
+export function PatientNamePanel({ patientId, current, canEdit }: { patientId: string; current: string; canEdit: boolean }) {
+  const a = useAction(patientId);
+  const [name, setName] = useState(current);
+  const [reason, setReason] = useState(NAME_REASONS[0][0]);
+  const [keep, setKeep] = useState(true);
+  const next = name.trim().replace(/\s+/g, " ");
+  if (!canEdit) return <p className="text-muted">Only a clinician can change the patient’s name. It is currently <strong className="font-medium text-ink">{current}</strong>.</p>;
+  return (
+    <div className="grid gap-4" data-testid="patient-name">
+      <div className="grid items-start gap-4 sm:grid-cols-2">
+        <Field label="Full name" hint="As on the patient’s papers or ID.">
+          <Input value={name} autoComplete="off" onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Reason" hint="Saved with the change as a code; the audit log holds no free text.">
+          <Select value={reason} onChange={(e) => { setReason(e.target.value); setKeep(e.target.value !== "entered_in_error"); }}>
+            {NAME_REASONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+          </Select>
+        </Field>
+      </div>
+      <Checkbox checked={keep} onChange={(e) => setKeep(e.target.checked)} label="Keep the old name as another name, so papers written with it still match" />
+      <Status error={a.error} done={a.done} />
+      <div>
+        <Button disabled={next.length < 2 || next === current} loading={a.busy === "n"}
+          onClick={() => a.run("n", "name", { fullName: next, reason, keepPrevious: keep }, (d) => {
+            const n = Number(d.heldRechecked ?? 0);
+            return `Name saved and audited.${n ? ` ${n} held paper${n === 1 ? " is" : "s are"} being checked again against the new name.` : ""}`;
+          })}>
+          Save name
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /** The patient's own mobile number: codes and the portal sign-in use it. Added or changed only with the patient present. */
 export function PatientPhonePanel({ patientId, phoneMasked }: { patientId: string; phoneMasked: string | null }) {
   const a = useAction(patientId);

@@ -2,7 +2,7 @@ import { and, desc, eq, gt, inArray, isNull } from 'drizzle-orm'
 import { ConsentSignPanel } from '@/components/registration/ConsentSignPanel'
 import { IdCheckPanel } from '@/components/registration/IdCheckPanel'
 import { EmailDropPanel } from '@/components/inbound/EmailDropPanel'
-import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PatientPhonePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
+import { CardPanel, CaregiverPanel, ConsentActions, DisclosurePanel, PatientNamePanel, PatientPhonePanel, PrimaryContactPanel, StatusPanel } from '@/components/registration/ConsentAccess'
 import { Badge, EmptyState, Frame, Table } from '@/components/ui'
 import { consents, shareLinks, staff } from '@/db/schema'
 import { now } from '@/server/clock'
@@ -79,6 +79,10 @@ export default async function ConsentPage({ params }: { params: Promise<{ id: st
             </div>
           </Frame>
         )}
+      </Section>
+
+      <Section id="name-h" title="Patient name" description="The name each paper is checked against. Clinician only; every change is audited.">
+        <PatientNamePanel patientId={id} current={p.name} canEdit={role === 'clinician'} />
       </Section>
 
       <Section id="people-h" title="Caregivers and contact" description="A caregiver can never confirm their own delegation: the patient's phone (or an in-person witness) does.">

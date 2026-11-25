@@ -2,7 +2,8 @@
 // staff see "Reading page 7 of 16". The OCR here is a fake provider (no tesseract).
 import { PDFDocument } from 'pdf-lib'
 import sharp from 'sharp'
-import { describe, expect, it } from 'vitest'
+import { getDocumentProxy } from 'unpdf'
+import { describe, expect, it, vi } from 'vitest'
 import { readingNote } from './queries'
 import { readPages, type CachedPage, type OcrProvider } from './text'
 
@@ -78,6 +79,19 @@ describe('a long scanned PDF is read page by page', () => {
   it('a hook that throws stops an image read instead of calling the file unreadable', async () => {
     const png = await sharp({ create: { width: 50, height: 50, channels: 3, background: '#fff' } }).png().toBuffer()
     await expect(readPages(new Uint8Array(png), 'image/png', undefined, provider().p, { onPage: () => { throw new Error('lock_lost') } })).rejects.toThrow('lock_lost')
+  })
+
+  it('each PDF page is released as soon as it is read, not only at the end (a 36-page scan reached 2.5 GB without it)', async () => {
+    const bytes = await scannedPdf(3)
+    const probe = await getDocumentProxy(bytes.slice())
+    const cleanup = vi.spyOn(Object.getPrototypeOf(await probe.getPage(1)) as { cleanup(): boolean }, 'cleanup')
+    const releasedBefore: number[] = []
+    try {
+      await readPages(bytes, 'application/pdf', undefined, provider().p, { onPage: ({ page }) => { if (page) releasedBefore.push(cleanup.mock.calls.length) } })
+    } finally {
+      cleanup.mockRestore()
+    }
+    expect(releasedBefore).toEqual([1, 2, 3]) // page n's hook runs after page n was released
   })
 })
 

@@ -368,11 +368,14 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
     const total = pdf.numPages
     for (let n = 1; n <= total; n++) {
       await hooks.onPage?.({ pageNo: n, total, page: null, fresh: false })
+      const page = await pdf.getPage(n)
       const done = async (p: PageRead, fresh: boolean) => {
+        // Release the page's decoded images once it is read: kept until the end they grew memory ~30 MB a page of a scan
+        // (2.5 GB by page 36, and Vercel killed the instance).
+        page.cleanup()
         pages.push(p)
         await hooks.onPage?.({ pageNo: n, total, page: p, fresh })
       }
-      const page = await pdf.getPage(n)
       const [content, hiddenStrs] = await Promise.all([page.getTextContent(), invisibleStrings(page as never)])
       let text = ''
       let hidden = ''
@@ -410,7 +413,8 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
         }, false)
         continue
       }
-      const jpeg = await sharp(Buffer.from(big.data), { raw: { width: big.width, height: big.height, channels: 4 } })
+      // big.data is passed as it is: a copy per page (~35 MB raw at 300 dpi) raised peak memory by about 300 MB over a long scan.
+      const jpeg = await sharp(big.data, { raw: { width: big.width, height: big.height, channels: 4 } })
         .resize({ width: MAX_SIDE, height: MAX_SIDE, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer()
       const before = hooks.cached?.get(n)
       // A page an earlier attempt already read: its text is kept, only the image is rebuilt (a retry resumes, never restarts).

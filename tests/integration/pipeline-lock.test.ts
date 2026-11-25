@@ -1,13 +1,15 @@
 // Processing reliability on real scanned reports (a 16-page scan was run 7 times, MAX_ATTEMPTS being 3): the claim is atomic
 // and capped, a live runner renews its lock while OCR runs (so a slow OCR is never taken for a dead runner), and a retry
-// resumes at the page after the last one read. OCR is a fake, slow provider.   npm run test:integration
+// resumes at the page after the last one read. Attempts count only runs that saved no new page; a run stops before the
+// time limit and goes back to the queue; one file is read at a time per instance. OCR is a fake, slow provider.
+//   npm run test:integration
 import { existsSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import { sql as sqlTag } from 'drizzle-orm'
 import postgres from 'postgres'
 import { PDFDocument } from 'pdf-lib'
 import sharp from 'sharp'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ORG_NARMADA_ID } from '../../src/server/demo'
 import type { OcrProvider } from '../../src/server/pipeline/text'
 
@@ -15,7 +17,8 @@ if (!process.env.DATABASE_URL_APP && existsSync('.env.local')) process.loadEnvFi
 
 const owner = postgres(process.env.DATABASE_URL_UNPOOLED!, { max: 1, onnotice: () => {} })
 const ORG = ORG_NARMADA_ID
-const pid = randomUUID()
+const pid: string = randomUUID()
+const pids = [pid]
 const imp = async () => ({
   db: await import('../../src/db'), s: await import('../../src/db/schema'),
   ingest: await import('../../src/server/pipeline/ingest'), proc: await import('../../src/server/pipeline/process'),
@@ -23,19 +26,24 @@ const imp = async () => ({
 })
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-beforeAll(async () => {
+/** A patient with store consent (`id`: the main one, or a fresh one so a queue test sees only its own documents). */
+async function addPatient(id: string = randomUUID()): Promise<string> {
   const c = await imp()
+  if (!pids.includes(id)) pids.push(id)
   await owner.begin(async (tx) => {
     await tx`select set_config('app.org_id', ${ORG}, true)`
-    await tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc, dob_enc, sex, disclosure_status) values (${pid}, ${ORG}, ${'t-' + pid}, ${c.crypto.encryptField('Sunita Deshmukh')}, ${c.crypto.encryptField('1974-08-14')}, 'female', 'cleared')`
-    await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${pid}, 'grant', ${tx.json({ store: true, ai: false, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
+    await tx`insert into patients (id, org_id, oncosetu_token_hash, name_enc, dob_enc, sex, disclosure_status) values (${id}, ${ORG}, ${'t-' + id}, ${c.crypto.encryptField('Sunita Deshmukh')}, ${c.crypto.encryptField('1974-08-14')}, 'female', 'cleared')`
+    await tx`insert into consents (org_id, patient_id, action, purposes, actor_type, notice_version, language) values (${ORG}, ${id}, 'grant', ${tx.json({ store: true, ai: false, share: false, abdm: false, metrics: false })}, 'staff', 'v1', 'en')`
   })
-}, 60_000)
+  return id
+}
+
+beforeAll(() => addPatient(pid), 60_000)
 afterAll(async () => {
   await owner.begin(async (tx) => {
     await tx`select set_config('app.org_id', ${ORG}, true)`
     await tx`select set_config('oncosetu.erasing', 'on', true)`
-    for (const t of ['evidence', 'events', 'missing_records', 'ai_runs', 'document_read_cache', 'document_pages', 'document_files', 'documents', 'consents']) await tx.unsafe(`delete from ${t} where patient_id = '${pid}'`)
+    for (const p of pids) for (const t of ['evidence', 'events', 'missing_records', 'ai_runs', 'document_read_cache', 'document_pages', 'document_files', 'documents', 'consents']) await tx.unsafe(`delete from ${t} where patient_id = '${p}'`)
   }).catch(() => {})
   await owner.end()
   await (await import('../../src/db')).closeDb()
@@ -71,14 +79,28 @@ function slowOcr(onPage: (n: number) => Promise<void> | void) {
   return { p, state }
 }
 
-async function newDoc(pages: number): Promise<string> {
+async function newDoc(pages: number, patientId = pid): Promise<string> {
   const c = await imp()
   const bytes = await scannedPdf(pages)
-  const r = await c.db.withOrg(ORG, (tx) => c.ingest.ingestDocument(tx, { orgId: ORG, patientId: pid, uploadedBy: { kind: 'staff', id: randomUUID() }, intakeRoute: 'bulk', fileName: `scan-${seed}.pdf`, bytes }))
+  const r = await c.db.withOrg(ORG, (tx) => c.ingest.ingestDocument(tx, { orgId: ORG, patientId, uploadedBy: { kind: 'staff', id: randomUUID() }, intakeRoute: 'bulk', fileName: `scan-${seed}.pdf`, bytes }))
   return r.documentId
 }
-const row = async (id: string) => (await owner`select status, stage, attempts, last_error, read_progress, locked_at from documents where id = ${id}`)[0]
+const row = async (id: string) => (await owner`select status, stage, attempts, last_error, read_progress, locked_at, flags from documents where id = ${id}`)[0]
 const ageLock = (id: string) => owner`update documents set locked_at = now() - interval '10 minutes' where id = ${id}`
+const cachedPages = async (id: string) => (await owner`select page_no from document_read_cache where document_id = ${id} order by page_no`).map((r) => r.page_no)
+const recordPages = async (id: string) => (await owner`select page_no from document_pages where document_id = ${id} and superseded_at is null order by page_no`).map((r) => r.page_no)
+/** What a run saves once slowOcr has read page n (so a later run takes it as read). */
+const cachePage = (id: string, n: number, patientId = pid) => owner`insert into document_read_cache (org_id, patient_id, document_id, page_no, data) values (${ORG}, ${patientId}, ${id}, ${n}, ${owner.json({
+  pageNo: n, text: line, words, ocrConfidence: 0.9, lowConfidence: false, source: 'ocr', handwriting: { handwritten: false, lowLineShare: 0, lines: 1, blueInkShare: 0 },
+  hidden: null, processor: 'slow-ocr', processorVersion: '1',
+})})`
+/** Claims the next claim would count against MAX_ATTEMPTS (0: the last run moved the reading forward). */
+const spentNow = async (id: string) => {
+  const c = await imp()
+  const r = await row(id)
+  return c.proc.attemptsSpent(r.attempts, (await cachedPages(id)).length, (r.flags as { reading?: { pages?: number; base?: number } }).reading).spent
+}
+const finished = (status: string) => ['done', 'needs_review'].includes(status)
 
 describe('claiming a document (atomic, capped)', () => {
   it('ten runners claim at once: exactly one gets it', async () => {
@@ -86,6 +108,23 @@ describe('claiming a document (atomic, capped)', () => {
     const id = await newDoc(1)
     const claims = await Promise.all(Array.from({ length: 10 }, () => c.proc.claimDocument(ORG, id)))
     expect(claims.filter(Boolean)).toHaveLength(1)
+    expect((await row(id)).attempts).toBe(1)
+  })
+
+  it('runners that read the row while another transaction holds it decide only once it is free: exactly one claims it', async () => {
+    const c = await imp()
+    const id = await newDoc(1)
+    let free!: () => void
+    const held = new Promise<void>((r) => { free = r })
+    let locked!: () => void
+    const isLocked = new Promise<void>((r) => { locked = r })
+    const holder = owner.begin(async (tx) => { await tx`select 1 from documents where id = ${id} for update`; locked(); await held })
+    await isLocked
+    const claims = Promise.all(Array.from({ length: 10 }, () => c.proc.claimDocument(ORG, id)))
+    await sleep(500) // every pooled runner has reached the row by now
+    free()
+    await holder
+    expect((await claims).filter(Boolean)).toHaveLength(1)
     expect((await row(id)).attempts).toBe(1)
   })
 
@@ -102,12 +141,18 @@ describe('claiming a document (atomic, capped)', () => {
     expect((await row(id)).attempts).toBe(c.proc.MAX_ATTEMPTS)
   })
 
-  it('a spent document is not offered to the patient queue again', async () => {
+  it('a spent document left processing is offered to the queue (the claim\'s own rule) and marked failed, never left processing', async () => {
     const c = await imp()
-    const id = await newDoc(1)
+    const p = await addPatient()
+    const id = await newDoc(1, p)
     await owner`update documents set status = 'processing', attempts = ${c.proc.MAX_ATTEMPTS}, locked_at = now() - interval '10 minutes' where id = ${id}`
-    const next = await c.db.withOrg(ORG, (tx) => c.proc.nextWaiting(tx, pid, []))
-    expect(next).not.toBe(id)
+    const next = () => c.db.withOrg(ORG, (tx) => c.proc.nextWaiting(tx, p, []))
+    expect(await next()).toBe(id)
+    const slow = slowOcr(() => {})
+    await c.proc.runPatientQueue(p, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(slow.state.pages).toBe(0)
+    expect(await row(id)).toMatchObject({ status: 'failed', attempts: c.proc.MAX_ATTEMPTS, last_error: 'too_many_attempts' })
+    expect(await next()).toBeNull()
   })
 
   it('a processing row with no lock time at all counts as waiting', async () => {
@@ -202,6 +247,151 @@ describe('a retry resumes at the page after the last one read', () => {
     expect(await row(id)).toMatchObject({ status: 'failed', attempts: c.proc.MAX_ATTEMPTS })
     await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100 }) // nothing more happens
     expect(slow.state.pages).toBe(c.proc.MAX_ATTEMPTS)
+  }, 60_000)
+})
+
+describe('attempts count runs that saved nothing, never runs that saved pages', () => {
+  it('runs killed (memory, time limit) after saving pages never use up attempts; the next run reads only the rest', async () => {
+    const c = await imp()
+    const id = await newDoc(5)
+    for (let n = 1; n <= c.proc.MAX_ATTEMPTS + 1; n++) { // more killed runs than MAX_ATTEMPTS, each after saving one page
+      expect(await c.proc.claimDocument(ORG, id)).toMatchObject({ attempts: n, spent: 1 })
+      await cachePage(id, n)
+      await ageLock(id) // killed: no code ran after the page was saved
+    }
+    const slow = slowOcr(() => {})
+    await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(slow.state.pages).toBe(1) // page 5 only
+    const end = await row(id)
+    expect(finished(end.status)).toBe(true)
+    expect(end.attempts).toBe(c.proc.MAX_ATTEMPTS + 2)
+    expect(await recordPages(id)).toEqual([1, 2, 3, 4, 5])
+    expect(await cachedPages(id)).toEqual([])
+  }, 60_000)
+
+  it('MAX_ATTEMPTS runs in a row that save no new page end as failed; the read cache is kept until then', async () => {
+    const c = await imp()
+    const id = await newDoc(3)
+    await cachePage(id, 1) // saved by an earlier run
+    for (let n = 1; n <= c.proc.MAX_ATTEMPTS; n++) {
+      expect(await c.proc.claimDocument(ORG, id)).toMatchObject({ attempts: n, spent: n })
+      await ageLock(id) // died without saving a page
+      expect(await cachedPages(id)).toEqual([1])
+    }
+    expect(await c.proc.claimDocument(ORG, id)).toBeNull()
+    expect(await row(id)).toMatchObject({ status: 'failed', attempts: c.proc.MAX_ATTEMPTS, last_error: 'too_many_attempts' })
+    expect(await cachedPages(id)).toEqual([]) // abandoned now: working data gone
+  })
+
+  it('a document left processing with its attempts used up and most pages cached (as on the pilot) finishes from its cached pages', async () => {
+    const c = await imp()
+    const p = await addPatient()
+    const id = await newDoc(5, p)
+    for (let n = 1; n <= 4; n++) await cachePage(id, n, p)
+    // As the old rule left it: attempts at the cap, a stale lock, the last progress note, no reading mark in flags.
+    await owner`update documents set status = 'processing', stage = 'text', attempts = ${c.proc.MAX_ATTEMPTS}, locked_at = now() - interval '10 minutes',
+      read_progress = ${owner.json({ page: 5, total: 5 })} where id = ${id}`
+    const slow = slowOcr(() => {})
+    await c.proc.runPatientQueue(p, ORG, { ocr: slow.p, heartbeatMs: 100 }) // what the documents screen's poll starts
+    expect(slow.state.pages).toBe(1)
+    const end = await row(id)
+    expect(finished(end.status)).toBe(true)
+    expect(await recordPages(id)).toEqual([1, 2, 3, 4, 5])
+    expect(await cachedPages(id)).toEqual([])
+  }, 60_000)
+})
+
+describe('a run stops before the time limit and the document goes straight back to the queue', () => {
+  it('past the deadline a run stops between pages (after reading at least one): queued, pages kept, no attempt used, then continues', async () => {
+    const c = await imp()
+    const id = await newDoc(3)
+    // The deadline passes before page 1 is reached; page 1 is still read (a run that stops for time always saved a page).
+    const slow = slowOcr(async (n) => { if (n === 1) await sleep(50) })
+    await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100, deadline: Date.now() + 2 })
+    expect(slow.state.pages).toBe(1)
+    const r = await row(id)
+    expect(r).toMatchObject({ status: 'queued', attempts: 1, read_progress: null, locked_at: null, last_error: null })
+    expect(c.q.needsRunner({ status: r.status, lockedAt: r.locked_at })).toBe(true) // the next poll starts it at once
+    expect(await cachedPages(id)).toEqual([1])
+    expect(await spentNow(id)).toBe(0)
+    await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(slow.state.pages).toBe(3) // pages 2 and 3, not page 1 again
+    const end = await row(id)
+    expect(finished(end.status)).toBe(true)
+    expect(end.attempts).toBe(2)
+    expect(await recordPages(id)).toEqual([1, 2, 3])
+  }, 60_000)
+
+  it('reading done past the deadline: stops before saving and extracting, and the next run does both from the cache', async () => {
+    const c = await imp()
+    const id = await newDoc(1)
+    const slow = slowOcr(async () => { await sleep(50) })
+    await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100, deadline: Date.now() + 2 })
+    expect(await row(id)).toMatchObject({ status: 'queued', attempts: 1 })
+    expect(await recordPages(id)).toEqual([])
+    expect(await cachedPages(id)).toEqual([1])
+    await c.proc.runDocument(id, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(slow.state.pages).toBe(1) // not read again
+    expect(finished((await row(id)).status)).toBe(true)
+    expect(await recordPages(id)).toEqual([1])
+  }, 60_000)
+
+  it('a runner past its deadline starts no document, and claims none', async () => {
+    const c = await imp()
+    const p = await addPatient()
+    const id = await newDoc(1, p)
+    await c.proc.runPatientQueue(p, ORG, { deadline: Date.now() - 1 })
+    expect(await row(id)).toMatchObject({ status: 'queued', attempts: 0 })
+    await c.proc.runDocument(id, ORG, { deadline: Date.now() - 1 }) // an upload's own runner, started late
+    expect(await row(id)).toMatchObject({ status: 'queued', attempts: 0 })
+  })
+})
+
+describe('one file is read at a time per instance', () => {
+  it('a runner started while another file is being read leaves its document waiting, unclaimed; the slot is free afterwards', async () => {
+    const c = await imp()
+    const a = await newDoc(2)
+    const b = await newDoc(1)
+    let during: Record<string, unknown> | null = null
+    let busy = false
+    const slow = slowOcr(async (n) => {
+      if (n !== 1) return
+      busy = c.proc.readSlotBusy()
+      await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 }) // returns at once
+      during = await row(b)
+    })
+    await c.proc.runDocument(a, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(busy).toBe(true)
+    expect(during).toMatchObject({ status: 'queued', attempts: 0 })
+    expect(slow.state.pages).toBe(2) // a's two pages only
+    expect(c.proc.readSlotBusy()).toBe(false)
+    await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(finished((await row(b)).status)).toBe(true)
+  }, 60_000)
+
+  it('the slot is free as soon as the pages are read, so the next file can be read while this one is saved and extracted', async () => {
+    const c = await imp()
+    const a = await newDoc(1)
+    let free!: () => void
+    const held = new Promise<void>((r) => { free = r })
+    let locked!: () => void
+    const isLocked = new Promise<void>((r) => { locked = r })
+    let holder: Promise<unknown> = Promise.resolve()
+    const slow = slowOcr(async () => {
+      // Saving the pages waits for this table lock, so the run stays between reading and saving while it is held.
+      holder = owner.begin(async (tx) => { await tx`lock table document_pages in share mode`; locked(); await held })
+      await isLocked
+    })
+    const run = c.proc.runDocument(a, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(c.proc.readSlotBusy()).toBe(true)
+    try {
+      await vi.waitFor(() => expect(c.proc.readSlotBusy()).toBe(false), { timeout: 3000 })
+    } finally {
+      free()
+      await holder
+      await run
+    }
+    expect(finished((await row(a)).status)).toBe(true)
   }, 60_000)
 })
 

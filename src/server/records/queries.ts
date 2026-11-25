@@ -2,7 +2,7 @@
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Tx } from '@/db'
-import { documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
+import { documentFiles, documentPages, documents, events } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { HttpError } from '../http'
@@ -59,7 +59,8 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
   const [evs, files, links] = await Promise.all([
     tx.select({
       documentId: events.documentId, status: events.verificationStatus, fields: events.fields, flags: events.flags, createdAt: events.createdAt,
-      pageNo: sql<number | null>`(select min(${evidence.pageNo}) from ${evidence} where ${evidence.eventId} = ${events.id})`,
+      // Names written out: drizzle drops table names inside a one-table select, and a bare "id" would bind to evidence.id.
+      pageNo: sql<number | null>`(select min(ev.page_no) from evidence ev where ev.event_id = "events"."id")`,
     }).from(events)
       .where(and(inArray(events.documentId, ids), isNull(events.withdrawnAt))).orderBy(asc(events.createdAt)),
     tx.select({ documentId: documentFiles.documentId, pageNo: documentFiles.pageNo }).from(documentFiles)

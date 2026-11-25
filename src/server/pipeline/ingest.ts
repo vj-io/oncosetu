@@ -195,7 +195,35 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
 export function scheduleProcessing(documentId: string, orgId: string, opts: { password?: string } = {}): void {
   const at = Date.now() // the function's time limit counts from the request, not from when after() starts
   afterResponse(() => import('./process').then((m) => m.runDocument(documentId, orgId, { ...opts, deadline: at + m.RUN_BUDGET_MS }))
+    .then((worked) => (worked ? continueQueue(orgId) : undefined))
     .catch((err) => log.error('pipeline.schedule_failed', { documentId, err })))
+}
+
+/**
+ * A run that worked hands on to the organisation's longest-waiting document, so a file queued behind another one (or a long
+ * scan put back for time) carries on with no screen open. Only a run that claimed something hands on, so runners that find
+ * the read slot busy or nothing to claim never loop. In production the next run gets a fresh function call (its own time
+ * budget) through the cron-secret queue route; elsewhere (a protected preview, a script) it starts in this call.
+ */
+async function continueQueue(orgId: string): Promise<void> {
+  const { nextWaitingPatient } = await import('./process')
+  if (!(await nextWaitingPatient(orgId))) return
+  const secret = process.env.CRON_SECRET
+  const origin = (process.env.PUBLIC_BASE_URL || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : '')).replace(/\/+$/, '')
+  if (process.env.VERCEL_ENV === 'production' && secret && origin) {
+    const res = await fetch(`${origin}/api/cron/queue`, { headers: { authorization: `Bearer ${secret}` }, signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) log.error('pipeline.continue_failed', { orgId, status: res.status })
+    return
+  }
+  await startNextWaiting(orgId)
+}
+
+/** Starts a runner on the patient whose document has waited longest (the queue route and continueQueue). */
+export async function startNextWaiting(orgId: string): Promise<boolean> {
+  const { nextWaitingPatient } = await import('./process')
+  const patientId = await nextWaitingPatient(orgId)
+  if (patientId) schedulePatientQueue(patientId, orgId)
+  return !!patientId
 }
 
 function afterResponse(run: () => Promise<unknown>): void {
@@ -234,5 +262,6 @@ export function schedulePatientQueue(patientId: string, orgId: string, runners =
   const at = Date.now()
   afterResponse(() => import('./process').then(({ runPatientQueue, RUN_BUDGET_MS }) =>
     Promise.all(Array.from({ length: runners }, () => runPatientQueue(patientId, orgId, { deadline: at + RUN_BUDGET_MS }))))
+    .then((worked) => (worked.some(Boolean) ? continueQueue(orgId) : undefined))
     .catch((err) => log.error('pipeline.schedule_failed', { patientId, err })))
 }

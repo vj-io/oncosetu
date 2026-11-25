@@ -62,6 +62,11 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
           <div className="grid min-w-0 flex-1 gap-0.5">
             <span className="text-[17px]">{d.label}</span>
             <span className="text-[16px] text-muted">{[d.dated, d.received].filter(Boolean).join(' · ')}</span>
+            {d.reports && (
+              <ul className="mt-1 grid gap-1 border-l-2 border-rule pl-3" data-testid="papers-in-file">
+                {d.reports.map((r, i) => <li key={i} className="text-[16px]">{r.label}{r.dated ? <span className="text-muted"> · {r.dated}</span> : null}</li>)}
+              </ul>
+            )}
             {d.open && (
               <a href={`/api/documents/${d.id}/file`} target="_blank" rel="noopener" data-testid="open-paper" className="inline-flex min-h-11 items-center gap-2 justify-self-start text-[16px] font-medium text-setu-ink underline decoration-link underline-offset-4">
                 <ExternalLink aria-hidden className="size-4" />{tp(lang, 'openPaper')}

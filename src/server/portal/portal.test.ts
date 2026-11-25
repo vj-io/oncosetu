@@ -356,3 +356,35 @@ describe('patient surfaces: privacy and labels', () => {
     }
   })
 })
+
+describe('a file of several papers lists each with its own date (E-DOC-10)', () => {
+  const file = (reports: { docType: (typeof DOC_TYPES)[number] | null; documentDate: string | null }[]) => ({
+    id: 'folder', docType: 'imaging_report' as const, documentDate: '2026-10-10', receivedAt: '2026-11-20T04:44:00.000Z', reports,
+  })
+  it.each(LANGS)('every paper in the file is named safely for a patient not told (%s)', (lang) => {
+    const all = file(DOC_TYPES.map((t, i) => ({ docType: t, documentDate: `2025-${String((i % 12) + 1).padStart(2, '0')}-10` })))
+    for (const disclosure of NOT_TOLD) {
+      const s = buildHomeSummary({ ...home, documents: [all] }, disclosure, lang)
+      expect(s.documents[0].reports).toHaveLength(DOC_TYPES.length)
+      expect(dirty(strings(s.documents[0]))).toEqual([])
+    }
+  })
+  it('says how many papers the file holds and lists them newest first, undated last', () => {
+    const s = buildHomeSummary({ ...home, documents: [file([
+      { docType: 'imaging_report', documentDate: '2026-10-10' }, { docType: 'imaging_report', documentDate: null }, { docType: 'imaging_report', documentDate: '2025-02-12' },
+      { docType: 'lab_report', documentDate: '2026-07-23' },
+    ])] }, 'cleared', 'en')
+    expect(s.documents[0].dated).toBe('4 papers in this file')
+    expect(s.documents[0].reports!.map((r) => r.dated)).toEqual(['Dated 10 Oct 2026', 'Dated 23 Jul 2026', 'Dated 12 Feb 2025', null])
+    expect(buildHomeSummary({ ...home, documents: [file([{ docType: 'imaging_report', documentDate: '2026-10-10' }, { docType: 'imaging_report', documentDate: '2025-02-12' }])] }, 'cleared', 'hi').documents[0].dated).toBe('इस फ़ाइल में 2 कागज़')
+  })
+  it('a file of several papers sorts by its newest paper; a single paper is unchanged', () => {
+    const older = { id: 'single', docType: 'lab_report' as const, documentDate: '2026-08-01', receivedAt: '2026-11-20T04:44:00.000Z' }
+    const folder = { ...file([{ docType: 'imaging_report', documentDate: '2025-02-12' }, { docType: 'imaging_report', documentDate: '2026-10-10' }]), documentDate: '2025-02-12' }
+    const s = buildHomeSummary({ ...home, documents: [older, folder] }, 'cleared', 'en')
+    expect(s.documents.map((d) => d.id)).toEqual(['folder', 'single'])
+    expect(s.documents[1]).not.toHaveProperty('reports')
+    expect(s.documents[1].dated).toBe('Dated 1 Aug 2026')
+  })
+})
+

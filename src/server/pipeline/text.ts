@@ -14,6 +14,7 @@ import type { OcrWord } from '@/db/schema'
 import { findDates, parseDate } from '@/core/dates'
 import { parseHeader } from '@/core/extract/header'
 import { classifyDocument } from '@/core/extract/classify'
+import { readHeaderTable } from './table'
 import { unzipSync } from 'fflate'
 
 export const OCR_LOW_CONFIDENCE = 0.8
@@ -374,7 +375,9 @@ async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = te
   // Handwritten pages are never extracted, so they keep the first pass.
   const hindi = first.words.some((w) => w.c >= 0.8 && DEVANAGARI.test(w.t))
   const read = !handwriting.handwritten && !hindi ? await provider.recognize(image, 'eng') : first
-  const ocr = handwriting.handwritten ? read : await rereadHeaderDates(read, image, provider)
+  const dated = handwriting.handwritten ? read : await rereadHeaderDates(read, image, provider)
+  // The file's first page carries the header the identity check reads: a ruled header table it could not read is read cell by cell.
+  const ocr = pageNo === 1 && !handwriting.handwritten ? await readHeaderTable(dated, image, provider) : dated
   return {
     pageNo, text: ocr.text, words: ocr.words, ocrConfidence: ocr.mean === null ? null : round3(ocr.mean),
     lowConfidence: ocr.mean !== null && ocr.mean < OCR_LOW_CONFIDENCE, source: 'ocr', handwriting, hidden: null, image,

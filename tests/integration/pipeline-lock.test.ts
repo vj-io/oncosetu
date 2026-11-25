@@ -167,7 +167,7 @@ describe('a slow OCR is not mistaken for a dead runner', () => {
   it('a heartbeat keeps the lock fresh, so a second runner cannot claim or start OCR while the first reads', async () => {
     const c = await imp()
     const id = await newDoc(3)
-    let second: Promise<void> | null = null
+    let second: Promise<boolean> | null = null
     let secondOcrPages = 0
     let claimDuring: unknown = 'unset'
     let noteDuring: string | null = null
@@ -354,19 +354,23 @@ describe('one file is read at a time per instance', () => {
     const b = await newDoc(1)
     let during: Record<string, unknown> | null = null
     let busy = false
+    let bWorkedDuring: boolean | null = null
     const slow = slowOcr(async (n) => {
       if (n !== 1) return
       busy = c.proc.readSlotBusy()
-      await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 }) // returns at once
+      bWorkedDuring = await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 }) // returns at once
       during = await row(b)
     })
-    await c.proc.runDocument(a, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    // The return value says whether the run claimed anything: only a run that worked hands on to the next waiting file.
+    expect(await c.proc.runDocument(a, ORG, { ocr: slow.p, heartbeatMs: 100 })).toBe(true)
     expect(busy).toBe(true)
+    expect(bWorkedDuring).toBe(false)
     expect(during).toMatchObject({ status: 'queued', attempts: 0 })
     expect(slow.state.pages).toBe(2) // a's two pages only
     expect(c.proc.readSlotBusy()).toBe(false)
-    await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 })
+    expect(await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 })).toBe(true)
     expect(finished((await row(b)).status)).toBe(true)
+    expect(await c.proc.runDocument(b, ORG, { ocr: slow.p, heartbeatMs: 100 })).toBe(false) // finished: nothing to claim
   }, 60_000)
 
   it('the slot is free as soon as the pages are read, so the next file can be read while this one is saved and extracted', async () => {

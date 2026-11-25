@@ -55,6 +55,7 @@ export const EXPECTED: Record<string, Expect> = {
   'GET /api/cron/llm-health': cron,
   'GET /api/cron/outbox': cron,
   'GET /api/cron/perf-probe': cron,
+  'GET /api/cron/queue': cron,
   'GET /api/cron/requests': cron,
   'POST /api/inbound/email': { roles: 'public', gate: 'public', check: 'basicAuthOk(' },
   'POST /api/inbound/whatsapp': { roles: 'public', gate: 'public', check: 'validTwilioSignature(' },

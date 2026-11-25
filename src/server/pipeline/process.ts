@@ -136,28 +136,37 @@ export async function nextWaiting(tx: Tx, patientId: string, skip: readonly stri
   return r?.id ?? null
 }
 
+/** The patient whose document has waited longest in the organisation (any patient), or null when nothing waits. */
+export async function nextWaitingPatient(orgId: string): Promise<string | null> {
+  const [r] = await withOrg(orgId, (tx) => tx.select({ patientId: documents.patientId }).from(documents)
+    .where(and(eq(documents.orgId, orgId), claimable)).orderBy(asc(documents.id)).limit(1))
+  return r?.patientId ?? null
+}
+
 /**
  * FR-ONB-01, strict order: work through the patient's waiting documents in queue order until none is left or the run's
  * time is up. Every runner (a batch's workers, the documents screen's poll) takes the next one, so documents start in order
- * whoever runs them; the claim keeps two runners off one document.
+ * whoever runs them; the claim keeps two runners off one document. True when it claimed any document.
  */
-export async function runPatientQueue(patientId: string, orgId: string, opts: RunOpts = {}): Promise<void> {
+export async function runPatientQueue(patientId: string, orgId: string, opts: RunOpts = {}): Promise<boolean> {
   const deadline = opts.deadline ?? Date.now() + RUN_BUDGET_MS
   const tried: string[] = []
+  let worked = false
   for (let id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId)); id && !readSlotBusy(); id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId, tried))) {
     tried.push(id)
-    await runDocument(id, orgId, { ...opts, deadline })
+    if (await runDocument(id, orgId, { ...opts, deadline })) worked = true
   }
+  return worked
 }
 
 /**
  * One file is read at a time per instance: page images are what use memory, and three long scans read at once in one
  * process reached 1.4 GB by page 8 (one alone: 0.9 GB). The slot is taken before the claim, so no claimed document ever
  * waits for it, and released once the pages are read (extraction runs beside the next read). A runner that finds it taken
- * stops; the document stays waiting for the next runner (the documents screen's poll, or the reader's own queue).
+ * stops; the document stays waiting for the next runner: the reader's own hand-off when its run ends (ingest.ts,
+ * continueQueue), or the documents screen's poll.
  */
-// ponytail: per-instance flag; other instances read in parallel. A runner that waits for the slot instead of stopping would
-// keep a batch moving with no screen open, if that is ever needed.
+// ponytail: per-instance flag; other instances read in parallel.
 const slot = globalThis as unknown as { __oncosetuReading?: boolean }
 export const readSlotBusy = (): boolean => !!slot.__oncosetuReading
 function takeReadSlot(): (() => void) | null {
@@ -181,24 +190,27 @@ export type RunOpts = {
   deadline?: number
 }
 
-export async function runDocument(documentId: string, orgId: string, opts: RunOpts = {}): Promise<void> {
+/** True when it claimed the document at least once (did work), false when it found it taken, finished or the slot busy. */
+export async function runDocument(documentId: string, orgId: string, opts: RunOpts = {}): Promise<boolean> {
   const deadline = opts.deadline ?? Date.now() + RUN_BUDGET_MS
+  let worked = false
   for (let i = 0; Date.now() < deadline; i++) {
     const release = takeReadSlot()
-    if (!release) return // another file is being read in this instance
+    if (!release) return worked // another file is being read in this instance
     let backoff = 0
     try {
       const claim = await claimDocument(orgId, documentId)
-      if (!claim) return
+      if (!claim) return worked
+      worked = true
       const hb = startHeartbeat(orgId, documentId, claim.attempts, opts.heartbeatMs ?? HEARTBEAT_MS)
       try {
         await processClaimed(orgId, documentId, { ...opts, deadline }, claim.attempts, hb, release)
-        return
+        return worked
       } catch (err) {
         // Another runner owns the document now: leave its row alone.
         if (err instanceof Abort && err.message === 'lock_lost') {
           log.error('pipeline.lock_lost', { documentId, attempt: claim.attempts })
-          return
+          return worked
         }
         // Out of time after saving pages: back in the queue with its pages kept; the next claim continues at once and,
         // since this run saved pages, the run is not counted against MAX_ATTEMPTS.
@@ -212,7 +224,7 @@ export async function runDocument(documentId: string, orgId: string, opts: RunOp
           }).where(and(eq(documents.id, documentId), eq(documents.status, 'processing'), eq(documents.attempts, claim.attempts)))
           if (err instanceof Abort && !late) await clearReadCache(tx, documentId)
         }).catch(() => {})
-        if (err instanceof Abort) return
+        if (err instanceof Abort) return worked
         backoff = 1000 * 2 ** i
       } finally {
         hb.stop()
@@ -222,6 +234,7 @@ export async function runDocument(documentId: string, orgId: string, opts: RunOp
     }
     await sleep(backoff)
   }
+  return worked
 }
 
 async function setStage(orgId: string, documentId: string, stage: Stage, extra: Partial<typeof documents.$inferInsert> = {}) {

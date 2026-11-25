@@ -260,7 +260,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   if (classified.languageUnsupported) flags.language_unsupported = true
   if (classified.pageTypes.length) flags.mixed_document = classified.pageTypes
   const sections = splitSections(pages, classified, doc.receivedAt)
-  if (sections.length > 1) flags.sections = sections.map((s) => ({ pages: s.pages, date: s.date?.iso ?? null, docType: s.docType }))
+  if (sections.length > 1) flags.sections = sections.map((s) => ({ pages: s.pages, date: s.date?.iso ?? null, docType: s.docType, institution: s.institution }))
   else delete flags.sections // read again as one report
   await setStage(orgId, documentId, 'identity', {
     docType: classified.docType, docTypeConfidence: classified.docTypeConfidence, language: classified.language, handwritten: classified.handwritten,

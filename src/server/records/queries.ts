@@ -69,7 +69,7 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
   ])
   // E-DOC-10: a file of several reports is listed per report; its facts are counted by the page their quote is on.
   const sectionsOf = new Map(filed.flatMap((d) => {
-    const s = (d.flags as { sections?: { pages: number[]; date: string | null; docType: string }[] } | null)?.sections
+    const s = (d.flags as { sections?: { pages: number[]; date: string | null; docType: string; institution?: string | null }[] } | null)?.sections
     return Array.isArray(s) && s.length > 1 ? [[d.id, s] as const] : []
   }))
   const factKey = (documentId: string, pageNo: number | null) => {
@@ -101,8 +101,11 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
     const newest = secs.reduce<string | null>((m, s) => (s.date && (!m || s.date > m) ? s.date : m), null)
     return secs.map((s, i) => {
       const key = `${d.id}.${i + 1}`
-      // The first report keeps the file's own date when its header gave none (read from the whole first page).
-      const r = toRecordRow({ ...d, docType: s.docType, documentDate: s.date ?? (i === 0 ? d.documentDate : null), pages: s.pages.length } as unknown as DocLike,
+      // The first report keeps the file's own date and hospital (a person may have set them) when its header gave none.
+      const r = toRecordRow({
+        ...d, docType: s.docType, documentDate: s.date ?? (i === 0 ? d.documentDate : null), pages: s.pages.length,
+        institutionName: i === 0 ? d.institutionName ?? s.institution ?? null : s.institution ?? null,
+      } as unknown as DocLike,
         stats(key, (imgs.get(d.id) ?? []).filter((n) => s.pages.includes(n))))
       return { ...r, id: key, section: { n: i + 1, of: secs.length, pages: s.pages, newest: !!newest && s.date === newest } }
     })

@@ -13,9 +13,9 @@ const ORG = ORG_NARMADA_ID
 const pid = randomUUID()
 let file = '', single = ''
 const SECTIONS = [
-  { pages: [1, 2], date: '2025-02-12', docType: 'imaging_report' },
-  { pages: [3], date: '2026-10-10', docType: 'imaging_report' },
-  { pages: [4], date: null, docType: 'imaging_report' },
+  { pages: [1, 2], date: '2025-02-12', docType: 'imaging_report', institution: 'City Imaging Centre' },
+  { pages: [3], date: '2026-10-10', docType: 'imaging_report', institution: 'Town Diagnostic Laboratory' },
+  { pages: [4], date: null, docType: 'imaging_report', institution: null },
 ]
 
 const imp = async () => ({
@@ -59,10 +59,10 @@ describe('a file of several reports in All records (E-DOC-10)', () => {
     const c = await imp()
     const { rows, count } = await c.db.withOrg(ORG, async (tx) => ({ rows: (await c.q.loadRecords(tx, pid)).rows, count: await c.q.filedPaperCount(tx, pid) }))
     const mine = rows.filter((r) => r.docId === file).sort((a, b) => a.section!.n - b.section!.n)
-    expect(mine.map((r) => [r.id, r.date, r.dateFrom, r.pageImages, r.facts, r.section!.newest])).toEqual([
-      [`${file}.1`, '2025-02-12', 'paper', [1, 2], 1, false],
-      [`${file}.2`, '2026-10-10', 'paper', [3], 2, true],
-      [`${file}.3`, expect.any(String), 'received', [4], 0, false], // no date of its own: shown by the day received
+    expect(mine.map((r) => [r.id, r.date, r.dateFrom, r.pageImages, r.facts, r.section!.newest, r.institution])).toEqual([
+      [`${file}.1`, '2025-02-12', 'paper', [1, 2], 1, false, 'City Imaging Centre'],
+      [`${file}.2`, '2026-10-10', 'paper', [3], 2, true, 'Town Diagnostic Laboratory'], // its own hospital, not the file's
+      [`${file}.3`, expect.any(String), 'received', [4], 0, false, null], // no date of its own: shown by the day received
     ])
     expect(mine.every((r) => r.title === 'Imaging report' && r.section!.of === 3)).toBe(true)
     expect(rows.find((r) => r.id === single)).toMatchObject({ docId: single })

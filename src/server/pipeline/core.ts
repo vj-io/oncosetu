@@ -189,7 +189,7 @@ export function readHeader(pages: PageRead[]): { header: HeaderOut; parsed: Pars
 // ---------- reports inside one file (E-DOC-10) ----------
 
 /** One report inside a file that holds several (a patient's folder photographed in one go): its pages, date and class. */
-export type Section = { pages: number[]; date: ParsedDate | null; docType: DocType }
+export type Section = { pages: number[]; date: ParsedDate | null; docType: DocType; institution: string | null }
 
 /** A page's header block. A date or letterhead further down belongs to the body (history, earlier results). */
 const HEADER_LINES = 15
@@ -204,12 +204,13 @@ const HEADER_LINES = 15
 export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pick<Classified, 'usable' | 'docType'>, receivedAt: Date): Section[] {
   const usable = new Map(c.usable.map((p) => [p.pageNo, p]))
   const out: (Section & { read: boolean })[] = []
+  const none = { date: null, institution: null }
   for (const pageNo of pages.map((p) => p.pageNo).sort((a, b) => a - b)) {
     const cur = out.at(-1)
     const p = usable.get(pageNo)
     if (!p) {
       if (cur) cur.pages.push(pageNo)
-      else out.push({ pages: [pageNo], date: null, docType: c.docType, read: false })
+      else out.push({ pages: [pageNo], ...none, docType: c.docType, read: false })
       continue
     }
     // The file's first readable page is read whole, as readHeader reads it for the file's own date.
@@ -222,14 +223,14 @@ export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pic
     if (!cur || (cur.read && date && (
       (cur.date && date.iso !== cur.date.iso) || (!cur.date && letterhead)
       || (letterhead && strong && strong !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 3)
-    ))) out.push({ pages: [pageNo], date, docType: strong ?? c.docType, read: true })
-    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: strong ?? cur.docType, read: true })
+    ))) out.push({ pages: [pageNo], date, docType: strong ?? c.docType, institution: h.institution?.value ?? null, read: true })
+    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: strong ?? cur.docType, institution: h.institution?.value ?? null, read: true })
     else {
       cur.pages.push(pageNo)
       cur.date ??= date
     }
   }
-  return out.map((s) => ({ pages: s.pages, date: s.date, docType: s.docType }))
+  return out.map((s) => ({ pages: s.pages, date: s.date, docType: s.docType, institution: s.institution }))
 }
 
 /**

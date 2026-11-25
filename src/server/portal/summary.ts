@@ -7,7 +7,8 @@ import { tp } from '@/i18n/patient'
 export type HomeData = {
   /** Today in India time (YYYY-MM-DD, demo-clock aware): splits the written dates into coming up and earlier. */
   today: string
-  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null; /** The patient may open this paper's file. */ open?: boolean }[]
+  documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null; /** The patient may open this paper's file. */ open?: boolean
+    /** A file that holds several papers (E-DOC-10): each one's class and own date, in file order. */ reports?: { docType: DocType | null; documentDate: string | null }[] }[]
   /** Production completeness items: a document type linked to a date, never a reason. */
   looking: {
     id: string; expectedTypes: DocType[]; state: 'expected' | 'requested' | 'received'
@@ -47,7 +48,7 @@ export type LookingRow = {
 }
 
 export type HomeSummary = {
-  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean; open: boolean }[]
+  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean; open: boolean; reports?: { label: string; dated: string | null }[] }[]
   looking: LookingRow[]
   /** Dates written in the papers that are today or later, soonest first. */
   coming: WrittenDateRow[]
@@ -110,18 +111,28 @@ function plainLabel(t: DocType, disclosure: Disclosure, lang: Lang): string {
 }
 
 export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang): HomeSummary {
-  // Newest paper first by the paper's own date; a paper with no date sorts by the day it arrived.
-  const sortKey = (x: { documentDate: string | null; receivedAt: string }) => x.documentDate ?? istDate(x.receivedAt)
+  // Newest paper first by the paper's own date (a file of several papers by its newest one); no date: the day it arrived.
+  const newest = (x: HomeData['documents'][number]) => (x.reports ?? []).reduce<string | null>((m, r) => (r.documentDate && (!m || r.documentDate > m) ? r.documentDate : m), null)
+  const sortKey = (x: HomeData['documents'][number]) => newest(x) ?? x.documentDate ?? istDate(x.receivedAt)
+  const datedOn = (date: string | null) => (date ? tp(lang, 'docDatedOn', { date: formatDateIN(date, lang) }) : null)
   const documents = [...d.documents]
     .sort((a, b) => sortKey(b).localeCompare(sortKey(a)) || b.receivedAt.localeCompare(a.receivedAt))
-    .map((x) => ({
-      id: x.id,
-      label: x.consentForm ? consentFormLabel(lang, x.consentForm) : x.docType ? plainLabel(x.docType, disclosure, lang) : tp(lang, 'docPending'),
-      dated: x.documentDate ? tp(lang, 'docDatedOn', { date: formatDateIN(x.documentDate, lang) }) : null,
-      received: tp(lang, 'docReceivedOn', { date: formatDateIN(istDate(x.receivedAt), lang) }),
-      disputed: !!x.disputed,
-      open: !!x.open,
-    }))
+    .map((x) => {
+      // A file of several papers: each listed with its own date, newest first (undated last).
+      const reports = !x.consentForm && x.reports && x.reports.length > 1
+        ? [...x.reports].sort((a, b) => (b.documentDate ?? '').localeCompare(a.documentDate ?? ''))
+          .map((r) => ({ label: r.docType ? plainLabel(r.docType, disclosure, lang) : tp(lang, 'docPending'), dated: datedOn(r.documentDate) }))
+        : null
+      return {
+        id: x.id,
+        label: x.consentForm ? consentFormLabel(lang, x.consentForm) : x.docType ? plainLabel(x.docType, disclosure, lang) : tp(lang, 'docPending'),
+        dated: reports ? tp(lang, 'docPapersInFile', { n: reports.length }) : datedOn(x.documentDate),
+        received: tp(lang, 'docReceivedOn', { date: formatDateIN(istDate(x.receivedAt), lang) }),
+        disputed: !!x.disputed,
+        open: !!x.open,
+        ...(reports ? { reports } : {}),
+      }
+    })
 
   const looking: LookingRow[] = d.looking.map((x) => {
     const label = unique(x.expectedTypes.map((t) => plainLabel(t, disclosure, lang))).join(tp(lang, 'orJoin')) || tp(lang, 'reqPaperFallback')

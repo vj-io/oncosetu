@@ -93,6 +93,9 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string, vie
     today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
       id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true, consentForm: consentFormOf(d.flags),
+      ...(Array.isArray(d.flags.sections) && d.flags.sections.length > 1
+        ? { reports: (d.flags.sections as { docType?: string; date?: string | null }[]).map((s) => ({ docType: asDocType(s.docType ?? null), documentDate: s.date ?? null })) }
+        : {}),
       // the same stored original staff open (/api/documents/[id]/file); scans are pictures drawn by the viewer, not a file to open here
       open: !!viewer && patientMayOpen(d, viewer.disclosure, portalActor(viewer.session)) && d.mime !== 'application/dicom' && d.mime !== STUDY_BUNDLE_MIME,
     })),

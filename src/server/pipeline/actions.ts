@@ -26,12 +26,13 @@ const ATTACHED = ['auto', 'attached'] as const
 
 /**
  * S3a: a patient/caregiver session opens the files it uploaded itself (the same person: a caregiver's upload can name the
- * diagnosis to a patient not yet told); everything else only once disclosure is cleared (FR-CON-07), and never one that
- * is not, or no longer, attached to this patient.
+ * diagnosis to a patient not yet told); everything else only once disclosure is cleared (FR-CON-07), or a person at the
+ * clinic gave access to that one paper after the patient asked (copies.ts grantAccess), and never one that is not, or no
+ * longer, attached to this patient. Opening is reading: nothing in the portal changes a paper.
  */
-export const patientMayOpen = (d: Pick<Doc, 'uploadedByKind' | 'uploadedById' | 'attachState'>, disclosure: string, who: { kind: 'patient' | 'caregiver'; id: string }) =>
+export const patientMayOpen = (d: Pick<Doc, 'uploadedByKind' | 'uploadedById' | 'attachState' | 'flags'>, disclosure: string, who: { kind: 'patient' | 'caregiver'; id: string }) =>
   (d.uploadedByKind === who.kind && d.uploadedById === who.id)
-  || (disclosure === 'cleared' && (ATTACHED as readonly string[]).includes(d.attachState))
+  || ((disclosure === 'cleared' || !!(d.flags as { patient_access?: unknown } | null)?.patient_access) && (ATTACHED as readonly string[]).includes(d.attachState))
 
 /** Who a patient-side session is, for patientMayOpen. */
 export const portalActor = (s: { kind: 'patient' | 'caregiver'; patientId: string; caregiverId?: string }) =>

@@ -43,6 +43,7 @@ beforeAll(async () => {
       doc[key] = r.id
     }
     await add('staffDoc', { by: 'staff', attach: 'attached', status: 'done' })
+    await add('staffDoc2', { by: 'staff', attach: 'attached', status: 'done' })
     await add('ownFiled', { by: 'patient', attach: 'auto', status: 'done', name: 'blood test march.pdf' })
     await add('ownHeld', { by: 'patient', attach: 'pending_decision', status: 'needs_review', name: 'scan.pdf' })
     await add('ownRejected', { by: 'patient', attach: 'rejected', status: 'done', name: 'old letter.pdf' })
@@ -82,7 +83,7 @@ describe('Papers you sent', () => {
 })
 
 describe('Ask the clinic for a copy', () => {
-  it('one open request per paper, audited once; records staff see it with a 72-hour deadline until it is given', async () => {
+  it('one open request per paper, audited once; listed with a 72-hour deadline until a person gives access to read that one paper', async () => {
     const c = await imp()
     const ask = (id: string) => c.db.withOrg(ORG, (tx) => c.copies.requestCopy(ctx(c, tx, patientSession, pid, 'patient'), id))
     const first = await ask(doc.staffDoc)
@@ -97,14 +98,26 @@ describe('Ask the clinic for a copy', () => {
     const later = await c.db.withOrg(ORG, (tx) => c.copies.loadCopyRequests(tx, new Date(Date.now() + 73 * 3_600_000)))
     expect(later.rows.find((r) => r.documentId === doc.staffDoc)!.overdue).toBe(true)
 
-    const give = () => c.db.withOrg(ORG, (tx) => c.copies.giveCopy(ctx(c, tx, staffSession, staffSession.staffId, 'records'), doc.staffDoc))
+    const give = () => c.db.withOrg(ORG, (tx) => c.copies.grantAccess(ctx(c, tx, staffSession, staffSession.staffId, 'records'), doc.staffDoc))
     await give()
     await expect(give()).rejects.toMatchObject({ code: 'no_open_request' })
-    expect(await audits(doc.staffDoc, 'document.copy_given')).toBe(1)
+    expect(await audits(doc.staffDoc, 'document.patient_access_given')).toBe(1)
     const after = await c.db.withOrg(ORG, (tx) => c.copies.loadCopyRequests(tx, new Date()))
     expect(after.rows.some((r) => r.documentId === doc.staffDoc)).toBe(false)
-    // Given: the patient may ask again later, which opens a new request.
-    expect((await ask(doc.staffDoc)).at).not.toBe(first.at)
+    // The patient may now open that one paper (to read); asking again is refused as already open. Every other paper stays closed.
+    const [row] = await owner`select flags->'patient_access' as a, attach_state, uploaded_by_kind, uploaded_by_id, flags from documents where id = ${doc.staffDoc}`
+    expect(row.a).toMatchObject({ role: 'records' })
+    const { patientMayOpen } = await import('../../src/server/pipeline/actions')
+    const me = { kind: 'patient' as const, id: pid }
+    expect(patientMayOpen({ attachState: row.attach_state, uploadedByKind: row.uploaded_by_kind, uploadedById: row.uploaded_by_id, flags: row.flags }, 'unknown', me)).toBe(true)
+    await expect(ask(doc.staffDoc)).rejects.toMatchObject({ code: 'already_open' })
+    const [other] = await owner`select attach_state, uploaded_by_kind, uploaded_by_id, flags from documents where id = ${doc.staffDoc2}`
+    expect(patientMayOpen({ attachState: other.attach_state, uploadedByKind: other.uploaded_by_kind, uploadedById: other.uploaded_by_id, flags: other.flags }, 'unknown', me)).toBe(false)
+  })
+  it('only staff give access', async () => {
+    const c = await imp()
+    await c.db.withOrg(ORG, (tx) => c.copies.requestCopy(ctx(c, tx, patientSession, pid, 'patient'), doc.staffDoc2))
+    await expect(c.db.withOrg(ORG, (tx) => c.copies.grantAccess(ctx(c, tx, patientSession as never, pid, 'patient'), doc.staffDoc2))).rejects.toMatchObject({ status: 403 })
   })
   it('refuses a paper they can already open, one held or not theirs, uniformly', async () => {
     const c = await imp()

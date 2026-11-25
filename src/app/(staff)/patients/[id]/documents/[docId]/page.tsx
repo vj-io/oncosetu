@@ -3,7 +3,7 @@ import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Copy, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
-import { CopyGivenButton, DetachForm, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { DetachForm, GiveAccessButton, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { copyDue, copyRequestOf } from '@/server/portal/copies'
 import { HeldReveal } from '@/components/documents/HeldReveal'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
@@ -191,8 +191,8 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         )}
         {copy && !copy.givenAt && (
           <Notice tone="patient" icon={<Copy />} title="The patient asked for a copy of this paper">
-            Asked {fmtDateTime(copy.at)} in the portal; give it by {fmtDateTime(copyDue(copy))}. They cannot open it there until disclosure is cleared.
-            <div className="mt-2"><CopyGivenButton documentId={doc.id} /></div>
+            Asked {fmtDateTime(copy.at)} in the portal; answer by {fmtDateTime(copyDue(copy))}. Give access lets them open this one paper in the portal, to read only; every other paper stays as it is.
+            <div className="mt-2"><GiveAccessButton documentId={doc.id} /></div>
           </Notice>
         )}
         {sections.length > 1 && (

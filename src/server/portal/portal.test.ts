@@ -8,6 +8,7 @@ import { pickLang } from './lang'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, isPastDate, labelWithoutDates, type HomeData } from './summary'
 import { buildSent, sentState } from './sent'
+import { patientMayOpen } from '../pipeline/actions'
 import { openShadow, sealShadow } from './statements'
 import { answersFor, answersSchema, buildReadback, enabledQuestions, missingQuestion, questionSettings, QUESTION_IDS, statedDate, transcriptOf, type Answers } from './visit-model'
 
@@ -396,7 +397,10 @@ describe('Ask the clinic for a copy, and Papers you sent', () => {
     expect(one(paper())).toMatchObject({ canAsk: true, copy: null })
     expect(one(paper({ open: true }))).toMatchObject({ canAsk: false, copy: null })
     expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }))).toMatchObject({ canAsk: false, copy: 'You asked for a copy on 21 Nov 2026. The clinic will reply within 3 days.' })
-    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: true, copy: 'The clinic gave a copy on 22 Nov 2026.' })
+    // Access given: the paper opens, and the row says when the clinic opened it.
+    expect(one(paper({ open: true, copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: false, copy: 'The clinic opened this paper for you on 22 Nov 2026.' })
+    // A request closed without access (before access existed): nothing to say, and they may ask again.
+    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: true, copy: null })
     expect(one(paper({ consentForm: 'sign' })).canAsk).toBe(false) // the signed consent form is not a paper to ask a copy of
     expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }), 'hi').copy).toBe('आपने 21 नवंबर 2026 को कॉपी माँगी। क्लिनिक 3 दिन में जवाब देगा।')
   })
@@ -410,6 +414,24 @@ describe('Ask the clinic for a copy, and Papers you sent', () => {
     const rows = buildSent([{ id: 'a', name: null, sentAt: '2026-11-24T10:00:00.000Z', state: 'not_filed', open: true }], 'hinglish')
     expect(rows[0]).toMatchObject({ name: 'Aapka bheja kaagaz', sent: expect.stringContaining('Bheja:'), status: 'Aapki file mein nahi juda. Kripya clinic mein poochhein.' })
     for (const lang of LANGS) expect(dirty(strings(buildSent([{ id: 'a', name: null, sentAt: '2026-11-24T10:00:00.000Z', state: 'blocked', open: false }], lang)))).toEqual([])
+  })
+})
+
+describe('who may open a paper in the portal (patientMayOpen)', () => {
+  const me = { kind: 'patient' as const, id: 'p1' }
+  const staffPaper = (o: Partial<{ attachState: string; flags: Record<string, unknown> }> = {}) =>
+    ({ uploadedByKind: 'staff' as const, uploadedById: 's1', attachState: 'attached', flags: {}, ...o }) as Parameters<typeof patientMayOpen>[0]
+  it('a staff paper opens once disclosure is cleared, or once a person gave access to it; only while it is attached', () => {
+    expect(patientMayOpen(staffPaper(), 'unknown', me)).toBe(false)
+    expect(patientMayOpen(staffPaper(), 'cleared', me)).toBe(true)
+    expect(patientMayOpen(staffPaper({ flags: { patient_access: { at: '2026-11-25T13:00:00.000Z', role: 'clinician' } } }), 'unknown', me)).toBe(true)
+    for (const attachState of ['detached', 'rejected', 'pending_decision']) {
+      expect(patientMayOpen(staffPaper({ attachState, flags: { patient_access: { at: '2026-11-25T13:00:00.000Z', role: 'clinician' } } }), 'unknown', me)).toBe(false)
+    }
+  })
+  it('their own upload always opens; someone else\'s does not', () => {
+    expect(patientMayOpen({ uploadedByKind: 'patient', uploadedById: 'p1', attachState: 'rejected', flags: {} } as never, 'unknown', me)).toBe(true)
+    expect(patientMayOpen({ uploadedByKind: 'caregiver', uploadedById: 'c1', attachState: 'attached', flags: {} } as never, 'unknown', me)).toBe(false)
   })
 })
 

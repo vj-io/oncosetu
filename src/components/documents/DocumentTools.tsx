@@ -144,12 +144,12 @@ export function PrintedButton({ documentId }: { documentId: string }) {
   )
 }
 
-/** The patient asked for a copy (portal); a person records that it was given (copies.ts). */
-export function CopyGivenButton({ documentId }: { documentId: string }) {
+/** The patient asked for this paper (portal); a person gives them access to read it there (copies.ts grantAccess). */
+export function GiveAccessButton({ documentId }: { documentId: string }) {
   const a = useAction()
   return (
     <span className="grid gap-1">
-      <Button size="sm" variant="secondary" icon={<Check />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/copy-given`, {}, 'Recorded: copy given')}>Copy given</Button>
+      <Button size="sm" variant="secondary" icon={<Check />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/patient-access`, {}, 'The patient can now open this paper in the portal, to read')}>Give access</Button>
       {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
     </span>
   )

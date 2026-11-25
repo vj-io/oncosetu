@@ -4,7 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { OcrWord } from '@/db/schema'
-import { classifyHandwriting, detectLanguage, readPages, readsAsPrintedReport, type OcrLangs, type OcrProvider } from './text'
+import { classifyHandwriting, detectLanguage, hasPrintedReportHeader, readPages, readsAsPrintedReport, type OcrLangs, type OcrProvider } from './text'
 
 // ---- a password-protected PDF (Standard security handler R2, RC4-40), built by hand for FR-ING-07 ----
 const PAD = Buffer.from('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A', 'hex')
@@ -141,6 +141,26 @@ describe('printed report pages judged handwritten are read (FR-DOC-07)', () => {
     const r = await readPages(new Uint8Array(await png()), 'image/png', undefined, provider(RX))
     expect(r.kind === 'pages' && r.pages[0].handwriting).toMatchObject({ handwritten: true })
     expect(r.kind === 'pages' && r.pages[0].handwriting?.printedReport).toBeFalsy()
+  })
+  // A lab slip photographed on a phone: garbled words (OCR of a photo), but a printed report date in its header.
+  const LAB = [
+    'CITY PATHOLOGY LABORATORY', 'Pt Nm: x#yz qwe', 'Ref By: Dr. A. Rao', 'Report Date: 20/11/2026', 'Collected On: 13/11/2026',
+    'Hb 1#.2 g/dL', 'WBC 6#00', 'Plt 2.1 l#kh', 'N 6# %', 'L 3# %', 'ESR 2#', 'Rmk: n#l',
+  ].join('\n')
+  it('a page judged handwritten whose header carries a printed report date is read, and says why', async () => {
+    const r = await readPages(new Uint8Array(await png()), 'image/png', undefined, provider(LAB))
+    expect(r.kind === 'pages' && r.pages[0].handwriting).toMatchObject({ handwritten: false, printedHeader: true })
+    // A prescription pad prints only "Date:": it stays held.
+    const rx = await readPages(new Uint8Array(await png()), 'image/png', undefined, provider(`Date: 14/11/2026\n${RX}`))
+    expect(rx.kind === 'pages' && rx.pages[0].handwriting).toMatchObject({ handwritten: true })
+  })
+  it('hasPrintedReportHeader: a report or collection date in the header block, readable to the day', () => {
+    expect(hasPrintedReportHeader(LAB)).toBe(true)
+    expect(hasPrintedReportHeader('CITY LAB\nCollected On: 13/11/2026\nHb 11.2')).toBe(true)
+    expect(hasPrintedReportHeader('DR A RAO CLINIC\nDate: 14/11/2026\nRx')).toBe(false) // a bare "Date:" is any pad's
+    expect(hasPrintedReportHeader('CITY LAB\nReport Date: or\nHb 11.2')).toBe(false) // unreadable
+    expect(hasPrintedReportHeader('CITY LAB\nReport Date: 11/2026')).toBe(false) // not to the day
+    expect(hasPrintedReportHeader(`${Array.from({ length: 16 }, (_, i) => `line ${i}`).join('\n')}\nReport Date: 20/11/2026`)).toBe(false) // below the header
   })
   it('readsAsPrintedReport: report class strong and mostly real words; prescriptions and short or garbled text never', () => {
     expect(readsAsPrintedReport(REPORT)).toBe(true)

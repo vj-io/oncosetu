@@ -42,6 +42,18 @@ describe('a file of several reports is split by their headers (E-DOC-10)', () =>
     const mixed = 'CITY PATHOLOGY LABORATORY\nDate: 12/02/2025\nCOMPLETE BLOOD COUNT\nHaemoglobin\t11.2\tg/dL\t12.0 - 15.0\nTotal Leucocyte Count\t6800\t/cumm\t4000 - 11000\nPlatelet Count\t2.1\tlakh/cumm\t1.5 - 4.5\nNeutrophils\t62\t%\t40 - 75\nLymphocytes\t30\t%\t20 - 45\nReference range\nCT scan of chest: FINDINGS: No focal lesion in the lungs. IMPRESSION: No evidence of metastasis. Radiology contrast study.\n'
     expect(split([page(1, report('12/02/2025')), page(2, mixed)])).toEqual([[[1, 2], '2025-02-12']])
   })
+  it('a clear change of kind starts a report without a date; its date stays unknown', () => {
+    const path = 'NIRNAY PATHOLOGY LABORATORY\nHISTOPATHOLOGY REPORT\nSpecimen: Left breast, wide local excision.\nGross: A fibrofatty tissue.\nMicroscopy: Invasive ductal carcinoma, grade 2.\nMargins: All margins free of tumour.\nDiagnosis: Invasive carcinoma of no special type.\nPathologist\n'
+    expect(split([page(1, report('04/10/2025')), page(2, path)])).toEqual([[[1], '2025-10-04'], [[2], null]])
+    // A page of another kind with no letterhead, title or date label of its own stays with the report.
+    const bare = 'Surgical specimen\nSpecimen: Left breast, wide local excision.\nGross: A fibrofatty tissue.\nMicroscopy: Invasive ductal carcinoma, grade 2.\nMargins: All margins free of tumour.\nDiagnosis: Invasive carcinoma of no special type.\nImmunohistochemistry: ER positive.\nPathologist\n'
+    expect(split([page(1, report('04/10/2025')), page(2, bare)])).toEqual([[[1, 2], '2025-10-04']])
+    // A page under its own letterhead that reads only weakly as another kind (pathology 4) stays too.
+    const weak = 'CITY DIAGNOSTIC CENTRE\nSpecimen: Left breast, wide local excision.\nGross: A fibrofatty tissue.\nMicroscopy: Invasive ductal carcinoma, grade 2.\nMargins: All margins free of tumour.\nDiagnosis: Invasive carcinoma of no special type.\nTumour size 2.1 cm, lymphovascular invasion absent.\n'
+    expect(split([page(1, report('04/10/2025')), page(2, weak)])).toEqual([[[1, 2], '2025-10-04']])
+    // With a date label of its own (legible only to the month), it is a report of its own, its day unknown.
+    expect(split([page(1, report('04/10/2025')), page(2, `Report Date: 06/2022\n${bare}`)])).toEqual([[[1], '2025-10-04'], [[2], null]])
+  })
   it('the first readable page is read whole for its date, as the file date is; a file that starts held takes it too', () => {
     const late = `CITY IMAGING CENTRE\n${Array.from({ length: 20 }, (_, i) => `Line ${i + 1}.`).join('\n')}\nDate: 12/02/2025\n`
     expect(split([held(1), page(2, late), page(3, report('10/10/2026'))])).toEqual([[[1, 2], '2025-02-12'], [[3], '2026-10-10']])
@@ -50,6 +62,13 @@ describe('a file of several reports is split by their headers (E-DOC-10)', () =>
 
 describe('every report keeps its own facts and dates (E-DOC-10)', () => {
   const file = [page(1, report('12/02/2025')), page(2, report('10/10/2026', 'MRI brain')), page(3, report('09/12/2025', 'USG abdomen'))]
+  it('a later report with no date of its own does not borrow the file\'s date', async () => {
+    const path = 'NIRNAY PATHOLOGY LABORATORY\nHISTOPATHOLOGY REPORT\nSpecimen: Left breast, wide local excision.\nMicroscopy: Invasive ductal carcinoma, grade 2.\nMargins: All margins free of tumour.\nDiagnosis: Invasive carcinoma of no special type.\n'
+    const a = await analyse([page(1, report('04/10/2025')), page(2, path)], PATIENT, RECEIVED)
+    const onPage2 = a.drafts.filter((d) => d.evidence.pageNo === 2)
+    expect(onPage2.length).toBeGreaterThan(0)
+    expect(onPage2.every((d) => d.documentDate === null)).toBe(true)
+  })
   it('one report-level fact per report, each dated by its own report', async () => {
     const a = await analyse(file, PATIENT, RECEIVED)
     const reports = a.drafts.filter((d) => d.eventType === 'imaging_report_documented').map((d) => [d.evidence.pageNo, d.eventDate, d.documentDate])

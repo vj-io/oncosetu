@@ -197,7 +197,9 @@ const HEADER_LINES = 15
 /**
  * E-DOC-10: split a file into the reports it holds. A readable page starts a new report only when its header carries a
  * labelled date and that date differs from the current report's, or the current report has no date and the page has a
- * letterhead, or the page has a letterhead and scores strongly for another class. A page with no readable text (held as
+ * letterhead, or the page has a letterhead and scores strongly for another class. A clear change of kind starts one without
+ * a date too: the page reads as another class (score ≥ 6) and hardly at all as the current one (≤ 2), and it has a
+ * letterhead or a date label of its own; that report's date stays unknown. A page with no readable text (held as
  * handwritten, blank) stays with the report before it. One section means one report. Only the file's first readable page is
  * read whole for its date; every later page by its header lines.
  */
@@ -218,13 +220,17 @@ export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pic
     const parsed = h.reportDate ? parseDate(h.reportDate.value, { now: receivedAt }) : null
     const date = parsed?.iso && parsed.precision === 'day' ? parsed : null
     const cls = classifyDocument([p.text])
-    const strong = cls.docType !== 'other' && (cls.scores[cls.docType] ?? 0) >= 9 ? cls.docType : null
+    const score = cls.docType !== 'other' ? cls.scores[cls.docType] ?? 0 : 0
+    const strong = score >= 9 ? cls.docType : null
+    /** The page's own kind, when it reads clearly as one class. */
+    const kind = score >= 6 ? cls.docType : null
     const letterhead = !!h.institution
-    if (!cur || (cur.read && date && (
+    const newKind = !!cur && !!kind && kind !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 2 && (letterhead || !!h.reportDate)
+    if (!cur || (cur.read && ((date && (
       (cur.date && date.iso !== cur.date.iso) || (!cur.date && letterhead)
       || (letterhead && strong && strong !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 3)
-    ))) out.push({ pages: [pageNo], date, docType: strong ?? c.docType, institution: h.institution?.value ?? null, read: true })
-    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: strong ?? cur.docType, institution: h.institution?.value ?? null, read: true })
+    )) || newKind))) out.push({ pages: [pageNo], date, docType: kind ?? c.docType, institution: h.institution?.value ?? null, read: true })
+    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: kind ?? cur.docType, institution: h.institution?.value ?? null, read: true })
     else {
       cur.pages.push(pageNo)
       cur.date ??= date
@@ -411,7 +417,11 @@ export function gateAndDate(
   const received = receivedAt.toISOString().slice(0, 10)
   const fileDate = ident.documentDate && ident.documentDate.precision !== 'unknown' ? ident.documentDate : null
   // E-DOC-10: in a file of several reports, a fact takes the date of the report it was quoted from.
-  const docOf = (pageNo: number) => c.sections?.find((s) => s.pages.includes(pageNo))?.date ?? fileDate
+  // A later report whose own date is unknown never borrows the file's date (the first report's).
+  const docOf = (pageNo: number) => {
+    const i = c.sections?.findIndex((s) => s.pages.includes(pageNo)) ?? -1
+    return i < 0 ? fileDate : c.sections![i].date ?? (i === 0 ? fileDate : null)
+  }
   // Indian records are day first. One date such as 22/01/2026 in the document settles every other numeric date in it.
   const dayFirst = c.usable.some((p) => usesDayFirst(p.text))
   const all = gate.accepted.map(({ candidate, evidence, flags }): DraftEvent => {

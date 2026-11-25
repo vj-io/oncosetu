@@ -1,19 +1,20 @@
 // Patient-level settings from the Consent & access tab: disclosure (FR-CON-07), primary contact, deceased (E-ID-11),
 // handing control to a minor who turned 18 (E-ID-10), break-glass (FR-ID-10).
-import { and, eq, isNull, ne } from 'drizzle-orm'
+import { and, eq, isNull, ne, notInArray } from 'drizzle-orm'
 import { z } from 'zod'
-import { breakGlass, caregivers, patients, sessions } from '@/db/schema'
+import { breakGlass, caregivers, documents, patientAliases, patients, sessions } from '@/db/schema'
 import { registrationCopy } from '@/i18n/registration'
 import { now } from '../clock'
-import { decryptField, encryptField, maskPhone, normalizePhone, phoneHmac } from '../crypto'
+import { decryptField, encryptField, hmac, maskPhone, normalizePhone, phoneHmac } from '../crypto'
+import { scheduleBatch } from '../pipeline/ingest'
 import { HttpError } from '../http'
 import { sendMessage } from '../outbox'
 import { assertPatientAccess } from '../patients'
 import { primaryContactTarget, patientPhoneTarget, tellPatient } from './contact'
 import { confirmAction, confirmPurpose } from './confirm'
 import { fail, type StaffCtx } from './http'
-import { ageAt } from './logic'
-import { phoneField, type Confirm } from './schemas'
+import { ageAt, identityKey } from './logic'
+import { personName, phoneField, type Confirm } from './schemas'
 
 /** Disclosure changes carry a reason CODE (the audit log holds ids and enums only, never free text). */
 export const DISCLOSURE_REASONS = [
@@ -55,6 +56,38 @@ export async function setPrimaryContact(ctx: StaffCtx<{ primaryContact: 'patient
     && await tellPatient(ctx.db, { orgId: ctx.session.orgId, patientId, templateKey: 'primary_contact.changed', body: registrationCopy.primaryContactSms })
   await ctx.audit('patient.primary_contact_changed', 'patient', patientId, { from: p.primaryContact, to: primaryContact, patientNotified })
   return { ok: true, primaryContact }
+}
+
+/** Name changes carry a reason CODE (the audit log holds ids and enums only, never free text). */
+export const NAME_REASONS = ['spelling_correction', 'married_or_legal_change', 'entered_in_error'] as const
+export const patientNameSchema = z.object({ fullName: personName, reason: z.enum(NAME_REASONS), keepPrevious: z.boolean() })
+
+/**
+ * Clinician only. The old name can stay as another name, so papers written with it still match. Papers held for an identity
+ * decision go back to the reading queue, where the pipeline checks them against the new name (a match attaches; otherwise
+ * they stay held for a person).
+ */
+export async function setPatientName(ctx: StaffCtx<z.infer<typeof patientNameSchema>>, patientId: string) {
+  const p = await loadFor(ctx, patientId)
+  const next = ctx.body.fullName.trim().replace(/\s+/g, ' ')
+  const prev = decryptField(p.nameEnc)
+  if (next === prev) return fail(409, 'unchanged', 'This name is already on file')
+  // The duplicate key uses the date of birth only when it was entered, not estimated from an age: keep that as it was.
+  const dob = p.dobEnc ? decryptField(p.dobEnc) : null
+  const realDob = dob && p.identityHmac === identityKey(prev, dob) ? dob : null
+  await ctx.db.update(patients).set({ nameEnc: encryptField(next), identityHmac: identityKey(next, realDob), updatedAt: new Date() }).where(eq(patients.id, patientId))
+  if (ctx.body.keepPrevious) {
+    await ctx.db.insert(patientAliases).values({
+      orgId: ctx.session.orgId, patientId, nameEnc: encryptField(prev), nameHmac: hmac(`alias:${prev}`),
+      kind: ctx.body.reason === 'married_or_legal_change' ? 'married' : 'other', createdBy: ctx.session.staffId,
+    })
+  }
+  const held = await ctx.db.update(documents).set({ status: 'queued', attempts: 0, updatedAt: new Date() }).where(and(
+    eq(documents.patientId, patientId), eq(documents.attachState, 'pending_decision'), notInArray(documents.status, ['queued', 'processing', 'quarantined']),
+  )).returning({ id: documents.id })
+  await ctx.audit('patient.name_changed', 'patient', patientId, { reason: ctx.body.reason, keptPreviousAsOtherName: ctx.body.keepPrevious, heldRechecked: held.length })
+  scheduleBatch(patientId, held.length, ctx.session.orgId)
+  return { ok: true, heldRechecked: held.length }
 }
 
 /** The patient's own phone, added or changed with the patient in front of staff (witnessed; nothing can be texted to a number not yet on file). */

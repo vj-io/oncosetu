@@ -173,7 +173,7 @@ const ONLY_SEPARATORS = /^[\s\-–=.]*$/
 /**
  * A photographed header can lose its date to the page OCR ("Exam Date: 10/10/2026" read as "Exam Date: or"); the report
  * then takes a date quoted further down (an earlier study) or none. When a date label in the header block has no readable
- * date after it (up to the next column or line end), the strip right of the label is read again on its own: cropped from
+ * date after it (in its own cell, or in the next column when its cell is blank), the strip right of the label is read again on its own: cropped from
  * the page image, 3× scale, grey, one line of English. A date read at the start of that strip replaces the unreadable
  * words, and every later word's offsets move with it; nothing else changes. Measured 25 Nov 2026 on a photographed MRI
  * report: the page read "or", the strip read 10/10/2026 (as printed).
@@ -186,10 +186,13 @@ export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider:
   let size: { width: number; height: number } | null = null
   for (const m of labels) {
     const labelEnd = m.index + m[0].length
-    const stop = text.slice(labelEnd).search(/[\t\n]/)
-    const valueEnd = stop < 0 ? text.length : labelEnd + stop
+    const cellEnd = (from: number) => { const i = text.slice(from).search(/[\t\n]/); return i < 0 ? text.length : from + i }
+    const valueEnd = cellEnd(labelEnd)
     const value = text.slice(labelEnd, valueEnd)
-    if (findDates(value).some((d) => d.kind === 'absolute' && ONLY_SEPARATORS.test(value.slice(0, d.start)))) continue
+    // Readable: a date in the label's own cell ("Report Date: ~~ 20/02/2026"), or, when that cell is blank, in the next
+    // column ("Date:<TAB>20/04/2026"). Only a value with no date at all is read again.
+    const nextCell = !value.trim() && text[valueEnd] === '\t' ? text.slice(valueEnd + 1, cellEnd(valueEnd + 1)) : ''
+    if ([value, nextCell].some((v) => findDates(v).some((d) => d.kind === 'absolute'))) continue
     const box = words.find((w) => w.s <= labelEnd - 1 && labelEnd - 1 < w.e)?.b
     const h = box ? box[3] - box[1] : 0
     if (!box || h <= 0) continue

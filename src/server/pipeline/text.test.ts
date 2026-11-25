@@ -249,6 +249,14 @@ describe('an unreadable header date is read again from its strip (25 Nov 2026)',
     expect((await read(p)).text).toContain('Exam Date: 10/10/2026')
     expect(p.strips).toBe(0)
   })
+  it('a date in the next column, or with marks before it, is readable: no re-read, nothing doubled', async () => {
+    for (const line of ['Age/Sex: 72Y/F\tDate:\t20/04/2026', 'Ref By: Dr A Rao\tReport Date: ~~ 20/02/2026']) {
+      const lines = [HEAD[0], HEAD[1], line, HEAD[3], HEAD[4]]
+      const p = provider(lines, '01/01/2001')
+      expect((await read(p)).text).toBe(lines.join('\n'))
+      expect(p.strips).toBe(0)
+    }
+  })
   it('a date label below the header block is left alone', async () => {
     const lines = [...Array.from({ length: 16 }, (_, i) => `Line ${i + 1} of the report body`), 'Previous scan Date: or']
     const p = provider(lines, '10/10/2026')

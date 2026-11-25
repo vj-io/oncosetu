@@ -8,6 +8,8 @@ import { backlogRank } from '@/core/backlog'
 import type { DocType } from '@/core/types'
 import evalReport from '../../../data/eval/report.json'
 import { median } from '../admin/metrics-compute'
+import { daysBetween } from '@/core/dates'
+import { LATE_RECEIVED_DAYS } from './core'
 import { STAGES, STALE_LOCK_MINUTES, type Stage } from './process'
 
 /** FR-ONB-01 backlog order (src/core/backlog.ts). */
@@ -66,6 +68,19 @@ export type DocSummary = {
   /** Kind of file (Report, Scan, ECG, Video, Photo) and, for imaging, what the header says. Never findings. */
   file: { kind: string; category: string; label: string; storedOnly: boolean; note: string | null } | null
   imaging: { label: string; modality: string | null; studyDate: string | null; bodyPart: string | null; institution: string | null; patientName: string | null; patientSex: string | null; patientAge: string | null; frames: number; instances: number; synthetic: boolean } | null
+}
+
+/**
+ * E-DOC-15: the paper is from more than a year before it reached us, by its own date (any report of a file of several,
+ * E-DOC-10); a fact quoted in a recent report about an older study ("the MRI dated 12 February 2025") does not make the
+ * paper old. Only a paper with no date of its own falls back to its facts' late_received flag.
+ */
+export function olderRecord(d: Pick<DocRow, 'documentDate' | 'receivedAt' | 'flags'>, factsLate: boolean): boolean {
+  const received = new Date(d.receivedAt).toISOString().slice(0, 10)
+  const old = (date: string | null | undefined) => !!date && daysBetween(date, received) > LATE_RECEIVED_DAYS
+  const sections = (d.flags as { sections?: { date: string | null }[] }).sections
+  if (Array.isArray(sections) && sections.some((s) => s.date)) return sections.some((s) => old(s.date))
+  return d.documentDate ? old(d.documentDate) : factsLate
 }
 
 function summary(d: DocRow, counts: { events: number; verified: number }, lateReceived: boolean): DocSummary {
@@ -149,7 +164,7 @@ export async function listDocuments(tx: Tx, patientId: string) {
   const deciderIds = [...new Set(docs.filter((d) => (d.attachState === 'rejected' || d.attachState === 'detached') && d.attachDecidedBy).map((d) => d.attachDecidedBy!))]
   const deciders = new Map((deciderIds.length ? await tx.select({ id: staff.id, name: staff.name }).from(staff).where(inArray(staff.id, deciderIds)) : []).map((s) => [s.id, s.name]))
   const rows = docs.map((d) => {
-    const row = summary(d, counts.get(d.id) ?? { events: 0, verified: 0 }, counts.get(d.id)?.late ?? false)
+    const row = summary(d, counts.get(d.id) ?? { events: 0, verified: 0 }, olderRecord(d, counts.get(d.id)?.late ?? false))
     if (row.decision && d.attachDecidedBy) row.decision.by = deciders.get(d.attachDecidedBy) ?? null
     return row
   }).sort((a, b) => priority(a.docType) - priority(b.docType) || (b.documentDate ?? '').localeCompare(a.documentDate ?? '') || b.receivedAt.localeCompare(a.receivedAt))

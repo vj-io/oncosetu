@@ -41,8 +41,10 @@ beforeAll(async () => {
     for (const [pageNo, text] of [[1, 'CITY IMAGING CENTRE\nDate: 12/02/2025\nMRI BRAIN'], [3, 'TOWN DIAGNOSTIC LABORATORY\nDate: 10/10/2026\nMRI BRAIN\nSmaller than on the previous scan dated 12/02/2025.']] as const) {
       await tx`insert into document_pages (org_id, patient_id, document_id, page_no, text) values (${ORG}, ${pid}, ${file}, ${pageNo}, ${text})`
     }
-    for (const pageNo of [1, 3, 3]) {
-      const [ev] = await tx`insert into events (org_id, patient_id, document_id, event_type, source_type, extraction_method) values (${ORG}, ${pid}, ${file}, 'imaging_report_documented', 'external_document', 'ocr_llm') returning id`
+    for (const [i, pageNo] of [1, 3, 3].entries()) {
+      // The last one is report 2's quote of the 2025 study: an old date, flagged late_received like the pipeline does.
+      const [ev] = await tx`insert into events (org_id, patient_id, document_id, event_type, source_type, extraction_method, flags)
+        values (${ORG}, ${pid}, ${file}, 'imaging_report_documented', 'external_document', 'ocr_llm', ${tx.json(i === 2 ? { late_received: true } : {})}) returning id`
       await tx`insert into evidence (org_id, patient_id, event_id, document_id, page_no, quote) values (${ORG}, ${pid}, ${ev.id}, ${file}, ${pageNo}, 'a quote')`
     }
   })
@@ -72,6 +74,8 @@ describe('a file of several reports in All records (E-DOC-10)', () => {
     // Linked to report 1 of the same file, not to the other paper of that day.
     expect(mine[1].compared).toEqual([{ date: '2025-02-12', month: false, rowIds: [`${file}.1`] }])
     expect(mine[0].comparedBy).toEqual([`${file}.2`])
+    // Older record by the report's own date: report 1 (Feb 2025) is, report 2 (Oct 2026) is not, though it quotes the 2025 study.
+    expect(mine.map((r) => r.lateReceived)).toEqual([true, false, false])
     expect(rows.find((r) => r.id === single)).toMatchObject({ docId: single })
     expect(rows.find((r) => r.id === single)!.section).toBeUndefined()
     expect(count).toBe(4) // 3 reports + 1 single paper, as the list shows them

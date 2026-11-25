@@ -4,7 +4,9 @@ import { z } from 'zod'
 import type { Tx } from '@/db'
 import { documentFiles, documentPages, documents, events } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { daysBetween } from '@/core/dates'
 import { DOC_TYPES, type DocType } from '@/core/types'
+import { LATE_RECEIVED_DAYS } from '../pipeline/core'
 import { HttpError } from '../http'
 import { fieldValues } from '../ledger/core'
 import { documentLinks } from './schema'
@@ -95,9 +97,11 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
     const c = facts.get(key)
     return { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages, asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false }
   }
+  // E-DOC-15 by the paper's own date (a report's facts can quote older studies); a paper with no date keeps its facts' flag.
+  const byOwnDate = (r: RecordRow): RecordRow => (r.dateFrom === 'paper' && r.date ? { ...r, lateReceived: daysBetween(r.date, r.receivedAt.slice(0, 10)) > LATE_RECEIVED_DAYS } : r)
   const rows = sortRecords(collapseStudyParts(filed.flatMap((d): RecordRow[] => {
     const secs = sectionsOf.get(d.id)
-    if (!secs) return [toRecordRow(d as unknown as DocLike, stats(d.id, imgs.get(d.id) ?? []))]
+    if (!secs) return [byOwnDate(toRecordRow(d as unknown as DocLike, stats(d.id, imgs.get(d.id) ?? [])))]
     const newest = secs.reduce<string | null>((m, s) => (s.date && (!m || s.date > m) ? s.date : m), null)
     return secs.map((s, i) => {
       const key = `${d.id}.${i + 1}`
@@ -107,7 +111,7 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
         institutionName: i === 0 ? d.institutionName ?? s.institution ?? null : s.institution ?? null,
       } as unknown as DocLike,
         stats(key, (imgs.get(d.id) ?? []).filter((n) => s.pages.includes(n))))
-      return { ...r, id: key, section: { n: i + 1, of: secs.length, pages: s.pages, newest: !!newest && s.date === newest } }
+      return byOwnDate({ ...r, id: key, section: { n: i + 1, of: secs.length, pages: s.pages, newest: !!newest && s.date === newest } })
     })
   })))
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { analyse, classify, splitSections } from './core'
+import { olderRecord } from './queries'
 import type { PageRead } from './text'
 
 // E-DOC-10: one file holding several reports (a patient's folder photographed in one go) is split by the reports' own
@@ -63,3 +64,19 @@ describe('every report keeps its own facts and dates (E-DOC-10)', () => {
     expect(dates).not.toContain('2026-10-30')
   })
 })
+
+describe('"older record, newly received" goes by the paper\'s own date (E-DOC-15)', () => {
+  const received = new Date('2026-11-25T06:00:00Z')
+  it('a recent report that quotes an older study is not an older record', () => {
+    expect(olderRecord({ documentDate: '2026-10-10', receivedAt: received, flags: {} }, true)).toBe(false)
+    expect(olderRecord({ documentDate: '2025-02-12', receivedAt: received, flags: {} }, false)).toBe(true)
+  })
+  it('a file of several reports is older when any of its reports is; a paper with no date keeps its facts\' flag', () => {
+    const sections = [{ date: '2026-10-10' }, { date: '2025-02-12' }]
+    expect(olderRecord({ documentDate: '2026-10-10', receivedAt: received, flags: { sections } }, false)).toBe(true)
+    expect(olderRecord({ documentDate: '2026-10-10', receivedAt: received, flags: { sections: [{ date: '2026-10-10' }, { date: null }] } }, true)).toBe(false)
+    expect(olderRecord({ documentDate: null, receivedAt: received, flags: {} }, true)).toBe(true)
+    expect(olderRecord({ documentDate: null, receivedAt: received, flags: {} }, false)).toBe(false)
+  })
+})
+

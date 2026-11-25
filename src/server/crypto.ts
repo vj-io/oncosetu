@@ -59,6 +59,12 @@ export function decryptField(enc: string): string {
 const ZSTD = 'z.'
 /** Kept compressed only when that saves at least this share: JPEG, PDF scans and other packed files are stored as they came. */
 const MIN_SAVING = 0.05
+/**
+ * A larger file is tried only when its first 256 KB compresses. Measured on the pilot's 606 MB (25 Nov 2026): scan studies
+ * (94% of it, pictures already compressed inside their ZIP) saved 1% for about 1.4 s of CPU, PDFs 13%, photos 1–3%.
+ */
+const SAMPLE = 256 * 1024
+const compresses = (b: Buffer) => zstdCompressSync(b).length <= b.length * (1 - MIN_SAVING)
 
 /**
  * For files: `bytes` → bytea column or object, `dekWrapped` → text column. Every file is compressed before it is encrypted
@@ -67,9 +73,9 @@ const MIN_SAVING = 0.05
  */
 export function encryptBytes(plain: Buffer): { bytes: Buffer; dekWrapped: string } {
   const dek = randomBytes(32)
-  const packed = zstdCompressSync(plain)
-  const keep = packed.length <= plain.length * (1 - MIN_SAVING)
-  return { bytes: gcmEncrypt(dek, keep ? packed : plain), dekWrapped: `${keep ? ZSTD : ''}${V}.${wrapDek(dek).toString('base64url')}` }
+  const packed = plain.length <= 2 * SAMPLE || compresses(plain.subarray(0, SAMPLE)) ? zstdCompressSync(plain) : null
+  const keep = !!packed && packed.length <= plain.length * (1 - MIN_SAVING)
+  return { bytes: gcmEncrypt(dek, keep ? packed! : plain), dekWrapped: `${keep ? ZSTD : ''}${V}.${wrapDek(dek).toString('base64url')}` }
 }
 
 export function decryptBytes(bytes: Buffer, dekWrapped: string): Buffer {

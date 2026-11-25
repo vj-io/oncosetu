@@ -130,6 +130,16 @@ describe('files are compressed before they are encrypted (lossless)', () => {
     expect(e.bytes.length).toBe(jpeg.length + 28) // IV + tag only
     expect(decryptBytes(e.bytes, e.dekWrapped).equals(jpeg)).toBe(true)
   })
+  it('a large file whose start does not compress is not tried (a scan study); one whose start compresses is', () => {
+    const study = Buffer.concat([randomBytes(256 * 1024), Buffer.alloc(768 * 1024)]) // packed start, compressible tail
+    const a = encryptBytes(study)
+    expect(a.dekWrapped.startsWith('v1.')).toBe(true)
+    expect(decryptBytes(a.bytes, a.dekWrapped).equals(study)).toBe(true)
+    const pdf = Buffer.concat([Buffer.alloc(300 * 1024, 'a'), randomBytes(300 * 1024)]) // compressible start: tried, kept (half saved)
+    const b = encryptBytes(pdf)
+    expect(b.dekWrapped.startsWith('z.v1.')).toBe(true)
+    expect(decryptBytes(b.bytes, b.dekWrapped).equals(pdf)).toBe(true)
+  })
   it('an empty file, and a file stored before compression, still read back', () => {
     const empty = encryptBytes(Buffer.alloc(0))
     expect(decryptBytes(empty.bytes, empty.dekWrapped).length).toBe(0)

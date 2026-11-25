@@ -193,7 +193,8 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
  * `password` (FR-ING-07) lives only in this closure — never stored, never logged.
  */
 export function scheduleProcessing(documentId: string, orgId: string, opts: { password?: string } = {}): void {
-  afterResponse(() => import('./process').then((m) => m.runDocument(documentId, orgId, opts))
+  const at = Date.now() // the function's time limit counts from the request, not from when after() starts
+  afterResponse(() => import('./process').then((m) => m.runDocument(documentId, orgId, { ...opts, deadline: at + m.RUN_BUDGET_MS }))
     .catch((err) => log.error('pipeline.schedule_failed', { documentId, err })))
 }
 
@@ -221,7 +222,8 @@ export function scheduleBatch(patientId: string, count: number, orgId: string): 
  * BATCH_CONCURRENCY are already working. Polls run every few seconds, so without the cap runners would pile up.
  */
 export async function pollRunner(tx: Tx, patientId: string, orgId: string): Promise<void> {
-  const { STALE_LOCK_MINUTES } = await import('./process')
+  const { STALE_LOCK_MINUTES, readSlotBusy } = await import('./process')
+  if (readSlotBusy()) return // this instance is reading a file; a runner started now would stop at once (process.ts)
   const [{ n }] = await tx.select({ n: count() }).from(documents).where(and(eq(documents.patientId, patientId), eq(documents.status, 'processing'),
     gt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`)))
   if (n < BATCH_CONCURRENCY) schedulePatientQueue(patientId, orgId)
@@ -229,7 +231,8 @@ export async function pollRunner(tx: Tx, patientId: string, orgId: string): Prom
 
 /** `runners` more runners on the patient's queue, after the response. A poll uses this too, so it never jumps the queue. */
 export function schedulePatientQueue(patientId: string, orgId: string, runners = 1): void {
-  afterResponse(() => import('./process').then(({ runPatientQueue }) =>
-    Promise.all(Array.from({ length: runners }, () => runPatientQueue(patientId, orgId))))
+  const at = Date.now()
+  afterResponse(() => import('./process').then(({ runPatientQueue, RUN_BUDGET_MS }) =>
+    Promise.all(Array.from({ length: runners }, () => runPatientQueue(patientId, orgId, { deadline: at + RUN_BUDGET_MS }))))
     .catch((err) => log.error('pipeline.schedule_failed', { patientId, err })))
 }

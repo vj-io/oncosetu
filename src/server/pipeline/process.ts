@@ -2,9 +2,10 @@
 // advances documents.stage received → text → classified → identity → extracted → gate → completeness and ends in
 // done | needs_review | failed | quarantined | unreadable. A lock older than 3 minutes is re-claimable, so the status
 // poll (GET /api/documents/[id]/status) or "reprocess" restarts a runner that died. A live runner renews its lock every
-// 30 s (heartbeat, and at every page of a long scan), so a slow OCR is never mistaken for a dead runner; the claim is
-// capped at MAX_ATTEMPTS, and OCR'd pages are saved one by one so a retry resumes at the next page.
-import { and, asc, eq, inArray, isNull, lt, ne, notInArray, or, sql } from 'drizzle-orm'
+// 30 s (heartbeat, and at every page of a long scan), so a slow OCR is never mistaken for a dead runner. OCR'd pages are
+// saved one by one so a retry resumes at the next page; MAX_ATTEMPTS caps runs in a row that saved no new page, and a run
+// stops between pages before the function's time limit (RUN_BUDGET_MS) and puts the document back in the queue.
+import { and, asc, eq, inArray, isNull, ne, notInArray, sql } from 'drizzle-orm'
 import { withOrg, type Tx } from '@/db'
 import { aiRuns, documentFiles, documentPages, documentReadCache, documents, events, evidence, patientAliases, patients, verifications } from '@/db/schema'
 import { sha256Hex } from '@/core/hash'
@@ -28,33 +29,55 @@ export const MAX_ATTEMPTS = 3
 export const STALE_LOCK_MINUTES = 3
 /** A runner renews its lock this often while it works; far inside STALE_LOCK_MINUTES. */
 export const HEARTBEAT_MS = 30_000
+/**
+ * Vercel stops a function at 300 s (maxDuration), background work included. A runner starts no new OCR page and no new
+ * document after this long from when it was scheduled, which leaves the page in hand (11-15 s on Vercel), saving and
+ * extraction about 100 s.
+ */
+export const RUN_BUDGET_MS = 200_000
 
 class Abort extends Error {}
 
 /** Waiting for a runner: queued, or processing with no live runner (a lock never renewed for STALE_LOCK_MINUTES, or none at all). */
 const claimable = sql`(status = 'queued' OR (status = 'processing' AND (locked_at IS NULL OR locked_at < now() - make_interval(mins => ${STALE_LOCK_MINUTES}))))`
 
+/** Read-cache page count and attempts number at the last claim (documents.flags.reading). */
+type ReadingMark = { pages?: number; base?: number }
+
 /**
- * Atomic claim (one UPDATE decides): queued, or processing with a stale lock, and never past MAX_ATTEMPTS. Returns null if
- * another runner has it, it is finished, or it has used up its attempts (then it is marked failed, so nothing starts it again).
+ * Which claims count against MAX_ATTEMPTS: the ones since the reading last moved forward. When the read cache holds more
+ * pages than at the previous claim, that run saved pages (it may still have been killed for memory or time), so the count
+ * starts again from this claim. `attempts` itself only ever goes up between resets: it is the claim token the heartbeat checks.
  */
-export async function claimDocument(orgId: string, documentId: string): Promise<{ id: string; attempts: number } | null> {
+export function attemptsSpent(attempts: number, pages: number, last: ReadingMark | null | undefined): { base: number; spent: number } {
+  const base = pages > (last?.pages ?? 0) ? attempts : Math.min(last?.base ?? 0, attempts) // min: a reprocess resets attempts to 0
+  return { base, spent: attempts - base }
+}
+
+/**
+ * Atomic claim (the document row is locked while one transaction decides): queued, or processing with a stale lock. Returns
+ * null if another runner has it or it is finished. When MAX_ATTEMPTS runs in a row saved no new page, the document is marked
+ * failed instead (its read cache cleared: the work is abandoned), so nothing starts it again. `spent` counts this claim.
+ */
+export async function claimDocument(orgId: string, documentId: string): Promise<{ id: string; attempts: number; spent: number } | null> {
   return withOrg(orgId, async (tx) => {
-    const rows = await tx.execute(sql`
-      UPDATE documents SET status = 'processing', locked_at = now(), attempts = attempts + 1, read_progress = NULL, updated_at = now()
-      WHERE id = ${documentId} AND attempts < ${MAX_ATTEMPTS} AND ${claimable}
-      RETURNING id, attempts`)
-    const r = (rows as unknown as { id: string; attempts: number }[])[0]
-    if (r) return { id: r.id, attempts: Number(r.attempts) }
-    const spent = await tx.execute(sql`
-      UPDATE documents SET status = 'failed', locked_at = NULL, read_progress = NULL, last_error = 'too_many_attempts', updated_at = now()
-      WHERE id = ${documentId} AND attempts >= ${MAX_ATTEMPTS} AND ${claimable}
-      RETURNING id`)
-    if ((spent as unknown as unknown[]).length) {
+    const [d] = (await tx.execute(sql`
+      SELECT attempts, flags->'reading' AS reading, ${claimable} AS waiting,
+        (SELECT count(*) FROM document_read_cache c WHERE c.document_id = documents.id)::int AS pages
+      FROM documents WHERE id = ${documentId} FOR UPDATE`)) as unknown as { attempts: number; reading: ReadingMark | null; waiting: boolean; pages: number }[]
+    if (!d?.waiting) return null
+    const { base, spent } = attemptsSpent(Number(d.attempts), Number(d.pages), d.reading)
+    if (spent >= MAX_ATTEMPTS) {
+      await tx.update(documents).set({ status: 'failed', lockedAt: null, readProgress: null, lastError: 'too_many_attempts', updatedAt: new Date() }).where(eq(documents.id, documentId))
       await clearReadCache(tx, documentId)
-      log.error('pipeline.attempts_exhausted', { documentId })
+      log.error('pipeline.attempts_exhausted', { documentId, attempts: Number(d.attempts) })
+      return null
     }
-    return null
+    const [r] = (await tx.execute(sql`
+      UPDATE documents SET status = 'processing', locked_at = now(), attempts = attempts + 1, read_progress = NULL, updated_at = now(),
+        flags = flags || jsonb_build_object('reading', jsonb_build_object('pages', ${Number(d.pages)}::int, 'base', ${base}::int))
+      WHERE id = ${documentId} RETURNING attempts`)) as unknown as { attempts: number }[]
+    return { id: documentId, attempts: Number(r.attempts), spent: spent + 1 }
   })
 }
 
@@ -100,29 +123,50 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 /**
  * The patient's next document to process, in queue order: UUIDv7 ids follow upload order, and every batch is uploaded and
- * ingested in backlog order (src/core/backlog.ts). Queued, or processing with a stale lock (the claim's own rule).
+ * ingested in backlog order (src/core/backlog.ts). Queued, or processing with a stale lock: exactly what the claim takes,
+ * so a document whose attempts are used up is offered too, and its claim marks it failed (never left processing).
  * `skip`: documents this runner already tried (a document put back to 'queued' by an abort must not loop forever).
  */
 export async function nextWaiting(tx: Tx, patientId: string, skip: readonly string[] = []): Promise<string | null> {
   const [r] = await tx.select({ id: documents.id }).from(documents).where(and(
     eq(documents.patientId, patientId),
-    lt(documents.attempts, MAX_ATTEMPTS),
-    or(eq(documents.status, 'queued'), and(eq(documents.status, 'processing'), or(isNull(documents.lockedAt), lt(documents.lockedAt, sql`now() - make_interval(mins => ${STALE_LOCK_MINUTES})`)))),
+    claimable,
     skip.length ? notInArray(documents.id, [...skip]) : undefined,
   )).orderBy(asc(documents.id)).limit(1)
   return r?.id ?? null
 }
 
 /**
- * FR-ONB-01, strict order: work through the patient's waiting documents in queue order until none is left. Every runner
- * (a batch's workers, the documents screen's poll) takes the next one, so documents start in order whoever runs them;
- * the claim keeps two runners off one document.
+ * FR-ONB-01, strict order: work through the patient's waiting documents in queue order until none is left or the run's
+ * time is up. Every runner (a batch's workers, the documents screen's poll) takes the next one, so documents start in order
+ * whoever runs them; the claim keeps two runners off one document.
  */
-export async function runPatientQueue(patientId: string, orgId: string): Promise<void> {
+export async function runPatientQueue(patientId: string, orgId: string, opts: RunOpts = {}): Promise<void> {
+  const deadline = opts.deadline ?? Date.now() + RUN_BUDGET_MS
   const tried: string[] = []
-  for (let id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId)); id; id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId, tried))) {
+  for (let id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId)); id && !readSlotBusy(); id = await withOrg(orgId, (tx) => nextWaiting(tx, patientId, tried))) {
     tried.push(id)
-    await runDocument(id, orgId)
+    await runDocument(id, orgId, { ...opts, deadline })
+  }
+}
+
+/**
+ * One file is read at a time per instance: page images are what use memory, and three long scans read at once in one
+ * process reached 1.4 GB by page 8 (one alone: 0.9 GB). The slot is taken before the claim, so no claimed document ever
+ * waits for it, and released once the pages are read (extraction runs beside the next read). A runner that finds it taken
+ * stops; the document stays waiting for the next runner (the documents screen's poll, or the reader's own queue).
+ */
+// ponytail: per-instance flag; other instances read in parallel. A runner that waits for the slot instead of stopping would
+// keep a batch moving with no screen open, if that is ever needed.
+const slot = globalThis as unknown as { __oncosetuReading?: boolean }
+export const readSlotBusy = (): boolean => !!slot.__oncosetuReading
+function takeReadSlot(): (() => void) | null {
+  if (slot.__oncosetuReading) return null
+  slot.__oncosetuReading = true
+  let held = true
+  return () => {
+    if (held) slot.__oncosetuReading = false
+    held = false
   }
 }
 
@@ -133,35 +177,50 @@ export type RunOpts = {
   ocr?: OcrProvider
   /** Lock renewal interval (HEARTBEAT_MS; tests shorten it). */
   heartbeatMs?: number
+  /** Epoch ms after which no new claim or OCR page starts (default: RUN_BUDGET_MS from the call). */
+  deadline?: number
 }
 
 export async function runDocument(documentId: string, orgId: string, opts: RunOpts = {}): Promise<void> {
-  for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    const claim = await claimDocument(orgId, documentId)
-    if (!claim) return
-    const hb = startHeartbeat(orgId, documentId, claim.attempts, opts.heartbeatMs ?? HEARTBEAT_MS)
+  const deadline = opts.deadline ?? Date.now() + RUN_BUDGET_MS
+  for (let i = 0; Date.now() < deadline; i++) {
+    const release = takeReadSlot()
+    if (!release) return // another file is being read in this instance
+    let backoff = 0
     try {
-      await processClaimed(orgId, documentId, opts, claim.attempts, hb)
-      return
-    } catch (err) {
-      // Another runner owns the document now: leave its row alone.
-      if (err instanceof Abort && err.message === 'lock_lost') {
-        log.error('pipeline.lock_lost', { documentId, attempt: claim.attempts })
+      const claim = await claimDocument(orgId, documentId)
+      if (!claim) return
+      const hb = startHeartbeat(orgId, documentId, claim.attempts, opts.heartbeatMs ?? HEARTBEAT_MS)
+      try {
+        await processClaimed(orgId, documentId, { ...opts, deadline }, claim.attempts, hb, release)
         return
+      } catch (err) {
+        // Another runner owns the document now: leave its row alone.
+        if (err instanceof Abort && err.message === 'lock_lost') {
+          log.error('pipeline.lock_lost', { documentId, attempt: claim.attempts })
+          return
+        }
+        // Out of time after saving pages: back in the queue with its pages kept; the next claim continues at once and,
+        // since this run saved pages, the run is not counted against MAX_ATTEMPTS.
+        const late = err instanceof Abort && err.message === 'out_of_time'
+        if (late) log.info('pipeline.out_of_time', { documentId, attempt: claim.attempts })
+        else log.error('pipeline.stage_failed', { documentId, attempt: claim.attempts, spent: claim.spent, err })
+        // An error goes back to the queue too: the next claim decides whether attempts are used up (and then marks it failed).
+        await withOrg(orgId, async (tx) => {
+          await tx.update(documents).set({
+            status: 'queued', lockedAt: null, readProgress: null, ...(late ? {} : { lastError: err instanceof Abort ? err.message : 'processing_error' }), updatedAt: new Date(),
+          }).where(and(eq(documents.id, documentId), eq(documents.status, 'processing'), eq(documents.attempts, claim.attempts)))
+          if (err instanceof Abort && !late) await clearReadCache(tx, documentId)
+        }).catch(() => {})
+        if (err instanceof Abort) return
+        backoff = 1000 * 2 ** i
+      } finally {
+        hb.stop()
       }
-      const final = claim.attempts >= MAX_ATTEMPTS
-      log.error('pipeline.stage_failed', { documentId, attempt: claim.attempts, final, err })
-      await withOrg(orgId, async (tx) => {
-        await tx.update(documents).set({
-          status: final ? 'failed' : 'queued', lockedAt: null, readProgress: null, lastError: err instanceof Abort ? err.message : 'processing_error', updatedAt: new Date(),
-        }).where(and(eq(documents.id, documentId), eq(documents.status, 'processing'), eq(documents.attempts, claim.attempts)))
-        if (final || err instanceof Abort) await clearReadCache(tx, documentId)
-      }).catch(() => {})
-      if (final || err instanceof Abort) return
-      await sleep(1000 * 2 ** i)
     } finally {
-      hb.stop()
+      release()
     }
+    await sleep(backoff)
   }
 }
 
@@ -193,7 +252,7 @@ export async function patientIdentity(tx: Tx, patientId: string): Promise<Patien
   }
 }
 
-async function processClaimed(orgId: string, documentId: string, opts: RunOpts, attempt: number, hb: Heartbeat) {
+async function processClaimed(orgId: string, documentId: string, opts: RunOpts, attempt: number, hb: Heartbeat, readDone: () => void) {
   const loaded = await withOrg(orgId, async (tx) => {
     const [doc] = await tx.select().from(documents).where(eq(documents.id, documentId))
     const [file] = await tx.select().from(documentFiles).where(and(eq(documentFiles.documentId, documentId), eq(documentFiles.kind, 'original')))
@@ -217,6 +276,10 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   await setStage(orgId, documentId, 'text')
   // Pages an earlier attempt already OCR'd are taken as read; every page read now is saved at once, and the lock is renewed
   // before and after each page ("Reading page 7 of 16" is what staff see meanwhile).
+  let saved = 0
+  // Past the run's deadline, stop between pages and go back to the queue (runDocument). Only after saving a page: a run
+  // that stops for time has always moved the reading forward, so it never uses up an attempt.
+  const outOfTime = () => saved > 0 && Date.now() > (opts.deadline ?? Infinity)
   const cached = new Map((await withOrg(orgId, (tx) => tx.select({ pageNo: documentReadCache.pageNo, data: documentReadCache.data }).from(documentReadCache)
     .where(eq(documentReadCache.documentId, documentId)))).map((r) => [r.pageNo, r.data as unknown as CachedPage]))
   const read = await readPages(new Uint8Array(bytes), doc.mime, opts.password, opts.ocr, {
@@ -224,6 +287,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
     onPage: async ({ pageNo, total, page, fresh }) => {
       hb.check()
       if (!page) {
+        if (!cached.has(pageNo) && outOfTime()) throw new Abort('out_of_time')
         const rows = await withOrg(orgId, (tx) => tx.execute(sql`
           UPDATE documents SET read_progress = ${JSON.stringify({ page: pageNo, total })}::jsonb, locked_at = now(), updated_at = now()
           WHERE id = ${documentId} AND status = 'processing' AND attempts = ${attempt} RETURNING id`))
@@ -231,10 +295,12 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
       } else if (fresh && page.source === 'ocr') {
         const data = { ...page, image: undefined } as CachedPage // the image is rebuilt on resume, never stored here
         await withOrg(orgId, (tx) => tx.insert(documentReadCache).values({ documentId, orgId: doc.orgId, patientId, pageNo, data: data as unknown as Record<string, unknown> }).onConflictDoNothing())
+        saved++
         await hb.beat()
       }
     },
   })
+  readDone() // the page images are read: the next file may be read in this instance
   if (read.kind !== 'pages') {
     if (read.kind === 'needs_password') {
       flags.password_required = true
@@ -248,6 +314,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
     return
   }
   const pages = read.pages
+  if (outOfTime()) throw new Abort('out_of_time') // every page is cached now: the next run saves and extracts with its full time
   const injection = injectionReport(pages)
   if (injection.flagged) flags.injection = injection
   await withOrg(orgId, (tx) => savePages(tx, doc, pages, flags))

@@ -82,7 +82,7 @@ export const EXPECTED: Record<string, Expect> = {
   'POST /api/documents/[id]/undo-reject': CLINICAL,
   'GET /api/documents/[id]/file': originals,
   'GET /api/documents/[id]/preview': originals,
-  'POST /api/documents/[id]/copy-given': CLINICAL,
+  'POST /api/documents/[id]/patient-access': CLINICAL,
   'POST /api/documents/[id]/manual-events': CLINICAL,
   'POST /api/documents/[id]/password': FRONT,
   'POST /api/documents/[id]/printed': CLINICAL,

@@ -9,7 +9,7 @@ const link = 'font-medium text-setu-ink underline decoration-link underline-offs
 
 /**
  * Papers patients asked for a copy of in the portal (copies.ts), oldest first, with the 72-hour give-by time. Shown to records
- * staff on the to-do page and to clinicians on the patients page; "Copy given" is on the paper itself.
+ * staff on the to-do page and to clinicians on the patients page; "Give access" is on the paper itself.
  */
 export function CopyRequests({ rows, withoutConsent, limit }: { rows: CopyRow[]; withoutConsent: number; limit?: number }) {
   if (!rows.length && !withoutConsent) return null
@@ -17,7 +17,7 @@ export function CopyRequests({ rows, withoutConsent, limit }: { rows: CopyRow[];
   return (
     <section aria-labelledby="copies-h" className="grid gap-3" data-testid="copy-requests">
       <h2 id="copies-h" className="text-lg">Copies the patient asked for</h2>
-      <p className="text-sm text-muted">The patient asked in the portal for a copy of a paper they cannot open yet. Give it within 3 days (Indian Medical Council regulations 1.3.2), or clear disclosure with them; then press Copy given on the paper.</p>
+      <p className="text-sm text-muted">The patient asked in the portal for a copy of a paper they cannot open yet. Answer within 3 days (Indian Medical Council regulations 1.3.2): open the paper and press Give access, which lets them read that one paper in the portal.</p>
       <Table caption="Copies asked for">
         <thead><tr><th scope="col">Patient</th><th scope="col">Paper</th><th scope="col">Asked</th><th scope="col">Give by</th><th scope="col">Open</th></tr></thead>
         <tbody>

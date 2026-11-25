@@ -13,7 +13,7 @@ const WORDS: Record<string, string> = {
   'document.tags': 'Document type changed by a person',
   'document.reprocess': 'Document read again',
   'document.copy_requested': 'Patient asked for a copy of a paper',
-  'document.copy_given': 'A copy of a paper was given to the patient',
+  'document.patient_access_given': 'The patient was given access to read a paper in the portal',
   'document.marked_printed': 'Pages judged handwritten marked as printed and read',
   'document.manual_event': 'A person added a fact from a quote',
   'document.dispute': 'Patient disputed a document',

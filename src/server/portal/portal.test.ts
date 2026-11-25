@@ -396,7 +396,10 @@ describe('Ask the clinic for a copy, and Papers you sent', () => {
     expect(one(paper())).toMatchObject({ canAsk: true, copy: null })
     expect(one(paper({ open: true }))).toMatchObject({ canAsk: false, copy: null })
     expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }))).toMatchObject({ canAsk: false, copy: 'You asked for a copy on 21 Nov 2026. The clinic will reply within 3 days.' })
-    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: true, copy: 'The clinic gave a copy on 22 Nov 2026.' })
+    // Access given: the paper opens, and the row says when the clinic opened it.
+    expect(one(paper({ open: true, copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: false, copy: 'The clinic opened this paper for you on 22 Nov 2026.' })
+    // A request closed without access (before access existed): nothing to say, and they may ask again.
+    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: true, copy: null })
     expect(one(paper({ consentForm: 'sign' })).canAsk).toBe(false) // the signed consent form is not a paper to ask a copy of
     expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }), 'hi').copy).toBe('आपने 21 नवंबर 2026 को कॉपी माँगी। क्लिनिक 3 दिन में जवाब देगा।')
   })

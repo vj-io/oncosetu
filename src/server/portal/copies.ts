@@ -1,7 +1,8 @@
 // A patient asks the clinic for a copy of a paper they cannot open in the portal (FR-CON-07 keeps staff-uploaded papers
 // closed until disclosure is cleared). Records must be issued within 72 hours of a request (Indian Medical Council
-// regulations, 2002, 1.3.2), so the request goes on the records to-do list with that deadline; a person gives the copy,
-// or the clinician clears disclosure with the patient. The request is a mark on the document and an audit row, never text.
+// regulations, 2002, 1.3.2), so the request goes on the staff lists with that deadline; a person gives the patient access to
+// read that one paper in the portal (grantAccess), or the clinician clears disclosure with them. The request and the access
+// are marks on the document and audit rows, never text.
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import type { Tx } from '@/db'
 import { documents, patients } from '@/db/schema'
@@ -18,8 +19,10 @@ import type { PatientSession, Session } from '../session'
 /** Hours within which a requested copy is given. */
 export const COPY_DUE_HOURS = 72
 
-/** documents.flags.copy_request */
+/** documents.flags.copy_request; givenAt: when a person gave access (documents.flags.patient_access). */
 export type CopyRequest = { at: string; by: 'patient' | 'caregiver'; givenAt?: string }
+/** documents.flags.patient_access: the patient may open (read) this one paper in the portal (patientMayOpen). */
+export type PatientAccess = { at: string; role: string }
 
 export const copyRequestOf = (flags: unknown): CopyRequest | null => {
   const c = (flags as { copy_request?: CopyRequest } | null)?.copy_request
@@ -54,14 +57,19 @@ async function disclosureOf(tx: Tx, patientId: string): Promise<string> {
   return p?.disclosure ?? 'unknown'
 }
 
-/** Records or clinician staff record that the copy was given (by hand, by email, or by clearing disclosure). */
-export async function giveCopy(ctx: Ctx<Session>, documentId: string): Promise<{ ok: true }> {
+/**
+ * Records or clinician staff give the patient access to read this one paper in the portal, answering their request. Every
+ * other paper stays as it was. The request closes and the access is audited.
+ */
+export async function grantAccess(ctx: Ctx<Session>, documentId: string): Promise<{ ok: true }> {
+  if (ctx.session.kind !== 'staff') throw new HttpError(403, 'forbidden', 'Not allowed')
   const [d] = await ctx.db.select({ flags: documents.flags }).from(documents).where(eq(documents.id, documentId))
   const c = d ? copyRequestOf(d.flags) : null
-  if (!c || c.givenAt) throw new HttpError(409, 'no_open_request', 'No copy request is waiting for this paper')
+  if (!c || c.givenAt) throw new HttpError(409, 'no_open_request', 'No request is waiting for this paper')
   const givenAt = (await now(ctx.session.orgId)).toISOString()
-  await ctx.db.update(documents).set({ flags: sql`${documents.flags} || ${JSON.stringify({ copy_request: { ...c, givenAt } })}::jsonb`, updatedAt: new Date(givenAt) }).where(eq(documents.id, documentId))
-  await ctx.audit('document.copy_given', 'document', documentId, { hoursTaken: Math.round((Date.parse(givenAt) - Date.parse(c.at)) / 3_600_000) })
+  const access: PatientAccess = { at: givenAt, role: ctx.session.role }
+  await ctx.db.update(documents).set({ flags: sql`${documents.flags} || ${JSON.stringify({ copy_request: { ...c, givenAt }, patient_access: access })}::jsonb`, updatedAt: new Date(givenAt) }).where(eq(documents.id, documentId))
+  await ctx.audit('document.patient_access_given', 'document', documentId, { hoursTaken: Math.round((Date.parse(givenAt) - Date.parse(c.at)) / 3_600_000) })
   return { ok: true }
 }
 

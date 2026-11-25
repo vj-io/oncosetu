@@ -136,7 +136,9 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
         disputed: !!x.disputed,
         open: !!x.open,
         ...(reports ? { reports } : {}),
-        copy: x.copy ? tp(lang, x.copy.givenAt ? 'copyGiven' : 'copyAsked', { date: formatDateIN(istDate(x.copy.givenAt ?? x.copy.at), lang) }) : null,
+        copy: !x.copy ? null
+          : !x.copy.givenAt ? tp(lang, 'copyAsked', { date: formatDateIN(istDate(x.copy.at), lang) })
+          : x.open ? tp(lang, 'copyGiven', { date: formatDateIN(istDate(x.copy.givenAt), lang) }) : null,
         canAsk: !x.open && !x.consentForm && !(x.copy && !x.copy.givenAt),
       }
     })

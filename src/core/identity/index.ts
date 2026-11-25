@@ -246,10 +246,16 @@ export const TOKEN_THRESHOLD = 0.92
 /** Keys shorter than this must match exactly (JW is unreliable for short names: Priya/Piya). */
 export const MIN_FUZZY_LEN = 6
 
+/** A medial "a" between consonants is written or dropped freely (schwa): Gavade/Gavde, Sadhana/Sadhna, Kamala/Kamla. */
+const schwaless = (k: string) => k.replace(/(?<=[^aeiou])a(?=[^aeiou])/g, '')
+/** Similarity given to a schwa-only difference: a match, reported as a variant. */
+export const SCHWA_SIM = 0.95
+
 function tokenSim(a: string, b: string): number {
   if (a === b) return 1
   // Joined tokens ('+' prefix, see variants) only match exactly.
   if (a[0] === '+' || b[0] === '+') return a.replace('+', '') === b.replace('+', '') ? 1 : 0
+  if (Math.min(a.length, b.length) >= 4 && schwaless(a) === schwaless(b)) return SCHWA_SIM
   if (Math.min(a.length, b.length) < MIN_FUZZY_LEN) return 0
   const s = jaroWinkler(a, b)
   return s >= TOKEN_THRESHOLD ? s : 0

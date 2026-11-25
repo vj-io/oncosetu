@@ -116,6 +116,15 @@ describe('compareNames', () => {
     ['S.S.', 'Sunita Sharma', 'insufficient'],
     ['Mr. SHETTY', 'Mr. R. V. Shetty', 'insufficient'], // a surname alone against an initials-and-surname alias
     ['R. V. Shetty', 'Mr. R. V. Shetty', 'match'],
+    // A medial "a" between consonants is written or dropped freely (schwa): short surnames included.
+    ['SUNITA DHANGRE', 'Sunita Dhangare', 'match'],
+    ['Sadhna Patil', 'Sadhana Patil', 'match'],
+    ['Jagdish Rao', 'Jagadish Rao', 'match'],
+    ['Kamala Gavde', 'Kamla Gavade', 'match'],
+    // ...but only "a": other vowels still separate names.
+    ['Komal Patil', 'Kamal Patil', 'mismatch'],
+    ['Sunita Dhongre', 'Sunita Dhangare', 'mismatch'],
+    ['Harsh Rao', 'Harish Rao', 'mismatch'],
     ['', 'Sunita Sharma', 'insufficient'],
   ])('%s vs %s → %s', (h, p, verdict) => expect(compareNames(h, p).verdict).toBe(verdict))
 })

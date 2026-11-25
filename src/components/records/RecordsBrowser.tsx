@@ -278,11 +278,11 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
         {(row.compared?.length || row.comparedBy?.length) ? (
           <ul className="grid gap-1 text-[14px]" data-testid="comparisons">
             {row.compared?.map((c) => {
-              const o = c.rowId ? byId.get(c.rowId) : null
+              const on = c.rowIds.map((rid) => byId.get(rid)).filter((o): o is RecordRow => !!o)
               return (
                 <li key={c.date}>
-                  Compared with {o
-                    ? <button type="button" onClick={() => onSelect(o.id)} className="underline underline-offset-4">{o.title}, {fmtDay(o.date)}</button>
+                  Compared with {on.length
+                    ? on.map((o, i) => <span key={o.id}>{i ? ' and ' : ''}<button type="button" onClick={() => onSelect(o.id)} className="underline underline-offset-4">{o.title}, {fmtDay(o.date)}</button></span>)
                     : <>a study of {fmtCompared(c)} <span className="text-muted">(not in this record)</span></>}
                 </li>
               )

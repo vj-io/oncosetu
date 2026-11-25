@@ -250,12 +250,18 @@ describe('earlier studies a report compares with (25 Nov 2026)', () => {
     expect(comparedDates('MRI dated 10/10/2026 (this study)', NOW, '2026-10-10')).toEqual([])
   })
   it('links to the paper of that day (a report before a scan), a month only when one paper fits, both ways', () => {
-    const r = (id: string, date: string, kind: RecordRow['kind'] = 'report') => ({ id, kind, docType: kind === 'report' ? 'imaging_report' : null, date, dateFrom: 'paper' as const })
-    const rows = [r('mri-2026', '2026-10-10'), r('mri-feb', '2025-02-12'), r('ct-feb', '2025-02-12', 'scan'), r('mri-dec', '2025-12-09'), r('a', '2025-07-11'), r('b', '2025-07-20')]
-    const out = linkComparisons(rows, new Map([['mri-2026', [{ date: '2025-02-12', month: false }, { date: '2025-12', month: true }, { date: '2025-07', month: true }, { date: '2024-01-01', month: false }]]]))
-    expect(out.find((x) => x.id === 'mri-2026')!.compared!.map((c) => c.rowId)).toEqual(['mri-feb', 'mri-dec', null, null])
+    const r = (id: string, date: string, kind: RecordRow['kind'] = 'report', docId = id) => ({ id, docId, kind, docType: kind === 'report' ? 'imaging_report' : null, date, dateFrom: 'paper' as const })
+    const rows = [r('mri-2026', '2026-10-10'), r('mri-feb', '2025-02-12'), r('mri-feb-2', '2025-02-12'), r('ct-feb', '2025-02-12', 'scan'), r('mri-dec', '2025-12-09'), r('a', '2025-07-11'), r('b', '2025-07-20')]
+    const asked = [{ date: '2025-02-12', month: false }, { date: '2025-12', month: true }, { date: '2025-07', month: true }, { date: '2024-01-01', month: false }]
+    const out = linkComparisons(rows, new Map([['mri-2026', asked]]))
+    expect(out.find((x) => x.id === 'mri-2026')!.compared!.map((c) => c.rowIds)).toEqual([['mri-feb', 'mri-feb-2'], ['mri-dec'], [], []]) // every report that day, never a pick
     expect(out.find((x) => x.id === 'mri-feb')!.comparedBy).toEqual(['mri-2026'])
-    expect(out.find((x) => x.id === 'ct-feb')!.comparedBy).toBeUndefined()
+    expect(out.find((x) => x.id === 'ct-feb')!.comparedBy).toBeUndefined() // a report that day comes before a scan
+    // A report in a file of several names its own file's study first.
+    const folder = [...rows, r('f.1', '2025-02-12', 'report', 'f'), r('f.2', '2026-10-10', 'report', 'f')]
+    expect(linkComparisons(folder, new Map([['f.2', [asked[0]]]])).find((x) => x.id === 'f.2')!.compared![0].rowIds).toEqual(['f.1'])
+    // Only a scan that day: the scan.
+    expect(linkComparisons([r('x', '2026-01-01'), r('s', '2025-03-03', 'scan')], new Map([['x', [{ date: '2025-03-03', month: false }]]]))[0].compared![0].rowIds).toEqual(['s'])
     expect(fmtCompared({ date: '2025-12', month: true })).toBe('Dec 2025')
   })
 })

@@ -69,7 +69,8 @@ describe('a file of several reports in All records (E-DOC-10)', () => {
       [`${file}.3`, expect.any(String), 'received', [4], 0, false, null], // no date of its own: shown by the day received
     ])
     expect(mine.every((r) => r.title === 'Imaging report' && r.section!.of === 3)).toBe(true)
-    expect(mine[1].compared).toEqual([{ date: '2025-02-12', month: false, rowId: `${file}.1` }]) // linked to report 1 of the same file
+    // Linked to report 1 of the same file, not to the other paper of that day.
+    expect(mine[1].compared).toEqual([{ date: '2025-02-12', month: false, rowIds: [`${file}.1`] }])
     expect(mine[0].comparedBy).toEqual([`${file}.2`])
     expect(rows.find((r) => r.id === single)).toMatchObject({ docId: single })
     expect(rows.find((r) => r.id === single)!.section).toBeUndefined()

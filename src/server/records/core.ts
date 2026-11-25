@@ -43,7 +43,7 @@ export type RecordRow = {
   /** One report of a file that holds several (E-DOC-10): its place in the file, its pages, and whether it is the file's newest. */
   section?: { n: number; of: number; pages: number[]; newest: boolean }
   /** Earlier studies this report says it was compared with (comparedDates), each linked to the paper on file of that date. */
-  compared?: (Compared & { rowId: string | null })[]
+  compared?: (Compared & { rowIds: string[] })[]
   /** Later reports that say they were compared with this paper. */
   comparedBy?: string[]
   kind: RecordKind
@@ -229,21 +229,25 @@ export function comparedDates(text: string, now: string | Date, own: string | nu
 }
 
 /**
- * Links each report's comparisons to the papers on file: an imaging paper (report or scan) dated that day, a report first when
- * both are there; for a month, only when exactly one imaging paper falls in it. The earlier paper learns which reports name it.
+ * Links each report's comparisons to the imaging papers on file dated that day: the ones in the same file when there are any
+ * (a folder of reports names its own earlier studies), else the reports of that day, else the scans; never one picked at
+ * random. A month-only date links only when exactly one imaging paper falls in that month. The earlier papers learn which
+ * reports name them.
  */
-export function linkComparisons<T extends Pick<RecordRow, 'id' | 'kind' | 'docType' | 'date' | 'dateFrom'>>(
+export function linkComparisons<T extends Pick<RecordRow, 'id' | 'docId' | 'kind' | 'docType' | 'date' | 'dateFrom'>>(
   rows: readonly T[], comparedOf: ReadonlyMap<string, Compared[]>,
 ): (T & Pick<RecordRow, 'compared' | 'comparedBy'>)[] {
   const imaging = rows.filter((r) => r.dateFrom === 'paper' && (r.kind === 'scan' || r.docType === 'imaging_report'))
   const by = new Map<string, string[]>()
   const linked = new Map<string, NonNullable<RecordRow['compared']>>()
   for (const [id, list] of comparedOf) {
+    const docId = rows.find((r) => r.id === id)?.docId
     linked.set(id, list.map((c) => {
       const hits = imaging.filter((r) => r.id !== id && (c.month ? r.date?.startsWith(c.date) : r.date === c.date))
-      const hit = c.month ? (hits.length === 1 ? hits[0] : null) : hits.find((r) => r.kind === 'report') ?? hits[0] ?? null
-      if (hit) by.set(hit.id, [...(by.get(hit.id) ?? []), id])
-      return { ...c, rowId: hit?.id ?? null }
+      const sameFile = hits.filter((r) => r.docId === docId), reports = hits.filter((r) => r.kind === 'report')
+      const chosen = c.month ? (hits.length === 1 ? hits : []) : sameFile.length ? sameFile : reports.length ? reports : hits
+      for (const h of chosen) by.set(h.id, [...(by.get(h.id) ?? []), id])
+      return { ...c, rowIds: chosen.map((h) => h.id) }
     }))
   }
   return rows.map((r) => {

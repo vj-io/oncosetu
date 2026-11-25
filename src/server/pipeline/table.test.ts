@@ -1,8 +1,10 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { PDFDocument } from 'pdf-lib'
 import sharp from 'sharp'
 import { describe, expect, it } from 'vitest'
 import { analyse, headerFor } from './core'
-import { pairCells, traceRules, verticalRules, wipeEdges } from './table'
+import { clearBorders, pairCells, traceRules, verticalRules, wipeEdges } from './table'
 import { readPages, tesseractOcr, type OcrProvider } from './text'
 
 // A ruled header table read cell by cell (25 Nov 2026). Synthetic pixels and synthetic report text only.
@@ -18,7 +20,7 @@ describe('finding the grid', () => {
   it('vertical rules are long unbroken runs; a column of stacked letters is not one', () => {
     // rules at x 10, 150 and 390; the first letters of three label rows stacked at x 50, 15 px each with gaps
     const { dark } = canvas(400, 100, [[10, 0, 12, 100], [150, 0, 152, 100], [390, 0, 392, 100], [50, 10, 53, 25], [50, 40, 53, 55], [50, 70, 53, 85]])
-    expect(verticalRules(dark, 400, 100).map((x) => Math.round(x))).toEqual([11, 151, 391])
+    expect(verticalRules(dark, 400, 100, 45).map((x) => Math.round(x))).toEqual([11, 151, 391])
   })
   it('a tilted, bending rule is traced across its block; a short stroke is not a rule', () => {
     const W = 300, H = 80
@@ -41,6 +43,18 @@ describe('finding the grid', () => {
     expect(darkIn(100, 10, 104, 52)).toBe(4 * 42)
     expect(darkIn(170, 29, 290, 32)).toBe(120 * 3) // a dash across the middle ("------") is the cell's value, not a rule
   })
+  it('clears what a cut leaves of a rule at the cell edge, grey edges too, and keeps glyphs that reach an edge', () => {
+    const W = 300, H = 60
+    const { px } = canvas(W, H, [[295, 5, W, 55], [200, 20, 206, H], [0, 20, 30, 45], [100, 15, 110, 45]])
+    for (let y = 0; y < 3; y++) for (let x = 40; x < 120; x++) px[y * W + x] = 160 // a rule's soft grey edge along the top
+    clearBorders(px, W, H)
+    const inkIn = (x0: number, y0: number, x1: number, y1: number) => { let n = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (px[y * W + x] < 255) n++; return n }
+    expect(inkIn(40, 0, 120, 3)).toBe(0) // the grey edge, which OCR reads as ink
+    expect(inkIn(295, 5, W, 55)).toBe(0) // a sliver of the right rule (reads as "I")
+    expect(inkIn(200, 20, 206, H)).toBe(6 * 40) // a tall glyph down to the bottom edge stays
+    expect(inkIn(0, 20, 30, 45)).toBe(30 * 25) // a wide glyph at the left edge stays
+    expect(inkIn(100, 15, 110, 45)).toBe(10 * 30)
+  })
 })
 
 describe('pairing label cells with value cells', () => {
@@ -62,39 +76,25 @@ describe('pairing label cells with value cells', () => {
   })
 })
 
-/** A ruled two-block header table on a phone photo: grey paper, tilted, slightly soft. Empty strings leave a cell blank. */
-async function tablePhoto(o: { name?: string; id?: string; age?: string; sex?: string; ruled?: boolean } = {}) {
-  const rows = [70, 110, 150, 190, 270], L = [150, 330, 740, 900, 1090]
-  let svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="1650"><rect width="100%" height="100%" fill="#fff"/>'
-  svg += '<text x="620" y="40" font-family="Arial" font-size="34" font-weight="bold" text-anchor="middle">CITY IMAGING CENTRE</text>'
-  if (o.ruled !== false) {
-    for (const y of rows) svg += `<rect x="${L[0]}" y="${y}" width="${L[4] - L[0]}" height="3"/>`
-    for (const x of L) svg += `<rect x="${x}" y="${rows[0]}" width="3" height="${rows.at(-1)! - rows[0] + 3}"/>`
-  }
-  const put = (x: number, y: number, t: string) => { if (t) svg += `<text x="${x + 10}" y="${y}" font-family="Arial" font-size="26">${t}</text>` }
-  const left: [string, string][] = [['Patient Name', o.name ?? 'Mrs. Asha Testkar'], ['Patient ID', o.id ?? 'PET/2026/0412'], ['Referral Dr', 'Dr. A. Rao']]
-  left.forEach(([l, v], i) => { put(L[0], rows[i] + 30, l); put(L[1], rows[i] + 30, v) })
-  put(L[0], rows[3] + 32, 'Study Date'); put(L[0], rows[3] + 70, 'Time'); put(L[1], rows[3] + 32, '03 Mar 2026'); put(L[1], rows[3] + 70, '10:15am')
-  put(L[2], rows[1] + 30, 'Age'); put(L[3], rows[1] + 30, o.age ?? '47Yr'); put(L[2], rows[2] + 30, 'Sex'); put(L[3], rows[2] + 30, o.sex ?? 'Female')
-  put(L[2], rows[3] + 32, 'Report Date'); put(L[2], rows[3] + 70, 'Time'); put(L[3], rows[3] + 32, '05 Mar 2026'); put(L[3], rows[3] + 70, '6:20pm')
-  for (const [i, l] of ['WHOLE BODY 18F-FDG PET/CT SCAN', 'Clinical history: Known case of carcinoma breast, post chemotherapy.', 'Findings: No abnormal FDG avid lesion is seen.', 'Impression: Complete metabolic response to therapy.'].entries()) {
-    svg += `<text x="150" y="${360 + i * 44}" font-family="Arial" font-size="26">${l}</text>`
-  }
-  const flat = await sharp(Buffer.from(`${svg}</svg>`)).flatten({ background: '#fff' }).jpeg({ quality: 92 }).toBuffer()
-  return new Uint8Array(await sharp(flat).rotate(1.2, { background: '#a49c90' }).modulate({ brightness: 0.82 }).blur(0.6).jpeg({ quality: 80 }).toBuffer())
-}
+/**
+ * Synthetic photos of a ruled two-block header table (grey paper, tilted, slightly soft), made once by
+ * scripts/test-fixtures/ruled-table.ts and read from disk: SVG text renders with each machine's own fonts, so a test that drew
+ * the table itself would hand OCR other pixels on CI than here.
+ */
+const FIXTURES = join(process.cwd(), 'data', 'fixtures', 'ruled-table')
+const photo = (file: string) => new Uint8Array(readFileSync(join(FIXTURES, file)))
 
 describe('a photographed ruled header table, end to end', () => {
   const PATIENT = { name: 'Asha Testkar', aliases: [], dob: '1978-06-01', sex: 'female' } // 47 on 05 Mar 2026
   const RECEIVED = new Date('2026-11-20T06:00:00Z')
   const counting = () => { const p = { ...tesseractOcr, lines: 0 }; p.recognizeLine = async (img) => { p.lines++; return tesseractOcr.recognizeLine!(img) }; return p as OcrProvider & { lines: number } }
-  const read = async (o: Parameters<typeof tablePhoto>[0], provider: OcrProvider = tesseractOcr) => {
-    const r = await readPages(await tablePhoto(o), 'image/jpeg', undefined, provider)
+  const read = async (file: string, provider: OcrProvider = tesseractOcr) => {
+    const r = await readPages(photo(file), 'image/jpeg', undefined, provider)
     if (r.kind !== 'pages') throw new Error(r.kind)
     return r.pages[0]
   }
-  it('reads every field, keeps the body, and every word is an exact slice of the page text', async () => {
-    const p = await read({})
+  it.each(['full.jpg', 'full-serif.jpg', 'full-liberation.jpg'])('%s: reads every field, keeps the body, and every word is an exact slice of the page text', async (file) => {
+    const p = await read(file)
     const h = headerFor(p.text)
     expect({ name: h.name?.value, age: h.age?.years, sex: h.sex?.sex, id: h.mrn?.value, date: h.reportDate?.value })
       .toEqual({ name: 'Mrs. Asha Testkar', age: 47, sex: 'F', id: 'PET/2026/0412', date: '05 Mar 2026' })
@@ -103,19 +103,19 @@ describe('a photographed ruled header table, end to end', () => {
     expect((await analyse([p], PATIENT, RECEIVED)).identified.identity).toMatchObject({ result: 'match' })
   }, 60_000)
   it('the wrong patient still does not pass: another age, the other sex, or only a name', async () => {
-    const id = async (o: Parameters<typeof tablePhoto>[0]) => (await analyse([await read(o)], PATIENT, RECEIVED)).identified.identity
-    expect(await id({ age: '52Yr' })).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
-    expect(await id({ sex: 'Male' })).toMatchObject({ result: 'mismatch', reasons: ['sex_mismatch'] })
-    expect((await id({ age: '', sex: '', id: '' })).result).not.toBe('match')
+    const id = async (file: string) => (await analyse([await read(file)], PATIENT, RECEIVED)).identified.identity
+    expect(await id('age-52.jpg')).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    expect(await id('sex-male.jpg')).toMatchObject({ result: 'mismatch', reasons: ['sex_mismatch'] })
+    expect((await id('name-only.jpg')).result).not.toBe('match')
   }, 120_000)
   it('a label whose value cell is blank gives no value', async () => {
-    const h = headerFor((await read({ age: '' })).text)
+    const h = headerFor((await read('age-blank.jpg')).text)
     expect(h.age).toBeUndefined()
     expect(h.sex?.sex).toBe('F')
   }, 60_000)
   it('the same header without ruled lines reads no cells at all', async () => {
     const p = counting()
-    await read({ ruled: false }, p)
+    await read('unruled.jpg', p)
     expect(p.lines).toBeLessThanOrEqual(2) // the header date strips at most; no table cells
   }, 60_000)
 })
@@ -183,6 +183,22 @@ describe('when the cell reading replaces the page OCR', () => {
     const out = await (await import('./table')).readHeaderTable(s.ocr, await gridPng([100, 400, 800], [94, 100, 130, 160, 190]), s.p)
     expect(s.p.lines).toBe(6)
     expect(out.text).toContain('Age\t47Yr')
+  })
+  it('with one label line read, the band is the page\'s top 45%, and a table much shorter than that is still read', async () => {
+    // a rule must span two rows of the table, not a share of the band: 90 px of rules in a 540 px band
+    const s = table([['Patient Xqw7 ~~ ##', 106], ['## 4 Sx', 136]], CELLS)
+    const out = await run(s)
+    expect(s.p.lines).toBe(6)
+    expect(out.text).toContain('Age\t47Yr')
+  })
+  it('rows the page OCR garbled between two label lines stay in the band, down to the last row', async () => {
+    // six rows; the page OCR read labels on the first two rows and the last, and noise between them
+    const rows = [100, 130, 160, 190, 220, 250, 280]
+    const s = table([['Patient Xqw7 ~~ ##', 106], ['Patient ~~ ##', 136], ['~~ ## ~', 166], ['## ~~', 196], ['~ ##', 226], ['Report Dxte ~~', 256]],
+      ['Patient Name', 'Patient ID', 'Referral Dr', 'Age', 'Sex', 'Report Date', 'Asha Testkar', 'PET/1', 'Dr A Rao', '47Yr', 'Female', '05 Mar 2026'])
+    const out = await (await import('./table')).readHeaderTable(s.ocr, await gridPng([100, 400, 800], rows), s.p)
+    expect(out.text).toContain('Sex\tFemale')
+    expect(out.text).toContain('Report Date\t05 Mar 2026')
   })
   it('reads at most 40 cells, however many the grid has', async () => {
     // no label line read: the band is the page's top 45%; 2 columns x 27 rows of blank cells, 16 px apart

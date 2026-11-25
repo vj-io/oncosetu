@@ -23,15 +23,19 @@ const runs = (n: number, on: (i: number) => boolean) => {
   return out
 }
 
-/** Vertical rules: columns (±1 px, for tilt) holding one continuous dark run over >= 30% of the band; stacked glyphs break. */
-export function verticalRules(dark: (x: number, y: number) => boolean, W: number, H: number): number[] {
+/**
+ * Vertical rules: columns (±1 px, for tilt) holding one continuous dark run of >= `minRun` px; the letters of a label column
+ * stacked row above row break between rows. The run is set by the text's height, not the band's: a band that holds much
+ * more than the table (the page's top when few labels were read) must not hide a short table's rules.
+ */
+export function verticalRules(dark: (x: number, y: number) => boolean, W: number, H: number, minRun: number): number[] {
   const longest = (x: number) => {
     let best = 0, run = 0
     for (let y = 0; y < H; y++) { if (dark(x, y) || (x > 0 && dark(x - 1, y)) || (x + 1 < W && dark(x + 1, y))) { run++; if (run > best) best = run } else run = 0 }
     return best
   }
   const col = Array.from({ length: W }, (_, x) => longest(x))
-  return runs(W, (x) => col[x] >= H * 0.3).map(([a, b]) => Math.round((a + b) / 2))
+  return runs(W, (x) => col[x] >= minRun).map(([a, b]) => Math.round((a + b) / 2))
 }
 
 /**
@@ -86,10 +90,45 @@ export function wipeEdges(px: Uint8Array, W: number, H: number): void {
   for (let i = 0; i < W * H; i++) if (kill[i]) px[i] = 255
 }
 
+/**
+ * Clears what a cut leaves of the rules around a cell: pieces that touch the cell's left or right edge and are no wider than
+ * 4% of it (a sliver of a vertical rule reads as "I"), or touch its top or bottom edge and are no taller than a fifth of it.
+ * Grey counts as ink here: a photographed rule's soft edge is grey, and OCR reads it as ink ("a7¥r" for "47Yr"). Glyphs keep
+ * their padding from the edges, or are taller than that.
+ */
+export function clearBorders(px: Uint8Array, W: number, H: number): void {
+  const seen = new Uint8Array(W * H)
+  const stack: number[] = []
+  const starts: number[] = []
+  for (let y = 0; y < H; y++) starts.push(y * W, y * W + W - 1)
+  for (let x = 0; x < W; x++) starts.push(x, (H - 1) * W + x)
+  for (const s0 of starts) {
+    if (seen[s0] || px[s0] >= 192) continue
+    const members: number[] = []
+    let x0 = W, x1 = -1, y0 = H, y1 = -1
+    seen[s0] = 1
+    stack.push(s0)
+    while (stack.length) {
+      const p = stack.pop()!
+      members.push(p)
+      const x = p % W, y = (p - x) / W
+      if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y
+      for (const q of [p - 1, p + 1, p - W, p + W]) {
+        if (q < 0 || q >= W * H || (q === p - 1 && x === 0) || (q === p + 1 && x === W - 1) || seen[q] || px[q] >= 192) continue
+        seen[q] = 1
+        stack.push(q)
+      }
+    }
+    const side = (x0 === 0 || x1 === W - 1) && x1 - x0 + 1 <= Math.max(6, W * 0.04)
+    const flat = (y0 === 0 || y1 === H - 1) && y1 - y0 + 1 <= Math.max(6, H * 0.2)
+    if (side || flat) for (const p of members) px[p] = 255
+  }
+}
+
 /** Every cell of the ruled grid in a greyscale band (W x H), read through the provider. `textH`: the text's height in px. */
 export async function readCells(g: Uint8Array, W: number, H: number, textH: number, provider: OcrProvider & Required<Pick<OcrProvider, 'recognizeLine'>>): Promise<Cell[]> {
   const dark = (x: number, y: number) => g[y * W + x] < 128
-  const vr = verticalRules(dark, W, H)
+  const vr = verticalRules(dark, W, H, 3 * textH) // a rule spans two rows of the table at least
   const cells: Cell[] = []
   let reads = 0
   for (let i = 0; i + 1 < vr.length; i++) {
@@ -106,6 +145,7 @@ export async function readCells(g: Uint8Array, W: number, H: number, textH: numb
       for (let j = 0; j < w; j++) for (let r = 0; top[j] + 3 + r <= bot[j] - 3 && r < h; r++) px[r * w + j] = g[(top[j] + 3 + r) * W + xa + j]
       const big = await sharp(px, { raw: { width: w, height: h, channels: 1 } }).resize({ width: w * 3 }).normalise().extractChannel(0).raw().toBuffer({ resolveWithObject: true })
       wipeEdges(big.data, big.info.width, big.info.height)
+      clearBorders(big.data, big.info.width, big.info.height)
       const png = await sharp(big.data, { raw: { width: big.info.width, height: big.info.height, channels: 1 } }).png().toBuffer()
       // a cell of two lines ("Study Date / Time") is read as a block, a cell of one line as one line
       reads++
@@ -177,14 +217,14 @@ export async function readHeaderTable(ocr: OcrResult, image: Buffer, provider: O
   const heights = ocr.words.filter((w) => w.b && /[A-Za-z0-9]{2,}/.test(w.t)).map((w) => w.b![3] - w.b![1]).sort((a, b) => a - b)
   if (!heights.length) return ocr
   const textH = heights[heights.length >> 1]
-  // the header's label lines: the first run of lines holding a header label, each within three text heights of the last
-  // (a later "Study" or "Date" in the report's body is not part of the table)
+  // the header's label lines: the first run of lines holding a header label, each within eight text heights of the last
+  // (rows the page OCR garbled lie between them; a "Study" or "Date" further down in the report's body is not the table)
   const labelLines = spans.slice(0, HEADER_LINES).map((sp, i) => ({ i, ws: lineWords[i] }))
     .filter(({ i, ws }) => ws.length && LABEL_LINE.test(ocr.text.slice(spans[i].s, spans[i].e)))
     .map(({ ws }) => ({ ws, top: Math.min(...ws.map((w) => w.b![1])), bot: Math.max(...ws.map((w) => w.b![3])) }))
     .sort((p, q) => p.top - q.top)
   const cluster = labelLines.slice(0, 1)
-  for (const l of labelLines.slice(1)) { if (l.top - Math.max(...cluster.map((c) => c.bot)) > 3 * textH) break; cluster.push(l) }
+  for (const l of labelLines.slice(1)) { if (l.top - Math.max(...cluster.map((c) => c.bot)) > 8 * textH) break; cluster.push(l) }
   const labelWords = cluster.length >= 2 ? cluster.flatMap((c) => c.ws) : []
   const meta = await sharp(image).metadata()
   const Wd = meta.width ?? 0, Hd = meta.height ?? 0

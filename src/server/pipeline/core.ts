@@ -1,7 +1,7 @@
 // Pure pipeline core (PRD §9.1 stages 3–9): pages → classification → header/identity → candidates → evidence gate
 // → dated draft events. No DB and no request context, so scripts/eval.ts runs exactly this code offline.
 import {
-  classifyDocument, detectInjection, extractPatterns, parseHeader, type Extraction, type LabelledSpan, type ParsedHeader, type Span,
+  classifyDocument, detectInjection, exactValues, extractPatterns, parseHeader, tableRules, type Extraction, type LabelledSpan, type ParsedHeader, type Span,
 } from '@/core/extract'
 import { daysBetween, findDates, parseDate, usesDayFirst, type ParsedDate } from '@/core/dates'
 import { runGate, type Candidate, type GateEvidence, type GatePage, type GateResult, type RejectReason, type Rejected } from '@/core/gate'
@@ -79,32 +79,35 @@ export type HeaderOut = {
 
 const span = (s?: Span): HeaderField | undefined => (s ? { value: s.value, start: s.start, end: s.end } : undefined)
 
-// Document-date labels in priority order (FR-EXT-04 `document_date` = the report's own date). A colon is required so
-// references such as "(reported 18/03/2026)" to another report never win.
+// Document-date labels in priority order (FR-EXT-04 `document_date` = the report's own date). A colon, or a table cell
+// break after the label ("Report Date <TAB> 05 Mar 2026"), is required so references such as "(reported 18/03/2026)" to
+// another report never win.
 const DOC_DATE_LABELS: [string, RegExp][] = [
-  ['report date', /(?<![\p{L}])(?:Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+(?:of\s+)?Report(?:ed|ing)?|Reporting\s+Date|Reported(?:\s+on)?|Summary\s+(?:Date|issued(?:\s+on)?))\s*[:：]/giu],
-  ['addendum date', /(?<![\p{L}])Addendum\s+Date\s*[:：]/giu],
-  ['discharge date', /(?<![\p{L}])(?:Date\s+of\s+Discharge|Discharge\s+Date|D\.?\s?O\.?\s?D\.?)\s*[:：]/giu],
-  ['visit date', /(?<![\p{L}])(?:Date\s+of\s+(?:Visit|Study|Scan|Consultation|Procedure|Examination|Surgery|Operation)|(?<!(?:next|follow[\s-]?up|review|subsequent|last|previous|prior)\s+)Visit(?:\s+Date)?|Scan\s+Date)\s*[:：]/giu],
-  ['collection date', /(?<![\p{L}])(?:(?:Sample\s+)?Collect(?:ed|ion)\s*(?:Date|On)?|Date\s+(?:of\s+)?Collect(?:ed|ion))\s*[:：]/giu],
-  ['date', /(?<![\p{L}])(?:Date|Dated|Dt\.?|दिनांक|तारीख़?)\s*[:：]/giu],
-  ['admission date', /(?<![\p{L}])(?:Date\s+of\s+Admission|Admission\s+Date|D\.?\s?O\.?\s?A\.?)\s*[:：]/giu],
+  ['report date', /(?<![\p{L}])(?:Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+(?:of\s+)?Report(?:ed|ing)?|Reporting\s+Date|Reported(?:\s+on)?|Summary\s+(?:Date|issued(?:\s+on)?))(?:\s*[:：]|[ ]*\t)/giu],
+  ['addendum date', /(?<![\p{L}])Addendum\s+Date(?:\s*[:：]|[ ]*\t)/giu],
+  ['discharge date', /(?<![\p{L}])(?:Date\s+of\s+Discharge|Discharge\s+Date|D\.?\s?O\.?\s?D\.?)(?:\s*[:：]|[ ]*\t)/giu],
+  ['visit date', /(?<![\p{L}])(?:Date\s+of\s+(?:Visit|Study|Scan|Consultation|Procedure|Examination|Surgery|Operation)|(?<!(?:next|follow[\s-]?up|review|subsequent|last|previous|prior)\s+)Visit(?:\s+Date)?|(?:Scan|Study|Exam(?:ination)?)\s+Date)(?:\s*[:：]|[ ]*\t)/giu],
+  ['collection date', /(?<![\p{L}])(?:(?:Sample\s+)?Collect(?:ed|ion)\s*(?:Date|On)?|Date\s+(?:of\s+)?Collect(?:ed|ion))(?:\s*[:：]|[ ]*\t)/giu],
+  ['date', /(?<![\p{L}])(?:Date|Dated|Dt\.?|दिनांक|तारीख़?)(?:\s*[:：]|[ ]*\t)/giu],
+  ['admission date', /(?<![\p{L}])(?:Date\s+of\s+Admission|Admission\s+Date|D\.?\s?O\.?\s?A\.?)(?:\s*[:：]|[ ]*\t)/giu],
 ]
 
 /** Between a date label and its date: separators, and a weekday as printed ("Visit: Thursday, 7 May 2026"). */
 const LABEL_TO_DATE = /^[\s\-–=.]*(?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day,?\s*)?$/i
 
-function pickDocumentDate(text: string): LabelledSpan | undefined {
+/** Every labelled date of a page, in label priority order. */
+function* documentDates(text: string): Generator<LabelledSpan> {
   for (const [label, re] of DOC_DATE_LABELS) {
     for (const m of text.matchAll(re)) {
       const after = m.index! + m[0].length
       const window = text.slice(after, after + 40)
       const d = findDates(window).find((s) => s.kind === 'absolute' && LABEL_TO_DATE.test(window.slice(0, s.start)))
-      if (d) return { value: d.raw, start: after + d.start, end: after + d.end, label, labelStart: m.index! }
+      if (d) yield { value: d.raw, start: after + d.start, end: after + d.end, label, labelStart: m.index! }
     }
   }
-  return undefined
 }
+
+const pickDocumentDate = (text: string): LabelledSpan | undefined => documentDates(text).next().value ?? undefined
 
 const INST_WORD = /(?:hospital|institute|centre|center|clinic|diagnostic|laborator|lab\b|medical|healthcare|pathology|imaging|cancer|oncology|memorial|trust|college|nursing\s+home|unit\b|day-?care|लेबोरेटरी|प्रयोगशाला|अस्पताल|संस्थान|चिकित्सालय|केंद्र|क्लिनिक)/iu
 
@@ -137,13 +140,14 @@ const PATIENT_LABEL = /(?<![\p{L}])(?:Patient|Pt\.?)\s*[:：][ \t]*([\p{L}][\p{L
 /**
  * Two-column header tables ("Date of Operation <TAB> 21 Jul 2026", "Patient <TAB> Ghulam Nabi Dar, 67 Y / M"): the tab after
  * a label cell that starts a line reads as the colon the label pickers require. Same length, so every offset still
- * points into the page text.
+ * points into the page text. A value cell that brings its own colon ("Patient Name <TAB> : Asha Rao", aligned colons)
+ * keeps the tab: a second colon would hide the value.
  */
-const tableLabels = (text: string) => text.replace(/^[ \t]*[\p{L}][^\t\n:：]{1,39}?[ ]*\t/gmu, (m) => `${m.slice(0, -1)}:`)
+const tableLabels = (text: string) => text.replace(/^[ \t]*[\p{L}][^\t\n:：]{1,39}?[ ]*\t(?![ \t]*[:：])/gmu, (m) => `${m.slice(0, -1)}:`)
 
 /** Core header + the pipeline's document-date and letterhead pickers (offsets into the page). */
 export function headerFor(page: string): ParsedHeader {
-  const text = tableLabels(page)
+  const text = tableLabels(tableRules(page))
   const parsed = parseHeader(text)
   if (!parsed.name) {
     const m = PATIENT_LABEL.exec(text)
@@ -154,7 +158,7 @@ export function headerFor(page: string): ParsedHeader {
   }
   parsed.reportDate = pickDocumentDate(text) ?? parsed.reportDate
   parsed.institution = pickInstitution(page) ?? (parsed.institution && INST_WORD.test(parsed.institution.value) ? parsed.institution : undefined)
-  return parsed
+  return exactValues(parsed, page)
 }
 
 export type Identified = {
@@ -195,9 +199,34 @@ export type Section = { pages: number[]; date: ParsedDate | null; docType: DocTy
 const HEADER_LINES = 15
 
 /**
+ * The header block of a page: its first HEADER_LINES lines. On an OCR'd page it also takes every further line that starts in
+ * the top 30% of the page's text, up to 25 lines: a photo's OCR splits printed rows and adds edge noise, and a report's
+ * header date was read at line 17 of a page, 26% of the way down (25 Nov 2026; on the file's other pages, 21-28%).
+ */
+function headerBlock(p: Pick<PageRead, 'text' | 'words'>): string {
+  const lines = p.text.split('\n')
+  let n = HEADER_LINES
+  const boxed = (p.words ?? []).filter((w) => w.b)
+  if (boxed.length && lines.length > n) {
+    const top = Math.min(...boxed.map((w) => w.b![1])), bottom = Math.max(...boxed.map((w) => w.b![3]))
+    const cut = top + 0.3 * (bottom - top)
+    let at = lines.slice(0, n).join('\n').length + 1
+    while (n < Math.min(lines.length, 25)) {
+      const end = at + lines[n].length
+      const first = boxed.find((w) => w.s >= at && w.e <= end)
+      if (!first || first.b![1] > cut) break
+      at = end + 1
+      n++
+    }
+  }
+  return lines.slice(0, n).join('\n')
+}
+
+/**
  * E-DOC-10: split a file into the reports it holds. A readable page starts a new report only when its header carries a
- * labelled date and that date differs from the current report's, or the current report has no date and the page has a
- * letterhead, or the page has a letterhead and scores strongly for another class. A clear change of kind starts one without
+ * labelled date that differs from the current report's and shares no labelled date with it (a header that prints a study
+ * and a report date, read whole on one page and half on the next, is one report), or the current report has no date and
+ * the page has a letterhead, or the page has a letterhead and scores strongly for another class. A clear change of kind starts one without
  * a date too: the page reads as another class (score ≥ 6) and hardly at all as the current one (≤ 2), and it has a
  * letterhead or a date label of its own; that report's date stays unknown. A page with no readable text (held as
  * handwritten, blank) stays with the report before it. One section means one report. Only the file's first readable page is
@@ -205,20 +234,28 @@ const HEADER_LINES = 15
  */
 export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pick<Classified, 'usable' | 'docType'>, receivedAt: Date): Section[] {
   const usable = new Map(c.usable.map((p) => [p.pageNo, p]))
-  const out: (Section & { read: boolean; texts: string[] })[] = []
+  const out: (Section & { read: boolean; texts: string[]; dates: Set<string> })[] = []
   const none = { date: null, institution: null }
+  const day = (raw: string) => { const d = parseDate(raw, { now: receivedAt }); return d.iso && d.precision === 'day' ? d : null }
   for (const pageNo of pages.map((p) => p.pageNo).sort((a, b) => a - b)) {
     const cur = out.at(-1)
     const p = usable.get(pageNo)
     if (!p) {
       if (cur) cur.pages.push(pageNo)
-      else out.push({ pages: [pageNo], ...none, docType: c.docType, read: false, texts: [] })
+      else out.push({ pages: [pageNo], ...none, docType: c.docType, read: false, texts: [], dates: new Set() })
       continue
     }
     // The file's first readable page is read whole, as readHeader reads it for the file's own date.
-    const h = headerFor(cur?.read ? p.text.split('\n').slice(0, HEADER_LINES).join('\n') : p.text)
-    const parsed = h.reportDate ? parseDate(h.reportDate.value, { now: receivedAt }) : null
-    const date = parsed?.iso && parsed.precision === 'day' ? parsed : null
+    const head = headerBlock(p)
+    const h = headerFor(cur?.read ? head : p.text)
+    const date = h.reportDate ? day(h.reportDate.value) : null
+    // A header can print two dates (study and report); OCR may lose either on a page. A page whose header shares any date
+    // with the report so far is that report's page.
+    // ponytail: two reports of one kind, the later header printing the earlier report's date as its second date (registered
+    // the day the first was reported), stay one report; a per-report sample or accession number would tell them apart.
+    const dates = new Set([...documentDates(tableLabels(tableRules(head)))].map((d) => day(d.value)?.iso).filter((d): d is string => !!d))
+    if (date) dates.add(date.iso!)
+    const shares = !!cur && [...dates].some((d) => cur.dates.has(d))
     const cls = classifyDocument([p.text])
     const score = cls.docType !== 'other' ? cls.scores[cls.docType] ?? 0 : 0
     const strong = score >= 9 ? cls.docType : null
@@ -227,14 +264,15 @@ export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pic
     const letterhead = !!h.institution
     const newKind = !!cur && !!kind && kind !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 2 && (letterhead || !!h.reportDate)
     if (!cur || (cur.read && ((date && (
-      (cur.date && date.iso !== cur.date.iso) || (!cur.date && letterhead)
+      (cur.date && date.iso !== cur.date.iso && !shares) || (!cur.date && letterhead)
       || (letterhead && strong && strong !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 3)
-    )) || newKind))) out.push({ pages: [pageNo], date, docType: kind ?? c.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text] })
-    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: kind ?? cur.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text] })
+    )) || newKind))) out.push({ pages: [pageNo], date, docType: kind ?? c.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text], dates })
+    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: kind ?? cur.docType, institution: h.institution?.value ?? null, read: true, texts: [p.text], dates })
     else {
       cur.pages.push(pageNo)
       cur.date ??= date
       cur.texts.push(p.text)
+      for (const d of dates) cur.dates.add(d)
     }
   }
   // Each report is named by all its readable pages together, not by its first page alone (a lab report whose first page

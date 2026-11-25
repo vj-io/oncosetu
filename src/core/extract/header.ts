@@ -35,10 +35,21 @@ export interface ParsedHeader {
 }
 
 const SEP = String.raw`\s*[:：\-–=.]?\s*`
-const STOP = String.raw`(?=\s{2,}|\t|\s*[|,;]|\s*$|\s+(?:Age|Sex|Gender|UHID|MRN|MR\s*No|CR\s*No|Reg|Regn|IP\s*No|IPD|OP\s*No|OPD|Lab\s*No|Lab\s*ID|Patient\s*ID|PID|DOB|D\.O\.B|Date|Ref|Referred|Bill|Visit|Collected|Received|Reported|Sample|उम्र|आयु|लिंग)\b)`
+/** Words that label a header cell; a value never starts with one ("Name | Age | Sex" is a row of column headings). */
+const FIELD_WORDS = String.raw`Age|Sex|Gender|UHID|MRN|MR\s*No|CR\s*No|Reg|Regn|IP\s*No|IPD|OP\s*No|OPD|Lab\s*No|Lab\s*ID|Patient\s*ID|PID|DOB|D\.O\.B|Date|Ref|Referred|Referral|Bill|Visit|Collected|Received|Reported|Report|Sample|Study|Time|उम्र|आयु|लिंग`
+const STOP = String.raw`(?=\s{2,}|\t|\s*[|,;]|\s*$|\s+(?:${FIELD_WORDS})\b)`
 
 const NAME_LABEL = String.raw`(?<![\p{L}\p{M}])(?:Patient(?:'s)?\s*Name|Pt\.?\s*Name|Name\s+of\s+(?:the\s+)?Patient|(?<!(?:Doctor|Father|Husband|Test|Hospital|Guardian|Consultant|Mother|Spouse|Relative|Kin|Investigation|Specimen|Sample|Institution|Dr|Lab|Centre|Center|Clinic)'?s?\.?[ \t]*)Name|रोगी\s+का\s+नाम|मरीज़?\s+का\s+नाम|नाम)`
-const NAME_RE = new RegExp(String.raw`${NAME_LABEL}${SEP}([\p{L}][\p{L}\p{M}.'’ /]*?)${STOP}`, 'gimud')
+const NAME_RE = new RegExp(String.raw`${NAME_LABEL}${SEP}(?!(?:${FIELD_WORDS})(?![\p{L}\p{M}]))([\p{L}][\p{L}\p{M}.'’ /]*?)${STOP}`, 'gimud')
+
+/**
+ * A photographed header table: OCR reads its ruled lines as "|" (or "[", "]" hugging a cell's text), between a label
+ * cell and its value ("Patient Name | Asha Rao", "[Sex [Female |"). Each such mark becomes a tab, the column break
+ * readWords writes for a wide gap, so the label pickers read cells either way. Same length: every offset still points
+ * into the page text.
+ */
+export const tableRules = (text: string) =>
+  text.replace(/[|¦]|(?<=^|\s)[[\]{}](?=\S)|(?<=\S)[[\]{}](?=\s|$)/gm, '\t')
 
 const AGE_UNIT = String.raw`(?:\s*(?:Y(?:ea)?rs?|Years?|Y|M(?:onths?|ths?)?|D(?:ays?)?|वर्ष|साल)\.?)?`
 const AGE_VAL = String.raw`([0-9०-९]{1,3}${AGE_UNIT})`
@@ -78,7 +89,7 @@ const DATE_LABELS = {
   generic: String.raw`Date\s+of\s+(?:Visit|Consultation|Study|Exam(?:ination)?|Scan|Procedure)|Visit\s+Date|Bill\s+Date|(?<=(?:^|\n)[ \t]*)Dated|Dated(?=\s*[:：])|Date|Dt\.?|दिनांक|तारीख़?`,
 }
 const DOB_LABEL = String.raw`D\.?O\.?B\.?|Date\s+of\s+Birth|Birth\s*Date|जन्म\s*(?:तिथि|तारीख़?)`
-const REF_LABEL = String.raw`Ref(?:\.|erred)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)|Ref\.?\s*Physician|Consultant|Treating\s+Doctor`
+const REF_LABEL = String.raw`Ref(?:\.|erred|erral)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)|Ref\.?\s*Physician|Consultant|Treating\s+Doctor`
 const REF_RE = new RegExp(String.raw`(?<![\p{L}])(${REF_LABEL})${SEP}((?:Dr\.?\s*)?[\p{L}][\p{L}\p{M}.' ]{1,60}?)${STOP}`, 'gimu')
 
 // A doctor named in a header table cell: "Consultant: \tDr. R. S. Joglekar (Medical Oncology)". Name only, never the
@@ -86,7 +97,7 @@ const REF_RE = new RegExp(String.raw`(?<![\p{L}])(${REF_LABEL})${SEP}((?:Dr\.?\s
 const DOCTOR_LABELS = [
   String.raw`Primary\s+(?:Oncologist|Consultant)|Consultant\s+in\s+charge`,
   String.raw`Consultant|Treating\s+(?:Doctor|Consultant|Physician)`,
-  String.raw`Ref(?:\.|erred)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)`,
+  String.raw`Ref(?:\.|erred|erral)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)`,
   String.raw`Admitting\s+(?:Doctor|Physician|Consultant)`,
 ]
 const DOCTOR_NAME = String.raw`(Dr\.?\s*[\p{L}][\p{L}\p{M}.']*(?:[ ]+(?!(?:Date|Report|Reported|Age|Sex|UHID|Ward|Bed|Cycle|Length|Specimen|Sample|Lab|Reg)\b)[\p{L}][\p{L}\p{M}.']*){0,4})`
@@ -124,8 +135,20 @@ function labelledDate(text: string, labelSrc: string, label: string): LabelledSp
   return undefined
 }
 
-/** Parses identity + document-date header fields from one page (normally page 1). */
-export function parseHeader(text: string): ParsedHeader {
+/** Parses identity + document-date header fields from one page (normally page 1). Every value is `raw.slice(start, end)`. */
+export function parseHeader(raw: string): ParsedHeader {
+  return exactValues(parseCells(tableRules(raw)), raw)
+}
+
+/** Re-takes every span's value from `raw`, for a header parsed from a same-length rewrite of it (tableRules). */
+export function exactValues(h: ParsedHeader, raw: string): ParsedHeader {
+  for (const s of [h.name, h.age, h.sex, h.dob, h.reportDate, h.reportedDate, h.collectionDate, h.genericDate, h.institution, h.referringDoctor, h.doctor, ...h.ids]) {
+    if (s) s.value = raw.slice(s.start, s.end)
+  }
+  return h
+}
+
+function parseCells(text: string): ParsedHeader {
   const out: ParsedHeader = { ids: [] }
 
   for (const m of text.matchAll(NAME_RE)) {

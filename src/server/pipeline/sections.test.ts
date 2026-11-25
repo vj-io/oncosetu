@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { analyse, classify, splitSections } from './core'
+import type { OcrWord } from '@/db/schema'
+import { analyse, classify, headerFor, splitSections } from './core'
 import { olderRecord } from './queries'
 import type { PageRead } from './text'
 
@@ -108,3 +109,67 @@ describe('"older record, newly received" goes by the paper\'s own date (E-DOC-15
   })
 })
 
+
+// A photographed report whose table header prints a study date and a report date on every page (25 Nov 2026, pilot PET-CT
+// file). Synthetic text in the shape its pages read: "|" for the table's rules, tabs between cells.
+describe('photographed table headers', () => {
+  const pet = (study: string, reportDate: string | null, body = 'WHOLE BODY PET-CT SCAN\nFindings: No abnormal FDG avid lesion.\nImpression: Complete metabolic response.\n') =>
+    `CITY PET-CT IMAGING CENTRE\nPatient Name | Mrs. Asha Testkar\tAge | 47Yr\nPatient ID\tPET/2026/0412\tSex | Female\nStudy Date\t${study}\t${reportDate ? `Report Date | ${reportDate}` : 'Time | 6:20pm'}\n${body}`
+  it('headerFor takes the report date from a table cell, over the study date', () => {
+    expect(headerFor(pet('03 Mar 2026', '05 Mar 2026')).reportDate).toMatchObject({ value: '05 Mar 2026', label: 'report date' })
+    expect(headerFor(pet('03 Mar 2026', null)).reportDate).toMatchObject({ value: '03 Mar 2026', label: 'visit date' })
+    // a plain "Date" cell in the middle of a row (its label word lost to OCR)
+    expect(headerFor('CITY PET-CT IMAGING CENTRE\nPatient Name | Asha Testkar\tDate | 05 Mar 2026\n').reportDate).toMatchObject({ value: '05 Mar 2026', label: 'date' })
+  })
+  it('a value read across a table rule is the page text exactly, its "|" kept', () => {
+    const t = 'Name: Asha Testkar\nAge: 47\nSex: F\nUHID: 77\nDate: 03/03/2026\nRef: Dr A Rao\nCITY HOSPITAL AND RESEARCH CENTRE FOR CANCER CARE | RADIOLOGY\n'
+    const h = headerFor(t)
+    expect(h.institution?.value).toBe('CITY HOSPITAL AND RESEARCH CENTRE FOR CANCER CARE | RADIOLOGY')
+    expect(t.slice(h.institution!.start, h.institution!.end)).toBe(h.institution!.value)
+  })
+  it('aligned colons after a label cell ("Patient Name <TAB> : X") still give the name', () => {
+    const h = headerFor('CITY HOSPITAL\nPatient Name\t: Asha Testkar\tAge\t: 47 years\nGender\t:\tFemale\n')
+    expect(h.name?.value).toBe('Asha Testkar')
+    expect(h.sex?.sex).toBe('F')
+  })
+  it('a page whose header lost its report date but shares the study date stays in the same report', () => {
+    expect(split([page(1, pet('03 Mar 2026', '05 Mar 2026')), page(2, pet('03 Mar 2026', null)), page(3, pet('03 Mar 2026', '05 Mar 2026'))]))
+      .toEqual([[[1, 2, 3], '2026-03-05']])
+    // The dates a report's pages share add up: page 3 shares only page 2's study date.
+    expect(split([page(1, pet('—', '05 Mar 2026')), page(2, pet('03 Mar 2026', '05 Mar 2026')), page(3, pet('03 Mar 2026', null))]))
+      .toEqual([[[1, 2, 3], '2026-03-05']])
+    // A report that shares no date with it is a report of its own.
+    expect(split([page(1, pet('03 Mar 2026', '05 Mar 2026')), page(2, pet('01 Feb 2026', '03 Feb 2026'))]))
+      .toEqual([[[1], '2026-03-05'], [[2], '2026-02-03']])
+  })
+  // An OCR'd page: lines on a 15 px grid (or at the y given) over a 1000 px tall text extent, so each line's position is known
+  // (line 17 at 24%).
+  const ocrPage = (pageNo: number, lines: (string | [string, number])[]): PageRead => {
+    let text = ''
+    const words: OcrWord[] = []
+    lines.forEach((entry, i) => {
+      const [line, y] = typeof entry === 'string' ? [entry, i * 15] : entry
+      if (text) text += '\n'
+      for (const tok of line.split(/(\s+)/)) {
+        if (!tok.trim()) { text += tok; continue }
+        const s = text.length
+        text += tok
+        words.push({ t: tok, c: 0.9, s, e: text.length, b: [10, y, 10 + tok.length * 8, y + 12] })
+      }
+    })
+    words.push({ t: '.', c: 0.9, s: text.length, e: text.length + 1, b: [10, 984, 18, 1000] })
+    return page(pageNo, `${text}.`, { source: 'ocr', words })
+  }
+  const letterhead = ['CITY HOSPITAL', 'CITY CANCER CENTRE', 'A unit of the city trust', ...Array.from({ length: 13 }, (_, i) => `Road ${i + 1}, Phone 0000 000${i}`)]
+  it('on an OCR\'d page, a header date below line 15 but in the top 30% of the page starts a report; one further down does not', () => {
+    const first = page(1, pet('03 Mar 2026', '05 Mar 2026'))
+    expect(split([first, ocrPage(2, [...letterhead, 'Date: 14/01/2026', 'CT SCAN OF CHEST', 'Findings: normal study.'])]))
+      .toEqual([[[1], '2026-03-05'], [[2], '2026-01-14']])
+    // the same line 17 at 60% of the page is body text
+    const far = ocrPage(2, [...letterhead, ['Compared with scan Date: 14/01/2026', 600]])
+    expect(split([first, far])).toEqual([[[1, 2], '2026-03-05']])
+    // and a page of 40 small lines all in its top 30% takes no more than 25 of them
+    const dense = ocrPage(2, [...letterhead, ...Array.from({ length: 10 }, (_, i): [string, number] => [`Finding ${i + 1}.`, 228 + 2 * i]), ['Compared with scan Date: 14/01/2026', 250]])
+    expect(split([first, dense])).toEqual([[[1, 2], '2026-03-05']])
+  })
+})

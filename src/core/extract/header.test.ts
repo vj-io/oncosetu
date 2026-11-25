@@ -91,3 +91,45 @@ describe('parseHeader: a date quoted from another paper is not this paper\'s dat
     expect(parseHeader(`${head}  Dated 12/02/2025\n`).reportDate?.value).toBe('12/02/2025')
   })
 })
+
+// A phone photo of a printed header table: OCR reads the ruled lines as "|" (or "[", "]" hugging a cell), and a wide gap
+// between cells as a tab. Synthetic text in the shape the pilot's photographed PET-CT header read on 25 Nov 2026.
+describe('parseHeader: photographed table headers', () => {
+  const TABLE = [
+    'CITY PET-CT IMAGING CENTRE | NUCLEAR MEDICINE',
+    'Patient Name | Mrs. Asha Testkar\tAge | 47Yr',
+    'Patient ID\tPET/2026/0412\t[Sex [Female |',
+    'Referral Dr | Dr. A. Rao\tReport Date | 05 Mar 2026',
+    'Study Date\t03 Mar 2026\tTime | 6:20pm',
+  ].join('\n')
+  it('reads every field across label | value cells, two column blocks on a line, and "47Yr"', () => {
+    const h = parseHeader(TABLE)
+    expect(h.name?.value).toBe('Mrs. Asha Testkar')
+    expect(h.age).toMatchObject({ value: '47Yr', years: 47 })
+    expect(h.sex?.sex).toBe('F')
+    expect(h.mrn).toMatchObject({ value: 'PET/2026/0412', label: 'Patient ID' })
+    expect(h.reportDate?.value).toBe('05 Mar 2026')
+    expect(h.referringDoctor?.value).toBe('Dr. A. Rao')
+    expect(h.institution?.value).toBe('CITY PET-CT IMAGING CENTRE | NUCLEAR MEDICINE') // as printed, its rule kept
+    // every span is an exact slice of the text as OCR read it, rules included
+    for (const s of [h.name, h.age, h.sex, h.mrn, h.reportDate, h.referringDoctor, h.institution, ...h.ids]) if (s) expect(TABLE.slice(s.start, s.end)).toBe(s.value)
+  })
+  it('a row of column headings is not a name; a cut-off date is no date; a misread age is no age', () => {
+    expect(parseHeader('Name | Age | Sex\nAsha Testkar | 47 | F').name).toBeUndefined()
+    expect(parseHeader('Name\tAge\tSex\tUHID').name).toBeUndefined()
+    expect(parseHeader('Report Date | 05 Mar 2\tTime | 6:20pm').reportDate).toBeUndefined()
+    expect(parseHeader('Age | A7Yr').age).toBeUndefined()
+    expect(parseHeader('Referral letter enclosed with the report').referringDoctor).toBeUndefined()
+    // a name that merely starts like a field word is still a name
+    expect(parseHeader('Patient Name | Reggie Sexton').name?.value).toBe('Reggie Sexton')
+  })
+  it('a single-spaced name stops before the next label', () => {
+    for (const next of ['Referral Dr: A Rao', 'Study Date: 03 Mar 2026', 'Report Date: 05 Mar 2026', 'Time: 6:20pm']) {
+      expect(parseHeader(`Patient Name: Asha Rao ${next}`).name?.value, next).toBe('Asha Rao')
+    }
+  })
+  it('a "|" inside a result table changes nothing', () => {
+    const h = parseHeader('Haemoglobin | 11.2 | g/dL | 12.0 - 15.0')
+    expect([h.name, h.age, h.sex, h.reportDate]).toEqual([undefined, undefined, undefined, undefined])
+  })
+})

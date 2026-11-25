@@ -4,7 +4,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import sharp from 'sharp'
 import { beforeAll, describe, expect, it } from 'vitest'
 import type { OcrWord } from '@/db/schema'
-import { classifyHandwriting, detectLanguage, hasPrintedReportHeader, readPages, readsAsPrintedReport, type OcrLangs, type OcrProvider } from './text'
+import { classifyHandwriting, detectLanguage, hasPrintedReportHeader, readPages, readsAsPrintedReport, whitenRules, type OcrLangs, type OcrProvider } from './text'
 
 // ---- a password-protected PDF (Standard security handler R2, RC4-40), built by hand for FR-ING-07 ----
 const PAD = Buffer.from('28BF4E5E4E758A4164004E56FFFA01082E2E00B6D0683E802F0CA9FE6453697A', 'hex')
@@ -293,6 +293,82 @@ describe('an unreadable header date is read again from its strip (25 Nov 2026)',
     const pg = await read(p)
     expect(pg.text).toBe(HEAD.join('\n'))
     expect(p.strips).toBe(1)
+  })
+  // A photographed header table: the rule between label and value cells read as "|", the year cut off.
+  const TABLE = ['CITY PET-CT IMAGING CENTRE', 'Patient Name | Test Person\tAge | 47Yr', 'Referral Dr | Dr A Rao\tReport Date | 05 Mar 2', 'Study Date\tor\tTime | 6:20pm', 'FINDINGS: normal study']
+  it('a table label cell ("Report Date | ", "Study Date <TAB>") with no readable date is read again too', async () => {
+    const p = provider(TABLE, '| 05 Mar 2026 |')
+    const pg = await read(p)
+    expect(pg.text.split('\n')[2]).toBe('Referral Dr | Dr A Rao\tReport Date | 05 Mar 2026')
+    expect(pg.text.split('\n')[3]).toBe('Study Date\t 05 Mar 2026\tTime | 6:20pm')
+    expect(p.strips).toBe(2)
+    expect(exact(pg)).toBe(true)
+  })
+  it('the strip is read with the table rules across it painted white', async () => {
+    // A black rule through every header strip of the page; the fake line reader reads the date only off a strip without it.
+    const ruled = new Uint8Array(await sharp({ create: { width: 1000, height: 1400, channels: 3, background: 'white' } })
+      .composite([{ input: { create: { width: 1000, height: 3, channels: 3, background: 'black' } }, top: 62, left: 0 }]).png().toBuffer())
+    let seen = 0
+    const p: OcrProvider = {
+      name: 'fake', version: '1', recognize: async () => page(TABLE),
+      recognizeLine: async (img) => {
+        seen++
+        const { data, info } = await sharp(img).greyscale().extractChannel(0).raw().toBuffer({ resolveWithObject: true })
+        let ruleRows = 0
+        for (let y = 0; y < info.height; y++) { let n = 0; for (let x = 0; x < info.width; x++) if (data[y * info.width + x] < 128) n++; if (n > info.width / 3) ruleRows++ }
+        return { text: ruleRows ? '55 Mar 2026' : '05 Mar 2026', words: [], lines: [], mean: 0.8 }
+      },
+    }
+    const r = await readPages(ruled, 'image/png', undefined, p)
+    if (r.kind !== 'pages') throw new Error(r.kind)
+    expect(seen).toBe(2)
+    expect(r.pages[0].text.split('\n')[2]).toBe('Referral Dr | Dr A Rao\tReport Date | 05 Mar 2026')
+  })
+  it('a strip that reads an impossible day ("55 Mar 2026", "03 Mar 3026") leaves the page as read', async () => {
+    for (const strip of ['55 Mar 2026', '03 Mar 3026']) {
+      const p = provider(TABLE, strip)
+      expect((await read(p)).text).toBe(TABLE.join('\n'))
+      expect(p.strips).toBe(2)
+    }
+  })
+})
+
+describe('table rules are painted white in a header strip before it is read (25 Nov 2026)', () => {
+  // A strip as rereadHeaderDates cuts it: the row's rules above and below the value, the cell border on its left.
+  const W = 840, H = 108
+  const svg = (rules: boolean) => Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#fff"/>`
+    + (rules ? '<rect x="0" y="2" width="840" height="5" fill="#000"/><rect x="0" y="100" width="840" height="5" fill="#000"/><rect x="8" y="0" width="5" height="108" fill="#000"/>' : '')
+    + '<text x="40" y="74" font-family="Arial" font-size="54">05 Mar 2026</text></svg>')
+  const grey = async (b: Buffer) => new Uint8Array((await sharp(b).flatten({ background: '#fff' }).greyscale().extractChannel(0).raw().toBuffer()))
+  const dark = (px: Uint8Array, x0: number, y0: number, x1: number, y1: number) => {
+    let n = 0
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) if (px[y * W + x] < 128) n++
+    return n
+  }
+  it('removes the rules and keeps every glyph pixel', async () => {
+    const px = await grey(await sharp(svg(true)).png().toBuffer())
+    const text = dark(px, 20, 15, W, 95)
+    expect(dark(px, 0, 0, W, 10)).toBeGreaterThan(3000) // the rules are there to remove
+    expect(whitenRules(px, W, H)).toBe(1) // both rules and the cell border joining them: one piece of ink
+    expect(dark(px, 0, 0, W, 10) + dark(px, 0, 98, W, H) + dark(px, 0, 0, 16, H)).toBe(0)
+    expect(dark(px, 20, 15, W, 95)).toBe(text)
+    expect(text).toBeGreaterThan(1000)
+  })
+  it('a lone rule goes by its width, a lone cell border by its height', async () => {
+    for (const [rule, where] of [['<rect x="0" y="100" width="840" height="5" fill="#000"/>', [0, 98, W, H]], ['<rect x="8" y="0" width="5" height="108" fill="#000"/>', [0, 0, 16, H]]] as const) {
+      const b = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><rect width="100%" height="100%" fill="#fff"/>${rule}<text x="40" y="74" font-family="Arial" font-size="54">05 Mar 2026</text></svg>`)
+      const px = await grey(await sharp(b).png().toBuffer())
+      const text = dark(px, 20, 15, W, 95)
+      expect(whitenRules(px, W, H)).toBe(1)
+      expect(dark(px, where[0], where[1], where[2], where[3])).toBe(0)
+      expect(dark(px, 20, 15, W, 95)).toBe(text)
+    }
+  })
+  it('a strip of text alone is left exactly as it is', async () => {
+    const px = await grey(await sharp(svg(false)).png().toBuffer())
+    const before = Buffer.from(px)
+    expect(whitenRules(px, W, H)).toBe(0)
+    expect(Buffer.from(px).equals(before)).toBe(true)
   })
 })
 

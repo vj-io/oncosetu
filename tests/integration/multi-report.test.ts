@@ -37,6 +37,10 @@ beforeAll(async () => {
       await tx`insert into document_files (org_id, patient_id, document_id, kind, page_no, mime, bytes_enc, dek_wrapped, size, sha256)
         values (${ORG}, ${pid}, ${file}, 'page_image', ${n}, 'image/jpeg', ${Buffer.from('x')}, 'v1.dek', 1, 'h')`
     }
+    // Report 2's body names the study of report 1 ("dated 12/02/2025"): a comparison, not report 2's date.
+    for (const [pageNo, text] of [[1, 'CITY IMAGING CENTRE\nDate: 12/02/2025\nMRI BRAIN'], [3, 'TOWN DIAGNOSTIC LABORATORY\nDate: 10/10/2026\nMRI BRAIN\nSmaller than on the previous scan dated 12/02/2025.']] as const) {
+      await tx`insert into document_pages (org_id, patient_id, document_id, page_no, text) values (${ORG}, ${pid}, ${file}, ${pageNo}, ${text})`
+    }
     for (const pageNo of [1, 3, 3]) {
       const [ev] = await tx`insert into events (org_id, patient_id, document_id, event_type, source_type, extraction_method) values (${ORG}, ${pid}, ${file}, 'imaging_report_documented', 'external_document', 'ocr_llm') returning id`
       await tx`insert into evidence (org_id, patient_id, event_id, document_id, page_no, quote) values (${ORG}, ${pid}, ${ev.id}, ${file}, ${pageNo}, 'a quote')`
@@ -47,7 +51,7 @@ afterAll(async () => {
   await owner.begin(async (tx) => {
     await tx`select set_config('app.org_id', ${ORG}, true)`
     await tx`select set_config('oncosetu.erasing', 'on', true)`
-    for (const t of ['evidence', 'events', 'document_files', 'documents', 'consents']) await tx.unsafe(`delete from ${t} where patient_id = '${pid}'`)
+    for (const t of ['evidence', 'events', 'document_pages', 'document_files', 'documents', 'consents']) await tx.unsafe(`delete from ${t} where patient_id = '${pid}'`)
     await tx`delete from patients where id = ${pid}`
   }).catch(() => {})
   await owner.end()
@@ -65,6 +69,8 @@ describe('a file of several reports in All records (E-DOC-10)', () => {
       [`${file}.3`, expect.any(String), 'received', [4], 0, false, null], // no date of its own: shown by the day received
     ])
     expect(mine.every((r) => r.title === 'Imaging report' && r.section!.of === 3)).toBe(true)
+    expect(mine[1].compared).toEqual([{ date: '2025-02-12', month: false, rowId: `${file}.1` }]) // linked to report 1 of the same file
+    expect(mine[0].comparedBy).toEqual([`${file}.2`])
     expect(rows.find((r) => r.id === single)).toMatchObject({ docId: single })
     expect(rows.find((r) => r.id === single)!.section).toBeUndefined()
     expect(count).toBe(4) // 3 reports + 1 single paper, as the list shows them

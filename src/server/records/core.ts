@@ -2,6 +2,8 @@
 // studies. Nothing here reads a picture. Pairing and "earlier study" use dates, header words and the report's own words only,
 // and a pair is only ever *possible* until a person confirms it. No server or database imports, so a browser bundle may use it.
 
+import { findDates, parseDate } from '@/core/dates'
+
 export type RecordKind = 'report' | 'scan' | 'lab' | 'rx' | 'other'
 export const KIND_LABEL: Record<RecordKind, string> = { report: 'Reports', scan: 'Scans', lab: 'Labs', rx: 'Prescriptions', other: 'Other' }
 export const KIND_ORDER: RecordKind[] = ['report', 'scan', 'lab', 'rx', 'other']
@@ -40,6 +42,10 @@ export type RecordRow = {
   docId: string
   /** One report of a file that holds several (E-DOC-10): its place in the file, its pages, and whether it is the file's newest. */
   section?: { n: number; of: number; pages: number[]; newest: boolean }
+  /** Earlier studies this report says it was compared with (comparedDates), each linked to the paper on file of that date. */
+  compared?: (Compared & { rowId: string | null })[]
+  /** Later reports that say they were compared with this paper. */
+  comparedBy?: string[]
   kind: RecordKind
   docType: string | null
   /** What a person calls it: "Imaging report", "CT chest". */
@@ -71,6 +77,11 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export function fmtDay(iso: string | null | undefined): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? '')
   return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : 'date not stated'
+}
+/** "12 Feb 2025" for a day, "Dec 2025" for a month-only reference. */
+export function fmtCompared(c: Compared): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(c.date)
+  return c.month && m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : fmtDay(c.date)
 }
 const dayNo = (iso: string) => Math.round(Date.parse(`${iso.slice(0, 10)}T00:00:00Z`) / 86_400_000)
 export const daysApart = (a: string, b: string) => Math.abs(dayNo(a) - dayNo(b))
@@ -190,6 +201,55 @@ export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 're
     rep.set(first.id, { ...first, scan: { ...first.scan!, instances: pictures, frames: pictures, parts: group.length } })
   }
   return rows.filter((r) => !drop.has(r.id)).map((r) => rep.get(r.id) ?? r)
+}
+
+// ── comparisons ──────────────────────────────────────────────────────────────
+/** A study named before "dated": "the MRI dated 12 February 2025", "Previous scan dated 09/04/2025", "previous PET/CT dated 26/08/2025". */
+const STUDY_DATED = /(?<![\p{L}])(?:scans?|stud(?:y|ies)|MRI|CT|PET(?:[\s/-]*CT)?|CECT|NCCT|USG|ultrasound|ultrasonography|X-?ray|mammogra(?:m|phy)|examination|imaging)(?![\p{L}])[^.\n]{0,24}?(?<![\p{L}])dated(?![\p{L}])/giu
+
+/** A date an earlier study is referred to by: to the day (`YYYY-MM-DD`), or to the month (`YYYY-MM`) when only that is legible. */
+export type Compared = { date: string; month: boolean }
+
+/**
+ * Earlier studies a report says it was compared with: the date written right after "dated" when a study is named before it
+ * ("…smaller than on the MRI dated 12 February 2025"). The reference is kept as written; it never becomes the report's own
+ * date (header.ts reads "Dated" as a label only at a line start or before a colon), and the report's own date is never one.
+ */
+export function comparedDates(text: string, now: string | Date, own: string | null): Compared[] {
+  const out = new Map<string, Compared>()
+  for (const m of text.matchAll(STUDY_DATED)) {
+    const end = m.index + m[0].length
+    const d = findDates(text.slice(end, end + 24)).find((x) => x.kind === 'absolute')
+    const p = d ? parseDate(d.raw, { now, dayFirst: true }) : null
+    if (!p?.iso || (p.precision !== 'day' && p.precision !== 'month')) continue
+    const date = p.precision === 'day' ? p.iso : p.iso.slice(0, 7)
+    if (date !== own) out.set(date, { date, month: p.precision === 'month' })
+  }
+  return [...out.values()]
+}
+
+/**
+ * Links each report's comparisons to the papers on file: an imaging paper (report or scan) dated that day, a report first when
+ * both are there; for a month, only when exactly one imaging paper falls in it. The earlier paper learns which reports name it.
+ */
+export function linkComparisons<T extends Pick<RecordRow, 'id' | 'kind' | 'docType' | 'date' | 'dateFrom'>>(
+  rows: readonly T[], comparedOf: ReadonlyMap<string, Compared[]>,
+): (T & Pick<RecordRow, 'compared' | 'comparedBy'>)[] {
+  const imaging = rows.filter((r) => r.dateFrom === 'paper' && (r.kind === 'scan' || r.docType === 'imaging_report'))
+  const by = new Map<string, string[]>()
+  const linked = new Map<string, NonNullable<RecordRow['compared']>>()
+  for (const [id, list] of comparedOf) {
+    linked.set(id, list.map((c) => {
+      const hits = imaging.filter((r) => r.id !== id && (c.month ? r.date?.startsWith(c.date) : r.date === c.date))
+      const hit = c.month ? (hits.length === 1 ? hits[0] : null) : hits.find((r) => r.kind === 'report') ?? hits[0] ?? null
+      if (hit) by.set(hit.id, [...(by.get(hit.id) ?? []), id])
+      return { ...c, rowId: hit?.id ?? null }
+    }))
+  }
+  return rows.map((r) => {
+    const compared = linked.get(r.id), comparedBy = by.get(r.id)
+    return compared?.length || comparedBy ? { ...r, ...(compared?.length ? { compared } : {}), ...(comparedBy ? { comparedBy } : {}) } : r
+  })
 }
 
 /** One row per stored file, in the given order: a file split into reports is walked as one paper (by its first report here). */

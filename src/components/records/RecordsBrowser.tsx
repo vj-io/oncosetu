@@ -9,7 +9,7 @@ import { ImagingViewer } from '@/components/documents/ImagingViewer'
 import { postJson } from '@/components/documents/IdentityDecision'
 import { Badge, useToast } from '@/components/ui'
 import {
-  KIND_LABEL, KIND_ORDER, applyLinkDecision, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtDay, modalitiesPresent, neighbours, otherAreaStudies, sortRecords, yearOf,
+  KIND_LABEL, KIND_ORDER, applyLinkDecision, MODALITY_LABEL, countsByKind, earlierStudies, filterRecords, fmtCompared, fmtDay, modalitiesPresent, neighbours, otherAreaStudies, sortRecords, yearOf,
   type ModalityKey, type RecordKind, type RecordRow, type RejectedPair, type ResolvedPair,
 } from '@/server/records/core'
 import { PaperPreview } from './PaperPreview'
@@ -200,6 +200,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
                     {r.kind === 'scan' && !pr && <span className="text-muted">No report matched</span>}
                     {r.section && <span className="text-muted">Report {r.section.n} of {r.section.of} in one file</span>}
                     {r.section?.newest && <Badge tone="verified">Newest in this file</Badge>}
+                    {r.compared?.length ? <span className="text-muted">Compared with {r.compared.map(fmtCompared).join(', ')}</span> : null}
                     {r.amendment && <Badge tone="setu">Amendment</Badge>}
                     {r.lateReceived && <Badge tone="patient">Older record, newly received</Badge>}
                     {r.handwritten && <Badge tone="shadow">Handwritten</Badge>}
@@ -274,6 +275,24 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
         <h2 className="text-xl tracking-[-0.015em] break-words">{row.title}</h2>
         <p className="text-[14px] break-words text-muted">{dateLine(row)}{row.institution ? ` · ${row.institution}` : ''}{row.pages ? ` · ${row.pages} page${row.pages > 1 ? 's' : ''}` : ''}</p>
         {row.section && <p className="text-[14px] text-muted">Report {row.section.n} of {row.section.of} in one file: page{row.section.pages.length > 1 ? 's' : ''} {row.section.pages.join(', ')} of it.{row.section.newest ? ' The newest report in this file.' : ''}</p>}
+        {(row.compared?.length || row.comparedBy?.length) ? (
+          <ul className="grid gap-1 text-[14px]" data-testid="comparisons">
+            {row.compared?.map((c) => {
+              const o = c.rowId ? byId.get(c.rowId) : null
+              return (
+                <li key={c.date}>
+                  Compared with {o
+                    ? <button type="button" onClick={() => onSelect(o.id)} className="underline underline-offset-4">{o.title}, {fmtDay(o.date)}</button>
+                    : <>a study of {fmtCompared(c)} <span className="text-muted">(not in this record)</span></>}
+                </li>
+              )
+            })}
+            {row.comparedBy?.map((id) => {
+              const o = byId.get(id)
+              return o ? <li key={id}>A later report compares with this one: <button type="button" onClick={() => onSelect(o.id)} className="underline underline-offset-4">{o.title}, {fmtDay(o.date)}</button></li> : null
+            })}
+          </ul>
+        ) : null}
         <Link href={fullHref} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-link underline-offset-4">
           {row.kind === 'scan' ? 'Open larger, with the file header' : 'Open the full page with its facts'} <ExternalLink aria-hidden className="size-3.5" />
         </Link>

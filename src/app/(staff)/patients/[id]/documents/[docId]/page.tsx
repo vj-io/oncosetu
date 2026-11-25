@@ -17,7 +17,7 @@ import { attachedWithReasonText } from '@/components/documents/labels'
 import { isAttachedWithReason } from '@/server/ledger/core'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
-import { MODALITY_LABEL, filesOf, filterRecords, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
+import { MODALITY_LABEL, filesOf, filterRecords, fmtCompared, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
 import { loadRecords } from '@/server/records/queries'
 import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
@@ -195,6 +195,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
                 <li key={r.id}>
                   <Link className="underline underline-offset-4" href={`/patients/${id}/records#doc=${r.id}`}>Report {r.section!.n}</Link>
                   {' · '}{r.dateFrom === 'paper' ? fmtDay(r.date) : 'date not found'} · {r.title} · page{r.section!.pages.length > 1 ? 's' : ''} {r.section!.pages.join(', ')}
+                  {r.compared?.length ? ` · compared with ${r.compared.map(fmtCompared).join(', ')}` : ''}
                   {r.section!.newest && <Badge tone="verified" className="ml-2">Newest</Badge>}
                 </li>
               ))}

@@ -9,7 +9,7 @@ import { HttpError } from '../http'
 import { fieldValues } from '../ledger/core'
 import { documentLinks } from './schema'
 import {
-  betterHeadline, collapseStudyParts, reportTerms, resolvePairs, sortRecords, toRecordRow,
+  betterHeadline, collapseStudyParts, comparedDates, linkComparisons, reportTerms, resolvePairs, sortRecords, toRecordRow,
   type DocLike, type ModalityKey, type RecordRow, type RejectedPair, type ReportCandidate, type ResolvedPair, type ScanCandidate, type StoredLink,
 } from './core'
 
@@ -113,21 +113,27 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
 
   // Pairing: the written imaging reports are read for their heading words only.
   const scans: ScanCandidate[] = rows.filter((r) => r.scan).map((r) => ({ id: r.id, date: r.scan!.studyDate ?? r.date, institution: r.institution, modality: r.scan!.modality, bodyKey: r.scan!.bodyKey }))
-  const reportRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report' && !r.section) // ponytail: a report inside a multi-report file is not offered for scan pairing; add when pairing learns page ranges
+  // The written imaging reports are read for their heading words (pairing) and for the earlier studies they name (comparisons).
+  const imagingRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report')
+  const pageText = new Map<string, Map<number, string>>()
+  if (imagingRows.length) {
+    const pages = await tx.select({ documentId: documentPages.documentId, pageNo: documentPages.pageNo, text: documentPages.text }).from(documentPages)
+      .where(and(inArray(documentPages.documentId, [...new Set(imagingRows.map((r) => r.docId))]), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
+    for (const p of pages) pageText.set(p.documentId, (pageText.get(p.documentId) ?? new Map()).set(p.pageNo, p.text))
+  }
+  const textOf = (r: RecordRow) => [...(pageText.get(r.docId) ?? new Map<number, string>())].filter(([n]) => !r.section || r.section.pages.includes(n)).map(([, t]) => t).join('\n')
+  const reportRows = imagingRows.filter((r) => !r.section) // ponytail: a report inside a multi-report file is not offered for scan pairing; add when pairing learns page ranges
   let reports: ReportCandidate[] = []
   const reportMods = new Map<string, Set<ModalityKey>>()
   if (scans.length && reportRows.length) {
-    const pages = await tx.select({ documentId: documentPages.documentId, pageNo: documentPages.pageNo, text: documentPages.text }).from(documentPages)
-      .where(and(inArray(documentPages.documentId, reportRows.map((r) => r.id)), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
-    const text = new Map<string, string>()
-    for (const p of pages) text.set(p.documentId, `${text.get(p.documentId) ?? ''}\n${p.text}`.slice(0, 6000))
-    reports = reportRows.map((r) => ({ id: r.id, date: r.date, institution: r.institution, terms: reportTerms(`${r.title}\n${text.get(r.id) ?? ''}`) }))
+    reports = reportRows.map((r) => ({ id: r.id, date: r.date, institution: r.institution, terms: reportTerms(`${r.title}\n${textOf(r).slice(0, 6000)}`) }))
     for (const r of reports) reportMods.set(r.id, r.terms.modalities)
   }
+  const comparedOf = new Map(imagingRows.map((r) => [r.id, comparedDates(textOf(r), r.receivedAt, r.dateFrom === 'paper' ? r.date : null)] as const).filter(([, c]) => c.length))
   const stored: StoredLink[] = links.map((l) => ({ id: l.id, aId: l.aId, bId: l.bId, state: l.state }))
   const rowIds = new Set(rows.map((r) => r.id))
   const rejected = links.filter((l) => l.state === 'rejected' && rowIds.has(l.aId) && rowIds.has(l.bId)).map((l) => ({ scanId: l.aId, reportId: l.bId }))
-  return { rows: rows.map((r) => (r.docType === 'imaging_report' ? { ...r, reportMods: [...(reportMods.get(r.id) ?? [])] } : r)), pairs: resolvePairs(scans, reports, stored), rejected, held, heldScans }
+  return { rows: linkComparisons(rows, comparedOf).map((r) => (r.docType === 'imaging_report' ? { ...r, reportMods: [...(reportMods.get(r.id) ?? [])] } : r)), pairs: resolvePairs(scans, reports, stored), rejected, held, heldScans }
 }
 
 export const linkDecisionSchema = z.object({ scanId: z.string().uuid(), reportId: z.string().uuid(), decision: z.enum(['confirm', 'reject', 'reset']) })

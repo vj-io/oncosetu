@@ -17,7 +17,7 @@ import { activeConsent } from '@/server/patients'
 import { llmExtractor, type AiRunRecord } from '@/server/ai/extract'
 import { makeScrubber } from '@/server/ai/scrub'
 import { aiAllowed } from '@/server/ai/provider'
-import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, type DraftEvent } from './core'
+import { classify, extractCandidates, gateAndDate, identify, injectionReport, rejectionLog, splitSections, type DraftEvent } from './core'
 import { recomputeRadar } from './radar'
 import { textSimilarity } from './safety'
 import { IMAGE_PROCESSOR, readPages, type CachedPage, type OcrProvider, type PageRead } from './text'
@@ -259,6 +259,9 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   let classified = classify(pages, manualType)
   if (classified.languageUnsupported) flags.language_unsupported = true
   if (classified.pageTypes.length) flags.mixed_document = classified.pageTypes
+  const sections = splitSections(pages, classified, doc.receivedAt)
+  if (sections.length > 1) flags.sections = sections.map((s) => ({ pages: s.pages, date: s.date?.iso ?? null, docType: s.docType }))
+  else delete flags.sections // read again as one report
   await setStage(orgId, documentId, 'identity', {
     docType: classified.docType, docTypeConfidence: classified.docTypeConfidence, language: classified.language, handwritten: classified.handwritten,
     lowConfidence: pages.some((p) => p.lowConfidence), injectionFlag: injection.flagged, pages: pages.length, flags,
@@ -303,7 +306,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   await setStage(orgId, documentId, 'extracted')
   const runs: AiRunRecord[] = []
   const ai = await withOrg(orgId, async (tx) => ({ ...(await aiAllowed(tx, orgId, patientId)), identity: await patientIdentity(tx, patientId) }))
-  const ex = await extractCandidates(classified, ai.provider ? llmExtractor(ai.provider, runs, undefined, makeScrubber(ai.identity)) : null, { augmentRules: ai.provider?.augmentRules })
+  const ex = await extractCandidates({ ...classified, sections }, ai.provider ? llmExtractor(ai.provider, runs, undefined, makeScrubber(ai.identity)) : null, { augmentRules: ai.provider?.augmentRules })
   if (ex.method === 'llm' && ex.llmDocType && !manualType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
   // A free-tier quota refusal is not an error: the rule-based path ran instead, and the document says why.
   const quotaSkip = runs.find((r) => r.outcome.startsWith('quota_'))?.outcome
@@ -318,7 +321,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   await guard()
 
   // ── gate ──
-  const { gate, drafts } = gateAndDate(ex.candidates, classified, ident.id, doc.receivedAt, ex.method)
+  const { gate, drafts } = gateAndDate(ex.candidates, { ...classified, sections }, ident.id, doc.receivedAt, ex.method)
   const reasons: Record<string, number> = {}
   for (const r of gate.rejected) reasons[r.reason] = (reasons[r.reason] ?? 0) + 1
   flags.gate = { candidates: ex.candidates.length, accepted: gate.accepted.length, kept: drafts.length, rejected: gate.rejected.length, reasons, rejections: rejectionLog(gate.rejected) }

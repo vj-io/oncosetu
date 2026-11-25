@@ -186,6 +186,52 @@ export function readHeader(pages: PageRead[]): { header: HeaderOut; parsed: Pars
   }
 }
 
+// ---------- reports inside one file (E-DOC-10) ----------
+
+/** One report inside a file that holds several (a patient's folder photographed in one go): its pages, date and class. */
+export type Section = { pages: number[]; date: ParsedDate | null; docType: DocType }
+
+/** A page's header block. A date or letterhead further down belongs to the body (history, earlier results). */
+const HEADER_LINES = 15
+
+/**
+ * E-DOC-10: split a file into the reports it holds. A readable page starts a new report only when its header carries a
+ * labelled date and that date differs from the current report's, or the current report has no date and the page has a
+ * letterhead, or the page has a letterhead and scores strongly for another class. A page with no readable text (held as
+ * handwritten, blank) stays with the report before it. One section means one report. Only the file's first readable page is
+ * read whole for its date; every later page by its header lines.
+ */
+export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pick<Classified, 'usable' | 'docType'>, receivedAt: Date): Section[] {
+  const usable = new Map(c.usable.map((p) => [p.pageNo, p]))
+  const out: (Section & { read: boolean })[] = []
+  for (const pageNo of pages.map((p) => p.pageNo).sort((a, b) => a - b)) {
+    const cur = out.at(-1)
+    const p = usable.get(pageNo)
+    if (!p) {
+      if (cur) cur.pages.push(pageNo)
+      else out.push({ pages: [pageNo], date: null, docType: c.docType, read: false })
+      continue
+    }
+    // The file's first readable page is read whole, as readHeader reads it for the file's own date.
+    const h = headerFor(cur?.read ? p.text.split('\n').slice(0, HEADER_LINES).join('\n') : p.text)
+    const parsed = h.reportDate ? parseDate(h.reportDate.value, { now: receivedAt }) : null
+    const date = parsed?.iso && parsed.precision === 'day' ? parsed : null
+    const cls = classifyDocument([p.text])
+    const strong = cls.docType !== 'other' && (cls.scores[cls.docType] ?? 0) >= 9 ? cls.docType : null
+    const letterhead = !!h.institution
+    if (!cur || (cur.read && date && (
+      (cur.date && date.iso !== cur.date.iso) || (!cur.date && letterhead)
+      || (letterhead && strong && strong !== cur.docType && (cls.scores[cur.docType] ?? 0) <= 3)
+    ))) out.push({ pages: [pageNo], date, docType: strong ?? c.docType, read: true })
+    else if (!cur.read) Object.assign(cur, { pages: [...cur.pages, pageNo], date, docType: strong ?? cur.docType, read: true })
+    else {
+      cur.pages.push(pageNo)
+      cur.date ??= date
+    }
+  }
+  return out.map(({ read: _read, ...s }) => s)
+}
+
 /**
  * Stage 5 + 9: header identity decision (FR-ID-03/04), from the regex header only — it runs before any LLM call so
  * a wrong-patient document never reaches a model under this patient's consent. Handwritten headers are never read.
@@ -271,16 +317,21 @@ export type ExtractionMethodUsed = 'llm' | 'rules' | 'hybrid'
  * candidates are added to the rule-based ones instead of replacing them: both go through the same evidence gate and
  * drafts are de-duplicated after it, so the LLM can add facts the rules miss but can never remove one they find.
  */
-export async function extractCandidates(c: Classified, llm?: LlmExtractor | null, opts: { augmentRules?: boolean } = {}): Promise<{ candidates: Candidate[]; method: ExtractionMethodUsed; llmDocType: DocType | null }> {
+export async function extractCandidates(c: Classified & { sections?: readonly Section[] }, llm?: LlmExtractor | null, opts: { augmentRules?: boolean } = {}): Promise<{ candidates: Candidate[]; method: ExtractionMethodUsed; llmDocType: DocType | null }> {
   if (c.handwritten || c.languageUnsupported || !c.usable.length) return { candidates: [], method: 'rules', llmDocType: null }
   const rules = () => {
-    // Mixed documents: extract each page group with its own class.
-    const groups = new Map<DocType, PageRead[]>()
+    // Mixed documents: extract each page group with its own class; a file of several reports (E-DOC-10), each report on
+    // its own, so every report gets its own header, date and report-level fact.
+    const multi = (c.sections?.length ?? 0) > 1
+    const groups = new Map<string, { t: DocType; ps: PageRead[] }>()
     for (const p of c.usable) {
       const t = c.pageTypes.find((x) => x.pageNo === p.pageNo)?.docType ?? c.docType
-      groups.set(t, [...(groups.get(t) ?? []), p])
+      const k = `${multi ? c.sections!.findIndex((s) => s.pages.includes(p.pageNo)) : 0}|${t}`
+      const g = groups.get(k) ?? { t, ps: [] }
+      g.ps.push(p)
+      groups.set(k, g)
     }
-    return [...groups].flatMap(([t, ps]) => rulesCandidates(ps, t)).map((x): Candidate => ({ ...x, origin: 'rules' }))
+    return [...groups.values()].flatMap((g) => rulesCandidates(g.ps, g.t)).map((x): Candidate => ({ ...x, origin: 'rules' }))
   }
   if (llm) {
     const out = await llm(c.usable.map((p) => ({ pageNo: p.pageNo, text: p.text })), c.docType)
@@ -348,7 +399,7 @@ function dedupeKey(d: DraftEvent): string {
 }
 
 /** What the gate and the dates need of a classified document; a person keying one fact (actions.ts) has no page classes. */
-export type GatedPages = Pick<Classified, 'usable'> & Partial<Pick<Classified, 'docType' | 'pageTypes'>>
+export type GatedPages = Pick<Classified, 'usable'> & Partial<Pick<Classified, 'docType' | 'pageTypes'>> & { sections?: readonly Section[] }
 
 /** Stage 7–8: the evidence gate, then dates (FR-EXT-03/04, E-DOC-11..15). Only accepted items become drafts. */
 export function gateAndDate(
@@ -357,11 +408,14 @@ export function gateAndDate(
   const gatePages: GatePage[] = c.usable.map((p) => ({ pageNo: p.pageNo, text: p.text, ...(p.words ? { words: p.words } : {}) }))
   const gate = runGate(candidates, gatePages)
   const received = receivedAt.toISOString().slice(0, 10)
-  const doc = ident.documentDate && ident.documentDate.precision !== 'unknown' ? ident.documentDate : null
+  const fileDate = ident.documentDate && ident.documentDate.precision !== 'unknown' ? ident.documentDate : null
+  // E-DOC-10: in a file of several reports, a fact takes the date of the report it was quoted from.
+  const docOf = (pageNo: number) => c.sections?.find((s) => s.pages.includes(pageNo))?.date ?? fileDate
   // Indian records are day first. One date such as 22/01/2026 in the document settles every other numeric date in it.
   const dayFirst = c.usable.some((p) => usesDayFirst(p.text))
   const all = gate.accepted.map(({ candidate, evidence, flags }): DraftEvent => {
     const page = c.usable.find((p) => p.pageNo === evidence.pageNo)!
+    const doc = docOf(evidence.pageNo)
     const fields = { ...candidate.fields }
     // The stored date is always re-derived from raw text in the quote (an ISO event_date passed the gate only
     // because a raw date in the quote parses to it).
@@ -407,7 +461,7 @@ export function gateAndDate(
       extractionMethod: page.source === 'text_layer' ? 'text_layer' : 'ocr_llm', flags: out, evidence,
     }
   })
-  const done = all.filter((d) => !(DONE_TYPES.has(d.eventType) && d.eventDate && d.documentDate && d.datePrecision === 'day' && doc?.precision === 'day' && d.eventDate > d.documentDate))
+  const done = all.filter((d) => !(DONE_TYPES.has(d.eventType) && d.eventDate && d.documentDate && d.datePrecision === 'day' && docOf(d.evidence.pageNo)?.precision === 'day' && d.eventDate > d.documentDate))
   const best = new Map<string, DraftEvent>()
   for (const d of done) {
     const k = dedupeKey(d)
@@ -466,10 +520,11 @@ export type Analysis = { classified: Classified; identified: Identified; method:
  */
 export async function analyse(pages: PageRead[], patient: PatientIdentity, receivedAt: Date, llm?: LlmExtractor | null, opts: { augmentRules?: boolean; attached?: boolean } = {}): Promise<Analysis> {
   let classified = classify(pages)
+  const sections = splitSections(pages, classified, receivedAt)
   const identified = identify(pages, classified, patient, receivedAt)
-  const ex = await extractCandidates(classified, identified.identity.result === 'match' || opts.attached ? llm : null, opts)
+  const ex = await extractCandidates({ ...classified, sections }, identified.identity.result === 'match' || opts.attached ? llm : null, opts)
   // Only a model that replaces the rules may re-type the document; in hybrid mode the calibrated classifier stands.
   if (ex.method === 'llm' && ex.llmDocType && ex.llmDocType !== classified.docType) classified = { ...classified, docType: ex.llmDocType, docTypeConfidence: 0.9 }
-  const { gate, drafts } = gateAndDate(ex.candidates, classified, identified, receivedAt, ex.method)
+  const { gate, drafts } = gateAndDate(ex.candidates, { ...classified, sections }, identified, receivedAt, ex.method)
   return { classified, identified, method: ex.method, gate, drafts, injection: injectionReport(pages) }
 }

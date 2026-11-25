@@ -159,7 +159,9 @@ export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manu
     pageNo: page.pageNo, text: page.text, words: page.words ?? null, ocrConfidence: page.ocrConfidence, lowConfidence: page.lowConfidence,
     source: page.words ? 'ocr' : 'text_layer', handwriting: null, hidden: null, image: null, processor: page.processor ?? '', processorVersion: page.processorVersion ?? '',
   }
-  const classified: GatedPages = { usable: [pr], docType: (d.docType as DocType | null) ?? undefined }
+  // E-DOC-10: a fact keyed from one report of a multi-report file takes that report's date.
+  const sections = ((d.flags as { sections?: { pages: number[]; date: string | null; docType: DocType }[] }).sections ?? []).map((s) => ({ ...s, date: s.date ? parseDate(s.date) : null }))
+  const classified: GatedPages = { usable: [pr], docType: (d.docType as DocType | null) ?? undefined, sections }
   const docDate = d.documentDate ? parseDate(d.documentDate) : null
   const { gate, drafts } = gateAndDate([{ event_type: body.eventType, fields: body.fields, quote: body.quote, page_no: body.pageNo }], classified, { documentDate: docDate }, d.receivedAt, 'rules')
   if (!drafts.length) {

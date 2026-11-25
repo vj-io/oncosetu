@@ -2,7 +2,8 @@ import { createHash, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
 import sharp from 'sharp'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import type { OcrWord } from '@/db/schema'
 import { classifyHandwriting, detectLanguage, readPages, readsAsPrintedReport, type OcrLangs, type OcrProvider } from './text'
 
 // ---- a password-protected PDF (Standard security handler R2, RC4-40), built by hand for FR-ING-07 ----
@@ -200,3 +201,70 @@ describe('detectLanguage (FR-DOC-05)', () => {
     expect(detectLanguage('நோயாளி Name').unsupported).toBe(true)
   })
 })
+
+describe('an unreadable header date is read again from its strip (25 Nov 2026)', () => {
+  // A fake page OCR: one word per token, boxes on a 20 px line grid, so the label's box is known.
+  const page = (lines: string[]) => {
+    let text = ''
+    const words: OcrWord[] = []
+    lines.forEach((line, y) => {
+      if (text) text += '\n'
+      line.split(/(\s+)/).forEach((tok) => {
+        if (!tok.trim()) { text += tok; return }
+        const s = text.length
+        text += tok
+        words.push({ t: tok, c: 0.9, s, e: text.length, b: [s % 900, y * 20 + 5, (s % 900) + tok.length * 8, y * 20 + 21] })
+      })
+    })
+    return { text, words, lines: lines.map((l) => ({ text: l, conf: l.split(/\s+/).map(() => 0.9) })), mean: 0.9 }
+  }
+  const HEAD = ['CITY IMAGING CENTRE', 'Patient Name: Test Person\tUHID: X1', 'Exam Date: or\tRef By: Dr A Rao', 'Exam: MRI Brain', 'FINDINGS: normal study']
+  const provider = (lines: string[], strip: string | null): OcrProvider & { strips: number } => {
+    const p = {
+      name: 'fake', version: '1', strips: 0,
+      recognize: async () => page(lines),
+      recognizeLine: async () => { p.strips++; return { text: strip ?? '', words: [], lines: [], mean: 0.8 } },
+    }
+    return p
+  }
+  let image: Uint8Array
+  beforeAll(async () => { image = new Uint8Array(await sharp({ create: { width: 1000, height: 1400, channels: 3, background: 'white' } }).png().toBuffer()) })
+  const read = async (p: OcrProvider) => {
+    const r = await readPages(image, 'image/png', undefined, p)
+    if (r.kind !== 'pages') throw new Error(r.kind)
+    return r.pages[0]
+  }
+  const exact = (pg: { text: string; words: OcrWord[] | null }) => (pg.words ?? []).every((w) => pg.text.slice(w.s, w.e) === w.t)
+
+  it('replaces the unreadable value with the date read from the strip; every word keeps exact offsets', async () => {
+    const p = provider(HEAD, '10/10/2026 Ref By')
+    const pg = await read(p)
+    expect(pg.text.split('\n')[2]).toBe('Exam Date: 10/10/2026\tRef By: Dr A Rao')
+    expect(p.strips).toBe(1)
+    expect(exact(pg)).toBe(true)
+    expect(pg.words!.find((w) => w.t === '10/10/2026')).toMatchObject({ c: 0.8 })
+  })
+  it('a readable header date is never read again', async () => {
+    const p = provider(HEAD.map((l) => l.replace('Exam Date: or', 'Exam Date: 10/10/2026')), '01/01/2001')
+    expect((await read(p)).text).toContain('Exam Date: 10/10/2026')
+    expect(p.strips).toBe(0)
+  })
+  it('a date label below the header block is left alone', async () => {
+    const lines = [...Array.from({ length: 16 }, (_, i) => `Line ${i + 1} of the report body`), 'Previous scan Date: or']
+    const p = provider(lines, '10/10/2026')
+    expect((await read(p)).text).toContain('Previous scan Date: or')
+    expect(p.strips).toBe(0)
+  })
+  it('a date further along the strip (the next column) is not taken', async () => {
+    const p = provider(HEAD, 'Ref By Dr 01/01/2001')
+    expect((await read(p)).text).toBe(HEAD.join('\n'))
+    expect(p.strips).toBe(1)
+  })
+  it('no date in the strip: the page stays as read', async () => {
+    const p = provider(HEAD, 'Refered By')
+    const pg = await read(p)
+    expect(pg.text).toBe(HEAD.join('\n'))
+    expect(p.strips).toBe(1)
+  })
+})
+

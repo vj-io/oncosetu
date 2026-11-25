@@ -73,7 +73,9 @@ const ID_LABELS: [string, string][] = [
 const DATE_LABELS = {
   reported: String.raw`Report(?:ed)?\s*(?:Date|On|Dt\.?)|Date\s+of\s+Report(?:ing)?|Reporting\s+Date|Reported`,
   collection: String.raw`(?:Sample\s+)?Collect(?:ed|ion)\s*(?:Date|On|Dt\.?)|Date\s+of\s+Collection|Sample\s+Date|Received\s*(?:Date|On)|Registered\s*On|Registration\s+Date|Collected`,
-  generic: String.raw`Date\s+of\s+(?:Visit|Consultation|Study|Exam(?:ination)?|Scan|Procedure)|Visit\s+Date|Bill\s+Date|Dated|Date|Dt\.?|दिनांक|तारीख़?`,
+  // "Dated" in a sentence refers to another paper ("compared with the study dated 12 February 2025"): it labels this
+  // paper's date only at the start of a line or before a colon.
+  generic: String.raw`Date\s+of\s+(?:Visit|Consultation|Study|Exam(?:ination)?|Scan|Procedure)|Visit\s+Date|Bill\s+Date|(?<=(?:^|\n)[ \t]*)Dated|Dated(?=\s*[:：])|Date|Dt\.?|दिनांक|तारीख़?`,
 }
 const DOB_LABEL = String.raw`D\.?O\.?B\.?|Date\s+of\s+Birth|Birth\s*Date|जन्म\s*(?:तिथि|तारीख़?)`
 const REF_LABEL = String.raw`Ref(?:\.|erred)?\s*(?:By|Dr\.?|Doctor)|Referring\s+(?:Doctor|Physician|Consultant)|Ref\.?\s*Physician|Consultant|Treating\s+Doctor`

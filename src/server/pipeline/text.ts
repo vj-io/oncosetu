@@ -8,9 +8,10 @@ import { mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { createWorker, type Worker } from 'tesseract.js'
+import { createWorker, PSM, type Worker } from 'tesseract.js'
 import { extractImages, getDocumentProxy, getResolvedPDFJS } from 'unpdf'
 import type { OcrWord } from '@/db/schema'
+import { findDates } from '@/core/dates'
 import { classifyDocument } from '@/core/extract/classify'
 import { unzipSync } from 'fflate'
 
@@ -76,19 +77,24 @@ export type ReadResult =
 // ---------- OCR ----------
 
 export type OcrLangs = 'eng+hin' | 'eng'
-const g = globalThis as unknown as { __oncosetuOcr?: Partial<Record<OcrLangs, Promise<Worker>>> }
+/** 'eng-line': an English worker that reads its image as one line of text (header date re-reads). */
+type OcrKey = OcrLangs | 'eng-line'
+const g = globalThis as unknown as { __oncosetuOcr?: Partial<Record<OcrKey, Promise<Worker>>> }
 
-function ocrWorker(langs: OcrLangs): Promise<Worker> {
+function ocrWorker(key: OcrKey): Promise<Worker> {
   const workers = (g.__oncosetuOcr ??= {})
-  if (!workers[langs]) {
+  if (!workers[key]) {
     const cachePath = join(tmpdir(), 'oncosetu-tessdata')
     mkdirSync(cachePath, { recursive: true })
-    workers[langs] = createWorker(langs.split('+'), 1, { cachePath }).catch((e) => {
-      delete workers[langs]
-      throw e
-    })
+    const langs = key === 'eng-line' ? ['eng'] : key.split('+')
+    workers[key] = createWorker(langs, 1, { cachePath })
+      .then(async (w) => (key === 'eng-line' ? (await w.setParameters({ tessedit_pageseg_mode: PSM.SINGLE_LINE }), w) : w))
+      .catch((e) => {
+        delete workers[key]
+        throw e
+      })
   }
-  return workers[langs]
+  return workers[key]
 }
 
 /** Terminates the shared OCR workers (scripts/tests; the server keeps them warm). */
@@ -111,11 +117,16 @@ export interface OcrProvider {
   readonly name: string
   readonly version: string
   recognize(image: Buffer, langs: OcrLangs): Promise<OcrResult>
+  /** Optional: read a small image as one line of English (rereadHeaderDates); a provider without it skips the re-read. */
+  recognizeLine?(image: Buffer): Promise<OcrResult>
 }
 
 /** OCR one JPEG/PNG → text built line by line, with exact char offsets for every word. */
 export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Promise<OcrResult> {
-  const worker = await ocrWorker(langs)
+  return readWords(await ocrWorker(langs), image)
+}
+
+async function readWords(worker: Worker, image: Buffer): Promise<OcrResult> {
   const { data } = await worker.recognize(image, {}, { blocks: true, text: false })
   let text = ''
   const words: OcrWord[] = []
@@ -148,7 +159,64 @@ export async function ocrImage(image: Buffer, langs: OcrLangs = 'eng+hin'): Prom
   return { text, words, lines, mean }
 }
 
-export const tesseractOcr: OcrProvider = { name: OCR_PROCESSOR.name, version: OCR_PROCESSOR.version, recognize: ocrImage }
+export const tesseractOcr: OcrProvider = {
+  name: OCR_PROCESSOR.name, version: OCR_PROCESSOR.version, recognize: ocrImage,
+  recognizeLine: async (image) => readWords(await ocrWorker('eng-line'), image),
+}
+
+/** A date label of a report header: "Exam Date:", "Report Date:", "Date:". */
+const HEADER_DATE_LABEL = /(?<![\p{L}])(?:(?:Exam(?:ination)?|Report(?:ed)?|Reporting|Scan|Study|Visit|Collection|Collected|Sample|Admission|Discharge|Procedure)\s+)?(?:Date|Dt\.?)\s*[:：]/giu
+/** The header block, as the pipeline reads it (core.ts HEADER_LINES). */
+const HEADER_LINES = 15
+const ONLY_SEPARATORS = /^[\s\-–=.]*$/
+
+/**
+ * A photographed header can lose its date to the page OCR ("Exam Date: 10/10/2026" read as "Exam Date: or"); the report
+ * then takes a date quoted further down (an earlier study) or none. When a date label in the header block has no readable
+ * date after it (up to the next column or line end), the strip right of the label is read again on its own: cropped from
+ * the page image, 3× scale, grey, one line of English. A date read at the start of that strip replaces the unreadable
+ * words, and every later word's offsets move with it; nothing else changes. Measured 25 Nov 2026 on a photographed MRI
+ * report: the page read "or", the strip read 10/10/2026 (as printed).
+ */
+export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider: OcrProvider): Promise<OcrResult> {
+  if (!provider.recognizeLine) return ocr
+  const headerEnd = ocr.text.split('\n').slice(0, HEADER_LINES).join('\n').length
+  const labels = [...ocr.text.slice(0, headerEnd).matchAll(HEADER_DATE_LABEL)].reverse() // last first: earlier offsets stay valid
+  let { text, words } = ocr
+  let size: { width: number; height: number } | null = null
+  for (const m of labels) {
+    const labelEnd = m.index + m[0].length
+    const stop = text.slice(labelEnd).search(/[\t\n]/)
+    const valueEnd = stop < 0 ? text.length : labelEnd + stop
+    const value = text.slice(labelEnd, valueEnd)
+    if (findDates(value).some((d) => d.kind === 'absolute' && ONLY_SEPARATORS.test(value.slice(0, d.start)))) continue
+    const box = words.find((w) => w.s <= labelEnd - 1 && labelEnd - 1 < w.e)?.b
+    const h = box ? box[3] - box[1] : 0
+    if (!box || h <= 0) continue
+    if (!size) {
+      const meta = await sharp(image).metadata()
+      size = { width: meta.width ?? 0, height: meta.height ?? 0 }
+    }
+    const left = Math.min(box[2], size.width), top = Math.max(0, box[1] - Math.round(h * 0.4))
+    const width = Math.min(size.width - left, h * 14), height = Math.min(size.height - top, Math.round(h * 1.8))
+    if (width < h || height < h) continue
+    const strip = await sharp(image).extract({ left, top, width, height }).resize({ height: height * 3 }).greyscale().normalise().png().toBuffer()
+    const read = await provider.recognizeLine(strip)
+    const d = findDates(read.text).find((x) => x.kind === 'absolute' && ONLY_SEPARATORS.test(read.text.slice(0, x.start)))
+    if (!d) continue
+    const put = ` ${d.raw}`
+    const delta = put.length - value.length
+    const date: OcrWord = { t: d.raw, c: Math.round((read.mean ?? 0.5) * 100) / 100, s: labelEnd + 1, e: labelEnd + 1 + d.raw.length, b: [left, top, left + width, top + height] }
+    text = text.slice(0, labelEnd) + put + text.slice(valueEnd)
+    words = [
+      ...words.filter((w) => w.e <= labelEnd), date,
+      ...words.filter((w) => w.s >= valueEnd).map((w) => ({ ...w, s: w.s + delta, e: w.e + delta })),
+    ]
+  }
+  if (text === ocr.text) return ocr
+  // `lines` stays as read: it only feeds the handwriting verdict, which is taken before this re-read.
+  return { ...ocr, text, words, mean: words.length ? words.reduce((a, w) => a + w.c, 0) / words.length : null }
+}
 
 const DEVANAGARI = /\p{Script=Devanagari}/u
 
@@ -241,7 +309,8 @@ async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = te
   // pages, English ones had no such word and Hindi or mixed ones had ≥ 3 — a Devanagari name in an English header counts.
   // Handwritten pages are never extracted, so they keep the first pass.
   const hindi = first.words.some((w) => w.c >= 0.8 && DEVANAGARI.test(w.t))
-  const ocr = !handwriting.handwritten && !hindi ? await provider.recognize(image, 'eng') : first
+  const read = !handwriting.handwritten && !hindi ? await provider.recognize(image, 'eng') : first
+  const ocr = handwriting.handwritten ? read : await rereadHeaderDates(read, image, provider)
   return {
     pageNo, text: ocr.text, words: ocr.words, ocrConfidence: ocr.mean === null ? null : round3(ocr.mean),
     lowConfidence: ocr.mean !== null && ocr.mean < OCR_LOW_CONFIDENCE, source: 'ocr', handwriting, hidden: null, image,

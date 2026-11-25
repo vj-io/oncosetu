@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { analyse, classify, splitSections } from './core'
+import type { OcrWord } from '@/db/schema'
+import { analyse, classify, headerFor, splitSections } from './core'
 import { olderRecord } from './queries'
 import type { PageRead } from './text'
 
@@ -108,3 +109,120 @@ describe('"older record, newly received" goes by the paper\'s own date (E-DOC-15
   })
 })
 
+
+// A photographed report whose table header prints a study date and a report date on every page (25 Nov 2026, pilot PET-CT
+// file). Synthetic text in the shape its pages read: "|" for the table's rules, tabs between cells.
+describe('photographed table headers', () => {
+  const pet = (study: string, reportDate: string | null, body = 'WHOLE BODY PET-CT SCAN\nFindings: No abnormal FDG avid lesion.\nImpression: Complete metabolic response.\n') =>
+    `CITY PET-CT IMAGING CENTRE\nPatient Name | Mrs. Asha Testkar\tAge | 47Yr\nPatient ID\tPET/2026/0412\tSex | Female\nStudy Date\t${study}\t${reportDate ? `Report Date | ${reportDate}` : 'Time | 6:20pm'}\n${body}`
+  it('headerFor takes the report date from a table cell, over the study date', () => {
+    expect(headerFor(pet('03 Mar 2026', '05 Mar 2026')).reportDate).toMatchObject({ value: '05 Mar 2026', label: 'report date' })
+    expect(headerFor(pet('03 Mar 2026', null)).reportDate).toMatchObject({ value: '03 Mar 2026', label: 'visit date' })
+    // a plain "Date" cell in the middle of a row (its label word lost to OCR)
+    expect(headerFor('CITY PET-CT IMAGING CENTRE\nPatient Name | Asha Testkar\tDate | 05 Mar 2026\n').reportDate).toMatchObject({ value: '05 Mar 2026', label: 'date' })
+  })
+  it('a value read across a table rule is the page text exactly, its "|" kept', () => {
+    const t = 'Name: Asha Testkar\nAge: 47\nSex: F\nUHID: 77\nDate: 03/03/2026\nRef: Dr A Rao\nCITY HOSPITAL AND RESEARCH CENTRE FOR CANCER CARE | RADIOLOGY\n'
+    const h = headerFor(t)
+    expect(h.institution?.value).toBe('CITY HOSPITAL AND RESEARCH CENTRE FOR CANCER CARE | RADIOLOGY')
+    expect(t.slice(h.institution!.start, h.institution!.end)).toBe(h.institution!.value)
+  })
+  it('aligned colons after a label cell ("Patient Name <TAB> : X") still give the name', () => {
+    const h = headerFor('CITY HOSPITAL\nPatient Name\t: Asha Testkar\tAge\t: 47 years\nGender\t:\tFemale\n')
+    expect(h.name?.value).toBe('Asha Testkar')
+    expect(h.sex?.sex).toBe('F')
+  })
+  it('a page whose header lost its report date but shares the study date stays in the same report', () => {
+    expect(split([page(1, pet('03 Mar 2026', '05 Mar 2026')), page(2, pet('03 Mar 2026', null)), page(3, pet('03 Mar 2026', '05 Mar 2026'))]))
+      .toEqual([[[1, 2, 3], '2026-03-05']])
+    // The dates a report's pages share add up: page 3 shares only page 2's study date.
+    expect(split([page(1, pet('—', '05 Mar 2026')), page(2, pet('03 Mar 2026', '05 Mar 2026')), page(3, pet('03 Mar 2026', null))]))
+      .toEqual([[[1, 2, 3], '2026-03-05']])
+    // A report that shares no date with it is a report of its own.
+    expect(split([page(1, pet('03 Mar 2026', '05 Mar 2026')), page(2, pet('01 Feb 2026', '03 Feb 2026'))]))
+      .toEqual([[[1], '2026-03-05'], [[2], '2026-02-03']])
+  })
+  // An OCR'd page: lines on a 15 px grid (or at the y given) over a 1000 px tall text extent, so each line's position is known
+  // (line 17 at 24%).
+  const ocrPage = (pageNo: number, lines: (string | [string, number])[]): PageRead => {
+    let text = ''
+    const words: OcrWord[] = []
+    lines.forEach((entry, i) => {
+      const [line, y] = typeof entry === 'string' ? [entry, i * 15] : entry
+      if (text) text += '\n'
+      for (const tok of line.split(/(\s+)/)) {
+        if (!tok.trim()) { text += tok; continue }
+        const s = text.length
+        text += tok
+        words.push({ t: tok, c: 0.9, s, e: text.length, b: [10, y, 10 + tok.length * 8, y + 12] })
+      }
+    })
+    words.push({ t: '.', c: 0.9, s: text.length, e: text.length + 1, b: [10, 984, 18, 1000] })
+    return page(pageNo, `${text}.`, { source: 'ocr', words })
+  }
+  const letterhead = ['CITY HOSPITAL', 'CITY CANCER CENTRE', 'A unit of the city trust', ...Array.from({ length: 13 }, (_, i) => `Road ${i + 1}, Phone 0000 000${i}`)]
+  it('on an OCR\'d page, a header date below line 15 but in the top 30% of the page starts a report; one further down does not', () => {
+    const first = page(1, pet('03 Mar 2026', '05 Mar 2026'))
+    expect(split([first, ocrPage(2, [...letterhead, 'Date: 14/01/2026', 'CT SCAN OF CHEST', 'Findings: normal study.'])]))
+      .toEqual([[[1], '2026-03-05'], [[2], '2026-01-14']])
+    // the same line 17 at 60% of the page is body text
+    const far = ocrPage(2, [...letterhead, ['Compared with scan Date: 14/01/2026', 600]])
+    expect(split([first, far])).toEqual([[[1, 2], '2026-03-05']])
+    // and a page of 40 small lines all in its top 30% takes no more than 25 of them
+    const dense = ocrPage(2, [...letterhead, ...Array.from({ length: 10 }, (_, i): [string, number] => [`Finding ${i + 1}.`, 228 + 2 * i]), ['Compared with scan Date: 14/01/2026', 250]])
+    expect(split([first, dense])).toEqual([[[1, 2], '2026-03-05']])
+  })
+})
+
+describe('identity of a paper with no readable report date', () => {
+  // PATIENT is 51 on the day RECEIVED; the paper below prints no date at all.
+  const undated = (age: string) => page(1, `CITY IMAGING CENTRE\nPatient Name: Mrs. Asha Testkar\tAge: ${age}\tSex: Female\nCT scan of chest\nFINDINGS: No focal lesion in the lungs.\n`)
+  it('a printed age she cannot have reached by its upload rules her out; her own age does not confirm her', async () => {
+    expect((await analyse([undated('60 Yrs')], PATIENT, RECEIVED)).identified.identity).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    expect((await analyse([undated('51 Yrs')], PATIENT, RECEIVED)).identified.identity).toMatchObject({ result: 'insufficient', notes: ['age_not_compared_no_report_date'] })
+  })
+})
+
+// A header table whose cells come out stacked, as a digital report's text layer read on 25 Nov 2026: each label cell's lines,
+// then its value cell's lines. Synthetic values.
+describe('a header table read as stacked labels, then their values', () => {
+  const P2 = { name: 'Asha Testkar', aliases: [], dob: '1979-06-10', sex: 'female' } // 46 on 05 Mar 2026
+  const paper = (o: { name?: string | null; age?: string | null; sex?: string | null; study?: string[]; report?: string[] } = {}) => [
+    ...(o.name === null ? [] : [`Patient Name\t${o.name ?? 'Asha Testkar'}`]),
+    ...(o.age === null ? [] : [`Patient ID\tAB1234\tAge\t${o.age ?? '46Yr'}`]),
+    ...(o.sex === null ? [] : [`Referral Dr\tDr A Rao\tSex\t${o.sex ?? 'Female'}`]),
+    'Study Date', 'Time', ...(o.study ?? ['03 Mar 2026', '4:05pm']),
+    'Report Date', 'Time', ...(o.report ?? ['05 Mar 2026', '6:20pm']),
+    'Page 1 of 3\tPowered by example lab', 'CT PULMONARY ANGIOGRAPHY',
+    'Clinical Details: Known case. PET CT study of 26 June 2025 was available.',
+    'FINDINGS: No filling defect in the pulmonary arteries.', 'IMPRESSION: No pulmonary embolism.',
+  ].join('\n') + '\n'
+  it('each value pairs with the label in its place: the report date is the report date, never the body\'s earlier study', () => {
+    expect(headerFor(paper()).reportDate).toMatchObject({ value: '05 Mar 2026', label: 'report date' })
+    expect(split([page(1, paper())])).toEqual([[[1], '2026-03-05']])
+  })
+  it('counts or shapes that disagree pair nothing', () => {
+    // values in the wrong order (time where the date belongs)
+    expect(headerFor(paper({ study: ['4:05pm', '03 Mar 2026'], report: ['6:20pm', '05 Mar 2026'] })).reportDate).toBeUndefined()
+    // a value missing: the next line is not a time
+    expect(headerFor(paper({ report: ['05 Mar 2026'] })).reportDate?.label).not.toBe('report date')
+    // a date label holding no date, or a line of text that merely contains one
+    expect(headerFor(paper({ study: ['Pending', '4:05pm'], report: ['Pending', '6:20pm'] })).reportDate).toBeUndefined()
+    expect(headerFor(paper({ study: ['Pending', '4:05pm'], report: ['Repeat after 05 Mar 2026', '6:20pm'] })).reportDate).toBeUndefined()
+    // the text ends before the last value
+    expect(headerFor('Patient Name\tAsha Testkar\nReport Date\nTime\n05 Mar 2026').reportDate).toBeUndefined()
+  })
+  it('name, age on the report date and sex all match: a match. Near misses do not pass', async () => {
+    const id = async (o: Parameters<typeof paper>[0]) => (await analyse([page(1, paper(o))], P2, RECEIVED)).identified.identity
+    expect(await id({})).toMatchObject({ result: 'match', reasons: [] })
+    expect(await id({ age: '47Yr' })).toMatchObject({ result: 'match' }) // the gate's year of slack, unchanged
+    expect(await id({ age: '48Yr' })).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    expect(await id({ age: '44Yr' })).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    expect(await id({ sex: 'Male' })).toMatchObject({ result: 'mismatch', reasons: ['sex_mismatch'] })
+    expect(await id({ name: 'Rekha Banerjee' })).toMatchObject({ result: 'mismatch', reasons: ['name_mismatch'] })
+    // only the name: nothing confirms it, and the paper says so
+    expect(await id({ age: null, sex: null })).toMatchObject({ result: 'insufficient', reasons: ['no_corroborating_field'] })
+    // the dates unreadable: the age and the ID are read but cannot confirm her, and the reasons say exactly that
+    expect(await id({ study: ['Pending', '4:05pm'], report: ['Pending', '6:20pm'] })).toMatchObject({ result: 'insufficient', reasons: ['name_not_confirmed', 'age_not_compared_no_report_date', 'mrn_not_registered'] })
+  })
+})

@@ -127,6 +127,10 @@ const REASON_TEXT: Record<string, string> = {
   dob_mismatch: 'date of birth differs', initial_conflict: 'initials conflict', name_missing: 'no patient name found on the report',
   name_initials_only: 'only initials on the report', single_name_token: 'only one name on the report', baby_of_clause: '"Baby of" report',
   no_corroborating_field: 'name matches but no age, date of birth or ID to confirm it', handwritten_header: 'handwritten header — not machine-read',
+  // Read on the paper, but unable to confirm the name (decideIdentity): never reported as missing.
+  name_not_confirmed: 'name matches but nothing confirms it', age_not_compared_no_report_date: 'age found but not compared: no report date on the paper',
+  patient_dob_unknown: 'age or date of birth found but none registered to compare', dob_unreadable: 'date of birth found but not readable to the day',
+  mrn_not_registered: 'ID found but none registered to compare', mrn_differs: 'ID found but it differs from the registered one',
 }
 export const identityReasonText = (r: string) => REASON_TEXT[r] ?? r.replace(/_/g, ' ')
 

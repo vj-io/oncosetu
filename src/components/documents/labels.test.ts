@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { attachedWithReasonText, fmtDate, fmtDateTime } from './labels'
+import { attachedWithReasonText, fmtDate, fmtDateTime, identityReasonText } from './labels'
 
 // The hand-written formatters must print exactly what Node's en-IN Intl printed before (server-rendered text unchanged).
 describe('document board date formatting', () => {
@@ -20,5 +20,13 @@ describe('the resolved identity state', () => {
     expect(attachedWithReasonText('records', '2026-11-18T05:00:00.000Z')).toBe('Attached by records staff with a reason, 18 Nov 2026')
     expect(attachedWithReasonText('clinician', null)).toBe('Attached by a clinician with a reason')
     expect(attachedWithReasonText(null, '2026-11-18T20:00:00.000Z')).toBe('Attached by a person with a reason, 19 Nov 2026') // India time
+  })
+})
+
+describe('identity reasons in words', () => {
+  it('every reason the identity check gives has words of its own; only the blanket one says a field is missing', () => {
+    const codes = ['no_corroborating_field', 'name_not_confirmed', 'age_not_compared_no_report_date', 'patient_dob_unknown', 'dob_unreadable', 'mrn_not_registered', 'mrn_differs', 'age_mismatch', 'sex_mismatch', 'name_missing']
+    for (const c of codes) expect(identityReasonText(c), c).not.toBe(c.replace(/_/g, ' '))
+    for (const c of codes.slice(1)) expect(identityReasonText(c), c).not.toMatch(/\bno age\b|\bno .*ID to confirm/)
   })
 })

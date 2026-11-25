@@ -167,19 +167,20 @@ export const tesseractOcr: OcrProvider = {
   recognizeLine: async (image) => readWords(await ocrWorker('eng-line'), image),
 }
 
-/** A date label of a report header: "Exam Date:", "Report Date:", "Date:". */
-const HEADER_DATE_LABEL = /(?<![\p{L}])(?:(?:Exam(?:ination)?|Report(?:ed)?|Reporting|Scan|Study|Visit|Collection|Collected|Sample|Admission|Discharge|Procedure)\s+)?(?:Date|Dt\.?)\s*[:：]/giu
+/** A date label of a report header: "Exam Date:", "Report Date:", "Date:", or a table's label cell ("Report Date | ", "Date <TAB>"). */
+const HEADER_DATE_LABEL = /(?<![\p{L}])(?:(?:Exam(?:ination)?|Report(?:ed)?|Reporting|Scan|Study|Visit|Collection|Collected|Sample|Admission|Discharge|Procedure)\s+)?(?:Date|Dt\.?)(?:\s*[:：|¦]|[ ]*\t)/giu
 /** The header block, as the pipeline reads it (core.ts HEADER_LINES). */
 const HEADER_LINES = 15
-const ONLY_SEPARATORS = /^[\s\-–=.]*$/
+const ONLY_SEPARATORS = /^[\s\-–=.|¦[\]:]*$/
 
 /**
  * A photographed header can lose its date to the page OCR ("Exam Date: 10/10/2026" read as "Exam Date: or"); the report
  * then takes a date quoted further down (an earlier study) or none. When a date label in the header block has no readable
  * date after it (in its own cell, or in the next column when its cell is blank), the strip right of the label is read again on its own: cropped from
- * the page image, 3× scale, grey, one line of English. A date read at the start of that strip replaces the unreadable
- * words, and every later word's offsets move with it; nothing else changes. Measured 25 Nov 2026 on a photographed MRI
- * report: the page read "or", the strip read 10/10/2026 (as printed).
+ * the page image, 3× scale, grey, table rules painted white (whitenRules), one line of English. A valid date read at the
+ * start of that strip replaces the unreadable words, and every later word's offsets move with it; nothing else changes.
+ * Measured 25 Nov 2026 on a photographed MRI report: the page read "or", the strip read 10/10/2026 (as printed); and on a
+ * photographed PET-CT table header: the page read the report date with its year cut off, the strip read it whole.
  */
 export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider: OcrProvider): Promise<OcrResult> {
   if (!provider.recognizeLine) return ocr
@@ -196,8 +197,12 @@ export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider:
     // column ("Date:<TAB>20/04/2026"). Only a value with no date at all is read again.
     const nextCell = !value.trim() && text[valueEnd] === '\t' ? text.slice(valueEnd + 1, cellEnd(valueEnd + 1)) : ''
     if ([value, nextCell].some((v) => findDates(v).some((d) => d.kind === 'absolute'))) continue
-    const box = words.find((w) => w.s <= labelEnd - 1 && labelEnd - 1 < w.e)?.b
-    const h = box ? box[3] - box[1] : 0
+    // The strip starts right of the label's last mark (its colon, or the table rule read as "|"); its height is the
+    // label's first word's (a rule's box can span the whole row).
+    const inLabel = words.filter((w) => w.s < labelEnd && w.e > m.index)
+    const box = inLabel.at(-1)?.b
+    const first = inLabel[0]?.b
+    const h = first ? first[3] - first[1] : 0
     if (!box || h <= 0) continue
     if (!size) {
       const meta = await sharp(image).metadata()
@@ -206,10 +211,13 @@ export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider:
     const left = Math.min(box[2], size.width), top = Math.max(0, box[1] - Math.round(h * 0.4))
     const width = Math.min(size.width - left, h * 14), height = Math.min(size.height - top, Math.round(h * 1.8))
     if (width < h || height < h) continue
-    const strip = await sharp(image).extract({ left, top, width, height }).resize({ height: height * 3 }).greyscale().normalise().png().toBuffer()
-    const read = await provider.recognizeLine(strip)
+    const { data: px, info } = await sharp(image).extract({ left, top, width, height }).resize({ height: height * 3 }).greyscale().normalise()
+      .extractChannel(0).raw().toBuffer({ resolveWithObject: true })
+    whitenRules(px, info.width, info.height)
+    const read = await provider.recognizeLine(await sharp(px, { raw: { width: info.width, height: info.height, channels: 1 } }).png().toBuffer())
     const d = findDates(read.text).find((x) => x.kind === 'absolute' && ONLY_SEPARATORS.test(read.text.slice(0, x.start)))
-    if (!d) continue
+    // Only a real calendar day replaces the value: a misread such as "55 Mar 2026" is no date.
+    if (!d || parseDate(d.raw).precision !== 'day') continue
     const put = ` ${d.raw}`
     const delta = put.length - value.length
     const date: OcrWord = { t: d.raw, c: Math.round((read.mean ?? 0.5) * 100) / 100, s: labelEnd + 1, e: labelEnd + 1 + d.raw.length, b: [left, top, left + width, top + height] }
@@ -222,6 +230,43 @@ export async function rereadHeaderDates(ocr: OcrResult, image: Buffer, provider:
   if (text === ocr.text) return ocr
   // `lines` stays as read: it only feeds the handwriting verdict, which is taken before this re-read.
   return { ...ocr, text, words, mean: words.length ? words.reduce((a, w) => a + w.c, 0) / words.length : null }
+}
+
+/**
+ * A header strip cut from a table holds the row's rules above and below the value and the cell border beside it; read as
+ * one line they garble the date (on a photographed PET-CT header, 25 Nov 2026, the strip read an impossible day of the
+ * month; with the rules painted white it read the date as printed). Ink connected across a third of the strip's width,
+ * or over nearly its full height, is a rule: no glyph of one line of text is that wide or that tall. Painted white in
+ * place (greyscale pixels, dark < 128); returns how many rules it removed.
+ */
+export function whitenRules(px: Uint8Array, width: number, height: number): number {
+  const seen = new Uint8Array(width * height)
+  const stack: number[] = []
+  let removed = 0
+  for (let start = 0; start < px.length; start++) {
+    if (seen[start] || px[start] >= 128) continue
+    const members: number[] = []
+    let x0 = width, x1 = -1, y0 = height, y1 = -1
+    seen[start] = 1
+    stack.push(start)
+    while (stack.length) {
+      const p = stack.pop()!
+      members.push(p)
+      const x = p % width, y = (p - x) / width
+      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y)
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx, yy = y + dy, q = yy * width + xx
+          if (xx >= 0 && xx < width && yy >= 0 && yy < height && !seen[q] && px[q] < 128) { seen[q] = 1; stack.push(q) }
+        }
+      }
+    }
+    if (x1 - x0 + 1 >= width / 3 || y1 - y0 + 1 >= height * 0.9) {
+      for (const p of members) px[p] = 255
+      removed++
+    }
+  }
+  return removed
 }
 
 const DEVANAGARI = /\p{Script=Devanagari}/u
@@ -393,9 +438,12 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
         await hooks.onPage?.({ pageNo: n, total, page: p, fresh })
       }
       const [content, hiddenStrs] = await Promise.all([page.getTextContent(), invisibleStrings(page as never)])
-      let text = ''
+      // The page's lines as written; `end` and `y`: where the line's last visible item ends, and its baseline.
+      const lines: { text: string; y: number; end: number | null }[] = [{ text: '', y: 0, end: null }]
+      const [, y0, , y1] = page.view
+      const headerFloor = y1 - 0.3 * (y1 - y0) // PDF y grows upwards: the top 30% of the page
+      let cur = 0
       let hidden = ''
-      let lastEnd: { x: number; y: number } | null = null
       for (const it of content.items as TextItem[]) {
         if (it.str == null) continue
         const t = it.transform ?? [1, 0, 0, 1, 0, 0]
@@ -406,12 +454,37 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
           hidden += it.str + (it.hasEOL ? '\n' : ' ')
           continue
         }
+        // A header table whose cells of several lines are written whole, one after another ("Study Date", "Time", then the
+        // value cell "03 Mar 2026", "4:05pm"): in the top 30% of the page, a line that starts on the baseline of one of the
+        // last CELL_LINES lines, right of its end, continues that line when it holds only short cells, so each label sits
+        // beside its value. Blocks of running text side by side (an address beside a registration number) and
+        // two-column text keep their order.
+        // ponytail: header grids only. Rejoining body tables and side-by-side header text by row changed six evaluation
+        // documents' facts (25 Nov 2026); extend it there with the medication and pathology rules re-tuned.
+        const last = lines.length - 1
+        let cell = false
+        if (s && t[5] >= headerFloor && cur === last && !lines[last].text.trim()) {
+          for (let k = last - 1; k >= Math.max(0, last - CELL_LINES); k--) {
+            const l = lines[k]
+            if (l.end !== null && Math.abs(t[5] - l.y) < 1 && t[4] >= l.end - 1 && l.text.split('\t').every((c) => c.trim().length <= SHORT_CELL)) {
+              cur = k
+              cell = true
+              break
+            }
+          }
+        }
+        const line = lines[cur]
         // Same baseline, wide gap → column break: a tab keeps "Name: X   UHID: Y" as two fields (like pdftotext -layout).
-        if (s && lastEnd && !text.endsWith('\n') && Math.abs(t[5] - lastEnd.y) < 1 && t[4] - lastEnd.x > 1.5 * size) text += '\t'
-        text += it.str + (it.hasEOL ? '\n' : '')
-        if (s) lastEnd = { x: t[4] + (it.width ?? 0), y: t[5] }
-        if (it.hasEOL) lastEnd = null
+        // A cell written after its row's other cells is a column of its own whatever the gap.
+        if (s && line.end !== null && Math.abs(t[5] - line.y) < 1 && (cell || t[4] - line.end > 1.5 * size)) line.text += '\t'
+        line.text += it.str
+        if (s) Object.assign(line, { end: t[4] + (it.width ?? 0), y: t[5] })
+        if (it.hasEOL) {
+          if (cur === last) lines.push({ text: '', y: 0, end: null })
+          cur = lines.length - 1
+        }
       }
+      const text = lines.map((l) => l.text).join('\n')
       if (text.replace(/\s/g, '').length >= 20) {
         await done({
           pageNo: n, text, words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
@@ -443,6 +516,10 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
   }
 }
 
+/** How far back (in lines) a PDF line may continue an earlier one: the lines of one multi-line table cell. */
+const CELL_LINES = 6
+/** A header table's cell: a label, a date, a time, an age or an ID, never a line of running text. */
+const SHORT_CELL = 24
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_TIFF_PAGES = 20
 

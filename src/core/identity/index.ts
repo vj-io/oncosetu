@@ -366,13 +366,19 @@ export function ageOn(dob: string, date: string): number {
 
 // ---------- decision ----------
 
+/** Notes for a field the header showed that could not confirm the name: read, but not comparable or not matching. */
+const READ_NOT_USED = ['age_not_compared_no_report_date', 'patient_dob_unknown', 'dob_unreadable', 'mrn_not_registered', 'mrn_differs']
+
 /**
  * Identity decision for one document header vs the patient (FR-ID-04).
- * mismatch: name conflict, sex conflict, DOB conflict, or age differs by > 1 year at the report date.
+ * mismatch: name conflict, sex conflict, DOB conflict, or age differs by > 1 year at the report date (with no report date:
+ * a printed age > 1 year above the age on `receivedOn`, the day the paper reached us).
  * insufficient: no name, initials only, a single name token, "Baby of", or nothing to corroborate the name
- * (age/DOB at report date or an equal MRN). match: name matches (alias/transliteration-aware) and is corroborated.
+ * (age/DOB at report date or an equal MRN): `no_corroborating_field` when the header shows none of them, else
+ * `name_not_confirmed` and what kept each one read from confirming it. match: name matches (alias/transliteration-aware)
+ * and is corroborated.
  */
-export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity, reportDate: string | null): IdentityDecision {
+export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity, reportDate: string | null, receivedOn: string | null = null): IdentityDecision {
   const reasons: string[] = []
   const notes: string[] = []
   const hard: string[] = []
@@ -414,13 +420,18 @@ export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity,
         corroborated = true
         notes.push('dob_ambiguous_reading')
       } else hard.push('dob_mismatch')
-    }
+    } else notes.push('dob_unreadable')
   }
   const age = parseAge(header.age)
   if (age !== null) {
     if (!patient.dob) notes.push('patient_dob_unknown')
-    else if (!reportDate) notes.push('age_not_compared_no_report_date')
-    else {
+    else if (!reportDate) {
+      // No report date: the report cannot postdate its upload, so a printed age above the patient's age on the day it
+      // reached us (one year's slack, as with a date) is someone else. An age at or below it proves nothing and never
+      // corroborates: an older report of this patient, or another person of that age, read the same.
+      if (receivedOn && Math.floor(age) - ageOn(patient.dob, receivedOn) > 1) hard.push('age_mismatch')
+      else notes.push('age_not_compared_no_report_date')
+    } else {
       const actual = ageOn(patient.dob, reportDate)
       const diff = age >= 1 ? Math.abs(Math.floor(age) - actual) : Math.abs(age - daysBetween(patient.dob, reportDate) / 365.25)
       if (diff > 1) hard.push('age_mismatch')
@@ -434,11 +445,14 @@ export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity,
       notes.push('mrn_match')
       corroborated = true
     } else notes.push('mrn_differs')
-  }
+  } else if (header.mrn) notes.push('mrn_not_registered')
 
   const uniq = (xs: string[]) => [...new Set(xs)]
   if (hard.length) return { result: 'mismatch', score, reasons: uniq([...hard, ...reasons]), notes: uniq(notes) }
   if (nameVerdict !== 'match') return { result: 'insufficient', score, reasons: uniq(reasons), notes: uniq(notes) }
-  if (!corroborated) return { result: 'insufficient', score, reasons: ['no_corroborating_field'], notes: uniq(notes) }
+  // The name matches and nothing confirms it. When a field was read but could not confirm it, say which and why; the blanket
+  // "no age, date of birth or ID" is only for a header that showed none of them.
+  const unused = uniq(notes.filter((n) => READ_NOT_USED.includes(n)))
+  if (!corroborated) return { result: 'insufficient', score, reasons: unused.length ? ['name_not_confirmed', ...unused] : ['no_corroborating_field'], notes: uniq(notes) }
   return { result: 'match', score, reasons: [], notes: uniq(notes) }
 }

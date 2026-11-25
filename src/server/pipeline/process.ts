@@ -220,7 +220,7 @@ async function processClaimed(orgId: string, documentId: string, opts: RunOpts, 
   const cached = new Map((await withOrg(orgId, (tx) => tx.select({ pageNo: documentReadCache.pageNo, data: documentReadCache.data }).from(documentReadCache)
     .where(eq(documentReadCache.documentId, documentId)))).map((r) => [r.pageNo, r.data as unknown as CachedPage]))
   const read = await readPages(new Uint8Array(bytes), doc.mime, opts.password, opts.ocr, {
-    cached,
+    cached, printed: doc.manualTags.includes('printed'),
     onPage: async ({ pageNo, total, page, fresh }) => {
       hb.check()
       if (!page) {

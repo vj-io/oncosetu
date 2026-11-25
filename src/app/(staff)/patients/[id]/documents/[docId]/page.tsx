@@ -3,7 +3,7 @@ import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
-import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { DetachForm, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { HeldReveal } from '@/components/documents/HeldReveal'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, statusBadge } from '@/components/documents/labels'
@@ -72,6 +72,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const flags = doc.flags as Record<string, unknown>
   const injection = flags.injection as { patterns: string[]; hiddenChars: number; hiddenPages: number[] } | undefined
   const hidden = ((doc.quality as { hidden?: { pageNo: number; text: string }[] } | null)?.hidden ?? [])
+  const heldPages = ((doc.quality as { pages?: { pageNo: number; handwriting?: { handwritten?: boolean } }[] } | null)?.pages ?? []).filter((p) => p.handwriting?.handwritten).map((p) => p.pageNo)
   const gate = flags.gate as { candidates: number; accepted: number; kept: number; rejected: number; reasons: Record<string, number>; rejections?: RejectionLogItem[] } | undefined
   const erratum = flags.erratum as { detachedAt: string; reason: string; withdrawnEventIds: string[]; sealedSnapshots: { seq: number }[] } | undefined
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
@@ -86,6 +87,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const imaging = imagingOwn && mergedScan?.parts ? { ...imagingOwn, instances: mergedScan.instances, frames: mergedScan.frames } : imagingOwn
   const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
+  const canMarkPrinted = !doc.manualTags.includes('printed') && !live && heldPages.length > 0
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
   // A file held because it may belong to someone else: warn first, and keep the picture small and blurred until a person asks.
   const heldOut = doc.attachState === 'pending_decision' && doc.status !== 'quarantined'
@@ -163,6 +165,13 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         {doc.handwritten && (
           <Notice tone="unverified" icon={<Hand />} title={<>Handwritten, kept as an image only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
             Handwriting is never machine-extracted (no OCR text is kept, so no facts can be quoted). Tag the document type, date and institution below.
+            {canMarkPrinted && <div className="mt-2 flex flex-wrap items-center gap-3"><span>A photo of a printed report can look handwritten.</span><PrintedButton documentId={doc.id} /></div>}
+          </Notice>
+        )}
+        {!doc.handwritten && heldPages.length > 0 && (
+          <Notice tone="unverified" icon={<Hand />} title={<>{heldPages.length === 1 ? 'Page' : 'Pages'} {heldPages.join(', ')} judged handwritten, kept as images only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
+            No text from {heldPages.length === 1 ? 'this page' : 'these pages'} is read, so no facts come from {heldPages.length === 1 ? 'it' : 'them'}.
+            {canMarkPrinted && <div className="mt-2 flex flex-wrap items-center gap-3"><span>If {heldPages.length === 1 ? 'it is' : 'they are'} printed (a photo of a printed report can look handwritten):</span><PrintedButton documentId={doc.id} /></div>}
           </Notice>
         )}
         {doc.lowConfidence && !doc.handwritten && (

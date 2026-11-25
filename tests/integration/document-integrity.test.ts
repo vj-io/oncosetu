@@ -269,3 +269,38 @@ describe('intake and pipeline paths', () => {
     expect(docs.map((x) => x.id)).toEqual([b.documentId])
   }, 120_000)
 })
+
+describe('a file judged handwritten can be marked printed (FR-DOC-07)', () => {
+  it('a person marks it: audited, read again with no page held; a second mark is refused', async () => {
+    const c = await imp()
+    const actions = await import('../../src/server/pipeline/actions')
+    const audit = await import('../../src/server/audit')
+    const up = await upload('rx.jpg', new Uint8Array(readFileSync('public/demo-docs/hero__05-prescription-handwritten.jpg')))
+    await c.proc.runDocument(up.documentId, ORG)
+    const pageHw = (row: { quality: unknown }) => ((row.quality as { pages: { handwriting?: Record<string, unknown> }[] }).pages[0].handwriting)
+    const before = await docRow(up.documentId)
+    expect(before.handwritten).toBe(true) // the positive control: the line rule holds this page
+    expect(pageHw(before)).toMatchObject({ handwritten: true })
+
+    const actorId = randomUUID()
+    const mark = () => c.db.withOrg(ORG, async (tx) => actions.markPrinted({
+      db: tx, audit: (action: string, tt: string | null, tid: string | null) => audit.writeAudit(tx, { orgId: ORG, actorId, actorRole: 'records', action, targetType: tt, targetId: tid }),
+    } as never, (await tx.select().from(c.s.documents).where(eq(c.s.documents.id, up.documentId)))[0]))
+    expect(await mark()).toEqual({ ok: true, status: 'queued' })
+    await c.proc.runDocument(up.documentId, ORG) // the scheduled run may have claimed it already; the claim is atomic
+    let after = await docRow(up.documentId)
+    for (let i = 0; i < 120 && (after.status === 'queued' || after.status === 'processing'); i++) {
+      await new Promise((r) => setTimeout(r, 1000))
+      after = await docRow(up.documentId)
+    }
+    expect(after.manualTags).toContain('printed')
+    expect(after.handwritten).toBe(false)
+    expect(pageHw(after)).toMatchObject({ handwritten: false, printedByStaff: true })
+    const pages = await owner`select text from document_pages where document_id = ${up.documentId} and superseded_at is null`
+    expect(pages[0].text.trim().length).toBeGreaterThan(0) // the page is read now
+    const logged = await owner`select actor_role from audit_log where action = 'document.marked_printed' and target_id = ${up.documentId}`
+    expect(logged.map((r) => r.actor_role)).toEqual(['records'])
+
+    await expect(mark()).rejects.toMatchObject({ code: 'unchanged' })
+  }, 360_000)
+})

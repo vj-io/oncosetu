@@ -145,7 +145,7 @@ the change each needs.
 | 8.3.1 | Sensitive data in bodies, not URLs | partly | OTP codes, phones and passcodes travel in bodies; the demo outbox page takes a phone in the query string (demo organisations only); share keys sit in the URL fragment (never sent) |
 | 8.3.2 | Users can remove or export their data | partly | Erasure on request after consent withdrawal (J8, tests/integration/erasure.test.ts); patients can share an index, no full self-export |
 | 8.3.4 | Sensitive data identified and handled per policy | partly | PRD §7 and §10.3; no formal data inventory |
-| 8.3.5 | Access to sensitive data audited | met | `document.view`, `patient.search`, share views; patients see "Who looked at my file" |
+| 8.3.5 | Access to sensitive data audited | met | `document.view` (scan and page pictures: once per viewer, per document, per 30 minutes; originals every time), `patient.search`, share views; patients see "Who looked at my file" |
 | 8.3.7 | Encrypted with approved algorithms | met | As V6 |
 | 8.3.8 | Retention and deletion | met | Retention settings, daily erasure cron, erased patients reduced to a tombstone (drizzle/0006) |
 

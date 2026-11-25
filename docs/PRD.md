@@ -1294,7 +1294,7 @@ Rules:
 
 ### 15.2 Audit log (separate from app logs)
 
-Append-only table, hash-chained (`prev_hash`, `row_hash`), recording every access, change, verification, seal, share, consent change, break-glass and export. Exportable for auditors. Integrity check job runs nightly.
+Append-only table, hash-chained (`prev_hash`, `row_hash`), recording every access, change, verification, seal, share, consent change, break-glass and export. Exportable for auditors. Integrity check job runs nightly. **25 Nov 2026:** viewing the pictures of a scan or the page pictures of a paper is one access per viewer, per document, per 30 minutes (`VIEWING_MS`), not one row per image; opening the original is recorded every time.
 
 ### 15.3 Agent and orchestration logs
 

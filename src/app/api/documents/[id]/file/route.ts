@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { z } from 'zod'
 import { documentFiles, patients } from '@/db/schema'
+import { VIEWING_MS } from '@/server/audit'
 import { HttpError, route } from '@/server/http'
 import { readFile } from '@/server/files'
 import { loadDocument, patientMayOpen, portalActor } from '@/server/pipeline/actions'
@@ -24,7 +25,8 @@ export const GET = route({ auth: 'any', query: q }, async (ctx) => {
   const [f] = await ctx.db.select({ id: documentFiles.id }).from(documentFiles).where(where).limit(1)
   const file = f && (await readFile(ctx.db, f.id))
   if (!file) throw new HttpError(404, 'not_found', 'Not found')
-  await ctx.audit('document.view', 'document', d.id, { kind: ctx.query.kind, page: ctx.query.page })
+  // A page picture is one of several a viewer loads at once: one row per viewing. The original (inline or saved) is audited every time.
+  await ctx.audit('document.view', 'document', d.id, { kind: ctx.query.kind, page: ctx.query.page }, kind === 'page_image' ? { onceWithinMs: VIEWING_MS } : undefined)
   const headers: Record<string, string> = {
     'content-type': file.mime, 'content-disposition': 'inline', 'x-content-type-options': 'nosniff', 'cache-control': 'private, no-store',
     'content-length': String(file.bytes.length), 'cross-origin-resource-policy': 'same-origin',

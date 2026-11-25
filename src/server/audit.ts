@@ -48,11 +48,25 @@ export type AuditInput = {
   targetType?: string | null; targetId?: string | null; requestId?: string | null; details?: AuditDetails
 }
 
-/** Must run inside withOrg(orgId) (RLS). Serialised per org with an advisory lock. */
-export async function writeAudit(tx: Tx, a: AuditInput): Promise<{ id: string; seq: number; hash: string }> {
+/** One viewing of a file: the pictures of one scan or paper seen by one person within this time are one row, not one per image. */
+export const VIEWING_MS = 30 * 60_000
+
+/**
+ * Must run inside withOrg(orgId) (RLS). Serialised per org with an advisory lock.
+ * `onceWithinMs`: write nothing (returns null) when the same actor already has a row with this action and target from the
+ * last `onceWithinMs` ms. Checked under the lock, so pictures fetched in parallel cannot both write.
+ */
+export async function writeAudit(tx: Tx, a: AuditInput, opts: { onceWithinMs?: number } = {}): Promise<{ id: string; seq: number; hash: string } | null> {
   const details = a.details ?? {}
   assertIdsOnly(details)
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${'audit:' + a.orgId}, 0))`)
+  if (opts.onceWithinMs && a.actorId && a.targetType && a.targetId) {
+    const [seen] = await tx.select({ id: auditLog.id }).from(auditLog).where(and(
+      eq(auditLog.orgId, a.orgId), eq(auditLog.targetType, a.targetType), eq(auditLog.targetId, a.targetId),
+      eq(auditLog.action, a.action), eq(auditLog.actorId, a.actorId), gt(auditLog.at, new Date(Date.now() - opts.onceWithinMs)),
+    )).limit(1)
+    if (seen) return null
+  }
   const [last] = await tx.select({ seq: auditLog.seq, hash: auditLog.hash }).from(auditLog)
     .where(eq(auditLog.orgId, a.orgId)).orderBy(desc(auditLog.seq)).limit(1)
   const row = {

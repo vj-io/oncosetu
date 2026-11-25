@@ -8,6 +8,7 @@ import {
   verify, createCipheriv, createDecipheriv, type KeyObject,
 } from 'node:crypto'
 import { promisify } from 'node:util'
+import { zstdCompressSync, zstdDecompressSync } from 'node:zlib'
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, o: object) => Promise<Buffer>
 
@@ -54,14 +55,27 @@ export function decryptField(enc: string): string {
   return gcmDecrypt(unwrapDek(b.subarray(0, 60)), b.subarray(60)).toString('utf8')
 }
 
-/** For files: `bytes` → bytea column, `dekWrapped` → text column. */
+/** A file stored zstd-compressed (then encrypted): its wrapped key reads "z.v1.…". Files without it are stored as they came. */
+const ZSTD = 'z.'
+/** Kept compressed only when that saves at least this share: JPEG, PDF scans and other packed files are stored as they came. */
+const MIN_SAVING = 0.05
+
+/**
+ * For files: `bytes` → bytea column or object, `dekWrapped` → text column. Every file is compressed before it is encrypted
+ * (lossless zstd; ciphertext does not compress) and kept compressed when that saves at least MIN_SAVING. decryptBytes gives
+ * back the exact bytes that came in, so hashes, downloads and the originals' evidence value are unchanged.
+ */
 export function encryptBytes(plain: Buffer): { bytes: Buffer; dekWrapped: string } {
   const dek = randomBytes(32)
-  return { bytes: gcmEncrypt(dek, plain), dekWrapped: `${V}.${wrapDek(dek).toString('base64url')}` }
+  const packed = zstdCompressSync(plain)
+  const keep = packed.length <= plain.length * (1 - MIN_SAVING)
+  return { bytes: gcmEncrypt(dek, keep ? packed : plain), dekWrapped: `${keep ? ZSTD : ''}${V}.${wrapDek(dek).toString('base64url')}` }
 }
 
 export function decryptBytes(bytes: Buffer, dekWrapped: string): Buffer {
-  return gcmDecrypt(unwrapDek(parseVersioned(dekWrapped)), bytes)
+  const packed = dekWrapped.startsWith(ZSTD)
+  const plain = gcmDecrypt(unwrapDek(parseVersioned(packed ? dekWrapped.slice(ZSTD.length) : dekWrapped)), bytes)
+  return packed ? zstdDecompressSync(plain) : plain
 }
 
 // ── hashing, HMAC blind indexes ──────────────────────────────────────────────

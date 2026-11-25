@@ -113,3 +113,35 @@ describe('Ed25519', () => {
     expect(publicKeys().map((k) => [k.keyId, k.status])).toEqual([['k-test', 'active'], ['k-old', 'retired']])
   })
 })
+
+describe('files are compressed before they are encrypted (lossless)', () => {
+  const text = Buffer.from('Haemoglobin 11.2 g/dL\tPlatelets 2.1 lakh\n'.repeat(2000)) // compresses well (like DICOM pixels or text)
+  it('a compressible file is stored smaller, marked, and comes back byte for byte', () => {
+    const e = encryptBytes(text)
+    expect(e.dekWrapped.startsWith('z.v1.')).toBe(true)
+    expect(e.bytes.length).toBeLessThan(text.length / 10)
+    expect(decryptBytes(e.bytes, e.dekWrapped).equals(text)).toBe(true)
+    expect(sha256Hex(decryptBytes(e.bytes, e.dekWrapped))).toBe(sha256Hex(text))
+  })
+  it('a packed file (random bytes, like a JPEG) is stored as it came: no marker, no growth', () => {
+    const jpeg = randomBytes(200_000)
+    const e = encryptBytes(jpeg)
+    expect(e.dekWrapped.startsWith('v1.')).toBe(true)
+    expect(e.bytes.length).toBe(jpeg.length + 28) // IV + tag only
+    expect(decryptBytes(e.bytes, e.dekWrapped).equals(jpeg)).toBe(true)
+  })
+  it('an empty file, and a file stored before compression, still read back', () => {
+    const empty = encryptBytes(Buffer.alloc(0))
+    expect(decryptBytes(empty.bytes, empty.dekWrapped).length).toBe(0)
+    const before = encryptBytes(randomBytes(64)) // the pre-compression shape: "v1.…", stored as it came
+    expect(before.dekWrapped.startsWith('v1.')).toBe(true)
+    expect(decryptBytes(before.bytes, before.dekWrapped).length).toBe(64)
+  })
+  it('a compressed file still fails to decrypt when its stored bytes change', () => {
+    const e = encryptBytes(text)
+    const bad = Buffer.from(e.bytes)
+    bad[bad.length - 20] ^= 1
+    expect(() => decryptBytes(bad, e.dekWrapped)).toThrow()
+  })
+})
+

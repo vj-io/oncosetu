@@ -144,6 +144,25 @@ describe('intake and pipeline paths', () => {
     expect((await docRow(r.documentId)).flags.quarantine).toEqual({ reasons: ['test_signature'], scan: 'test scanner: every file is infected', scanner: 'test-av' })
   }, 60_000)
 
+  it('uploading a quarantined file again re-checks it: clean now → released to the queue; still flagged → stays quarantined', async () => {
+    // A unique comment keeps this file from deduplicating against another test's upload of the same demo PDF.
+    const bytes = new Uint8Array(Buffer.concat([readFileSync('public/demo-docs/fulfilled__02-discharge-summary.pdf'), Buffer.from(`\n%${randomUUID()}\n`)]))
+    const flagged = { name: 'test-av', label: 'test scanner', scan: async () => ({ infected: true, reason: 'test_signature' }) }
+    const first = await upload('report.pdf', bytes, { scanner: flagged })
+    expect(first.status).toBe('quarantined')
+    // Still flagged: nothing changes, and the caller is told it is the same quarantined file.
+    const again = await upload('report.pdf', bytes, { scanner: flagged })
+    expect(again).toMatchObject({ documentId: first.documentId, status: 'quarantined', duplicateOf: first.documentId })
+    // Clean under today's scan: the same document is released to the queue (not a duplicate), and the release is audited.
+    const released = await upload('report.pdf', bytes)
+    expect(released).toEqual({ documentId: first.documentId, status: 'queued' })
+    const row = await docRow(first.documentId)
+    expect(row.status).toBe('queued')
+    expect(row.flags.quarantine).toBeUndefined()
+    const [a] = await owner`select details from audit_log where target_id = ${first.documentId} and action = 'document.quarantine_released'`
+    expect(a.details).toMatchObject({ reason: 'rescan_clean', previousReasons: ['test_signature'] })
+  }, 60_000)
+
   it('a report in a script the OCR does not support is kept, flagged language_unsupported and gives no facts (FR-DOC-05)', async () => {
     const c = await imp()
     const tamil = 'இரத்த பரிசோதனை அறிக்கை\nநோயாளியின் பெயர்: சுனிதா தேஷ்முக்\nவயது / பாலினம்: 51 / பெண்\nதேதி: 04/06/2026\nஹீமோகுளோபின் 10.8 g/dL\n'

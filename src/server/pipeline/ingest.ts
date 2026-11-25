@@ -116,6 +116,16 @@ export async function ingestDocument(tx: Tx, input: IngestInput): Promise<Ingest
     .where(and(eq(documents.patientId, patientId), eq(documents.sha256, sha256), ne(documents.attachState, 'detached')))
     .orderBy(documents.receivedAt).limit(1)
   if (dup) {
+    // A file quarantined by an earlier, stricter check is checked again when it is uploaded again: if today's malware and
+    // active-content checks find nothing, the same document goes to the reading queue (its stored original is these bytes).
+    if (dup.status === 'quarantined' && !eicar && !active.length) {
+      const [{ flags: prev }] = await tx.select({ flags: documents.flags }).from(documents).where(eq(documents.id, dup.id))
+      const { quarantine: previous, ...rest } = (prev ?? {}) as Record<string, unknown>
+      await tx.update(documents).set({ status: 'queued', flags: rest, updatedAt: new Date() }).where(eq(documents.id, dup.id))
+      const previousReasons = (previous as { reasons?: string[] } | undefined)?.reasons ?? []
+      await audit('document.quarantine_released', 'document', dup.id, { intakeRoute: input.intakeRoute, reason: 'rescan_clean', previousReasons })
+      return { documentId: dup.id, status: 'queued' }
+    }
     await audit('document.duplicate_upload', 'document', dup.id, { intakeRoute: input.intakeRoute })
     return { documentId: dup.id, status: dup.status, duplicateOf: dup.id }
   }

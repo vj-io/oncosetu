@@ -2,7 +2,7 @@
 import { and, asc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import type { Tx } from '@/db'
-import { documentFiles, documentPages, documents, events } from '@/db/schema'
+import { documentFiles, documentPages, documents, events, evidence } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
 import { DOC_TYPES, type DocType } from '@/core/types'
 import { HttpError } from '../http'
@@ -39,9 +39,10 @@ export type RecordsData = {
 }
 
 /** The filed papers of one patient, newest first, with scan-to-report pairs. Held, rejected, detached and quarantined papers are left out. */
-/** The "All records" tab badge: filed papers, with a study kept in several parts counted once, as the list shows it (collapseStudyParts). */
+/** The "All records" tab badge: filed papers, with a study kept in several parts counted once and a file of several reports counted per report, as the list shows them. */
 export async function filedPaperCount(tx: Tx, patientId: string): Promise<number> {
-  const [r] = await tx.select({ n: sql<number>`count(distinct coalesce(${documents.flags}->'imaging'->>'studyUid', ${documents.id}::text))`.mapWith(Number) })
+  const [r] = await tx.select({ n: sql<number>`count(distinct coalesce(${documents.flags}->'imaging'->>'studyUid', ${documents.id}::text))
+    + coalesce(sum(case when jsonb_typeof(${documents.flags}->'sections') = 'array' then jsonb_array_length(${documents.flags}->'sections') - 1 else 0 end), 0)`.mapWith(Number) })
     .from(documents).where(and(eq(documents.patientId, patientId), inArray(documents.attachState, [...FILED]), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf)))
   return r.n
 }
@@ -56,34 +57,59 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
   if (!ids.length) return { rows: [], pairs: [], rejected: [], held, heldScans }
 
   const [evs, files, links] = await Promise.all([
-    tx.select({ documentId: events.documentId, status: events.verificationStatus, fields: events.fields, flags: events.flags, createdAt: events.createdAt }).from(events)
+    tx.select({
+      documentId: events.documentId, status: events.verificationStatus, fields: events.fields, flags: events.flags, createdAt: events.createdAt,
+      pageNo: sql<number | null>`(select min(${evidence.pageNo}) from ${evidence} where ${evidence.eventId} = ${events.id})`,
+    }).from(events)
       .where(and(inArray(events.documentId, ids), isNull(events.withdrawnAt))).orderBy(asc(events.createdAt)),
     tx.select({ documentId: documentFiles.documentId, pageNo: documentFiles.pageNo }).from(documentFiles)
       .where(and(inArray(documentFiles.documentId, ids), eq(documentFiles.kind, 'page_image'), isNull(documentFiles.supersededAt))),
     tx.select().from(documentLinks).where(and(eq(documentLinks.patientId, patientId), eq(documentLinks.kind, 'scan_report'))),
   ])
+  // E-DOC-10: a file of several reports is listed per report; its facts are counted by the page their quote is on.
+  const sectionsOf = new Map(filed.flatMap((d) => {
+    const s = (d.flags as { sections?: { pages: number[]; date: string | null; docType: string }[] } | null)?.sections
+    return Array.isArray(s) && s.length > 1 ? [[d.id, s] as const] : []
+  }))
+  const factKey = (documentId: string, pageNo: number | null) => {
+    const s = sectionsOf.get(documentId)
+    return s ? `${documentId}.${Math.max(0, s.findIndex((x) => pageNo !== null && x.pages.includes(pageNo))) + 1}` : documentId
+  }
   const facts = new Map<string, { n: number; ok: number; late: boolean; first: { rank: number; text: string } | null }>()
   for (const e of evs) {
     if (!e.documentId) continue
-    const c = facts.get(e.documentId) ?? { n: 0, ok: 0, late: false, first: null }
+    const key = factKey(e.documentId, e.pageNo)
+    const c = facts.get(key) ?? { n: 0, ok: 0, late: false, first: null }
     c.n++
     if (e.status !== 'unverified') c.ok++
     if (e.flags?.late_received) c.late = true
     const h = summaryLine(fieldValues(e.fields ?? {}))
     if (h) c.first = betterHeadline(c.first, h)
-    facts.set(e.documentId, c)
+    facts.set(key, c)
   }
   const imgs = new Map<string, number[]>()
   for (const f of files) imgs.set(f.documentId, [...(imgs.get(f.documentId) ?? []), f.pageNo ?? 1].sort((a, b) => a - b))
 
-  const rows = sortRecords(collapseStudyParts(filed.map((d) => {
-    const c = facts.get(d.id)
-    return toRecordRow(d as unknown as DocLike, { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages: imgs.get(d.id) ?? [], asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false })
+  const stats = (key: string, pageImages: number[]) => {
+    const c = facts.get(key)
+    return { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages, asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false }
+  }
+  const rows = sortRecords(collapseStudyParts(filed.flatMap((d): RecordRow[] => {
+    const secs = sectionsOf.get(d.id)
+    if (!secs) return [toRecordRow(d as unknown as DocLike, stats(d.id, imgs.get(d.id) ?? []))]
+    const newest = secs.reduce<string | null>((m, s) => (s.date && (!m || s.date > m) ? s.date : m), null)
+    return secs.map((s, i) => {
+      const key = `${d.id}.${i + 1}`
+      // The first report keeps the file's own date when its header gave none (read from the whole first page).
+      const r = toRecordRow({ ...d, docType: s.docType, documentDate: s.date ?? (i === 0 ? d.documentDate : null), pages: s.pages.length } as unknown as DocLike,
+        stats(key, (imgs.get(d.id) ?? []).filter((n) => s.pages.includes(n))))
+      return { ...r, id: key, section: { n: i + 1, of: secs.length, pages: s.pages, newest: !!newest && s.date === newest } }
+    })
   })))
 
   // Pairing: the written imaging reports are read for their heading words only.
   const scans: ScanCandidate[] = rows.filter((r) => r.scan).map((r) => ({ id: r.id, date: r.scan!.studyDate ?? r.date, institution: r.institution, modality: r.scan!.modality, bodyKey: r.scan!.bodyKey }))
-  const reportRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report')
+  const reportRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report' && !r.section) // ponytail: a report inside a multi-report file is not offered for scan pairing; add when pairing learns page ranges
   let reports: ReportCandidate[] = []
   const reportMods = new Map<string, Set<ModalityKey>>()
   if (scans.length && reportRows.length) {

@@ -78,7 +78,7 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
 
   // Start from the link: filters from the address, the open paper from its #doc=… part. On a wide screen the first paper opens.
   useEffect(() => {
-    const m = /doc=([0-9a-f-]{36})/i.exec(location.hash)
+    const m = /doc=([0-9a-f-]{36}(?:\.\d+)?)/i.exec(location.hash)
     const wide = window.matchMedia('(min-width: 1024px)').matches
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (m && byId.has(m[1])) { setSel(m[1]); setSheet(!wide) } else if (wide && filtered[0]) setSel(filtered[0].id)
@@ -198,6 +198,8 @@ export function RecordsBrowser({ patientId, rows, pairs: pairsIn, rejected: reje
                     {r.facts > 0 && <span className="text-muted">{r.checked}/{r.facts} checked</span>}
                     {pr && other && <Badge tone={pr.state === 'confirmed' ? 'verified' : 'unverified'} icon={<Link2 />}>{pr.state === 'confirmed' ? (r.kind === 'scan' ? 'Report linked' : 'Scan linked') : 'Possible match'}</Badge>}
                     {r.kind === 'scan' && !pr && <span className="text-muted">No report matched</span>}
+                    {r.section && <span className="text-muted">Report {r.section.n} of {r.section.of} in one file</span>}
+                    {r.section?.newest && <Badge tone="verified">Newest in this file</Badge>}
                     {r.amendment && <Badge tone="setu">Amendment</Badge>}
                     {r.lateReceived && <Badge tone="patient">Older record, newly received</Badge>}
                     {r.handwritten && <Badge tone="shadow">Handwritten</Badge>}
@@ -240,7 +242,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
   // The candidate report is shown beside the scan whether or not it is confirmed, so the decision is made with both in view.
   const reportBeside = row.kind === 'scan' ? other : null
   const cmp = compare ? byId.get(compare) ?? null : null
-  const fullHref = `/patients/${patientId}/documents/${row.id}${qs}`
+  const fullHref = `/patients/${patientId}/documents/${row.docId}${qs}`
   const hasOthers = earlier.length + sameArea.length > 0
 
   const studyButton = (e: RecordRow) => (
@@ -271,6 +273,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
         </div>
         <h2 className="text-xl tracking-[-0.015em] break-words">{row.title}</h2>
         <p className="text-[14px] break-words text-muted">{dateLine(row)}{row.institution ? ` · ${row.institution}` : ''}{row.pages ? ` · ${row.pages} page${row.pages > 1 ? 's' : ''}` : ''}</p>
+        {row.section && <p className="text-[14px] text-muted">Report {row.section.n} of {row.section.of} in one file: page{row.section.pages.length > 1 ? 's' : ''} {row.section.pages.join(', ')} of it.{row.section.newest ? ' The newest report in this file.' : ''}</p>}
         <Link href={fullHref} className="inline-flex min-h-9 w-fit items-center gap-1 text-sm text-setu-ink underline decoration-link underline-offset-4">
           {row.kind === 'scan' ? 'Open larger, with the file header' : 'Open the full page with its facts'} <ExternalLink aria-hidden className="size-3.5" />
         </Link>
@@ -321,7 +324,7 @@ function Preview({ patientId, row, rows, byId, pair, rejected, canDecide, identi
           </section>
         </div>
       ) : (
-        <PaperPreview id={row.id} mime={row.mime} pages={row.pages} pageImages={row.pageImages} />
+        <PaperPreview id={row.docId} mime={row.mime} pages={row.pages} pageImages={row.pageImages} only={row.section?.pages} />
       )}
     </article>
   )

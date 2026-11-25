@@ -34,7 +34,12 @@ export type ScanInfo = {
 }
 
 export type RecordRow = {
+  /** The row's own id: the document's id, or `<document id>.<n>` for report n of a file that holds several. */
   id: string
+  /** The stored document (file) the row comes from: links, previews and actions use it. */
+  docId: string
+  /** One report of a file that holds several (E-DOC-10): its place in the file, its pages, and whether it is the file's newest. */
+  section?: { n: number; of: number; pages: number[]; newest: boolean }
   kind: RecordKind
   docType: string | null
   /** What a person calls it: "Imaging report", "CT chest". */
@@ -161,7 +166,7 @@ export function toRecordRow(d: DocLike, o: { docLabel: (t: string) => string; fa
   const paper = scan?.studyDate ?? d.documentDate
   const received = iso(d.receivedAt)
   return {
-    id: d.id, kind: kindOf(d), docType: d.docType, title: titleOf(d, scan, o.docLabel), asWritten: o.asWritten,
+    id: d.id, docId: d.id, kind: kindOf(d), docType: d.docType, title: titleOf(d, scan, o.docLabel), asWritten: o.asWritten,
     institution: d.institutionName ?? scan?.institution ?? null, date: paper ?? received.slice(0, 10), dateFrom: paper ? 'paper' : 'received', receivedAt: received,
     facts: o.facts, checked: o.checked, pages: d.pages, mime: d.mime, pageImages: o.pageImages, amendment: !!d.amendmentOf, lateReceived: o.lateReceived,
     handwritten: !!d.handwritten, lowConfidence: d.lowConfidence, scan,
@@ -185,6 +190,12 @@ export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 're
     rep.set(first.id, { ...first, scan: { ...first.scan!, instances: pictures, frames: pictures, parts: group.length } })
   }
   return rows.filter((r) => !drop.has(r.id)).map((r) => rep.get(r.id) ?? r)
+}
+
+/** One row per stored file, in the given order: a file split into reports is walked as one paper (by its first report here). */
+export function filesOf<T extends Pick<RecordRow, 'id' | 'docId'>>(rows: readonly T[]): T[] {
+  const seen = new Set<string>()
+  return rows.filter((r) => !seen.has(r.docId) && !!seen.add(r.docId)).map((r) => ({ ...r, id: r.docId }))
 }
 
 // ── order and filters ────────────────────────────────────────────────────────

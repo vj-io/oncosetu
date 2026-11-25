@@ -229,7 +229,7 @@ export function splitSections(pages: readonly Pick<PageRead, 'pageNo'>[], c: Pic
       cur.date ??= date
     }
   }
-  return out.map(({ read: _read, ...s }) => s)
+  return out.map((s) => ({ pages: s.pages, date: s.date, docType: s.docType }))
 }
 
 /**

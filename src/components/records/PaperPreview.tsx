@@ -3,8 +3,9 @@
 import { PdfPages } from '@/components/documents/SourceViewer'
 
 /** The original paper as it was received: a PDF drawn page by page, the page pictures, or a video. Nothing is read from it here. */
-export function PaperPreview({ id, mime, pages, pageImages, className }: { id: string; mime: string; pages: number | null; pageImages: number[]; className?: string }) {
-  if (mime === 'application/pdf') return <div className={className}><PdfPages src={`/api/documents/${id}/file?kind=original`} pages={pages ?? 1} /></div>
+/** `only`: the pages of one report inside a file of several (E-DOC-10); they are drawn from the stored page images. */
+export function PaperPreview({ id, mime, pages, pageImages, only, className }: { id: string; mime: string; pages: number | null; pageImages: number[]; only?: number[]; className?: string }) {
+  if (mime === 'application/pdf' && !(only && pageImages.length)) return <div className={className}><PdfPages src={`/api/documents/${id}/file?kind=original`} pages={pages ?? 1} /></div>
   if (pageImages.length) {
     return (
       <div className={`grid gap-2 rounded-lg border border-paper-rule bg-paper p-2 ${className ?? ''}`}>

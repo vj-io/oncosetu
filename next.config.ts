@@ -11,7 +11,15 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["tesseract.js", "tesseract.js-core", "unpdf", "@cornerstonejs/codec-openjpeg", "@cornerstonejs/codec-charls", "jpeg-lossless-decoder-js"],
   outputFileTracingIncludes: {
     "/api/**/*": [
-      "./node_modules/tesseract.js/**/*", "./node_modules/tesseract.js-core/**/*", "./node_modules/wasm-feature-detect/**/*",
+      // tesseract.js-core: each OCR core's .js loader and the .wasm it reads from disk in Node, never the *.wasm.js browser
+      // builds (the wasm inlined as base64: 26 MB per API function that never loads). Every core stays: tesseract.js 7 passes
+      // a boolean to the Node getCore (worker-script/index.js), so it loads the full core whatever OEM text.ts asks for.
+      "./node_modules/tesseract.js/**/*", "./node_modules/tesseract.js-core/package.json", "./node_modules/tesseract.js-core/index.js",
+      "./node_modules/tesseract.js-core/*.wasm", "./node_modules/tesseract.js-core/tesseract-core.js",
+      "./node_modules/tesseract.js-core/tesseract-core-simd.js", "./node_modules/tesseract.js-core/tesseract-core-relaxedsimd.js",
+      "./node_modules/tesseract.js-core/tesseract-core-lstm.js", "./node_modules/tesseract.js-core/tesseract-core-simd-lstm.js",
+      "./node_modules/tesseract.js-core/tesseract-core-relaxedsimd-lstm.js",
+      "./node_modules/wasm-feature-detect/**/*",
       "./node_modules/bmp-js/**/*", "./node_modules/zlibjs/**/*", "./node_modules/is-url/**/*", "./node_modules/regenerator-runtime/**/*",
       "./node_modules/unpdf/dist/**/*",
       // DICOM preview decoders (src/server/pipeline/codecs.ts): exactly the files opened at run time, each .wasm found next to its .js

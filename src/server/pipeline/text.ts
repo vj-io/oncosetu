@@ -438,9 +438,12 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
         await hooks.onPage?.({ pageNo: n, total, page: p, fresh })
       }
       const [content, hiddenStrs] = await Promise.all([page.getTextContent(), invisibleStrings(page as never)])
-      let text = ''
+      // The page's lines as written; `end` and `y`: where the line's last visible item ends, and its baseline.
+      const lines: { text: string; y: number; end: number | null }[] = [{ text: '', y: 0, end: null }]
+      const [, y0, , y1] = page.view
+      const headerFloor = y1 - 0.3 * (y1 - y0) // PDF y grows upwards: the top 30% of the page
+      let cur = 0
       let hidden = ''
-      let lastEnd: { x: number; y: number } | null = null
       for (const it of content.items as TextItem[]) {
         if (it.str == null) continue
         const t = it.transform ?? [1, 0, 0, 1, 0, 0]
@@ -451,12 +454,37 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
           hidden += it.str + (it.hasEOL ? '\n' : ' ')
           continue
         }
+        // A header table whose cells of several lines are written whole, one after another ("Study Date", "Time", then the
+        // value cell "03 Mar 2026", "4:05pm"): in the top 30% of the page, a line that starts on the baseline of one of the
+        // last CELL_LINES lines, right of its end, continues that line when it holds only short cells, so each label sits
+        // beside its value. Blocks of running text side by side (an address beside a registration number) and
+        // two-column text keep their order.
+        // ponytail: header grids only. Rejoining body tables and side-by-side header text by row changed six evaluation
+        // documents' facts (25 Nov 2026); extend it there with the medication and pathology rules re-tuned.
+        const last = lines.length - 1
+        let cell = false
+        if (s && t[5] >= headerFloor && cur === last && !lines[last].text.trim()) {
+          for (let k = last - 1; k >= Math.max(0, last - CELL_LINES); k--) {
+            const l = lines[k]
+            if (l.end !== null && Math.abs(t[5] - l.y) < 1 && t[4] >= l.end - 1 && l.text.split('\t').every((c) => c.trim().length <= SHORT_CELL)) {
+              cur = k
+              cell = true
+              break
+            }
+          }
+        }
+        const line = lines[cur]
         // Same baseline, wide gap → column break: a tab keeps "Name: X   UHID: Y" as two fields (like pdftotext -layout).
-        if (s && lastEnd && !text.endsWith('\n') && Math.abs(t[5] - lastEnd.y) < 1 && t[4] - lastEnd.x > 1.5 * size) text += '\t'
-        text += it.str + (it.hasEOL ? '\n' : '')
-        if (s) lastEnd = { x: t[4] + (it.width ?? 0), y: t[5] }
-        if (it.hasEOL) lastEnd = null
+        // A cell written after its row's other cells is a column of its own whatever the gap.
+        if (s && line.end !== null && Math.abs(t[5] - line.y) < 1 && (cell || t[4] - line.end > 1.5 * size)) line.text += '\t'
+        line.text += it.str
+        if (s) Object.assign(line, { end: t[4] + (it.width ?? 0), y: t[5] })
+        if (it.hasEOL) {
+          if (cur === last) lines.push({ text: '', y: 0, end: null })
+          cur = lines.length - 1
+        }
       }
+      const text = lines.map((l) => l.text).join('\n')
       if (text.replace(/\s/g, '').length >= 20) {
         await done({
           pageNo: n, text, words: null, ocrConfidence: null, lowConfidence: false, source: 'text_layer', handwriting: null,
@@ -488,6 +516,10 @@ async function readPdf(bytes: Uint8Array, password: string | undefined, ocr: Ocr
   }
 }
 
+/** How far back (in lines) a PDF line may continue an earlier one: the lines of one multi-line table cell. */
+const CELL_LINES = 6
+/** A header table's cell: a label, a date, a time, an age or an ID, never a line of running text. */
+const SHORT_CELL = 24
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 const MAX_TIFF_PAGES = 20
 

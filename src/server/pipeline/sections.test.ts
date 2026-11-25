@@ -173,3 +173,12 @@ describe('photographed table headers', () => {
     expect(split([first, dense])).toEqual([[[1, 2], '2026-03-05']])
   })
 })
+
+describe('identity of a paper with no readable report date', () => {
+  // PATIENT is 51 on the day RECEIVED; the paper below prints no date at all.
+  const undated = (age: string) => page(1, `CITY IMAGING CENTRE\nPatient Name: Mrs. Asha Testkar\tAge: ${age}\tSex: Female\nCT scan of chest\nFINDINGS: No focal lesion in the lungs.\n`)
+  it('a printed age she cannot have reached by its upload rules her out; her own age does not confirm her', async () => {
+    expect((await analyse([undated('60 Yrs')], PATIENT, RECEIVED)).identified.identity).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    expect((await analyse([undated('51 Yrs')], PATIENT, RECEIVED)).identified.identity).toMatchObject({ result: 'insufficient', notes: ['age_not_compared_no_report_date'] })
+  })
+})

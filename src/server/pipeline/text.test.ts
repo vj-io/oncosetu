@@ -372,3 +372,44 @@ describe('table rules are painted white in a header strip before it is read (25 
   })
 })
 
+
+describe('a PDF table whose cells are written one at a time (25 Nov 2026)', () => {
+  // A report generator writes each multi-line cell whole: the label cell "Study Date / Time", then its value cell, then
+  // the next pair. Synthetic text, drawn in that order.
+  const draw = async (cells: [number, number[], string[]][]) => {
+    const doc = await PDFDocument.create()
+    const page = doc.addPage([595, 842])
+    const font = await doc.embedFont(StandardFonts.Helvetica)
+    page.drawText('CITY IMAGING CENTRE, DEPARTMENT OF RADIOLOGY', { x: 77, y: 790, size: 12, font })
+    for (const [x, ys, texts] of cells) texts.forEach((t, i) => page.drawText(t, { x, y: ys[i], size: 12, font, color: rgb(0, 0, 0) }))
+    const r = await readPages(new Uint8Array(await doc.save()), 'application/pdf')
+    if (r.kind !== 'pages') throw new Error(r.kind)
+    return r.pages[0].text.split('\n').map((l) => l.trim()).filter(Boolean)
+  }
+  it('each label sits beside its value, row by row', async () => {
+    const lines = await draw([
+      [77, [698, 685], ['Study Date', 'Time']], [162, [698, 685], ['03 Mar 2026', '4:05pm']],
+      [370, [698, 685], ['Report Date', 'Time']], [447, [698, 685], ['05 Mar 2026', '6:20pm']],
+    ])
+    expect(lines).toContain('Study Date\t03 Mar 2026\tReport Date\t05 Mar 2026')
+    expect(lines).toContain('Time\t4:05pm\tTime\t6:20pm')
+  })
+  it('cells written right to left are left as written', async () => {
+    const lines = await draw([[370, [698, 685], ['Report Date', 'Time']], [77, [698, 685], ['Study Date', 'Time']]])
+    expect(lines).toEqual(['CITY IMAGING CENTRE, DEPARTMENT OF RADIOLOGY', 'Report Date', 'Time', 'Study Date', 'Time'])
+  })
+  it('the same cells in the body of the page, below its top 30%, are left as written', async () => {
+    const lines = await draw([[77, [400, 387], ['Study Date', 'Time']], [162, [400, 387], ['03 Mar 2026', '4:05pm']]])
+    expect(lines).toEqual(['CITY IMAGING CENTRE, DEPARTMENT OF RADIOLOGY', 'Study Date', 'Time', '03 Mar 2026', '4:05pm'])
+  })
+  it('blocks of running text side by side are left as written', async () => {
+    const lines = await draw([[77, [740, 727], ['House No. 12, Station Road, Pune 411 001', 'Referred by: Dr. A. Rao, City Oncology']],
+      [360, [740, 727], ['Lab Reg. No. MH/PN/2015/0144', 'Reported: 21-02-2026']]])
+    expect(lines.slice(1)).toEqual(['House No. 12, Station Road, Pune 411 001', 'Referred by: Dr. A. Rao, City Oncology', 'Lab Reg. No. MH/PN/2015/0144', 'Reported: 21-02-2026'])
+  })
+  it('two columns longer than a cell keep their own order, short lines too', async () => {
+    const ys = Array.from({ length: 8 }, (_, i) => 770 - i * 14)
+    const lines = await draw([[77, ys, ys.map((_, i) => `Left ${i + 1}`)], [320, ys, ys.map((_, i) => `Right ${i + 1}`)]])
+    expect(lines.slice(1)).toEqual([...ys.map((_, i) => `Left ${i + 1}`), ...ys.map((_, i) => `Right ${i + 1}`)])
+  })
+})

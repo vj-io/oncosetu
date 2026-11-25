@@ -300,6 +300,7 @@ export function identify(pages: PageRead[], c: Classified, patient: PatientIdent
       patient,
       { name: header.name?.value, age: header.age?.value, dob: header.dob?.value, sex: header.sex?.value, mrn: header.mrn?.value },
       documentDate?.precision === 'day' ? documentDate.iso : null,
+      receivedAt.toISOString().slice(0, 10),
     )
   return {
     header, identity, documentDate, institution: header.institution?.value ?? null, accession: header.accession?.value ?? null,

@@ -187,6 +187,24 @@ describe('decideIdentity: E-ID cases', () => {
     expect(r.result).toBe('match')
     expect(r.notes).toContain('matched_on_alias')
   })
+  // A paper with no readable report date (added 25 Nov 2026): it cannot postdate its upload, so only a printed age the patient has
+  // not reached by the day it arrived rules her out. Nothing about a missing date ever confirms the name.
+  it('no report date: a printed age above the age at upload is a mismatch; at or below it never corroborates', () => {
+    const up = (h: HeaderIdentity) => decideIdentity(patient, h, null, '2026-03-20') // age at upload: 52
+    // the patient's own current age, the near miss: still not compared, still not a match
+    expect(up({ name: 'Sunita Sharma', age: '52 Y', sex: 'F' })).toMatchObject({ result: 'insufficient', reasons: ['no_corroborating_field'], notes: ['age_not_compared_no_report_date'] })
+    // an older report of hers (or anyone younger): nothing to compare
+    expect(up({ name: 'Sunita Sharma', age: '48 Y', sex: 'F' })).toMatchObject({ result: 'insufficient', notes: ['age_not_compared_no_report_date'] })
+    // a year's slack, as with a date
+    expect(up({ name: 'Sunita Sharma', age: '53 Y', sex: 'F' }).result).toBe('insufficient')
+    // older than she can have been on any report up to its upload
+    expect(up({ name: 'Sunita Sharma', age: '54 Y', sex: 'F' })).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    // sex missing changes neither side
+    expect(up({ name: 'Sunita Sharma', age: '52 Y' })).toMatchObject({ result: 'insufficient', notes: ['sex_not_stated', 'age_not_compared_no_report_date'] })
+    expect(up({ name: 'Sunita Sharma', age: '60 Y' })).toMatchObject({ result: 'mismatch', reasons: ['age_mismatch'] })
+    // a caller without the upload day keeps the old behaviour
+    expect(decideIdentity(patient, { name: 'Sunita Sharma', age: '60 Y', sex: 'F' }, null)).toMatchObject({ result: 'insufficient', notes: ['age_not_compared_no_report_date'] })
+  })
   it('sex mismatch', () => {
     expect(d({ name: 'Sunita Sharma', age: '52', sex: 'M' })).toMatchObject({ result: 'mismatch', reasons: ['sex_mismatch'] })
   })

@@ -11,7 +11,7 @@ import { ORG_NARMADA_ID } from '../../src/server/demo'
 if (!process.env.DATABASE_URL_APP && existsSync('.env.local')) process.loadEnvFile('.env.local')
 const owner = postgres(process.env.DATABASE_URL_UNPOOLED!, { max: 1, onnotice: () => {} })
 const ORG = ORG_NARMADA_ID
-const pid = randomUUID(), other = randomUUID(), caregiver = randomUUID()
+const pid = randomUUID(), other = randomUUID(), caregiver = randomUUID(), caregiver2 = randomUUID()
 const doc: Record<string, string> = {}
 const patientSession = { kind: 'patient' as const, sessionId: randomUUID(), patientId: pid, orgId: ORG, displayName: 'Test' }
 const staffSession = { kind: 'staff', sessionId: randomUUID(), staffId: randomUUID(), role: 'records', orgId: ORG, orgName: 'x', staffName: 'Records Test', email: 'r@test.invalid' } as const
@@ -49,6 +49,7 @@ beforeAll(async () => {
     await add('ownBlocked', { by: 'patient', attach: 'pending_decision', status: 'quarantined', name: 'file.pdf' })
     await add('ownStudy', { by: 'patient', attach: 'auto', status: 'done', name: 'cd.zip', mime: 'application/x-dicom-study' })
     await add('caregiverDoc', { by: 'caregiver', attach: 'auto', status: 'done', name: 'from son.pdf' })
+    await add('caregiver2Doc', { by: 'caregiver', byId: caregiver2, attach: 'auto', status: 'done', name: 'from daughter.pdf' })
     await add('otherPatient', { patient: other, by: 'staff', attach: 'attached', status: 'done' })
   })
 })
@@ -74,7 +75,7 @@ describe('Papers you sent', () => {
     expect(by[doc.ownRejected].open).toBe(true) // their own file, though not filed
     expect(by[doc.ownBlocked].open).toBe(false) // quarantined: never opened
     expect(by[doc.ownStudy].open).toBe(false) // a scan study is shown by the clinic's viewer, not as a file
-    // The caregiver sees only the caregiver's own upload.
+    // Each caregiver sees only their own upload, never another caregiver's.
     const theirs = await c.db.withOrg(ORG, (tx) => c.sent.loadSentPapers(tx, { ...patientSession, kind: 'caregiver', caregiverId: caregiver }))
     expect(theirs.map((r) => r.id)).toEqual([doc.caregiverDoc])
   })

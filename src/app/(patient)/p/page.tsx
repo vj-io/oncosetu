@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { CalendarDays, Camera, ChevronDown, ClipboardList, ExternalLink, FileText, History, KeyRound, Mail, Send, Settings, ShieldCheck, Share2, Stethoscope, Users, Building2 } from 'lucide-react'
 import { ActionCard } from '@/components/portal/ActionCard'
 import { DisputeDocument } from '@/components/portal/DisputeDocument'
+import { AskCopy } from '@/components/portal/AskCopy'
 import { MissingPaper } from '@/components/portal/MissingPaper'
 import { MoreLink } from '@/components/portal/MoreLink'
 import { PortalFrame } from '@/components/portal/PortalFrame'
@@ -72,6 +73,8 @@ function Papers({ rows, lang }: { rows: HomeSummary['documents']; lang: Lang }) 
                 <ExternalLink aria-hidden className="size-4" />{tp(lang, 'openPaper')}
               </a>
             )}
+            {d.copy && <p role="status" className="text-[16px] text-muted" data-testid="copy-state">{d.copy}</p>}
+            {d.canAsk && <AskCopy lang={lang} documentId={d.id} />}
             <DisputeDocument lang={lang} documentId={d.id} flagged={d.disputed} />
           </div>
         </li>

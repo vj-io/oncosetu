@@ -8,7 +8,8 @@ export type HomeData = {
   /** Today in India time (YYYY-MM-DD, demo-clock aware): splits the written dates into coming up and earlier. */
   today: string
   documents: { id: string; docType: DocType | null; documentDate: string | null; receivedAt: string; disputed?: boolean; /** The signed consent form (or its withdrawal): shown by that name, never "Other document". */ consentForm?: 'sign' | 'withdraw' | null; /** The patient may open this paper's file. */ open?: boolean
-    /** A file that holds several papers (E-DOC-10): each one's class and own date, in file order. */ reports?: { docType: DocType | null; documentDate: string | null }[] }[]
+    /** A file that holds several papers (E-DOC-10): each one's class and own date, in file order. */ reports?: { docType: DocType | null; documentDate: string | null }[]
+    /** The patient asked the clinic for a copy (copies.ts): when, and when it was given. */ copy?: { at: string; givenAt?: string } | null }[]
   /** Production completeness items: a document type linked to a date, never a reason. */
   looking: {
     id: string; expectedTypes: DocType[]; state: 'expected' | 'requested' | 'received'
@@ -48,7 +49,11 @@ export type LookingRow = {
 }
 
 export type HomeSummary = {
-  documents: { id: string; label: string; dated: string | null; received: string; disputed: boolean; open: boolean; reports?: { label: string; dated: string | null }[] }[]
+  documents: {
+    id: string; label: string; dated: string | null; received: string; disputed: boolean; open: boolean; reports?: { label: string; dated: string | null }[]
+    /** "You asked for a copy on …" or "The clinic gave a copy on …". */ copy: string | null
+    /** A paper the patient cannot open, with no copy request waiting: they may ask the clinic for one. */ canAsk: boolean
+  }[]
   looking: LookingRow[]
   /** Dates written in the papers that are today or later, soonest first. */
   coming: WrittenDateRow[]
@@ -131,6 +136,8 @@ export function buildHomeSummary(d: HomeData, disclosure: Disclosure, lang: Lang
         disputed: !!x.disputed,
         open: !!x.open,
         ...(reports ? { reports } : {}),
+        copy: x.copy ? tp(lang, x.copy.givenAt ? 'copyGiven' : 'copyAsked', { date: formatDateIN(istDate(x.copy.givenAt ?? x.copy.at), lang) }) : null,
+        canAsk: !x.open && !x.consentForm && !(x.copy && !x.copy.givenAt),
       }
     })
 

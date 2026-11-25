@@ -12,6 +12,8 @@ const WORDS: Record<string, string> = {
   'document.detach': 'Document taken out of the record',
   'document.tags': 'Document type changed by a person',
   'document.reprocess': 'Document read again',
+  'document.copy_requested': 'Patient asked for a copy of a paper',
+  'document.copy_given': 'A copy of a paper was given to the patient',
   'document.marked_printed': 'Pages judged handwritten marked as printed and read',
   'document.manual_event': 'A person added a fact from a quote',
   'document.dispute': 'Patient disputed a document',

@@ -1,9 +1,13 @@
 import Link from 'next/link'
-import { ArrowLeft, ClipboardCheck, FileQuestion, Mail, PackageCheck, ScanText, Send } from 'lucide-react'
+import { ArrowLeft, ClipboardCheck, Copy, FileQuestion, Mail, PackageCheck, ScanText, Send } from 'lucide-react'
 import { Badge, BarList, ButtonLink, EmptyState, Frame, Panel, SectionHeader, SegmentBar, StatTile, Table } from '@/components/ui'
 import { TODO_VIEWS, type TodoView } from '@/lib/sidebar'
 import { withOrg } from '@/db'
 import { loadRecordsQueue, QUEUE_PAGE } from '@/server/ledger/queue'
+import { staffDocLabel } from '@/core/copy'
+import type { DocType } from '@/core/types'
+import { now } from '@/server/clock'
+import { loadCopyRequests } from '@/server/portal/copies'
 import { CHASE_PAGE, loadChaseQueue, type ChaseRow } from '@/server/radar-ui/todo'
 import { requireStaff } from '@/server/session'
 
@@ -49,7 +53,9 @@ export default async function RecordsQueuePage({ searchParams }: { searchParams:
   const session = await requireStaff(['records'])
   const asked = (await searchParams).view
   const view = TODO_VIEWS.some((v) => v.view === asked) ? (asked as TodoView) : null
-  const { rows, totals, withoutConsent, buckets, chase } = await withOrg(session.orgId, async (tx) => ({ ...(await loadRecordsQueue(tx)), chase: await loadChaseQueue(tx, session.orgId) }))
+  const at = await now(session.orgId)
+  const { rows, totals, withoutConsent, buckets, chase, copies } = await withOrg(session.orgId, async (tx) => ({ ...(await loadRecordsQueue(tx)), chase: await loadChaseQueue(tx, session.orgId), copies: await loadCopyRequests(tx, at) }))
+  const day = (iso: string) => new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' })
 
   const fileRows = view === 'files' ? rows : rows.slice(0, 5)
   const unchecked = buckets.map((b, i) => ({ label: b, value: rows.reduce((n, r) => n + (r.unverified[i] ?? 0), 0) }))
@@ -124,6 +130,7 @@ export default async function RecordsQueuePage({ searchParams }: { searchParams:
             <StatTile href="/records?view=files" tone="conflict" icon={<FileQuestion />} value={totals.identity} label="Whose document is it?" sub="Held until a person decides" />
             <StatTile href="/records?view=files" tone="shadow" icon={<ScanText />} value={totals.lowConfidence} label="Hard-to-read pages" sub="Check the numbers on the page" />
             <StatTile href="/records?view=files" tone="patient" icon={<ClipboardCheck />} value={totals.unverified} label="Not yet checked" sub="Shown, but marked unchecked" />
+            <StatTile href="/records#copies-h" tone={copies.rows.some((c) => c.overdue) ? 'conflict' : 'setu'} icon={<Copy />} value={copies.rows.length} label="Copies asked for" sub="Give within 3 days" />
           </div>
           <div className="grid items-start gap-5 lg:grid-cols-2">
             <Panel tint title="Chasing papers" icon={<Mail />} id="chase-mix">
@@ -140,6 +147,28 @@ export default async function RecordsQueuePage({ searchParams }: { searchParams:
             </Panel>
           </div>
         </>
+      )}
+
+      {!view && (copies.rows.length > 0 || copies.withoutConsent > 0) && (
+        <section aria-labelledby="copies-h" className="grid gap-3" data-testid="copy-requests">
+          <h2 id="copies-h" className="text-lg">Copies the patient asked for</h2>
+          <p className="text-sm text-muted">The patient asked in the portal for a copy of a paper they cannot open yet. Give it within 3 days (Indian Medical Council regulations 1.3.2), or ask the clinician to clear disclosure with them; then press Copy given on the paper.</p>
+          <Table caption="Copies asked for">
+            <thead><tr><th scope="col">Patient</th><th scope="col">Paper</th><th scope="col">Asked</th><th scope="col">Give by</th><th scope="col">Open</th></tr></thead>
+            <tbody>
+              {copies.rows.map((c) => (
+                <tr key={c.documentId}>
+                  <td className="min-w-40">{c.name}</td>
+                  <td>{c.docType ? staffDocLabel(c.docType as DocType) : 'Document'}</td>
+                  <td className="whitespace-nowrap">{day(c.askedAt)}</td>
+                  <td className="whitespace-nowrap">{c.overdue ? <Badge tone="conflict">Overdue · {day(c.dueAt)}</Badge> : day(c.dueAt)}</td>
+                  <td><Link className={link} href={`/patients/${c.patientId}/documents/${c.documentId}`}>Open the paper</Link></td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+          {copies.withoutConsent > 0 && <p className="text-sm text-muted">{copies.withoutConsent} more {copies.withoutConsent === 1 ? 'request is' : 'requests are'} from patients without an active consent; they are not listed.</p>}
+        </section>
       )}
 
       {(!view || view === 'ask') && lists.ask}

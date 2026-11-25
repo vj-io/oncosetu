@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
-import { ArrowLeft, ArrowRight, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Copy, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
-import { DetachForm, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { CopyGivenButton, DetachForm, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { copyDue, copyRequestOf } from '@/server/portal/copies'
 import { HeldReveal } from '@/components/documents/HeldReveal'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, statusBadge } from '@/components/documents/labels'
@@ -79,6 +80,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
   const sections = recs.rows.filter((r) => r.docId === doc.id && r.section).sort((a, b) => a.section!.n - b.section!.n)
+  const copy = copyRequestOf(doc.flags)
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
   // A person attached it and wrote why: say so instead of the old mismatch badge (the header table and reasons below stay as the audit trail).
   const resolved = isAttachedWithReason(doc) ? attachedWithReasonText(decidedByRole, doc.attachDecidedAt ? doc.attachDecidedAt.toISOString() : null) : null
@@ -185,6 +187,12 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           <Notice tone="unverified" icon={<CopyCheck />} title="Possible duplicate of a file already here">
             {nearDup.method === 'dhash' ? 'The image looks like a re-photograph' : `The text is ${Math.round((nearDup.similarity ?? 0) * 100)}% the same`} of{' '}
             <Link className="underline" href={`/patients/${id}/documents/${nearDup.of}`}>{d.related[nearDup.of]?.docType ? staffDocLabel(d.related[nearDup.of].docType as DocType) : 'another document'}</Link>. A person confirms.
+          </Notice>
+        )}
+        {copy && !copy.givenAt && (
+          <Notice tone="patient" icon={<Copy />} title="The patient asked for a copy of this paper">
+            Asked {fmtDateTime(copy.at)} in the portal; give it by {fmtDateTime(copyDue(copy))}. They cannot open it there until disclosure is cleared.
+            <div className="mt-2"><CopyGivenButton documentId={doc.id} /></div>
           </Notice>
         )}
         {sections.length > 1 && (

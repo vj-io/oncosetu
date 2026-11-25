@@ -5,6 +5,7 @@ import clsx from 'clsx'
 import { ChevronDown, Crosshair, ScanText } from 'lucide-react'
 import { Badge, StatusBadge, type Tone } from '@/components/ui'
 import { PageCheckButton } from './DocumentTools'
+import { openDrawn } from './drawn-pages'
 import { EVENT_LABEL, FIELD_LABEL, FLAG_LABEL, fmtDate } from './labels'
 
 export type ViewerEvidence = { pageNo: number | null; charStart: number | null; charEnd: number | null; quote: string | null; bbox: number[][] | null }
@@ -151,6 +152,8 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
   const textPages = pages.filter((p) => p.text.trim())
   // A link to one fact opens where its words are lit: the words view, unless the file gives the place on the picture.
   const [mode, setMode] = useState<'page' | 'text'>(initial && textPages.length && (isPdf || !events.find((e) => e.id === initial)?.evidence.some((x) => x.bbox?.length)) ? 'text' : 'page')
+  // The page view is loaded the first time it is shown (never just because Words opened first), then kept.
+  const [pageLoaded, setPageLoaded] = useState(mode === 'page')
   const viewed = useRef(new Set<string>())
   const imageDoc = !isPdf && (pageImages.length > 0 || mime.startsWith('image/'))
 
@@ -265,18 +268,20 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
           {textPages.length > 0 && (
             <div className="inline-flex gap-0.5 rounded-md bg-white/70 p-0.5 text-sm ring-1 ring-paper-rule ring-inset" role="group" aria-label="How to show the paper">
               {(['page', 'text'] as const).map((m) => (
-                <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={clsx('min-h-10 rounded-sm px-3 font-medium', mode === m ? 'bg-obsidian text-white' : 'text-ink hover:bg-white')}>{m === 'page' ? 'Page' : 'Words'}</button>
+                <button key={m} type="button" aria-pressed={mode === m} onClick={() => { setMode(m); if (m === 'page') setPageLoaded(true) }} className={clsx('min-h-10 rounded-sm px-3 font-medium', mode === m ? 'bg-obsidian text-white' : 'text-ink hover:bg-white')}>{m === 'page' ? 'Page' : 'Words'}</button>
               ))}
             </div>
           )}
         </div>
         <div className="grid content-start gap-3 p-3 sm:p-4">
-          {mode === 'page' ? (
-            isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
+          {/* Once shown, the page view stays mounted under Words (hidden), so switching back shows the pages already drawn. */}
+          {pageLoaded && <div hidden={mode !== 'page'}>
+            {isPdf ? <PdfPages src={`/api/documents/${documentId}/file?kind=original`} pages={pageCount} />
             : imageDoc ? (
               <div className="grid gap-2">{(pageImages.length ? pageImages : [1]).map((n) => <PageImage key={n} n={n} src={`/api/documents/${documentId}/file?kind=page&page=${n}`} boxes={boxesOn(n)} />)}</div>
-            ) : <p className="border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>
-          ) : (
+            ) : <p className="border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">This kind of file cannot be drawn here. <a className="underline" href={`/api/documents/${documentId}/file?kind=original`}>Open the original</a>.</p>}
+          </div>}
+          {mode === 'text' && (
             <div className="grid gap-3">
               <p className="text-[13px] text-muted">Highlighted words are the ones the record uses.</p>
               {!textPages.length && <p className="border border-dashed border-control bg-white p-5 text-[15px] text-muted rounded-lg">No words were read from this paper (picture only).</p>}
@@ -340,13 +345,12 @@ export function PdfPages({ src, pages, only }: { src: string; pages: number; onl
   useEffect(() => {
     let off = false
     ;(async () => {
-      const { getDocumentProxy, renderPageAsImage } = await import('unpdf')
-      const bytes = new Uint8Array(await (await fetch(src, { credentials: 'same-origin' })).arrayBuffer())
-      const pdf = await getDocumentProxy(bytes)
+      const file = openDrawn(src) // downloaded and drawn once per viewing in this tab (drawn-pages.ts)
+      const pdf = await file.pdf
       const list = onlyKey ? onlyKey.split(',').map(Number).filter((n) => n <= pdf.numPages).slice(0, 20) : Array.from({ length: Math.min(pdf.numPages, 20) }, (_, i) => i + 1)
       for (const n of list) {
         if (off) break
-        const url = await renderPageAsImage(pdf, n, { width: 1100, toDataURL: true, format: 'png' })
+        const url = await file.page(n)
         if (!off) setImgs((xs) => [...xs, { n, url }])
       }
     })().catch(() => !off && setError(true))

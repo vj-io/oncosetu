@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { ChevronDown, LogOut, Menu, X } from "lucide-react";
 import type { Lang } from "@/core/types";
+import { clearDrawnPages } from "@/components/documents/drawn-pages";
 
 export type NavItem = { href: string; label: string; query: string };
 export type NavGroup = { label: string; items: NavItem[] };
@@ -69,6 +70,7 @@ export function PortalNav({
 
   async function out() {
     setBusy(true);
+    clearDrawnPages();
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {

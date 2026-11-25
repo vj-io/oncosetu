@@ -66,24 +66,69 @@ function namesIn(text: string, found: Set<string>) {
   }
 }
 
+/** Start of the `<<` that opens the dictionary ending at `close` (the index of its final `>>`), or -1. */
+function dictStart(raw: string, close: number): number {
+  let depth = 0
+  for (let i = close; i > 0 && close - i < 8192; i--) {
+    if (raw[i] === '>' && raw[i - 1] === '>') { depth++; i-- } else if (raw[i] === '<' && raw[i - 1] === '<') { depth--; i--; if (depth === 0) return i }
+  }
+  return -1
+}
+
 /**
- * Scans raw PDF bytes (and every Flate stream inside, so object streams cannot hide keys) for active content.
+ * Each stream's payload: from after `stream<EOL>` to its direct /Length or the next `endstream`, whichever comes first, so
+ * bytes after a short /Length are still read as syntax. A `stream` keyword counts only right after a dictionary's `>>`,
+ * never as the tail of `endstream`, and never inside the previous payload.
+ */
+function streamSpans(raw: string): { start: number; end: number; dict: string }[] {
+  const spans: { start: number; end: number; dict: string }[] = []
+  let pos = 0
+  for (const m of raw.matchAll(/stream(?:\r\n|\n|\r)/g)) {
+    if (m.index! < pos) continue
+    let j = m.index! - 1 // "endstream" ends with "d", not ">>", so it is never taken for a stream start
+
+    while (j > 0 && /\s/.test(raw[j])) j--
+    if (raw[j] !== '>' || raw[j - 1] !== '>') continue
+    const open = dictStart(raw, j)
+    if (open < 0) continue
+    const start = m.index! + m[0].length
+    const next = raw.indexOf('endstream', start)
+    if (next === -1) break // unterminated: the rest is read as syntax
+    const dict = raw.slice(open, j + 1)
+    const len = /\/Length\s+(\d+)\b(?!\s+\d+\s+R)/.exec(dict) // "\b" stops "122 0 R" from backtracking to "12"
+    const end = len ? Math.min(start + Number(len[1]), next) : next
+    spans.push({ start, end, dict })
+    pos = end
+  }
+  return spans
+}
+
+/**
+ * Scans a PDF for active content where a PDF can declare it: its object syntax and its object streams. Image, font and page
+ * content data cannot declare actions, so their bytes are not read; a phone-scanner PDF's JPEG data can contain "/JS" by
+ * chance. An object stream that cannot be decoded is reported as 'ObjStm', so the file is rewritten or quarantined.
  * Returns the active names found, e.g. ['JavaScript', 'OpenAction'] — empty means clean.
  */
 export function scanPdf(b: Uint8Array): string[] {
   const raw = Buffer.from(b).toString('latin1')
   const found = new Set<string>()
-  namesIn(raw, found)
+  const spans = streamSpans(raw)
+  let syntax = '', at = 0
+  for (const s of spans) { syntax += raw.slice(at, s.start); at = s.end }
+  namesIn(syntax + raw.slice(at), found)
   let inflated = 0
-  for (const m of raw.matchAll(/stream\r?\n/g)) {
-    const start = m.index! + m[0].length
-    const end = raw.indexOf('endstream', start)
-    if (end === -1 || inflated > MAX_INFLATE) break
+  for (const s of spans) {
+    if (!/\/Type\s*\/ObjStm\b/.test(s.dict)) continue
+    const payload = raw.slice(s.start, s.end)
+    const filter = s.dict.match(/\/Filter\s*(\[[^\]]*\]|\/[A-Za-z0-9#]+)/)?.[1]
+    if (!filter) { namesIn(payload, found); continue }
+    const flateOnly = /^\[?\s*\/FlateDecode\s*\]?$/.test(filter.trim())
+    if (!flateOnly || inflated > MAX_INFLATE) { found.add('ObjStm'); continue }
     try {
-      const out = inflateSync(Buffer.from(raw.slice(start, end), 'latin1'), { maxOutputLength: MAX_INFLATE - inflated })
+      const out = inflateSync(Buffer.from(payload, 'latin1'), { maxOutputLength: MAX_INFLATE - inflated })
       inflated += out.length
       namesIn(out.toString('latin1'), found)
-    } catch { /* not a Flate stream (image, font) — fine */ }
+    } catch { found.add('ObjStm') }
   }
   // /OpenAction is only active content when it runs JavaScript; that case is already caught by /JS or /JavaScript.
   if (found.has('JS') || found.has('JavaScript')) {

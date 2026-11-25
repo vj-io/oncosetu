@@ -65,6 +65,34 @@ describe('scanPdf active content (E-DOC-05)', () => {
   it('does not flag /OpenAction alone (jump to a page is benign)', () => {
     expect(scanPdf(Buffer.from('%PDF-1.7\n1 0 obj << /OpenAction [3 0 R /Fit] >> endobj'))).toEqual([])
   })
+
+  // A phone-scanner PDF (36 JPEG pages) was quarantined because the bytes "/JS " occurred by chance inside JPEG data.
+  // Image and content data cannot declare actions, so only PDF syntax and object streams are read for active names.
+  const stream = (dict: string, payload: Buffer | string) =>
+    Buffer.concat([Buffer.from(`<< ${dict} >>\nstream\n`, 'latin1'), Buffer.isBuffer(payload) ? payload : Buffer.from(payload, 'latin1'), Buffer.from('\nendstream\nendobj\n')])
+  const file = (...parts: Buffer[]) => Buffer.concat([Buffer.from('%PDF-1.7\n'), ...parts, Buffer.from('%%EOF')])
+  it('ignores active-looking bytes inside image data (JPEG and Flate images)', () => {
+    const jpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0x9a]), Buffer.from('/JS /JavaScript /AA ', 'latin1'), Buffer.from([0x00, 0xff, 0xd9])])
+    const pixels = deflateSync(Buffer.from('\x00\x01/JS (x) /JavaScript\x02', 'latin1'))
+    expect(scanPdf(file(Buffer.from('1 0 obj '), stream(`/Type /XObject /Subtype /Image /Filter /DCTDecode /Length ${jpeg.length}`, jpeg)))).toEqual([])
+    expect(scanPdf(file(Buffer.from('1 0 obj '), stream(`/Type /XObject /Subtype /Image /Filter /FlateDecode /Length ${pixels.length}`, pixels)))).toEqual([])
+    // An indirect /Length ("122 0 R", as phone scanners write it) is not a byte count: the payload runs to "endstream".
+    const longJpeg = Buffer.concat([Buffer.alloc(200, 0x41), jpeg])
+    expect(scanPdf(file(Buffer.from('1 0 obj '), stream('/Length 122 0 R /Type /XObject /Subtype /Image /Filter [ /DCTDecode ]', longJpeg)))).toEqual([])
+  })
+  it('still reads the syntax after a stream, and never takes "endstream" for the start of one', () => {
+    const after = Buffer.from('2 0 obj << /S /JavaScript /JS (x) >> endobj\n')
+    expect(scanPdf(file(Buffer.from('1 0 obj '), stream('/Length 3', 'abc'), after))).toEqual(['JS', 'JavaScript'])
+    // "endstream" followed by a newline must not open a stream that would blank the next object.
+    expect(scanPdf(Buffer.from('%PDF-1.7\n1 0 obj << /Length 3 >>\nstream\nabc\nendstream\n2 0 obj << /S /Launch >> endobj\n'))).toEqual(['Launch'])
+  })
+  it('reads the bytes between a short /Length and "endstream"', () => {
+    expect(scanPdf(file(Buffer.from('1 0 obj '), stream('/Length 3', 'abc /S /JavaScript /JS (x)')))).toEqual(['JS', 'JavaScript'])
+  })
+  it('reads uncompressed object streams, and flags one it cannot decode', () => {
+    expect(scanPdf(file(Buffer.from('5 0 obj '), stream('/Type /ObjStm /N 1 /First 4 /Length 30', '6 0 << /S /JavaScript /JS (x) >>')))).toEqual(['JS', 'JavaScript'])
+    expect(scanPdf(file(Buffer.from('5 0 obj '), stream('/Type /ObjStm /N 1 /First 4 /Filter /LZWDecode /Length 4', 'abcd')))).toEqual(['ObjStm'])
+  })
 })
 
 describe('sanitisePdf strips active content and keeps the page (FR-ING-08)', () => {

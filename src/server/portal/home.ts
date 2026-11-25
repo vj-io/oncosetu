@@ -9,6 +9,7 @@ import { now } from '../clock'
 import { dropAddress, inboundDomain } from '../inbound/staff'
 import { patientMayOpen, portalActor } from '../pipeline/actions'
 import { STUDY_BUNDLE_MIME } from '../pipeline/study'
+import { copyRequestOf } from './copies'
 import type { HomeData } from './summary'
 
 const asDocType = (t: string | null): DocType | null => ((DOC_TYPES as readonly string[]).includes(t ?? '') ? (t as DocType) : null)
@@ -93,6 +94,7 @@ export async function loadHomeData(tx: Tx, orgId: string, patientId: string, vie
     today: istDate(at.toISOString()),
     documents: docs.map((d) => ({
       id: d.id, docType: asDocType(d.docType), documentDate: d.documentDate, receivedAt: d.receivedAt.toISOString(), disputed: d.flags.patient_disputed === true, consentForm: consentFormOf(d.flags),
+      copy: copyRequestOf(d.flags),
       ...(Array.isArray(d.flags.sections) && d.flags.sections.length > 1
         ? { reports: (d.flags.sections as { docType?: string; date?: string | null }[]).map((s) => ({ docType: asDocType(s.docType ?? null), documentDate: s.date ?? null })) }
         : {}),

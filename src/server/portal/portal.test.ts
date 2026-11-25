@@ -7,6 +7,7 @@ import { en, hi, hinglish, tp, tpw, type PatientKey } from '@/i18n/patient'
 import { pickLang } from './lang'
 import { classifyAction, deviceOf, staffWho } from './access'
 import { buildHomeSummary, guardText, isPastDate, labelWithoutDates, type HomeData } from './summary'
+import { buildSent, sentState } from './sent'
 import { openShadow, sealShadow } from './statements'
 import { answersFor, answersSchema, buildReadback, enabledQuestions, missingQuestion, questionSettings, QUESTION_IDS, statedDate, transcriptOf, type Answers } from './visit-model'
 
@@ -340,7 +341,7 @@ describe('patient surfaces: privacy and labels', () => {
 
   it('a paper is listed by its kind and dates only: no field carries a file name', () => {
     const s = buildHomeSummary({ ...home, documents: [{ id: 'x', docType: 'imaging_report', documentDate: '2026-03-12', receivedAt: '2026-11-02T04:44:00.000Z', fileName: 'RAMESH_KUMAR_PET_report.pdf' } as HomeData['documents'][number]] }, 'not_cleared', 'en')
-    expect(Object.keys(s.documents[0]).sort()).toEqual(['dated', 'disputed', 'id', 'label', 'open', 'received'])
+    expect(Object.keys(s.documents[0]).sort()).toEqual(['canAsk', 'copy', 'dated', 'disputed', 'id', 'label', 'open', 'received'])
     expect(s.documents[0].open).toBe(false) // only a yes/no: the link is built from the id
     expect(JSON.stringify(s)).not.toMatch(/RAMESH|\.pdf/)
   })
@@ -385,6 +386,30 @@ describe('a file of several papers lists each with its own date (E-DOC-10)', () 
     expect(s.documents.map((d) => d.id)).toEqual(['folder', 'single'])
     expect(s.documents[1]).not.toHaveProperty('reports')
     expect(s.documents[1].dated).toBe('Dated 1 Aug 2026')
+  })
+})
+
+describe('Ask the clinic for a copy, and Papers you sent', () => {
+  const paper = (o: Partial<HomeData['documents'][number]> = {}) => ({ id: 'p', docType: 'lab_report' as const, documentDate: '2026-03-12', receivedAt: '2026-11-20T04:44:00.000Z', ...o })
+  const one = (d: HomeData['documents'][number], lang: Lang = 'en') => buildHomeSummary({ ...home, documents: [d] }, 'cleared', lang).documents[0]
+  it('a paper the patient cannot open offers the request; an open request says when; a given copy says so and may be asked again', () => {
+    expect(one(paper())).toMatchObject({ canAsk: true, copy: null })
+    expect(one(paper({ open: true }))).toMatchObject({ canAsk: false, copy: null })
+    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }))).toMatchObject({ canAsk: false, copy: 'You asked for a copy on 21 Nov 2026. The clinic will reply within 3 days.' })
+    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z', givenAt: '2026-11-22T05:00:00.000Z' } }))).toMatchObject({ canAsk: true, copy: 'The clinic gave a copy on 22 Nov 2026.' })
+    expect(one(paper({ consentForm: 'sign' })).canAsk).toBe(false) // the signed consent form is not a paper to ask a copy of
+    expect(one(paper({ copy: { at: '2026-11-21T05:00:00.000Z' } }), 'hi').copy).toBe('आपने 21 नवंबर 2026 को कॉपी माँगी। क्लिनिक 3 दिन में जवाब देगा।')
+  })
+  it('what became of each upload, in the person\'s words', () => {
+    expect([
+      sentState({ attachState: 'auto', status: 'done' }), sentState({ attachState: 'attached', status: 'needs_review' }),
+      sentState({ attachState: 'pending_decision', status: 'needs_review' }), sentState({ attachState: 'auto', status: 'processing' }),
+      sentState({ attachState: 'rejected', status: 'done' }), sentState({ attachState: 'detached', status: 'done' }),
+      sentState({ attachState: 'pending_decision', status: 'quarantined' }),
+    ]).toEqual(['filed', 'filed', 'checking', 'checking', 'not_filed', 'not_filed', 'blocked'])
+    const rows = buildSent([{ id: 'a', name: null, sentAt: '2026-11-24T10:00:00.000Z', state: 'not_filed', open: true }], 'hinglish')
+    expect(rows[0]).toMatchObject({ name: 'Aapka bheja kaagaz', sent: expect.stringContaining('Bheja:'), status: 'Aapki file mein nahi juda. Kripya clinic mein poochhein.' })
+    for (const lang of LANGS) expect(dirty(strings(buildSent([{ id: 'a', name: null, sentAt: '2026-11-24T10:00:00.000Z', state: 'blocked', open: false }], lang)))).toEqual([])
   })
 })
 

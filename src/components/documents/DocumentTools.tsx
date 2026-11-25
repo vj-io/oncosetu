@@ -144,6 +144,17 @@ export function PrintedButton({ documentId }: { documentId: string }) {
   )
 }
 
+/** The patient asked for a copy (portal); a person records that it was given (copies.ts). */
+export function CopyGivenButton({ documentId }: { documentId: string }) {
+  const a = useAction()
+  return (
+    <span className="grid gap-1">
+      <Button size="sm" variant="secondary" icon={<Check />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/copy-given`, {}, 'Recorded: copy given')}>Copy given</Button>
+      {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
+    </span>
+  )
+}
+
 /** FR-DOC-06: a person confirms a low-confidence fact against the page image; only then does it enter the record. */
 export function PageCheckButton({ eventId, rowVersion }: { eventId: string; rowVersion: number }) {
   const a = useAction()

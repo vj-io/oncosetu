@@ -332,8 +332,10 @@ export function SourceViewer({ documentId, pages, events, pageImages, focusEvent
  * The original PDF drawn page by page with PDF.js into images (no browser PDF plugin, no PDF scripts): the file route
  * serves PDFs under CSP `sandbox`, where browser PDF viewers refuse to run.
  */
-export function PdfPages({ src, pages }: { src: string; pages: number }) {
-  const [imgs, setImgs] = useState<string[]>([])
+/** `only`: draw just these page numbers (one report of a file that holds several, E-DOC-10). */
+export function PdfPages({ src, pages, only }: { src: string; pages: number; only?: readonly number[] }) {
+  const [imgs, setImgs] = useState<{ n: number; url: string }[]>([])
+  const onlyKey = only?.join(',') ?? ''
   const [error, setError] = useState(false)
   useEffect(() => {
     let off = false
@@ -341,21 +343,23 @@ export function PdfPages({ src, pages }: { src: string; pages: number }) {
       const { getDocumentProxy, renderPageAsImage } = await import('unpdf')
       const bytes = new Uint8Array(await (await fetch(src, { credentials: 'same-origin' })).arrayBuffer())
       const pdf = await getDocumentProxy(bytes)
-      for (let n = 1; n <= Math.min(pdf.numPages, 20) && !off; n++) {
+      const list = onlyKey ? onlyKey.split(',').map(Number).filter((n) => n <= pdf.numPages).slice(0, 20) : Array.from({ length: Math.min(pdf.numPages, 20) }, (_, i) => i + 1)
+      for (const n of list) {
+        if (off) break
         const url = await renderPageAsImage(pdf, n, { width: 1100, toDataURL: true, format: 'png' })
-        if (!off) setImgs((xs) => [...xs, url])
+        if (!off) setImgs((xs) => [...xs, { n, url }])
       }
     })().catch(() => !off && setError(true))
     return () => { off = true }
-  }, [src])
+  }, [src, onlyKey])
   if (error) return <p className="p-4 text-sm text-muted">The original could not be drawn in the browser.</p>
   return (
     <div className="grid gap-2 bg-paper p-2">
-      {imgs.map((u, i) => (
+      {imgs.map(({ n, url }) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={i} src={u} alt={`Original page ${i + 1}`} className="h-auto w-full border border-paper-rule bg-white" />
+        <img key={n} src={url} alt={`Original page ${n}`} className="h-auto w-full border border-paper-rule bg-white" />
       ))}
-      {imgs.length < pages && <p className="p-3 text-[13px] text-faint font-medium">Drawing page {imgs.length + 1} of {pages}…</p>}
+      {imgs.length < (only?.length ?? pages) && <p className="p-3 text-[13px] text-faint font-medium">Drawing page {only ? only[imgs.length] : imgs.length + 1} of {only ? `the file (${imgs.length + 1} of ${only.length} here)` : pages}…</p>}
     </div>
   )
 }

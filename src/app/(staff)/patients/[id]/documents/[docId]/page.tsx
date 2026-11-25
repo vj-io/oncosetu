@@ -3,7 +3,7 @@ import { forbidden, notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, CopyCheck, Link2, FileWarning, Hand, KeyRound, Languages, PenLine, ScanText, ShieldAlert, Unlink } from 'lucide-react'
 import { AbdmDocument } from '@/components/abdm/AbdmDocument'
-import { DetachForm, LiveStage, ManualEventForm, PasswordForm, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
+import { DetachForm, LiveStage, ManualEventForm, PasswordForm, PrintedButton, ReprocessButton, TagForm } from '@/components/documents/DocumentTools'
 import { HeldReveal } from '@/components/documents/HeldReveal'
 import { IdentityDecision } from '@/components/documents/IdentityDecision'
 import { EVENT_LABEL, FIELD_LABEL, REJECT_REASON, fmtDate, fmtDateTime, identityReasonText, statusBadge } from '@/components/documents/labels'
@@ -17,7 +17,7 @@ import { attachedWithReasonText } from '@/components/documents/labels'
 import { isAttachedWithReason } from '@/server/ledger/core'
 import type { DocType } from '@/core/types'
 import { loadPatient } from '@/server/patients'
-import { MODALITY_LABEL, filterRecords, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
+import { MODALITY_LABEL, filesOf, filterRecords, fmtCompared, fmtDay, neighbours, sortRecords, type ModalityKey, type RecordKind } from '@/server/records/core'
 import { loadRecords } from '@/server/records/queries'
 import type { RejectionLogItem } from '@/server/pipeline/core'
 import { documentDetail } from '@/server/pipeline/queries'
@@ -53,9 +53,10 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const kind = (['report', 'scan', 'lab', 'rx', 'other'] as const).find((k) => k === kindQ) as RecordKind | undefined
   const modality = modQ && modQ in MODALITY_LABEL ? (modQ as ModalityKey) : undefined
   const order = orderQ === 'old' ? 'old' : 'new'
-  const walk = filterRecords(sortRecords(recs.rows, order), { kind: kind ?? 'all', modality: modality ?? 'any', withReports: true })
+  // A file split into reports is one paper here (filesOf), walked from where its first report sits in the list.
+  const walk = filesOf(filterRecords(sortRecords(recs.rows, order), { kind: kind ?? 'all', modality: modality ?? 'any', withReports: true }))
   const inWalk = walk.some((r) => r.id === docId)
-  const list = inWalk ? walk : sortRecords(recs.rows, 'new')
+  const list = inWalk ? walk : filesOf(sortRecords(recs.rows, 'new'))
   const listQs = inWalk ? new URLSearchParams([...(kind ? [['kind', kind]] : []), ...(modality ? [['mod', modality]] : []), ...(order === 'old' ? [['order', 'old']] : [])]).toString() : ''
   const q = listQs ? `?${listQs}` : ''
   const nb = neighbours(list, docId)
@@ -72,10 +73,12 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const flags = doc.flags as Record<string, unknown>
   const injection = flags.injection as { patterns: string[]; hiddenChars: number; hiddenPages: number[] } | undefined
   const hidden = ((doc.quality as { hidden?: { pageNo: number; text: string }[] } | null)?.hidden ?? [])
+  const heldPages = ((doc.quality as { pages?: { pageNo: number; handwriting?: { handwritten?: boolean } }[] } | null)?.pages ?? []).filter((p) => p.handwriting?.handwritten).map((p) => p.pageNo)
   const gate = flags.gate as { candidates: number; accepted: number; kept: number; rejected: number; reasons: Record<string, number>; rejections?: RejectionLogItem[] } | undefined
   const erratum = flags.erratum as { detachedAt: string; reason: string; withdrawnEventIds: string[]; sealedSnapshots: { seq: number }[] } | undefined
   const nearDup = flags.near_duplicate as { of: string; method: string; similarity?: number } | undefined
   const quarantine = flags.quarantine as { reasons: string[]; scan: string } | undefined
+  const sections = recs.rows.filter((r) => r.docId === doc.id && r.section).sort((a, b) => a.section!.n - b.section!.n)
   const attached = doc.attachState === 'auto' || doc.attachState === 'attached'
   // A person attached it and wrote why: say so instead of the old mismatch badge (the header table and reasons below stay as the audit trail).
   const resolved = isAttachedWithReason(doc) ? attachedWithReasonText(decidedByRole, doc.attachDecidedAt ? doc.attachDecidedAt.toISOString() : null) : null
@@ -86,6 +89,7 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
   const imaging = imagingOwn && mergedScan?.parts ? { ...imagingOwn, instances: mergedScan.instances, frames: mergedScan.frames } : imagingOwn
   const storedOnly = !!fileInfo?.storedOnly
   const live = d.status === 'queued' || d.status === 'processing'
+  const canMarkPrinted = !doc.manualTags.includes('printed') && !live && heldPages.length > 0
   const v = (k: string) => (header[k] && typeof header[k] === 'object' ? (header[k] as { value: string }).value : null)
   // A file held because it may belong to someone else: warn first, and keep the picture small and blurred until a person asks.
   const heldOut = doc.attachState === 'pending_decision' && doc.status !== 'quarantined'
@@ -163,6 +167,13 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
         {doc.handwritten && (
           <Notice tone="unverified" icon={<Hand />} title={<>Handwritten, kept as an image only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
             Handwriting is never machine-extracted (no OCR text is kept, so no facts can be quoted). Tag the document type, date and institution below.
+            {canMarkPrinted && <div className="mt-2 flex flex-wrap items-center gap-3"><span>A photo of a printed report can look handwritten.</span><PrintedButton documentId={doc.id} /></div>}
+          </Notice>
+        )}
+        {!doc.handwritten && heldPages.length > 0 && (
+          <Notice tone="unverified" icon={<Hand />} title={<>{heldPages.length === 1 ? 'Page' : 'Pages'} {heldPages.join(', ')} judged handwritten, kept as images only<InfoTip>{EXPLAIN.handwriting}</InfoTip></>}>
+            No text from {heldPages.length === 1 ? 'this page' : 'these pages'} is read, so no facts come from {heldPages.length === 1 ? 'it' : 'them'}.
+            {canMarkPrinted && <div className="mt-2 flex flex-wrap items-center gap-3"><span>If {heldPages.length === 1 ? 'it is' : 'they are'} printed (a photo of a printed report can look handwritten):</span><PrintedButton documentId={doc.id} /></div>}
           </Notice>
         )}
         {doc.lowConfidence && !doc.handwritten && (
@@ -174,6 +185,21 @@ export default async function DocumentSourcePage({ params, searchParams }: { par
           <Notice tone="unverified" icon={<CopyCheck />} title="Possible duplicate of a file already here">
             {nearDup.method === 'dhash' ? 'The image looks like a re-photograph' : `The text is ${Math.round((nearDup.similarity ?? 0) * 100)}% the same`} of{' '}
             <Link className="underline" href={`/patients/${id}/documents/${nearDup.of}`}>{d.related[nearDup.of]?.docType ? staffDocLabel(d.related[nearDup.of].docType as DocType) : 'another document'}</Link>. A person confirms.
+          </Notice>
+        )}
+        {sections.length > 1 && (
+          <Notice tone="setu" icon={<CopyCheck />} title={`This file holds ${sections.length} reports`}>
+            Each is listed on its own in All records, with its own date; its facts take that date.
+            <ul className="mt-2 grid gap-1">
+              {sections.map((r) => (
+                <li key={r.id}>
+                  <Link className="underline underline-offset-4" href={`/patients/${id}/records#doc=${r.id}`}>Report {r.section!.n}</Link>
+                  {' · '}{r.dateFrom === 'paper' ? fmtDay(r.date) : 'date not found'} · {r.title} · page{r.section!.pages.length > 1 ? 's' : ''} {r.section!.pages.join(', ')}
+                  {r.compared?.length ? ` · compared with ${r.compared.map(fmtCompared).join(', ')}` : ''}
+                  {r.section!.newest && <Badge tone="verified" className="ml-2">Newest</Badge>}
+                </li>
+              ))}
+            </ul>
           </Notice>
         )}
         {doc.amendmentOf && (

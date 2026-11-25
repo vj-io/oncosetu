@@ -84,6 +84,7 @@ export const EXPECTED: Record<string, Expect> = {
   'GET /api/documents/[id]/preview': originals,
   'POST /api/documents/[id]/manual-events': CLINICAL,
   'POST /api/documents/[id]/password': FRONT,
+  'POST /api/documents/[id]/printed': CLINICAL,
   'POST /api/documents/[id]/reprocess': CLINICAL,
   'GET /api/documents/[id]/status': FRONT,
   'POST /api/documents/[id]/tags': CLINICAL,

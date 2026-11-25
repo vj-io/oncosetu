@@ -79,3 +79,15 @@ describe('parseHeader: header formats', () => {
     expect(text.slice(h.reportDate!.labelStart, h.reportDate!.end)).toBe('Reported On : 15/03/2026')
   })
 })
+
+describe('parseHeader: a date quoted from another paper is not this paper\'s date', () => {
+  const head = 'CITY IMAGING CENTRE\nPatient Name: Test Person\tUHID: X1\nExam Date: or\tRef By: Dr A Rao\nExam: MRI Brain\n'
+  it('"study dated …" in the body is a reference, not the report date', () => {
+    const t = `${head}MRI BRAIN WITH CONTRAST\nComparison: with the previous study dated 12 February 2025.\n`
+    expect(parseHeader(t).reportDate).toBeUndefined()
+  })
+  it('"Dated:" and a line that starts with "Dated" still label the paper\'s date', () => {
+    expect(parseHeader(`${head}Letter No. 45 Dated: 12/02/2025\n`).reportDate?.value).toBe('12/02/2025')
+    expect(parseHeader(`${head}  Dated 12/02/2025\n`).reportDate?.value).toBe('12/02/2025')
+  })
+})

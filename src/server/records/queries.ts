@@ -4,12 +4,14 @@ import { z } from 'zod'
 import type { Tx } from '@/db'
 import { documentFiles, documentPages, documents, events } from '@/db/schema'
 import { staffDocLabel } from '@/core/copy'
+import { daysBetween } from '@/core/dates'
 import { DOC_TYPES, type DocType } from '@/core/types'
+import { LATE_RECEIVED_DAYS } from '../pipeline/core'
 import { HttpError } from '../http'
 import { fieldValues } from '../ledger/core'
 import { documentLinks } from './schema'
 import {
-  betterHeadline, collapseStudyParts, reportTerms, resolvePairs, sortRecords, toRecordRow,
+  betterHeadline, collapseStudyParts, comparedDates, linkComparisons, reportTerms, resolvePairs, sortRecords, toRecordRow,
   type DocLike, type ModalityKey, type RecordRow, type RejectedPair, type ReportCandidate, type ResolvedPair, type ScanCandidate, type StoredLink,
 } from './core'
 
@@ -39,9 +41,10 @@ export type RecordsData = {
 }
 
 /** The filed papers of one patient, newest first, with scan-to-report pairs. Held, rejected, detached and quarantined papers are left out. */
-/** The "All records" tab badge: filed papers, with a study kept in several parts counted once, as the list shows it (collapseStudyParts). */
+/** The "All records" tab badge: filed papers, with a study kept in several parts counted once and a file of several reports counted per report, as the list shows them. */
 export async function filedPaperCount(tx: Tx, patientId: string): Promise<number> {
-  const [r] = await tx.select({ n: sql<number>`count(distinct coalesce(${documents.flags}->'imaging'->>'studyUid', ${documents.id}::text))`.mapWith(Number) })
+  const [r] = await tx.select({ n: sql<number>`count(distinct coalesce(${documents.flags}->'imaging'->>'studyUid', ${documents.id}::text))
+    + coalesce(sum(case when jsonb_typeof(${documents.flags}->'sections') = 'array' then jsonb_array_length(${documents.flags}->'sections') - 1 else 0 end), 0)`.mapWith(Number) })
     .from(documents).where(and(eq(documents.patientId, patientId), inArray(documents.attachState, [...FILED]), ne(documents.status, 'quarantined'), isNull(documents.duplicateOf)))
   return r.n
 }
@@ -56,48 +59,85 @@ export async function loadRecords(tx: Tx, patientId: string): Promise<RecordsDat
   if (!ids.length) return { rows: [], pairs: [], rejected: [], held, heldScans }
 
   const [evs, files, links] = await Promise.all([
-    tx.select({ documentId: events.documentId, status: events.verificationStatus, fields: events.fields, flags: events.flags, createdAt: events.createdAt }).from(events)
+    tx.select({
+      documentId: events.documentId, status: events.verificationStatus, fields: events.fields, flags: events.flags, createdAt: events.createdAt,
+      // Names written out: drizzle drops table names inside a one-table select, and a bare "id" would bind to evidence.id.
+      pageNo: sql<number | null>`(select min(ev.page_no) from evidence ev where ev.event_id = "events"."id")`,
+    }).from(events)
       .where(and(inArray(events.documentId, ids), isNull(events.withdrawnAt))).orderBy(asc(events.createdAt)),
     tx.select({ documentId: documentFiles.documentId, pageNo: documentFiles.pageNo }).from(documentFiles)
       .where(and(inArray(documentFiles.documentId, ids), eq(documentFiles.kind, 'page_image'), isNull(documentFiles.supersededAt))),
     tx.select().from(documentLinks).where(and(eq(documentLinks.patientId, patientId), eq(documentLinks.kind, 'scan_report'))),
   ])
+  // E-DOC-10: a file of several reports is listed per report; its facts are counted by the page their quote is on.
+  const sectionsOf = new Map(filed.flatMap((d) => {
+    const s = (d.flags as { sections?: { pages: number[]; date: string | null; docType: string; institution?: string | null }[] } | null)?.sections
+    return Array.isArray(s) && s.length > 1 ? [[d.id, s] as const] : []
+  }))
+  const factKey = (documentId: string, pageNo: number | null) => {
+    const s = sectionsOf.get(documentId)
+    return s ? `${documentId}.${Math.max(0, s.findIndex((x) => pageNo !== null && x.pages.includes(pageNo))) + 1}` : documentId
+  }
   const facts = new Map<string, { n: number; ok: number; late: boolean; first: { rank: number; text: string } | null }>()
   for (const e of evs) {
     if (!e.documentId) continue
-    const c = facts.get(e.documentId) ?? { n: 0, ok: 0, late: false, first: null }
+    const key = factKey(e.documentId, e.pageNo)
+    const c = facts.get(key) ?? { n: 0, ok: 0, late: false, first: null }
     c.n++
     if (e.status !== 'unverified') c.ok++
     if (e.flags?.late_received) c.late = true
     const h = summaryLine(fieldValues(e.fields ?? {}))
     if (h) c.first = betterHeadline(c.first, h)
-    facts.set(e.documentId, c)
+    facts.set(key, c)
   }
   const imgs = new Map<string, number[]>()
   for (const f of files) imgs.set(f.documentId, [...(imgs.get(f.documentId) ?? []), f.pageNo ?? 1].sort((a, b) => a - b))
 
-  const rows = sortRecords(collapseStudyParts(filed.map((d) => {
-    const c = facts.get(d.id)
-    return toRecordRow(d as unknown as DocLike, { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages: imgs.get(d.id) ?? [], asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false })
+  const stats = (key: string, pageImages: number[]) => {
+    const c = facts.get(key)
+    return { docLabel, facts: c?.n ?? 0, checked: c?.ok ?? 0, pageImages, asWritten: c?.first?.text ?? null, lateReceived: c?.late ?? false }
+  }
+  // E-DOC-15 by the paper's own date (a report's facts can quote older studies); a paper with no date keeps its facts' flag.
+  const byOwnDate = (r: RecordRow): RecordRow => (r.dateFrom === 'paper' && r.date ? { ...r, lateReceived: daysBetween(r.date, r.receivedAt.slice(0, 10)) > LATE_RECEIVED_DAYS } : r)
+  const rows = sortRecords(collapseStudyParts(filed.flatMap((d): RecordRow[] => {
+    const secs = sectionsOf.get(d.id)
+    if (!secs) return [byOwnDate(toRecordRow(d as unknown as DocLike, stats(d.id, imgs.get(d.id) ?? [])))]
+    const newest = secs.reduce<string | null>((m, s) => (s.date && (!m || s.date > m) ? s.date : m), null)
+    return secs.map((s, i) => {
+      const key = `${d.id}.${i + 1}`
+      // The first report keeps the file's own date and hospital (a person may have set them) when its header gave none.
+      const r = toRecordRow({
+        ...d, docType: s.docType, documentDate: s.date ?? (i === 0 ? d.documentDate : null), pages: s.pages.length,
+        institutionName: i === 0 ? d.institutionName ?? s.institution ?? null : s.institution ?? null,
+      } as unknown as DocLike,
+        stats(key, (imgs.get(d.id) ?? []).filter((n) => s.pages.includes(n))))
+      return byOwnDate({ ...r, id: key, section: { n: i + 1, of: secs.length, pages: s.pages, newest: !!newest && s.date === newest } })
+    })
   })))
 
   // Pairing: the written imaging reports are read for their heading words only.
   const scans: ScanCandidate[] = rows.filter((r) => r.scan).map((r) => ({ id: r.id, date: r.scan!.studyDate ?? r.date, institution: r.institution, modality: r.scan!.modality, bodyKey: r.scan!.bodyKey }))
-  const reportRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report')
+  // The written imaging reports are read for their heading words (pairing) and for the earlier studies they name (comparisons).
+  const imagingRows = rows.filter((r) => r.kind === 'report' && r.docType === 'imaging_report')
+  const pageText = new Map<string, Map<number, string>>()
+  if (imagingRows.length) {
+    const pages = await tx.select({ documentId: documentPages.documentId, pageNo: documentPages.pageNo, text: documentPages.text }).from(documentPages)
+      .where(and(inArray(documentPages.documentId, [...new Set(imagingRows.map((r) => r.docId))]), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
+    for (const p of pages) pageText.set(p.documentId, (pageText.get(p.documentId) ?? new Map()).set(p.pageNo, p.text))
+  }
+  const textOf = (r: RecordRow) => [...(pageText.get(r.docId) ?? new Map<number, string>())].filter(([n]) => !r.section || r.section.pages.includes(n)).map(([, t]) => t).join('\n')
+  const reportRows = imagingRows.filter((r) => !r.section) // ponytail: a report inside a multi-report file is not offered for scan pairing; add when pairing learns page ranges
   let reports: ReportCandidate[] = []
   const reportMods = new Map<string, Set<ModalityKey>>()
   if (scans.length && reportRows.length) {
-    const pages = await tx.select({ documentId: documentPages.documentId, pageNo: documentPages.pageNo, text: documentPages.text }).from(documentPages)
-      .where(and(inArray(documentPages.documentId, reportRows.map((r) => r.id)), isNull(documentPages.supersededAt))).orderBy(asc(documentPages.pageNo))
-    const text = new Map<string, string>()
-    for (const p of pages) text.set(p.documentId, `${text.get(p.documentId) ?? ''}\n${p.text}`.slice(0, 6000))
-    reports = reportRows.map((r) => ({ id: r.id, date: r.date, institution: r.institution, terms: reportTerms(`${r.title}\n${text.get(r.id) ?? ''}`) }))
+    reports = reportRows.map((r) => ({ id: r.id, date: r.date, institution: r.institution, terms: reportTerms(`${r.title}\n${textOf(r).slice(0, 6000)}`) }))
     for (const r of reports) reportMods.set(r.id, r.terms.modalities)
   }
+  const comparedOf = new Map(imagingRows.map((r) => [r.id, comparedDates(textOf(r), r.receivedAt, r.dateFrom === 'paper' ? r.date : null)] as const).filter(([, c]) => c.length))
   const stored: StoredLink[] = links.map((l) => ({ id: l.id, aId: l.aId, bId: l.bId, state: l.state }))
   const rowIds = new Set(rows.map((r) => r.id))
   const rejected = links.filter((l) => l.state === 'rejected' && rowIds.has(l.aId) && rowIds.has(l.bId)).map((l) => ({ scanId: l.aId, reportId: l.bId }))
-  return { rows: rows.map((r) => (r.docType === 'imaging_report' ? { ...r, reportMods: [...(reportMods.get(r.id) ?? [])] } : r)), pairs: resolvePairs(scans, reports, stored), rejected, held, heldScans }
+  return { rows: linkComparisons(rows, comparedOf).map((r) => (r.docType === 'imaging_report' ? { ...r, reportMods: [...(reportMods.get(r.id) ?? [])] } : r)), pairs: resolvePairs(scans, reports, stored), rejected, held, heldScans }
 }
 
 export const linkDecisionSchema = z.object({ scanId: z.string().uuid(), reportId: z.string().uuid(), decision: z.enum(['confirm', 'reject', 'reset']) })

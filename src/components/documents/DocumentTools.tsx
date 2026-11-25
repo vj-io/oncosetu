@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, KeyRound, Plus, RefreshCw, Tag, Unlink } from 'lucide-react'
+import { Check, KeyRound, Plus, RefreshCw, ScanText, Tag, Unlink } from 'lucide-react'
 import { Button, Field, Input, PasswordInput, Select, StageTracker, Textarea, useToast } from '@/components/ui'
 import { EVENT_FIELDS, EXTRACTABLE_EVENT_TYPES } from '@/core/types'
 import { HeldStages } from './HeldStages'
@@ -128,6 +128,17 @@ export function ReprocessButton({ documentId }: { documentId: string }) {
   return (
     <span className="grid gap-1">
       <Button size="sm" variant="secondary" icon={<RefreshCw />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/reprocess`, {}, 'Reprocessing')}>Reprocess</Button>
+      {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
+    </span>
+  )
+}
+
+/** FR-DOC-07: a phone photo of a printed report was judged handwritten; a person who sees print has the file read again with no page held. */
+export function PrintedButton({ documentId }: { documentId: string }) {
+  const a = useAction()
+  return (
+    <span className="grid gap-1">
+      <Button size="sm" variant="secondary" icon={<ScanText />} loading={a.busy} onClick={() => a.run(`/api/documents/${documentId}/printed`, {}, 'Reading every page as print')}>These pages are printed — read them</Button>
       {a.error && <span className="text-sm text-madder-ink">{a.error}</span>}
     </span>
   )

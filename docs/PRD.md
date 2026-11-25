@@ -480,7 +480,7 @@ Priority: **M** must (v1.0), **S** should, **C** could. Each row maps to tests i
 | FR-DOC-04 | Document classification into: pathology/histopathology, IHC/molecular/NGS, imaging report, lab report, prescription (printed), prescription (handwritten), discharge summary, OPD/consult note, chemotherapy/day-care record, radiotherapy summary, procedure/operative note, bill/insurance, other | M | Macro-F1 ≥ 0.85 on eval set |
 | FR-DOC-05 | Language detection; Hindi and regional-language reports are processed if OCR supports the script, otherwise stored as image with `language_unsupported` | M | **PRD gap round, 8 Nov 2026:** unsupported-script path tested (unit and through the pipeline). |
 | FR-DOC-06 | Low OCR confidence (< 0.80 mean on a page) → page marked `low_confidence`; extraction from it requires human verification before entering the record | M | **PRD gap round, 8 Nov 2026:** low-confidence facts are held out of the ledger, seal, shares and timeline until a person checks them against the page on the review screen. |
-| FR-DOC-07 | Handwritten pages (classifier) are never auto-extracted; stored as images; staff may add manual tags (document type, date, institution) | M | E2E: handwritten prescription yields zero machine-extracted medication events |
+| FR-DOC-07 | Handwritten pages (classifier) are never auto-extracted; stored as images; staff may add manual tags (document type, date, institution) | M | E2E: handwritten prescription yields zero machine-extracted medication events. **25 Nov 2026:** a phone photo of a printed report that the line rule judges handwritten is read when its words read as a report (most tokens real words, a report class scoring 9 or more); records and clinician staff can mark a file as printed, which reads it again with no page held (audited). Real handwritten samples stay held (`text.test.ts`). |
 | FR-DOC-08 | Original files are immutable; derived artefacts (OCR text, thumbnails) are versioned with processor name and version | M | **PRD gap round, 8 Nov 2026:** originals immutable in the database (0021 trigger; deletion only inside `erase_patient()`/`abdm_erase()`); page text and page images versioned with processor name and version, superseded instead of deleted on reprocessing. |
 
 #### Extraction and evidence (EXT) — see §9
@@ -934,7 +934,7 @@ Every row is a test case (unit, integration or E2E) and is listed in `tests/EDGE
 | E-DOC-07 | Blurry / cropped / glare photo | Retake prompt at capture; `low_confidence` after |
 | E-DOC-08 | Handwritten prescription | Image only; manual tags; zero auto events |
 | E-DOC-09 | Hindi/regional-language report | Processed if script supported, else `language_unsupported` image |
-| E-DOC-10 | Mixed document (lab + bill in one PDF) | Per-page classification |
+| E-DOC-10 | Mixed document (lab + bill in one PDF); a folder of several reports photographed into one file | Per-page classification; a file of several reports is split by the reports' own header dates and letterheads, each report gets its own date, report-level fact and row in All records, with the newest marked (25 Nov 2026) |
 | E-DOC-11 | Report with no date | `date_unknown`; undated lane |
 | E-DOC-12 | Date "03/04/2026" with no context | `date_ambiguous`; shown with both readings until resolved |
 | E-DOC-13 | Relative date "3 weeks back" in patient speech | Stored verbatim; no computed date |

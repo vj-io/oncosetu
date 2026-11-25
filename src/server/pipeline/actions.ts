@@ -159,7 +159,9 @@ export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manu
     pageNo: page.pageNo, text: page.text, words: page.words ?? null, ocrConfidence: page.ocrConfidence, lowConfidence: page.lowConfidence,
     source: page.words ? 'ocr' : 'text_layer', handwriting: null, hidden: null, image: null, processor: page.processor ?? '', processorVersion: page.processorVersion ?? '',
   }
-  const classified: GatedPages = { usable: [pr], docType: (d.docType as DocType | null) ?? undefined }
+  // E-DOC-10: a fact keyed from one report of a multi-report file takes that report's date.
+  const sections = ((d.flags as { sections?: { pages: number[]; date: string | null; docType: DocType; institution: string | null }[] }).sections ?? []).map((s) => ({ ...s, date: s.date ? parseDate(s.date) : null }))
+  const classified: GatedPages = { usable: [pr], docType: (d.docType as DocType | null) ?? undefined, sections }
   const docDate = d.documentDate ? parseDate(d.documentDate) : null
   const { gate, drafts } = gateAndDate([{ event_type: body.eventType, fields: body.fields, quote: body.quote, page_no: body.pageNo }], classified, { documentDate: docDate }, d.receivedAt, 'rules')
   if (!drafts.length) {
@@ -181,6 +183,25 @@ export async function addManualEvent(ctx: Ctx, d: Doc, body: z.infer<typeof manu
   await recomputeRadar(ctx.db, d.orgId, d.patientId)
   await ctx.audit('document.manual_event', 'event', ev.id, { documentId: d.id, eventType: draft.eventType })
   return { ok: true, eventId: ev.id }
+}
+
+// ── printed, not handwritten (FR-DOC-07) ───────────────────────────────────
+/**
+ * The handwriting judgement keeps a page's text out of reading. A phone photo of a printed report can be judged handwritten;
+ * a person who sees it is printed marks the file, and it is read again with no page held as handwritten. Facts from pages
+ * that read poorly still need checking one by one (low-confidence rule). Audited; it cannot be undone from the screen.
+ */
+export async function markPrinted(ctx: Ctx, d: Doc) {
+  if (d.status === 'quarantined') throw new HttpError(409, 'quarantined', 'A quarantined file is never processed')
+  if (d.manualTags.includes('printed')) throw new HttpError(409, 'unchanged', 'This file is already marked as printed')
+  if (d.status === 'processing' && !needsRunner(d)) throw new HttpError(409, 'processing', 'Wait until processing stops')
+  await ctx.db.update(documents).set({
+    manualTags: [...d.manualTags, 'printed'], status: 'queued', attempts: 0, lastError: null, lockedAt: null, readProgress: null, updatedAt: new Date(),
+  }).where(eq(documents.id, d.id))
+  await clearReadCache(ctx.db, d.id) // every page is read afresh, without the handwriting hold
+  await ctx.audit('document.marked_printed', 'document', d.id)
+  scheduleProcessing(d.id, d.orgId)
+  return { ok: true, status: 'queued' }
 }
 
 // ── reprocess / password ────────────────────────────────────────────────────

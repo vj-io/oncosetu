@@ -15,6 +15,7 @@ import { tabsFor } from "@/lib/patient-tabs";
 import { currentItem, patientGroupsFor, patientIdIn, sidebarFor, type SideGroup, type SideItem } from "@/lib/sidebar";
 import { Avatar, Badge, Dialog, EmptyState, Skeleton, Wordmark } from "@/components/ui";
 import { Tour, startTour } from "./Tour";
+import { clearDrawnPages } from "@/components/documents/drawn-pages";
 
 export type { StaffRole };
 const ROLE_LABEL: Record<StaffRole, string> = { desk: "Desk", records: "Records", clinician: "Clinician", org_admin: "Administrator", auditor: "Auditor" };
@@ -71,6 +72,7 @@ export function StaffShell({ user, demo, sms = true, children }: StaffShellProps
 
   async function signOut() {
     setSigningOut(true);
+    clearDrawnPages();
     try {
       await fetch("/api/auth/logout", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
     } finally {

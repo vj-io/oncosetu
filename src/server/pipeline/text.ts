@@ -11,7 +11,8 @@ import sharp from 'sharp'
 import { createWorker, PSM, type Worker } from 'tesseract.js'
 import { extractImages, getDocumentProxy, getResolvedPDFJS } from 'unpdf'
 import type { OcrWord } from '@/db/schema'
-import { findDates } from '@/core/dates'
+import { findDates, parseDate } from '@/core/dates'
+import { parseHeader } from '@/core/extract/header'
 import { classifyDocument } from '@/core/extract/classify'
 import { unzipSync } from 'fflate'
 
@@ -31,6 +32,8 @@ export type Handwriting = {
   blueInkShare: number
   /** The line rule said handwritten, but the words read as a printed report (readsAsPrintedReport), so the page is read. */
   printedReport?: true
+  /** The line rule said handwritten, but the header carries a printed report or collection date (hasPrintedReportHeader), so the page is read. */
+  printedHeader?: true
   /** The line rule said handwritten, and a person marked the file as printed (actions.markPrinted), so the page is read. */
   printedByStaff?: true
 }
@@ -301,12 +304,25 @@ export function readsAsPrintedReport(text: string): boolean {
   return best >= 9 && real / words.length >= 0.55
 }
 
+/**
+ * A report's own printed header: a "Report date" / "Reported on" or "Collected" / "Sample date" label with a readable date
+ * in the header block (parseHeader's reported and collection labels). A bare "Date:" does not count: prescription pads
+ * print that. Phone photos of lab and pathology slips are judged handwritten on line confidence alone, and their text, date
+ * included, was dropped (measured 25 Nov 2026 on a 36-page photographed folder: 6 dated report pages held).
+ */
+export function hasPrintedReportHeader(text: string): boolean {
+  const h = parseHeader(text.split('\n').slice(0, HEADER_LINES).join('\n'))
+  const d = h.reportedDate ?? h.collectionDate
+  return !!d && parseDate(d.value).precision === 'day'
+}
+
 async function ocrPage(pageNo: number, image: Buffer, provider: OcrProvider = tesseractOcr, printed = false): Promise<PageRead> {
   const [first, ink] = await Promise.all([provider.recognize(image, 'eng+hin'), blueInk(image)])
   const verdict = classifyHandwriting(first.lines, ink) // calibrated on the eng+hin pass
   const handwriting: Handwriting = !verdict.handwritten ? verdict
     : printed ? { ...verdict, handwritten: false, printedByStaff: true }
-    : readsAsPrintedReport(first.text) ? { ...verdict, handwritten: false, printedReport: true } : verdict
+    : readsAsPrintedReport(first.text) ? { ...verdict, handwritten: false, printedReport: true }
+    : hasPrintedReportHeader(first.text) ? { ...verdict, handwritten: false, printedHeader: true } : verdict
   // The Hindi model reads noise on English pages as Devanagari and misreads Latin letters. A page without one confidently
   // read Devanagari word (≥ 0.8) is read again with eng alone: CER 9.4% → 7.9% on the eval image pages (data/eval). On those
   // pages, English ones had no such word and Hindi or mixed ones had ≥ 3 — a Devanagari name in an English header counts.

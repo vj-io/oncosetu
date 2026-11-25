@@ -205,7 +205,7 @@ export function collapseStudyParts<T extends Pick<RecordRow, 'id' | 'scan' | 're
 
 // ── comparisons ──────────────────────────────────────────────────────────────
 /** A study named before "dated": "the MRI dated 12 February 2025", "Previous scan dated 09/04/2025", "previous PET/CT dated 26/08/2025". */
-const STUDY_DATED = /(?<![\p{L}])(?:scans?|stud(?:y|ies)|MRI|CT|PET(?:[\s/-]*CT)?|CECT|NCCT|USG|ultrasound|ultrasonography|X-?ray|mammogra(?:m|phy)|examination|imaging)(?![\p{L}])[^.\n]{0,24}?(?<![\p{L}])dated(?![\p{L}])/giu
+const STUDY_DATED = /(?<![\p{L}])(?:scans?|stud(?:y|ies)|MRI|CT|PET(?:[\s/-]*CT)?|CECT|NCCT|USG|ultrasound|ultrasonography|X-?ray|mammogra(?:m|phy)|examination|imaging)(?![\p{L}])[^.\n]{0,24}?(?<![\p{L}])(?:dated|of(?=\s+\d))(?![\p{L}])/giu
 
 /** A date an earlier study is referred to by: to the day (`YYYY-MM-DD`), or to the month (`YYYY-MM`) when only that is legible. */
 export type Compared = { date: string; month: boolean }

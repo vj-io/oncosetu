@@ -366,12 +366,17 @@ export function ageOn(dob: string, date: string): number {
 
 // ---------- decision ----------
 
+/** Notes for a field the header showed that could not confirm the name: read, but not comparable or not matching. */
+const READ_NOT_USED = ['age_not_compared_no_report_date', 'patient_dob_unknown', 'dob_unreadable', 'mrn_not_registered', 'mrn_differs']
+
 /**
  * Identity decision for one document header vs the patient (FR-ID-04).
  * mismatch: name conflict, sex conflict, DOB conflict, or age differs by > 1 year at the report date (with no report date:
  * a printed age > 1 year above the age on `receivedOn`, the day the paper reached us).
  * insufficient: no name, initials only, a single name token, "Baby of", or nothing to corroborate the name
- * (age/DOB at report date or an equal MRN). match: name matches (alias/transliteration-aware) and is corroborated.
+ * (age/DOB at report date or an equal MRN): `no_corroborating_field` when the header shows none of them, else
+ * `name_not_confirmed` and what kept each one read from confirming it. match: name matches (alias/transliteration-aware)
+ * and is corroborated.
  */
 export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity, reportDate: string | null, receivedOn: string | null = null): IdentityDecision {
   const reasons: string[] = []
@@ -415,7 +420,7 @@ export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity,
         corroborated = true
         notes.push('dob_ambiguous_reading')
       } else hard.push('dob_mismatch')
-    }
+    } else notes.push('dob_unreadable')
   }
   const age = parseAge(header.age)
   if (age !== null) {
@@ -440,11 +445,14 @@ export function decideIdentity(patient: PatientIdentity, header: HeaderIdentity,
       notes.push('mrn_match')
       corroborated = true
     } else notes.push('mrn_differs')
-  }
+  } else if (header.mrn) notes.push('mrn_not_registered')
 
   const uniq = (xs: string[]) => [...new Set(xs)]
   if (hard.length) return { result: 'mismatch', score, reasons: uniq([...hard, ...reasons]), notes: uniq(notes) }
   if (nameVerdict !== 'match') return { result: 'insufficient', score, reasons: uniq(reasons), notes: uniq(notes) }
-  if (!corroborated) return { result: 'insufficient', score, reasons: ['no_corroborating_field'], notes: uniq(notes) }
+  // The name matches and nothing confirms it. When a field was read but could not confirm it, say which and why; the blanket
+  // "no age, date of birth or ID" is only for a header that showed none of them.
+  const unused = uniq(notes.filter((n) => READ_NOT_USED.includes(n)))
+  if (!corroborated) return { result: 'insufficient', score, reasons: unused.length ? ['name_not_confirmed', ...unused] : ['no_corroborating_field'], notes: uniq(notes) }
   return { result: 'match', score, reasons: [], notes: uniq(notes) }
 }

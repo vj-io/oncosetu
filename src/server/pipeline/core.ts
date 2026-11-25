@@ -95,8 +95,48 @@ const DOC_DATE_LABELS: [string, RegExp][] = [
 /** Between a date label and its date: separators, and a weekday as printed ("Visit: Thursday, 7 May 2026"). */
 const LABEL_TO_DATE = /^[\s\-–=.]*(?:(?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day,?\s*)?$/i
 
-/** Every labelled date of a page, in label priority order. */
+/** A time as a header prints it ("4:05pm", "16:05", "4.05 PM"), and the labels that ask for one. */
+const TIME_VALUE = /^\d{1,2}[:.]\d{2}(?::\d{2})?\s*(?:[ap]\.?\s?m\.?)?$/i
+const TIME_LABEL = /^(?:(?:Report(?:ed)?|Reporting|Study|Scan|Exam|Collection|Collected|Sample|Registration)\s+)?Time$/i
+
+/** A line that is one date, to the day, and nothing else. */
+const wholeDay = (t: string) => findDates(t).some((d) => d.kind === 'absolute' && d.raw === t) && parseDate(t).precision === 'day'
+
+/**
+ * A table whose cells of several lines come out one cell after another: a run of lines that are each a label alone
+ * ("Study Date", "Time"), then as many lines that are each a value alone ("03 Mar 2026", "4:05pm"). Each value pairs with
+ * the label in its place, and only when every value has the shape its label asks for (a date label a date to the day, a
+ * time label a time); counts or shapes that disagree pair nothing. Dates found in running text never pair.
+ */
+function stackedDates(text: string): { label: string; span: LabelledSpan }[] {
+  const lines: { t: string; s: number; e: number }[] = []
+  for (const m of text.matchAll(/[^\n]+/g)) {
+    const lead = m[0].length - m[0].trimStart().length, t = m[0].trim()
+    if (t) lines.push({ t, s: m.index + lead, e: m.index + lead + t.length })
+  }
+  const kindOf = (t: string): string | null => {
+    if (TIME_LABEL.test(t)) return 'time'
+    const found = DOC_DATE_LABELS.find(([, re]) => { const m = new RegExp(re.source, 'iu').exec(`${t}:`); return m?.index === 0 && m[0].length === t.length + 1 })
+    return found?.[0] ?? null
+  }
+  const out: { label: string; span: LabelledSpan }[] = []
+  for (let i = 0; i < lines.length;) {
+    const kinds: string[] = []
+    for (let k: string | null; i + kinds.length < lines.length && (k = kindOf(lines[i + kinds.length].t));) kinds.push(k)
+    if (!kinds.length) { i++; continue }
+    const values = lines.slice(i + kinds.length, i + 2 * kinds.length)
+    const fits = values.length === kinds.length && values.every((v, n) => (kinds[n] === 'time' ? TIME_VALUE.test(v.t) : wholeDay(v.t)))
+    if (fits) kinds.forEach((label, n) => {
+      if (label !== 'time') out.push({ label, span: { value: values[n].t, start: values[n].s, end: values[n].e, label, labelStart: lines[i + n].s } })
+    })
+    i += fits ? 2 * kinds.length : kinds.length
+  }
+  return out
+}
+
+/** Every labelled date of a page, in label priority order: a label and its date on one line, or stacked (stackedDates). */
 function* documentDates(text: string): Generator<LabelledSpan> {
+  const stacked = stackedDates(text)
   for (const [label, re] of DOC_DATE_LABELS) {
     for (const m of text.matchAll(re)) {
       const after = m.index! + m[0].length
@@ -104,6 +144,7 @@ function* documentDates(text: string): Generator<LabelledSpan> {
       const d = findDates(window).find((s) => s.kind === 'absolute' && LABEL_TO_DATE.test(window.slice(0, s.start)))
       if (d) yield { value: d.raw, start: after + d.start, end: after + d.end, label, labelStart: m.index! }
     }
+    for (const x of stacked) if (x.label === label) yield x.span
   }
 }
 

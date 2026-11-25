@@ -244,6 +244,12 @@ describe('earlier studies a report compares with (25 Nov 2026)', () => {
       { date: '2025-02-12', month: false }, { date: '2025-04-09', month: false }, { date: '2025-08-26', month: false }, { date: '2025-12', month: true },
     ])
   })
+  it('"study of <date>" names an earlier study too; "CT of chest" or "scan of 3 regions" do not', () => {
+    expect(comparedDates('Clinical Details: Known case. PET CT study of 26 June 2025 was available.', NOW, '2026-03-05')).toEqual([{ date: '2025-06-26', month: false }])
+    expect(comparedDates('CT of chest and abdomen. Scan of 3 regions on 12 slices.', NOW, null)).toEqual([])
+    expect(comparedDates('MRI of brain 12/02/2025 protocol', NOW, null)).toEqual([]) // "of" a body part, the date beside it this study's
+    expect(comparedDates('CT study of 05 Mar 2026 (this study)', NOW, '2026-03-05')).toEqual([])
+  })
   it('a dated header, an illegible date and the report\'s own date are not comparisons', () => {
     expect(comparedDates('Dated: 12/02/2025\nReport dated 10/10/2026', NOW, null)).toEqual([])
     expect(comparedDates('compared to previous MRI dated 12/02/5', NOW, null)).toEqual([])
